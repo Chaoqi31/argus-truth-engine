@@ -49,6 +49,25 @@ uv run argus audit your-report.pdf -o findings.json
 
 then drop `findings.json` via the landing-page picker.
 
+## Live audit flow
+
+1. Start the API: `uv run argus serve --host 127.0.0.1 --port 8080`
+2. Start the web app: `cd web && pnpm dev`
+3. Open <http://localhost:3000>
+4. Click **Upload a PDF** and pick a research-report PDF
+5. The audit page opens at `/audit?id=<jobId>` and streams steps + findings live over WebSocket
+6. When the audit finishes, the full Job (evidences, audit report, ranked findings) loads via `GET /jobs/{id}`
+
+If you only want to demo the UI without burning credits, click **"…or try the sample audit"** — it loads the bundled `public/sample-findings.json`.
+
+### Refresh mid-audit
+
+The WebSocket connection passes `?after=<lastSeq>` on reconnect, so refreshing the page mid-run rebuilds the streamed state from the in-process history buffer.
+
+### Multi-instance deploys
+
+Set `ARGUS_REDIS_URL` on the API process to swap the InProcessBus for the Redis-backed pubsub bus — multiple API replicas will then share the same job stream.
+
 ## Stack
 
 - Next.js 16 (App Router, Turbopack)
