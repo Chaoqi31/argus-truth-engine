@@ -1,21 +1,32 @@
-"""Plan A sequential orchestrator.
+"""Argus orchestrator — sequential 5-agent pipeline (Plan B1).
 
-Pipeline: parse_pdf -> planner -> for each citation claim -> verifier -> assemble Job.
+Flow:
+  parse_pdf
+  → planner
+  → for each claim (filtered by type):
+       citation       → Verifier  +  Alignment (independently, both may fire)
+       numerical-data → Freshness
+       time-sensitive → Freshness
+  → all claims (batch) → Consistency
+  → all findings + claims → Reporter
+  → write findings.json
 
-This is intentionally simple. LangGraph + parallel specialists arrive in Plan B.
+LangGraph + parallel + persistence arrive in Plans B2 / B3.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
-from argus.agents.citation_verifier import (
-    CitationVerifierOutput,
-    verify_citation,
-)
+from argus.agents.citation_alignment import check_alignment
+from argus.agents.citation_verifier import verify_citation
+from argus.agents.consistency import ConsistencyOutput, check_consistency
+from argus.agents.data_freshness import check_freshness
 from argus.agents.planner import PlannerOutput, run_planner
+from argus.agents.reporter import ReporterOutput, run_reporter
 from argus.config import Settings
 from argus.log import log
 from argus.miromind.client import MiromindClient
@@ -31,14 +42,29 @@ from argus.models.domain import (
 )
 from argus.pdf.parser import ParsedDoc, parse_pdf
 
-_SEVERITY_BY_VERDICT: dict[FindingVerdict, Severity] = {
+_CONTEXT_WINDOW_CHARS = 200
+
+# Severity mapping per agent — pessimistic by default so unverified results
+# aren't oversold as "minor".
+_VERIFIER_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.FABRICATED: Severity.MAJOR,
     FindingVerdict.PARTIAL_MATCH: Severity.MINOR,
     FindingVerdict.OK: Severity.MINOR,
     FindingVerdict.UNCERTAIN: Severity.MINOR,
 }
-
-_CONTEXT_WINDOW_CHARS = 200
+_ALIGNMENT_SEVERITY: dict[FindingVerdict, Severity] = {
+    FindingVerdict.MISMATCH: Severity.MAJOR,
+    FindingVerdict.MISREPRESENTED: Severity.CRITICAL,
+    FindingVerdict.PARTIAL_MATCH: Severity.MINOR,
+    FindingVerdict.OK: Severity.MINOR,
+    FindingVerdict.UNCERTAIN: Severity.MINOR,
+}
+_FRESHNESS_SEVERITY: dict[FindingVerdict, Severity] = {
+    FindingVerdict.STALE: Severity.MAJOR,
+    FindingVerdict.SUPERSEDED: Severity.CRITICAL,
+    FindingVerdict.OK: Severity.MINOR,
+    FindingVerdict.UNCERTAIN: Severity.MINOR,
+}
 
 
 async def audit_pdf(
@@ -48,7 +74,7 @@ async def audit_pdf(
     settings: Settings,
     client: MiromindClient | None = None,
 ) -> Job:
-    """Top-level Plan A pipeline. Returns the assembled Job and writes findings.json."""
+    """Top-level Plan B1 pipeline — sequential 5-agent."""
     pdf_path = Path(pdf_path)
     output_path = Path(output_path)
     if client is None:
@@ -61,6 +87,7 @@ async def audit_pdf(
     doc = parse_pdf(pdf_path)
     log.info("orchestrator.parse_done", pages=len(doc.pages))
 
+    # ---- Planner -----------------------------------------------------------
     job.status = "planning"
     try:
         planner_result = await run_planner(client, doc)
@@ -71,68 +98,130 @@ async def audit_pdf(
         _finalize(job, output_path)
         return job
 
+    # ---- 4 specialists (sequential) ----------------------------------------
     job.status = "verifying"
     citations = [c for c in job.claims if c.type == ClaimType.CITATION]
-    log.info("orchestrator.verify_start", n_citations=len(citations))
+    data_claims = [
+        c
+        for c in job.claims
+        if c.type in (ClaimType.NUMERICAL_DATA, ClaimType.TIME_SENSITIVE)
+    ]
+    log.info(
+        "orchestrator.specialists_start",
+        n_citations=len(citations),
+        n_data_claims=len(data_claims),
+        n_total_claims=len(job.claims),
+    )
+
+    # Citation Verifier + Alignment run independently for each citation.
     for claim in citations:
         surrounding = _surrounding_text(doc, claim)
+        await _run_and_ingest_verifier(client, job, claim, surrounding)
+        await _run_and_ingest_alignment(client, job, claim, surrounding)
+
+    # Data Freshness for numerical & time-sensitive claims.
+    for claim in data_claims:
+        await _run_and_ingest_freshness(client, job, claim)
+
+    # Consistency over the full claim list (batch).
+    if len(job.claims) >= 2:  # noqa: PLR2004
+        await _run_and_ingest_consistency(client, job)
+
+    # ---- Reporter ----------------------------------------------------------
+    job.status = "reporting"
+    if job.findings:
         try:
-            result = await verify_citation(client, claim, surrounding=surrounding)
-            _ingest_verifier(job, claim, result)
+            reporter_result = await run_reporter(client, job.claims, job.findings)
+            _ingest_reporter(job, reporter_result)
         except JsonRepairFailed as exc:
-            log.warning(
-                "orchestrator.verifier_failed",
-                claim_id=claim.id,
-                error=str(exc)[:300],
-            )
+            log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
 
     job.status = "done"
     _finalize(job, output_path)
     return job
 
 
-def _finalize(job: Job, output_path: Path) -> None:
-    job.completed_at = datetime.utcnow()
-    job.total_tokens = sum(t.total_tokens for t in job.traces)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(job.model_dump_json(indent=2))
-    log.info(
-        "orchestrator.done",
-        job_id=job.id,
-        status=job.status,
-        n_findings=len(job.findings),
-        total_tokens=job.total_tokens,
-    )
+# --- ingest helpers --------------------------------------------------------
 
 
-def _surrounding_text(doc: ParsedDoc, claim: Claim) -> str:
-    """Return up to ~400 chars of context around the claim's span on its page."""
-    page = next((p for p in doc.pages if p.page_number == claim.page), None)
-    if page is None:
-        return ""
-    start = max(0, claim.span[0] - _CONTEXT_WINDOW_CHARS)
-    end = min(len(page.text), claim.span[1] + _CONTEXT_WINDOW_CHARS)
-    return page.text[start:end]
-
-
-def _ingest_planner(job: Job, result: AgentResult[PlannerOutput]) -> None:
-    job.claims.extend(result.parsed.to_claims())
-    job.traces.append(
-        _build_trace(
-            job_id=job.id,
-            claim_id="(planner)",
-            agent="planner",
-            stream=result.first,
-        )
-    )
-
-
-def _ingest_verifier(
-    job: Job, claim: Claim, result: AgentResult[CitationVerifierOutput]
+async def _run_and_ingest_verifier(
+    client: MiromindClient, job: Job, claim: Claim, surrounding: str
 ) -> None:
-    parsed = result.parsed
+    try:
+        r = await verify_citation(client, claim, surrounding=surrounding)
+    except JsonRepairFailed as exc:
+        log.warning("orchestrator.verifier_failed", claim_id=claim.id, error=str(exc)[:300])
+        return
+    _ingest_specialist(
+        job=job,
+        claim=claim,
+        parsed=r.parsed,
+        stream=r.first,
+        agent_name="CitationVerifier",
+        severity_map=_VERIFIER_SEVERITY,
+    )
+
+
+async def _run_and_ingest_alignment(
+    client: MiromindClient, job: Job, claim: Claim, surrounding: str
+) -> None:
+    try:
+        r = await check_alignment(client, claim, surrounding=surrounding)
+    except JsonRepairFailed as exc:
+        log.warning("orchestrator.alignment_failed", claim_id=claim.id, error=str(exc)[:300])
+        return
+    _ingest_specialist(
+        job=job,
+        claim=claim,
+        parsed=r.parsed,
+        stream=r.first,
+        agent_name="CitationAlignment",
+        severity_map=_ALIGNMENT_SEVERITY,
+    )
+
+
+async def _run_and_ingest_freshness(
+    client: MiromindClient, job: Job, claim: Claim
+) -> None:
+    try:
+        r = await check_freshness(client, claim)
+    except JsonRepairFailed as exc:
+        log.warning("orchestrator.freshness_failed", claim_id=claim.id, error=str(exc)[:300])
+        return
+    _ingest_specialist(
+        job=job,
+        claim=claim,
+        parsed=r.parsed,
+        stream=r.first,
+        agent_name="DataFreshness",
+        severity_map=_FRESHNESS_SEVERITY,
+    )
+
+
+async def _run_and_ingest_consistency(client: MiromindClient, job: Job) -> None:
+    try:
+        r = await check_consistency(client, job.claims)
+    except JsonRepairFailed as exc:
+        log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
+        return
     trace = _build_trace(
-        job_id=job.id, claim_id=claim.id, agent="CitationVerifier", stream=result.first
+        job_id=job.id, claim_id="(consistency)", agent="Consistency", stream=r.first
+    )
+    job.traces.append(trace)
+    _ingest_contradictions(job=job, parsed=r.parsed, trace=trace)
+
+
+def _ingest_specialist(
+    *,
+    job: Job,
+    claim: Claim,
+    parsed: Any,
+    stream: StreamCollection,
+    agent_name: str,
+    severity_map: dict[FindingVerdict, Severity],
+) -> None:
+    trace = _build_trace(
+        job_id=job.id, claim_id=claim.id, agent=agent_name, stream=stream
     )
     job.traces.append(trace)
 
@@ -154,13 +243,96 @@ def _ingest_verifier(
             id=f"f_{uuid4().hex[:12]}",
             job_id=job.id,
             claim_id=claim.id,
-            agent="CitationVerifier",
+            agent=agent_name,
             verdict=parsed.verdict,
-            severity=_SEVERITY_BY_VERDICT.get(parsed.verdict, Severity.MINOR),
+            severity=severity_map.get(parsed.verdict, Severity.MINOR),
             confidence=parsed.confidence,
             summary=parsed.summary,
             evidence_ids=evidence_ids,
             reasoning_trace_id=trace.id,
+        )
+    )
+
+
+def _ingest_contradictions(
+    *, job: Job, parsed: ConsistencyOutput, trace: ReasoningTrace
+) -> None:
+    """Each contradiction becomes TWO cross-linked Finding records — one per claim."""
+    for pair in parsed.contradictions:
+        finding_a_id = f"f_{uuid4().hex[:12]}"
+        finding_b_id = f"f_{uuid4().hex[:12]}"
+        job.findings.append(
+            Finding(
+                id=finding_a_id,
+                job_id=job.id,
+                claim_id=pair.claim_a_id,
+                agent="Consistency",
+                verdict=FindingVerdict.CONTRADICTION,
+                severity=pair.severity,
+                confidence=pair.confidence,
+                summary=pair.summary,
+                evidence_ids=[],
+                reasoning_trace_id=trace.id,
+                related_finding_ids=[finding_b_id],
+            )
+        )
+        job.findings.append(
+            Finding(
+                id=finding_b_id,
+                job_id=job.id,
+                claim_id=pair.claim_b_id,
+                agent="Consistency",
+                verdict=FindingVerdict.CONTRADICTION,
+                severity=pair.severity,
+                confidence=pair.confidence,
+                summary=pair.summary,
+                evidence_ids=[],
+                reasoning_trace_id=trace.id,
+                related_finding_ids=[finding_a_id],
+            )
+        )
+
+
+def _ingest_reporter(job: Job, result: AgentResult[ReporterOutput]) -> None:
+    parsed = result.parsed
+    job.audit_report_md = parsed.executive_summary_md
+    job.traces.append(
+        _build_trace(
+            job_id=job.id,
+            claim_id="(reporter)",
+            agent="Reporter",
+            stream=result.first,
+        )
+    )
+
+    # Optionally reorder findings to match the Reporter's ranking, when valid.
+    incoming = set(parsed.ranked_finding_ids)
+    existing = {f.id for f in job.findings}
+    if incoming == existing and incoming:
+        by_id = {f.id: f for f in job.findings}
+        job.findings = [by_id[i] for i in parsed.ranked_finding_ids]
+
+
+# --- shared helpers --------------------------------------------------------
+
+
+def _surrounding_text(doc: ParsedDoc, claim: Claim) -> str:
+    page = next((p for p in doc.pages if p.page_number == claim.page), None)
+    if page is None:
+        return ""
+    start = max(0, claim.span[0] - _CONTEXT_WINDOW_CHARS)
+    end = min(len(page.text), claim.span[1] + _CONTEXT_WINDOW_CHARS)
+    return page.text[start:end]
+
+
+def _ingest_planner(job: Job, result: AgentResult[PlannerOutput]) -> None:
+    job.claims.extend(result.parsed.to_claims())
+    job.traces.append(
+        _build_trace(
+            job_id=job.id,
+            claim_id="(planner)",
+            agent="planner",
+            stream=result.first,
         )
     )
 
@@ -180,4 +352,18 @@ def _build_trace(
         reasoning_tokens=stream.reasoning_tokens,
         num_search_queries=stream.num_search_queries,
         steps=list(stream.steps),
+    )
+
+
+def _finalize(job: Job, output_path: Path) -> None:
+    job.completed_at = datetime.utcnow()
+    job.total_tokens = sum(t.total_tokens for t in job.traces)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(job.model_dump_json(indent=2))
+    log.info(
+        "orchestrator.done",
+        job_id=job.id,
+        status=job.status,
+        n_findings=len(job.findings),
+        total_tokens=job.total_tokens,
     )

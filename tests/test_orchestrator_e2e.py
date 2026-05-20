@@ -119,15 +119,50 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
             ],
         }
     )
+    # Alignment uses verdict "uncertain" for both citations to keep it simple.
+    alignment_json = json.dumps(
+        {
+            "verdict": "uncertain",
+            "confidence": 0.4,
+            "summary": "Source not retrievable.",
+            "evidence": [
+                {"source_type": "web_page", "url": None, "snippet": "404"}
+            ],
+        }
+    )
+    # Consistency runs over the full claim list whenever >= 2 claims exist.
+    # Return zero contradictions so this test focuses on citation-pair findings.
+    consistency_json = json.dumps({"contradictions": []})
+    # Reporter fires after specialists; ranked list empty keeps existing order.
+    reporter_json = json.dumps(
+        {
+            "executive_summary_md": "Audit complete.",
+            "ranked_finding_ids": [],
+        }
+    )
 
     streams = iter(
         [
             [_msg(planner_json), _completed()],
             [_tool_call("web_search", {"q": "Smith 2021"}, 2), _msg(verifier_json_1), _completed()],
+            [_tool_call("web_search", {"q": "Smith pdf"}, 2), _msg(alignment_json), _completed()],
             [_tool_call("fetch_url_content", {"url": "x"}, 2), _msg(verifier_json_2), _completed()],
+            [_tool_call("fetch_url_content", {"url": "y"}, 2), _msg(alignment_json), _completed()],
+            [_msg(consistency_json), _completed()],
+            [_msg(reporter_json), _completed()],
         ]
     )
-    rids = iter(["resp_planner", "resp_v1", "resp_v2"])
+    rids = iter(
+        [
+            "resp_planner",
+            "resp_v1",
+            "resp_a1",
+            "resp_v2",
+            "resp_a2",
+            "resp_cons",
+            "resp_report",
+        ]
+    )
 
     client = AsyncMock()
     client.submit_background = AsyncMock(side_effect=lambda **kw: next(rids))
@@ -143,9 +178,15 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
 
     assert len(job.claims) == 2  # noqa: PLR2004
     assert all(c.type == ClaimType.CITATION for c in job.claims)
-    assert len(job.findings) == 2  # noqa: PLR2004
-    verdicts = sorted(f.verdict for f in job.findings)
-    assert verdicts == sorted([FindingVerdict.FABRICATED, FindingVerdict.OK])
+    # Each citation now produces a Verifier finding AND an Alignment finding.
+    assert len(job.findings) == 4  # noqa: PLR2004
+    by_agent = {f.agent for f in job.findings}
+    assert by_agent == {"CitationVerifier", "CitationAlignment"}
+    # The two Verifier verdicts are still the original FABRICATED / OK pair.
+    verifier_verdicts = sorted(
+        f.verdict for f in job.findings if f.agent == "CitationVerifier"
+    )
+    assert verifier_verdicts == sorted([FindingVerdict.FABRICATED, FindingVerdict.OK])
     assert any(s.type == StepType.WEB_SEARCH for t in job.traces for s in t.steps)
     assert out.exists()
     saved = json.loads(out.read_text())
