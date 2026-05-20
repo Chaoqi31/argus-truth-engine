@@ -8,6 +8,10 @@ import { ArgusHeader } from "@/components/argus-header";
 import { JobStatsBar } from "@/components/job-stats-bar";
 import { ReasoningPanel } from "@/components/reasoning-panel";
 import { TraceStreamView } from "@/components/trace-stream-view";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ShortcutsHint } from "@/components/shortcuts-hint";
+import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
+import type { Job } from "@/lib/types";
 
 // pdf.js references browser-only globals (DOMMatrix, etc.) that fail under SSR.
 // Force the PdfViewer to client-only.
@@ -32,6 +36,9 @@ export default function AuditPage() {
   const activeFindingId = useArgusStore((s) => s.activeFindingId);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
   const [mode, setMode] = useState<RightMode>("reasoning");
+  const [hintOpen, setHintOpen] = useState(false);
+
+  useFindingKeyboardNav(() => setHintOpen((v) => !v));
 
   useEffect(() => {
     if (!job) {
@@ -50,17 +57,26 @@ export default function AuditPage() {
 
   return (
     <>
-      <ArgusHeader />
+      <ArgusHeader
+        rightSlot={
+          <div className="flex items-center gap-2">
+            <ExportButton job={job} />
+            <ThemeToggle />
+          </div>
+        }
+      />
       <JobStatsBar job={job} />
-      <main className="grid h-[calc(100vh-3.5rem-2.75rem)] grid-cols-[1fr_460px]">
-        <PdfViewer
-          fileUrl={fileUrl}
-          claims={job.claims}
-          findings={job.findings}
-          activeFindingId={activeFindingId}
-          onClaimClick={onClaimClick}
-        />
-        <aside className="flex flex-col border-l border-border">
+      <main className="grid h-[calc(100vh-3.5rem-2.75rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
+        <div className="hidden md:block">
+          <PdfViewer
+            fileUrl={fileUrl}
+            claims={job.claims}
+            findings={job.findings}
+            activeFindingId={activeFindingId}
+            onClaimClick={onClaimClick}
+          />
+        </div>
+        <aside className="flex flex-col border-l border-border md:border-l">
           <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
             <ModeToggle current={mode} onChange={setMode} />
           </div>
@@ -77,7 +93,30 @@ export default function AuditPage() {
           </div>
         </aside>
       </main>
+      <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
     </>
+  );
+}
+
+function ExportButton({ job }: { job: Job }) {
+  const onClick = () => {
+    const blob = new Blob([JSON.stringify(job, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${job.id}.findings.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+      title="Download this job's findings.json"
+    >
+      ⤓ Export
+    </button>
   );
 }
 
