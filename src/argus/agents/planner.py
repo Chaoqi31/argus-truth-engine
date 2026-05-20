@@ -5,11 +5,13 @@ allowed but not heavily prompt-engineered yet; Plan B refines.
 """
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 from argus.agents.base import AgentResult, AgentRunner
 from argus.miromind.client import MiromindClient
-from argus.models.domain import Claim
+from argus.models.domain import Claim, ClaimType
 from argus.pdf.parser import ParsedDoc
 
 SYSTEM_PROMPT = """\
@@ -20,33 +22,88 @@ You may use these built-in tools: thinking, execute_python.
 You SHOULD NOT call web_search or fetch_url_content — that is the next agent's job.
 
 HARD CONSTRAINTS
-  - Output must be valid JSON exactly matching this schema:
+  - Output MUST be a single valid JSON object — no prose, no fences, no comments,
+    no trailing commas inside arrays or objects.
+  - Schema:
     {
       "claims": [
         {
-          "id": string,
-          "text": string,
-          "page": integer (>=1),
-          "span": [start: int, end: int],
-          "type": one of "citation"|"numerical-data"|"time-sensitive"
-                   |"cross-reference"|"qualitative",
-          "importance": one of "high"|"medium"|"low",
-          "extracted_metadata": object
+          "id": "c1",
+          "text": "the exact sentence as it appears in the PDF",
+          "page": 1,
+          "span": [69, 116],
+          "type": "citation",
+          "importance": "high",
+          "extracted_metadata": {"authors": ["Smith"], "year": 2021}
         }
       ]
     }
-  - Only emit verifiable factual claims; drop opinion / outlook sentences.
+  - `span` MUST be a JSON array of EXACTLY TWO non-negative integers
+    [start_char_offset, end_char_offset] within that page's text.
+    Both numbers MUST be present. If you cannot determine an exact end offset,
+    use start + len(text). NEVER emit `[27,]` or `[27]` — both are invalid.
+  - `type` MUST be exactly one of: "citation", "numerical-data", "time-sensitive",
+    "cross-reference", "qualitative".
+  - `importance` MUST be exactly one of: "high", "medium", "low".
+  - Only emit verifiable factual claims. Skip opinion / outlook / generic boilerplate.
   - For type="citation", extracted_metadata SHOULD include any of
     {authors: list[string], year: int, title: string, doi: string|null}.
-  - Each claim's `page` MUST match a "[PAGE N]" marker in the input.
-  - Each claim's `span` MUST be character offsets within that page's text.
 
-OUTPUT ONLY THE JSON OBJECT. No prose, no fences, no comments.
+OUTPUT ONLY THE JSON OBJECT.
 """
 
 
+class _RawClaim(BaseModel):
+    """Lenient planner-side claim shape that tolerates LLM output quirks."""
+
+    id: str
+    text: str
+    page: int = Field(ge=1)
+    span: list[int] | None = None  # accept anything; we normalise downstream
+    type: ClaimType
+    importance: Literal["high", "medium", "low"]
+    extracted_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class PlannerOutput(BaseModel):
-    claims: list[Claim] = Field(default_factory=list)
+    """Raw planner output. Call `to_claims()` to get strict-validated Claims."""
+
+    claims: list[_RawClaim] = Field(default_factory=list)
+
+    def to_claims(self) -> list[Claim]:
+        """Convert relaxed planner output to strict-validated Claim instances.
+
+        Spans that are missing, malformed, or out of order fall back to (0, 0).
+        The downstream Citation Verifier doesn't need the span for its work;
+        the span is mainly for future UI highlighting in Plan C.
+        """
+        out: list[Claim] = []
+        for raw in self.claims:
+            span = _coerce_span(raw.span)
+            out.append(
+                Claim(
+                    id=raw.id,
+                    text=raw.text,
+                    page=raw.page,
+                    span=span,
+                    type=raw.type,
+                    importance=raw.importance,
+                    extracted_metadata=raw.extracted_metadata,
+                )
+            )
+        return out
+
+
+_SPAN_LEN = 2
+
+
+def _coerce_span(value: list[int] | None) -> tuple[int, int]:
+    if value is None or len(value) < _SPAN_LEN:
+        return (0, 0)
+    start, end = int(value[0]), int(value[1])
+    if start < 0 or end < start:
+        return (0, 0)
+    return (start, end)
 
 
 def build_planner_input(doc: ParsedDoc) -> str:

@@ -116,7 +116,7 @@ def _surrounding_text(doc: ParsedDoc, claim: Claim) -> str:
 
 
 def _ingest_planner(job: Job, result: AgentResult[PlannerOutput]) -> None:
-    job.claims.extend(result.parsed.claims)
+    job.claims.extend(result.parsed.to_claims())
     job.traces.append(
         _build_trace(
             job_id=job.id,

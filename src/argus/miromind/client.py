@@ -74,11 +74,42 @@ class MiromindClient:
         response_id: str,
         *,
         after: int = 0,
+        max_reconnects: int = 3,
     ) -> AsyncIterator[ResponseEvent]:
-        """Stream typed events from GET /v1/responses/{id}?stream=true&after=<seq>."""
-        url = f"{self._s.miromind_base_url}/responses/{response_id}"
-        params = {"stream": "true", "after": str(after)}
+        """Stream typed events from GET /v1/responses/{id}?stream=true&after=<seq>.
 
+        The MiroMind server sometimes drops the SSE connection mid-stream. We
+        recover by reconnecting with `?after=<last_seq>` (up to `max_reconnects`
+        times), so the caller sees a continuous, gap-free stream.
+        """
+        url = f"{self._s.miromind_base_url}/responses/{response_id}"
+        last_seq = after
+        attempts_left = max_reconnects
+
+        while True:
+            try:
+                async for ev in self._stream_once(url, after=last_seq):
+                    last_seq = max(last_seq, ev.sequence_number)
+                    yield ev
+                    if ev.type in {"response.completed", "response.failed"}:
+                        return
+                return  # stream ended without a terminal event
+            except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ReadTimeout) as exc:
+                if attempts_left <= 0:
+                    raise
+                attempts_left -= 1
+                log.warning(
+                    "miromind.stream_reconnect",
+                    response_id=response_id,
+                    after=last_seq,
+                    attempts_left=attempts_left,
+                    error=type(exc).__name__,
+                )
+
+    async def _stream_once(
+        self, url: str, *, after: int
+    ) -> AsyncIterator[ResponseEvent]:
+        params = {"stream": "true", "after": str(after)}
         async with (
             httpx.AsyncClient(timeout=self._s.miromind_stream_timeout_s) as http,
             http.stream("GET", url, headers=self._headers, params=params) as resp,
