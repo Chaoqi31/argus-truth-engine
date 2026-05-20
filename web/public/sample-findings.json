@@ -1,0 +1,110 @@
+{
+  "id": "job_demo_argus",
+  "pdf_path": "sample-report.pdf",
+  "status": "done",
+  "created_at": "2026-05-20T01:00:00.000Z",
+  "completed_at": "2026-05-20T01:03:42.000Z",
+  "cost_usd": 1.04,
+  "total_tokens": 18432,
+  "claims": [
+    {
+      "id": "c1",
+      "text": "Smith (2021) showed widgets are resilient.",
+      "page": 1,
+      "span": [69, 116],
+      "type": "citation",
+      "importance": "high",
+      "extracted_metadata": { "authors": ["Smith"], "year": 2021, "title": "On widget resilience" }
+    },
+    {
+      "id": "c2",
+      "text": "Doe et al. (2019) studied global widget supply chains.",
+      "page": 3,
+      "span": [40, 96],
+      "type": "citation",
+      "importance": "medium",
+      "extracted_metadata": { "authors": ["Doe", "et al."], "year": 2019, "title": "Widget supply chains" }
+    }
+  ],
+  "findings": [
+    {
+      "id": "f1",
+      "job_id": "job_demo_argus",
+      "claim_id": "c1",
+      "agent": "CitationVerifier",
+      "verdict": "fabricated",
+      "severity": "major",
+      "confidence": 0.96,
+      "summary": "No record of 'On widget resilience' by Smith (2021) in Crossref, Google Scholar, or SSRN. The reference is fabricated.",
+      "evidence_ids": ["e1", "e2", "e3"],
+      "reasoning_trace_id": "t1",
+      "related_finding_ids": [],
+      "created_at": "2026-05-20T01:02:15.000Z"
+    },
+    {
+      "id": "f2",
+      "job_id": "job_demo_argus",
+      "claim_id": "c2",
+      "agent": "CitationVerifier",
+      "verdict": "fabricated",
+      "severity": "major",
+      "confidence": 0.92,
+      "summary": "No SSRN paper with id 1234567 matches Doe et al. (2019). Author cluster has no related publication.",
+      "evidence_ids": ["e4", "e5"],
+      "reasoning_trace_id": "t2",
+      "related_finding_ids": [],
+      "created_at": "2026-05-20T01:03:32.000Z"
+    }
+  ],
+  "traces": [
+    {
+      "id": "t1",
+      "job_id": "job_demo_argus",
+      "claim_id": "c1",
+      "agent": "CitationVerifier",
+      "miromind_response_id": "resp_w_demo1",
+      "started_at": "2026-05-20T01:00:30.000Z",
+      "completed_at": "2026-05-20T01:02:15.000Z",
+      "total_tokens": 8421,
+      "reasoning_tokens": 4210,
+      "num_search_queries": 3,
+      "final_verdict_step_id": "s1_v",
+      "steps": [
+        { "id": "s1_t1", "trace_id": "t1", "sequence": 5, "type": "thinking", "summary": "I need to verify Smith (2021) On widget resilience. Crossref first.", "content": { "thought": "The claim cites Smith (2021) Journal of Widgets. I'll query Crossref for the bibliographic match." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:00:32.000Z" },
+        { "id": "s1_ws", "trace_id": "t1", "sequence": 9, "type": "fetch_url_content", "summary": "Crossref query for Smith 2021", "content": { "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith" }, "evidence_ids": ["e1"], "parent_step_id": "s1_t1", "created_at": "2026-05-20T01:00:55.000Z" },
+        { "id": "s1_t2", "trace_id": "t1", "sequence": 14, "type": "thinking", "summary": "Crossref returned zero matches. Fallback to Google Scholar.", "content": { "thought": "Crossref response: items: []. Trying Scholar via web_search next." }, "evidence_ids": [], "parent_step_id": "s1_ws", "created_at": "2026-05-20T01:01:12.000Z" },
+        { "id": "s1_ws2", "trace_id": "t1", "sequence": 18, "type": "web_search", "summary": "Scholar search: Smith 2021 widget resilience", "content": { "query": "Smith 2021 widget resilience" }, "evidence_ids": ["e2"], "parent_step_id": "s1_t2", "created_at": "2026-05-20T01:01:38.000Z" },
+        { "id": "s1_t3", "trace_id": "t1", "sequence": 21, "type": "thinking", "summary": "Scholar also empty. Checking SSRN for completeness.", "content": { "thought": "No Scholar match. Trying SSRN one more time." }, "evidence_ids": [], "parent_step_id": "s1_ws2", "created_at": "2026-05-20T01:01:51.000Z" },
+        { "id": "s1_ws3", "trace_id": "t1", "sequence": 24, "type": "web_search", "summary": "SSRN search for Smith 2021", "content": { "query": "site:ssrn.com Smith 2021 widget resilience" }, "evidence_ids": ["e3"], "parent_step_id": "s1_t3", "created_at": "2026-05-20T01:02:05.000Z" },
+        { "id": "s1_v", "trace_id": "t1", "sequence": 30, "type": "message", "summary": "Verdict: fabricated. No record in any indexed source.", "content": { "verdict": "fabricated", "confidence": 0.96 }, "evidence_ids": ["e1", "e2", "e3"], "parent_step_id": "s1_ws3", "created_at": "2026-05-20T01:02:15.000Z" }
+      ]
+    },
+    {
+      "id": "t2",
+      "job_id": "job_demo_argus",
+      "claim_id": "c2",
+      "agent": "CitationVerifier",
+      "miromind_response_id": "resp_w_demo2",
+      "started_at": "2026-05-20T01:02:20.000Z",
+      "completed_at": "2026-05-20T01:03:32.000Z",
+      "total_tokens": 7011,
+      "reasoning_tokens": 3402,
+      "num_search_queries": 2,
+      "final_verdict_step_id": "s2_v",
+      "steps": [
+        { "id": "s2_t1", "trace_id": "t2", "sequence": 4, "type": "thinking", "summary": "SSRN 1234567 is a specific ID. I'll fetch that paper page.", "content": { "thought": "Looking up SSRN paper 1234567." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:02:22.000Z" },
+        { "id": "s2_fu", "trace_id": "t2", "sequence": 8, "type": "fetch_url_content", "summary": "SSRN paper id 1234567", "content": { "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1234567" }, "evidence_ids": ["e4"], "parent_step_id": "s2_t1", "created_at": "2026-05-20T01:02:51.000Z" },
+        { "id": "s2_t2", "trace_id": "t2", "sequence": 12, "type": "thinking", "summary": "Page exists but is a different paper, not by Doe et al. on widgets.", "content": { "thought": "SSRN 1234567 = different paper. Author search to confirm." }, "evidence_ids": [], "parent_step_id": "s2_fu", "created_at": "2026-05-20T01:03:08.000Z" },
+        { "id": "s2_ws", "trace_id": "t2", "sequence": 15, "type": "web_search", "summary": "Author cluster: Doe 2019 widget supply chains", "content": { "query": "Doe 2019 widget supply chains" }, "evidence_ids": ["e5"], "parent_step_id": "s2_t2", "created_at": "2026-05-20T01:03:20.000Z" },
+        { "id": "s2_v", "trace_id": "t2", "sequence": 22, "type": "message", "summary": "Verdict: fabricated. SSRN id maps to a different paper.", "content": { "verdict": "fabricated", "confidence": 0.92 }, "evidence_ids": ["e4", "e5"], "parent_step_id": "s2_ws", "created_at": "2026-05-20T01:03:32.000Z" }
+      ]
+    }
+  ],
+  "evidences": [
+    { "id": "e1", "source_type": "crossref", "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith", "citation": "Crossref query", "snippet": "{\"items\":[]}", "full_content_ref": null, "retrieved_at": "2026-05-20T01:00:55.000Z", "retrieved_by_step_id": "s1_ws" },
+    { "id": "e2", "source_type": "web_page", "url": "https://scholar.google.com/scholar?q=Smith+2021+widget+resilience", "citation": "Google Scholar SERP", "snippet": "No results.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:01:38.000Z", "retrieved_by_step_id": "s1_ws2" },
+    { "id": "e3", "source_type": "ssrn", "url": "https://www.google.com/search?q=site%3Assrn.com+Smith+2021+widget+resilience", "citation": "SSRN site search", "snippet": "No matches on SSRN.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:05.000Z", "retrieved_by_step_id": "s1_ws3" },
+    { "id": "e4", "source_type": "ssrn", "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1234567", "citation": "SSRN paper 1234567", "snippet": "Title: 'A Note on Game-Theoretic Equilibria' — author unrelated.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:51.000Z", "retrieved_by_step_id": "s2_fu" },
+    { "id": "e5", "source_type": "web_page", "url": "https://scholar.google.com/scholar?q=Doe+2019+widget+supply+chains", "citation": "Google Scholar author search", "snippet": "Cluster contains no widget-supply-chain paper.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:03:20.000Z", "retrieved_by_step_id": "s2_ws" }
+  ]
+}
