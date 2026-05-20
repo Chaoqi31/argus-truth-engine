@@ -1,72 +1,19 @@
-"""End-to-end test for the Plan A orchestrator using a fully mocked MiroMind client."""
+"""Plan A e2e (2 citation claims), migrated to LangGraph + StreamRouter."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock
 
 from argus.config import Settings
 from argus.models.domain import ClaimType, FindingVerdict, StepType
-from argus.models.miromind import (
-    ResponseCompletedEvent,
-    ResponseOutputItemDoneEvent,
-    ResponseOutputTextDeltaEvent,
-    ResponseSummary,
-    Usage,
-)
 from argus.orchestrator import audit_pdf
+from tests._helpers.mock_miromind import StreamRouter, completed, msg, tool
 
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 
 
-def _msg(text: str, seq: int = 1) -> ResponseOutputTextDeltaEvent:
-    return ResponseOutputTextDeltaEvent(
-        type="response.output_text.delta",
-        sequence_number=seq,
-        item_id="msg",
-        output_index=0,
-        content_index=0,
-        delta=text,
-    )
-
-
-def _completed(seq: int = 99) -> ResponseCompletedEvent:
-    return ResponseCompletedEvent(
-        type="response.completed",
-        sequence_number=seq,
-        response=ResponseSummary(
-            id="resp_x", status="completed", usage=Usage(total_tokens=10)
-        ),
-    )
-
-
-def _tool_call(name: str, args: dict[str, Any], seq: int) -> ResponseOutputItemDoneEvent:
-    return ResponseOutputItemDoneEvent(
-        type="response.output_item.done",
-        sequence_number=seq,
-        output_index=1,
-        item={
-            "type": "tool_call",
-            "id": f"tc_{seq}",
-            "name": name,
-            "arguments": json.dumps(args),
-            "result": json.dumps({"ok": True}),
-            "status": "completed",
-        },
-    )
-
-
-def _events_seq(events: list[Any]) -> Any:
-    async def gen() -> Any:
-        for e in events:
-            yield e
-
-    return gen()
-
-
-async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> None:
-    planner_json = json.dumps(
+def _planner_json() -> str:
+    return json.dumps(
         {
             "claims": [
                 {
@@ -91,7 +38,9 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
         }
     )
 
-    verifier_json_1 = json.dumps(
+
+def _verifier_fab() -> str:
+    return json.dumps(
         {
             "verdict": "fabricated",
             "confidence": 0.9,
@@ -105,75 +54,77 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
             ],
         }
     )
-    verifier_json_2 = json.dumps(
+
+
+def _verifier_ok() -> str:
+    return json.dumps(
         {
             "verdict": "ok",
             "confidence": 0.85,
             "summary": "Found in Crossref.",
             "evidence": [
-                {
-                    "source_type": "crossref",
-                    "url": "https://doi.org/10.1234/x",
-                    "snippet": "{}",
-                }
+                {"source_type": "crossref", "url": "https://doi.org/10.1234/x", "snippet": "{}"}
             ],
         }
     )
-    # Alignment uses verdict "uncertain" for both citations to keep it simple.
-    alignment_json = json.dumps(
+
+
+def _alignment_uncertain() -> str:
+    return json.dumps(
         {
             "verdict": "uncertain",
             "confidence": 0.4,
             "summary": "Source not retrievable.",
-            "evidence": [
-                {"source_type": "web_page", "url": None, "snippet": "404"}
-            ],
-        }
-    )
-    # Consistency runs over the full claim list whenever >= 2 claims exist.
-    # Return zero contradictions so this test focuses on citation-pair findings.
-    consistency_json = json.dumps({"contradictions": []})
-    # Reporter fires after specialists; ranked list empty keeps existing order.
-    reporter_json = json.dumps(
-        {
-            "executive_summary_md": "Audit complete.",
-            "ranked_finding_ids": [],
+            "evidence": [{"source_type": "web_page", "url": None, "snippet": "404"}],
         }
     )
 
-    streams = iter(
-        [
-            [_msg(planner_json), _completed()],
-            [_tool_call("web_search", {"q": "Smith 2021"}, 2), _msg(verifier_json_1), _completed()],
-            [_tool_call("web_search", {"q": "Smith pdf"}, 2), _msg(alignment_json), _completed()],
-            [_tool_call("fetch_url_content", {"url": "x"}, 2), _msg(verifier_json_2), _completed()],
-            [_tool_call("fetch_url_content", {"url": "y"}, 2), _msg(alignment_json), _completed()],
-            [_msg(consistency_json), _completed()],
-            [_msg(reporter_json), _completed()],
-        ]
-    )
-    rids = iter(
-        [
-            "resp_planner",
-            "resp_v1",
-            "resp_a1",
-            "resp_v2",
-            "resp_a2",
-            "resp_cons",
-            "resp_report",
-        ]
+
+def _consistency_empty() -> str:
+    return json.dumps({"contradictions": []})
+
+
+def _reporter() -> str:
+    return json.dumps(
+        {"executive_summary_md": "Audit complete.", "ranked_finding_ids": []}
     )
 
-    client = AsyncMock()
-    client.submit_background = AsyncMock(side_effect=lambda **kw: next(rids))
-    client.stream = lambda rid, after=0: _events_seq(next(streams))
+
+async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> None:
+    router = StreamRouter()
+    router.add("planner", [msg(_planner_json()), completed(tokens=120)])
+    # Two Verifier calls — first fabricated, second OK
+    router.add(
+        "citation_verifier",
+        [tool("web_search", {"q": "Smith"}, 2), msg(_verifier_fab()), completed(tokens=80)],
+    )
+    router.add(
+        "citation_verifier",
+        [tool("fetch_url_content", {"url": "y"}, 2), msg(_verifier_ok()), completed(tokens=80)],
+    )
+    # Two Alignment calls — both uncertain (source unfetched)
+    router.add(
+        "citation_alignment",
+        [msg(_alignment_uncertain()), completed(tokens=40)],
+    )
+    router.add(
+        "citation_alignment",
+        [msg(_alignment_uncertain()), completed(tokens=40)],
+    )
+    # No data claims, but consistency runs (>=2 claims overall).
+    router.add(
+        "consistency",
+        [msg(_consistency_empty()), completed(tokens=30)],
+    )
+    router.add("reporter", [msg(_reporter()), completed(tokens=20)])
 
     out = tmp_path / "findings.json"
     job = await audit_pdf(
         pdf_path=FIXTURE_PDF,
         output_path=out,
-        settings=Settings(miromind_api_key="x"),
-        client=client,  # type: ignore[arg-type]
+        settings=Settings(miromind_api_key="x", miromind_retry_base_delay_s=0.001),
+        client=router.make_client(),
+        budget_usd=10.0,
     )
 
     assert len(job.claims) == 2  # noqa: PLR2004
@@ -182,7 +133,7 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
     assert len(job.findings) == 4  # noqa: PLR2004
     by_agent = {f.agent for f in job.findings}
     assert by_agent == {"CitationVerifier", "CitationAlignment"}
-    # The two Verifier verdicts are still the original FABRICATED / OK pair.
+
     verifier_verdicts = sorted(
         f.verdict for f in job.findings if f.agent == "CitationVerifier"
     )
