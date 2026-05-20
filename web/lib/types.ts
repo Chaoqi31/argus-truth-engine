@@ -132,3 +132,21 @@ export interface Job {
 export function isCitationClaim(c: Claim): boolean {
   return c.type === "citation";
 }
+
+// --- Live-mode (B3-C) -------------------------------------------------------
+
+export type RunStatus = "idle" | "running" | "done" | "failed";
+
+/**
+ * Preview shape for findings streamed over the WebSocket before the final
+ * `GET /jobs/{id}` lands. Mirrors only the fields published in the WS
+ * `finding` payload — no evidence_ids, no reasoning_trace_id.
+ */
+export interface LiveFinding {
+  id: string;
+  claim_id: string;
+  agent: string;
+  verdict: FindingVerdict;
+  severity: Severity;
+  summary: string;
+}
