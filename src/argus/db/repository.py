@@ -1,0 +1,50 @@
+"""Repository for Job persistence — the single domain ↔ DB boundary."""
+from __future__ import annotations
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from argus.db.models import JobRow
+from argus.models.domain import Job
+
+
+class JobRepository:
+    """High-level Job persistence built on JobRow."""
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._smaker = session_factory
+
+    async def save_job(self, job: Job) -> None:
+        """Upsert a Job + all its nested rows.
+
+        We fetch any existing JobRow with the same id and use
+        ``session.delete()`` so the ORM-level cascade fires (deleting
+        nested claims/findings/traces/steps/evidences); then insert the
+        new tree. Partial-job updates aren't a real use case for Argus —
+        a job either runs to completion or aborts — so wiping-and-
+        reinserting is simpler and correctness-safe than diffing nested
+        collections.
+        """
+        async with self._smaker() as session, session.begin():
+            existing = (
+                await session.execute(select(JobRow).where(JobRow.id == job.id))
+            ).scalar_one_or_none()
+            if existing is not None:
+                await session.delete(existing)
+                await session.flush()
+            session.add(JobRow.from_domain(job))
+
+    async def get_job(self, job_id: str) -> Job | None:
+        async with self._smaker() as session:
+            row = (
+                await session.execute(select(JobRow).where(JobRow.id == job_id))
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            return row.to_domain()
+
+    async def list_jobs(self, *, limit: int = 20) -> list[Job]:
+        async with self._smaker() as session:
+            stmt = select(JobRow).order_by(JobRow.created_at.desc()).limit(limit)
+            rows = (await session.execute(stmt)).scalars().all()
+            return [r.to_domain() for r in rows]
