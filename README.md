@@ -61,6 +61,38 @@ The schema covers all six entities (`jobs`, `claims`, `findings`, `traces`,
 `steps`, `evidences`). Migrations are managed by Alembic; the same schema
 works against SQLite (tests) and Postgres (production).
 
+## HTTP API server
+
+The 5-agent pipeline is also available as a long-running HTTP service with
+live WebSocket trace streaming.
+
+```bash
+uv run argus serve --host 127.0.0.1 --port 8080
+```
+
+### Endpoints
+
+| Method | Path                            | Purpose                                                              |
+|--------|---------------------------------|----------------------------------------------------------------------|
+| GET    | `/healthz`                      | health probe                                                         |
+| POST   | `/jobs`                         | upload PDF (multipart `pdf=…`), kicks off audit, returns 202 `{job_id}` |
+| GET    | `/jobs/{job_id}`                | poll status (in-flight) or fetch final Job JSON                      |
+| WS     | `/ws/jobs/{job_id}/trace`       | live trace stream — history replay + live events                     |
+
+### Trace bus selection
+
+The WebSocket trace stream is backed by a pluggable `TraceBus`:
+
+- If `ARGUS_REDIS_URL` is set → `RedisPubSubBus` (multi-instance safe).
+- Otherwise → `InProcessBus` (single-instance, zero infra).
+
+For the single-instance demo you don't need Redis. For multi-replica deploys:
+
+```bash
+docker compose up -d redis
+ARGUS_REDIS_URL=redis://localhost:6390/0 uv run argus serve
+```
+
 ## Quickstart — Web (Plan C)
 
 ```bash
