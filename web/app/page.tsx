@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useArgusStore } from "@/lib/store";
-import { loadJobFromFile, loadSampleJob } from "@/lib/load-job";
+import { loadSampleJob } from "@/lib/load-job";
+import { uploadPdf, UnsupportedMediaTypeError, ArgusApiError } from "@/lib/api";
 import { ArgusHeader } from "@/components/argus-header";
 
 const POINTS = [
@@ -13,10 +14,13 @@ const POINTS = [
   { icon: "🧩", title: "Internal contradictions", body: "We catch report pages that contradict each other." },
 ];
 
+type LoadingKind = "upload" | "sample" | null;
+
 export default function HomePage() {
   const router = useRouter();
   const setJob = useArgusStore((s) => s.setJob);
-  const [loading, setLoading] = useState<"sample" | "drop" | null>(null);
+  const resetLive = useArgusStore((s) => s.resetLive);
+  const [loading, setLoading] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
 
   const trySample = async () => {
@@ -24,8 +28,9 @@ export default function HomePage() {
     setError(null);
     try {
       const job = await loadSampleJob();
+      resetLive();
       setJob(job);
-      router.push("/audit");
+      router.push("/audit?demo=1");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setLoading(null);
@@ -33,14 +38,22 @@ export default function HomePage() {
   };
 
   const onPicked = async (file: File) => {
-    setLoading("drop");
+    setLoading("upload");
     setError(null);
     try {
-      const job = await loadJobFromFile(file);
-      setJob(job);
-      router.push("/audit");
+      const { job_id } = await uploadPdf(file);
+      resetLive();
+      router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (e instanceof UnsupportedMediaTypeError) {
+        setError("Only PDF files are supported.");
+      } else if (e instanceof ArgusApiError) {
+        setError(`API error: ${e.message}`);
+      } else if (e instanceof Error) {
+        setError(`Could not reach the Argus API. Is \`argus serve\` running? (${e.message})`);
+      } else {
+        setError(String(e));
+      }
       setLoading(null);
     }
   };
@@ -67,19 +80,16 @@ export default function HomePage() {
             used to reach each verdict.
           </p>
           <div className="mt-2 flex flex-col items-center gap-3">
-            <button
-              type="button"
-              onClick={trySample}
-              disabled={loading !== null}
-              className="rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+            <label
+              className={
+                "cursor-pointer rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md" +
+                (loading !== null ? " pointer-events-none opacity-50" : "")
+              }
             >
-              {loading === "sample" ? "Loading…" : "Try the sample audit →"}
-            </button>
-            <label className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline">
-              …or drop a findings.json from the CLI
+              {loading === "upload" ? "Uploading…" : "Upload a PDF →"}
               <input
                 type="file"
-                accept="application/json"
+                accept="application/pdf"
                 disabled={loading !== null}
                 className="sr-only"
                 onChange={(e) => {
@@ -88,6 +98,14 @@ export default function HomePage() {
                 }}
               />
             </label>
+            <button
+              type="button"
+              onClick={trySample}
+              disabled={loading !== null}
+              className="text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
+            >
+              {loading === "sample" ? "Loading…" : "…or try the sample audit"}
+            </button>
             {error && (
               <p
                 role="alert"
