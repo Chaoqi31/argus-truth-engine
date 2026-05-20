@@ -52,3 +52,10 @@ findings.json
 
 # Superpowers scaffolding (specs, plans, brainstorming artefacts)
 docs/superpowers/
+
+# Frontend
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/coverage/
