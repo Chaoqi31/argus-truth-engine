@@ -67,6 +67,7 @@ from argus.models.domain import (
 )
 from argus.models.miromind import Usage
 from argus.pdf.parser import ParsedDoc, parse_pdf
+from argus.trace_bus.base import TraceBus, TraceEvent
 
 _CONTEXT_WINDOW_CHARS = 200
 _MAX_CONCURRENT_PER_AGENT = 4
@@ -120,6 +121,7 @@ async def audit_pdf(
     client: MiromindClient | None = None,
     budget_usd: float = 5.0,
     repo: JobRepository | None = None,
+    trace_bus: TraceBus | None = None,
 ) -> Job:
     """Top-level Plan B2 pipeline — LangGraph parallel 5-agent."""
     pdf_path = Path(pdf_path)
@@ -140,13 +142,17 @@ async def audit_pdf(
             "consistency",
         )
     }
+    publisher = _Publisher(job_id=job_id, bus=trace_bus)
     ctx = _Ctx(
         client=client,
         settings=settings,
         budget=budget,
         runners=runners,
         job_id=job_id,
+        publisher=publisher,
     )
+
+    await publisher.publish("started", {"pdf_path": str(pdf_path)})
 
     graph = _build_graph(ctx)
 
@@ -191,6 +197,16 @@ async def audit_pdf(
         except Exception as exc:
             # DB failures must not lose the file output.
             log.error("orchestrator.persist_failed", error=str(exc)[:300])
+
+    terminal_kind = "failed" if job.status == "failed" else "finished"
+    terminal_payload: dict[str, Any] = {
+        "status": job.status,
+        "n_findings": len(job.findings),
+        "cost_usd": job.cost_usd,
+    }
+    if job.status == "failed":
+        terminal_payload["reason"] = final_state.get("abort_reason", "")
+    await publisher.publish(terminal_kind, terminal_payload)
     return job
 
 
@@ -206,12 +222,46 @@ class _Ctx:
         budget: BudgetTracker,
         runners: dict[str, BoundedRunner],
         job_id: str,
+        publisher: _Publisher,
     ) -> None:
         self.client = client
         self.settings = settings
         self.budget = budget
         self.runners = runners
         self.job_id = job_id
+        self.publisher = publisher
+
+
+class _Publisher:
+    """Monotonically-numbered publish helper. No-op when bus is None.
+
+    Sequence assignment is serialised under a lock so the four parallel
+    specialist branches each get distinct, increasing sequence numbers.
+    """
+
+    def __init__(self, *, job_id: str, bus: TraceBus | None) -> None:
+        self._job_id = job_id
+        self._bus = bus
+        self._seq = 0
+        self._lock = asyncio.Lock()
+
+    async def publish(self, kind: str, payload: dict[str, Any]) -> None:
+        if self._bus is None:
+            return
+        async with self._lock:
+            self._seq += 1
+            seq = self._seq
+        try:
+            await self._bus.publish(
+                TraceEvent(
+                    job_id=self._job_id,
+                    sequence=seq,
+                    kind=kind,
+                    payload=payload,
+                )
+            )
+        except Exception as exc:  # pragma: no cover - observability path
+            log.warning("trace_bus.publish_failed", error=str(exc)[:300])
 
 
 # --- Graph wiring ----------------------------------------------------------
@@ -274,6 +324,7 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
         trace = _build_trace(
             job_id=ctx.job_id, claim_id="(planner)", agent="planner", stream=result.first
         )
+        await ctx.publisher.publish("step", _step_payload(trace, n_claims=len(claims)))
         return {"claims": claims, "traces": {trace.id: trace}}
     return node
 
@@ -362,6 +413,9 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
         new_findings = _contradictions_to_findings(
             job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
         )
+        await ctx.publisher.publish("step", _step_payload(trace))
+        for finding in new_findings:
+            await ctx.publisher.publish("finding", _finding_payload(finding))
         return {"findings": new_findings, "traces": {trace.id: trace}}
     return node
 
@@ -390,6 +444,7 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             agent="Reporter",
             stream=result.first,
         )
+        await ctx.publisher.publish("step", _step_payload(trace))
         return {
             "audit_report_md": result.parsed.executive_summary_md,
             "traces": {trace.id: trace},
@@ -480,6 +535,8 @@ async def _per_claim_specialist(
         )
         new_findings.append(finding)
         new_evidences.extend(ev_records)
+        await ctx.publisher.publish("step", _step_payload(trace))
+        await ctx.publisher.publish("finding", _finding_payload(finding))
 
     return {
         "findings": new_findings,
@@ -596,6 +653,31 @@ def _build_trace(
         num_search_queries=stream.num_search_queries,
         steps=list(stream.steps),
     )
+
+
+def _step_payload(trace: ReasoningTrace, *, n_claims: int | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "trace_id": trace.id,
+        "agent": trace.agent,
+        "claim_id": trace.claim_id,
+        "total_tokens": trace.total_tokens,
+        "reasoning_tokens": trace.reasoning_tokens,
+        "num_search_queries": trace.num_search_queries,
+    }
+    if n_claims is not None:
+        payload["n_claims"] = n_claims
+    return payload
+
+
+def _finding_payload(finding: Finding) -> dict[str, Any]:
+    return {
+        "finding_id": finding.id,
+        "claim_id": finding.claim_id,
+        "agent": finding.agent,
+        "verdict": finding.verdict.value,
+        "severity": finding.severity.value,
+        "summary": finding.summary,
+    }
 
 
 def _charge(ctx: _Ctx, stream: StreamCollection) -> None:
