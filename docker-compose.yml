@@ -1,0 +1,21 @@
+# Local Postgres for Argus development.
+# Run: `docker compose up -d postgres` to start; data persists in ./.data/pg.
+# The DB url for connecting from the host is:
+#   postgresql+asyncpg://argus:argus@localhost:5436/argus
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: argus-postgres
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: argus
+      POSTGRES_DB: argus
+    ports:
+      - "5436:5432"
+    volumes:
+      - ./.data/pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
