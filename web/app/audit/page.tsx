@@ -126,7 +126,6 @@ export default function AuditPage() {
             </div>
             <LiveFindingsList findings={liveFindings} />
             <div className="border-t border-border h-[18rem] min-h-0 flex flex-col">
-              {/* @ts-expect-error - TraceStreamView updated in T7 */}
               <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
             </div>
           </aside>
