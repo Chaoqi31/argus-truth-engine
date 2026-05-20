@@ -83,6 +83,7 @@ export function DagTab({ trace }: Props) {
   return (
     <div className="relative h-[640px] w-full">
       <ReactFlow
+        key={trace.id} /* remount on trace switch so fitView re-runs */
         nodes={nodes}
         edges={edges}
         fitView

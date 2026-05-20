@@ -22,8 +22,11 @@
   --radius-card: 12px;
 }
 
+/* Dark tokens — applied either by system preference (default) or by the
+   explicit `.theme-dark` class set by the in-app theme toggle. The
+   `.theme-light` class wins back and disables the dark overrides. */
 @media (prefers-color-scheme: dark) {
-  @theme {
+  html:not(.theme-light) {
     --color-background: oklch(0.14 0.02 260);
     --color-foreground: oklch(0.96 0.005 250);
     --color-muted: oklch(0.21 0.018 260);
@@ -36,6 +39,20 @@
     --shadow-card: 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 14px oklch(0 0 0 / 0.30);
     --shadow-card-hover: 0 1px 2px oklch(0 0 0 / 0.4), 0 10px 28px oklch(0 0 0 / 0.45);
   }
+}
+
+html.theme-dark {
+  --color-background: oklch(0.14 0.02 260);
+  --color-foreground: oklch(0.96 0.005 250);
+  --color-muted: oklch(0.21 0.018 260);
+  --color-muted-foreground: oklch(0.66 0.015 260);
+  --color-border: oklch(0.26 0.018 260);
+  --color-border-strong: oklch(0.36 0.022 260);
+  --color-primary: oklch(0.72 0.18 265);
+  --color-primary-soft: oklch(0.24 0.08 265);
+
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 14px oklch(0 0 0 / 0.30);
+  --shadow-card-hover: 0 1px 2px oklch(0 0 0 / 0.4), 0 10px 28px oklch(0 0 0 / 0.45);
 }
 
 @layer base {
