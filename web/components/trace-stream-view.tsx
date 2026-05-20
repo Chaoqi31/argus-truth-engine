@@ -61,11 +61,12 @@ export function TraceStreamView({ job }: Props) {
               Trace replay
             </span>
             {playing && (
-              <span
-                aria-hidden
-                className="size-1.5 animate-pulse rounded-full bg-success"
-                title="streaming"
-              />
+              <>
+                <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-success" />
+                <span className="sr-only" aria-live="polite">
+                  Streaming reasoning steps
+                </span>
+              </>
             )}
             <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
               {shown.length} / {total}
@@ -76,7 +77,7 @@ export function TraceStreamView({ job }: Props) {
               <button
                 type="button"
                 onClick={stop}
-                className="rounded bg-muted px-2.5 py-1 text-xs hover:bg-border"
+                className="inline-flex min-h-9 items-center rounded-md bg-muted px-3 text-xs font-medium hover:bg-border focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Stop
               </button>
@@ -84,7 +85,7 @@ export function TraceStreamView({ job }: Props) {
               <button
                 type="button"
                 onClick={play}
-                className="rounded bg-primary px-2.5 py-1 text-xs text-white hover:opacity-90"
+                className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-xs font-medium text-white hover:opacity-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {shown.length === total && shown.length > 0 ? "Replay" : "Start"}
               </button>
@@ -93,7 +94,8 @@ export function TraceStreamView({ job }: Props) {
               <button
                 type="button"
                 onClick={skip}
-                className="rounded bg-muted px-2.5 py-1 text-xs hover:bg-border"
+                className="inline-flex size-9 items-center justify-center rounded-md bg-muted text-xs hover:bg-border focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Skip to end of trace"
                 title="Skip to end"
               >
                 ⤓

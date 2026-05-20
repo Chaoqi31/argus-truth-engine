@@ -36,7 +36,9 @@ export function ReasoningPanel({ job, activeFindingId, onSelectFinding }: Props)
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              aria-pressed={active}
+              aria-label={`Show ${t.label} tab`}
+              className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary ${
                 active
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"

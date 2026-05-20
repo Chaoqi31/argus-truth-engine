@@ -52,11 +52,11 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={cycle}
-      className="rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+      className="inline-flex min-h-9 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
       aria-label={`Theme: ${theme}. Click to cycle.`}
       title={`Theme: ${theme}. Click to cycle.`}
     >
-      <span aria-hidden className="mr-1">{ICONS[theme]}</span>
+      <span aria-hidden>{ICONS[theme]}</span>
       {theme}
     </button>
   );

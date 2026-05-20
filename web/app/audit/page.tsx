@@ -112,10 +112,10 @@ function ExportButton({ job }: { job: Job }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-      title="Download this job's findings.json"
+      className="inline-flex min-h-9 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+      aria-label="Download this job's findings.json"
     >
-      ⤓ Export
+      <span aria-hidden>⤓</span> Export
     </button>
   );
 }
@@ -138,7 +138,8 @@ function ModeToggle({
           key={o.key}
           type="button"
           onClick={() => onChange(o.key)}
-          className={`flex-1 rounded px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider transition-colors ${
+          aria-pressed={current === o.key}
+          className={`min-h-9 flex-1 rounded px-2.5 text-[11px] font-medium uppercase tracking-wider transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary ${
             current === o.key
               ? "bg-primary text-white"
               : "text-muted-foreground hover:text-foreground"

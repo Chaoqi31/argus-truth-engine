@@ -89,7 +89,11 @@ export default function HomePage() {
               />
             </label>
             {error && (
-              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+              <p
+                role="alert"
+                aria-live="assertive"
+                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive-foreground"
+              >
                 {error}
               </p>
             )}
