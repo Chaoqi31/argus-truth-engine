@@ -1,33 +1,55 @@
-"""Argus orchestrator — sequential 5-agent pipeline (Plan B1).
+"""Argus orchestrator — LangGraph parallel 5-agent pipeline (Plan B2).
 
-Flow:
-  parse_pdf
-  → planner
-  → for each claim (filtered by type):
-       citation       → Verifier  +  Alignment (independently, both may fire)
-       numerical-data → Freshness
-       time-sensitive → Freshness
-  → all claims (batch) → Consistency
-  → all findings + claims → Reporter
-  → write findings.json
+Flow (LangGraph StateGraph):
 
-LangGraph + parallel + persistence arrive in Plans B2 / B3.
+    parse_pdf  ->  planner  ---->  verifier     ---+
+                            +-->   alignment    --->  reporter  ->  END
+                            +-->   freshness    ---+
+                            +-->   consistency  ---+
+
+Each specialist node:
+  * receives the full claims list from State,
+  * filters claims it handles,
+  * runs them through `asyncio.gather` bounded by a per-agent semaphore,
+  * appends to `findings` / `traces` / `evidences` (LangGraph reducers
+    merge across the 4 parallel branches without races).
+
+Engineering controls:
+  * BoundedRunner per agent caps in-flight per-claim concurrency.
+  * BudgetTracker charges after every ResponseCompletedEvent;
+    BudgetExceeded aborts further work, Reporter still tries to summarise
+    whatever made it through.
+  * Idempotency keys travel in MiroMind request metadata for B3's
+    event-store dedup.
 """
 from __future__ import annotations
 
+import asyncio
+import operator
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
+
+from langgraph.graph import END, START, StateGraph
+from typing_extensions import TypedDict
 
 from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
 from argus.agents.citation_alignment import check_alignment
 from argus.agents.citation_verifier import verify_citation
 from argus.agents.consistency import ConsistencyOutput, check_consistency
 from argus.agents.data_freshness import check_freshness
-from argus.agents.planner import PlannerOutput, run_planner
-from argus.agents.reporter import ReporterOutput, run_reporter
+from argus.agents.planner import run_planner
+from argus.agents.reporter import run_reporter
 from argus.config import Settings
+from argus.engineering import (
+    BoundedRunner,
+    BudgetExceeded,
+    BudgetTracker,
+    cost_for_usage,
+    make_idempotency_key,
+)
 from argus.log import log
 from argus.miromind.client import MiromindClient
 from argus.models.domain import (
@@ -40,12 +62,12 @@ from argus.models.domain import (
     ReasoningTrace,
     Severity,
 )
+from argus.models.miromind import Usage
 from argus.pdf.parser import ParsedDoc, parse_pdf
 
 _CONTEXT_WINDOW_CHARS = 200
+_MAX_CONCURRENT_PER_AGENT = 4
 
-# Severity mapping per agent — pessimistic by default so unverified results
-# aren't oversold as "minor".
 _VERIFIER_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.FABRICATED: Severity.MAJOR,
     FindingVerdict.PARTIAL_MATCH: Severity.MINOR,
@@ -67,14 +89,35 @@ _FRESHNESS_SEVERITY: dict[FindingVerdict, Severity] = {
 }
 
 
+def _dict_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    return {**a, **b}
+
+
+class _State(TypedDict, total=False):
+    job_id: str
+    pdf_path: Path
+    doc: ParsedDoc | None
+    claims: list[Claim]
+    findings: Annotated[list[Finding], operator.add]
+    traces: Annotated[dict[str, ReasoningTrace], _dict_merge]
+    evidences: Annotated[list[Evidence], operator.add]
+    audit_report_md: str | None
+    aborted: bool
+    abort_reason: str
+
+
+# --- Public entry point ----------------------------------------------------
+
+
 async def audit_pdf(
     *,
     pdf_path: Path | str,
     output_path: Path | str,
     settings: Settings,
     client: MiromindClient | None = None,
+    budget_usd: float = 5.0,
 ) -> Job:
-    """Top-level Plan B1 pipeline — sequential 5-agent."""
+    """Top-level Plan B2 pipeline — LangGraph parallel 5-agent."""
     pdf_path = Path(pdf_path)
     output_path = Path(output_path)
     if client is None:
@@ -83,148 +126,370 @@ async def audit_pdf(
     job_id = f"job_{uuid4().hex[:12]}"
     job = Job(id=job_id, pdf_path=str(pdf_path), status="parsing")
 
-    log.info("orchestrator.parse_start", pdf=str(pdf_path), job_id=job_id)
-    doc = parse_pdf(pdf_path)
-    log.info("orchestrator.parse_done", pages=len(doc.pages))
-
-    # ---- Planner -----------------------------------------------------------
-    job.status = "planning"
-    try:
-        planner_result = await run_planner(client, doc)
-        _ingest_planner(job, planner_result)
-    except JsonRepairFailed as exc:
-        log.error("orchestrator.planner_failed", error=str(exc)[:500])
-        job.status = "failed"
-        _finalize(job, output_path)
-        return job
-
-    # ---- 4 specialists (sequential) ----------------------------------------
-    job.status = "verifying"
-    citations = [c for c in job.claims if c.type == ClaimType.CITATION]
-    data_claims = [
-        c
-        for c in job.claims
-        if c.type in (ClaimType.NUMERICAL_DATA, ClaimType.TIME_SENSITIVE)
-    ]
-    log.info(
-        "orchestrator.specialists_start",
-        n_citations=len(citations),
-        n_data_claims=len(data_claims),
-        n_total_claims=len(job.claims),
+    budget = BudgetTracker(max_usd=budget_usd)
+    runners = {
+        agent: BoundedRunner(max_concurrent=_MAX_CONCURRENT_PER_AGENT)
+        for agent in (
+            "citation_verifier",
+            "citation_alignment",
+            "data_freshness",
+            "consistency",
+        )
+    }
+    ctx = _Ctx(
+        client=client,
+        settings=settings,
+        budget=budget,
+        runners=runners,
+        job_id=job_id,
     )
 
-    # Citation Verifier + Alignment run independently for each citation.
-    for claim in citations:
-        surrounding = _surrounding_text(doc, claim)
-        await _run_and_ingest_verifier(client, job, claim, surrounding)
-        await _run_and_ingest_alignment(client, job, claim, surrounding)
+    graph = _build_graph(ctx)
 
-    # Data Freshness for numerical & time-sensitive claims.
-    for claim in data_claims:
-        await _run_and_ingest_freshness(client, job, claim)
+    initial: _State = {
+        "job_id": job_id,
+        "pdf_path": pdf_path,
+        "doc": None,
+        "claims": [],
+        "findings": [],
+        "traces": {},
+        "evidences": [],
+        "audit_report_md": None,
+        "aborted": False,
+        "abort_reason": "",
+    }
+    final_state: _State = await graph.ainvoke(initial)
 
-    # Consistency over the full claim list (batch).
-    if len(job.claims) >= 2:  # noqa: PLR2004
-        await _run_and_ingest_consistency(client, job)
+    job.claims = list(final_state.get("claims", []))
+    job.findings = list(final_state.get("findings", []))
+    job.traces = list(final_state.get("traces", {}).values())
+    job.evidences = list(final_state.get("evidences", []))
+    job.audit_report_md = final_state.get("audit_report_md")
+    job.cost_usd = round(budget.spent_usd, 6)
+    job.total_tokens = sum(t.total_tokens for t in job.traces)
+    job.status = "failed" if final_state.get("aborted") else "done"
+    job.completed_at = datetime.utcnow()
 
-    # ---- Reporter ----------------------------------------------------------
-    job.status = "reporting"
-    if job.findings:
-        try:
-            reporter_result = await run_reporter(client, job.claims, job.findings)
-            _ingest_reporter(job, reporter_result)
-        except JsonRepairFailed as exc:
-            log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
-
-    job.status = "done"
-    _finalize(job, output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(job.model_dump_json(indent=2))
+    log.info(
+        "orchestrator.done",
+        job_id=job_id,
+        status=job.status,
+        n_findings=len(job.findings),
+        total_tokens=job.total_tokens,
+        cost_usd=job.cost_usd,
+    )
     return job
 
 
-# --- ingest helpers --------------------------------------------------------
+# --- Context shared with all nodes ----------------------------------------
 
 
-async def _run_and_ingest_verifier(
-    client: MiromindClient, job: Job, claim: Claim, surrounding: str
-) -> None:
-    try:
-        r = await verify_citation(client, claim, surrounding=surrounding)
-    except JsonRepairFailed as exc:
-        log.warning("orchestrator.verifier_failed", claim_id=claim.id, error=str(exc)[:300])
-        return
-    _ingest_specialist(
-        job=job,
-        claim=claim,
-        parsed=r.parsed,
-        stream=r.first,
-        agent_name="CitationVerifier",
-        severity_map=_VERIFIER_SEVERITY,
-    )
+class _Ctx:
+    def __init__(
+        self,
+        *,
+        client: MiromindClient,
+        settings: Settings,
+        budget: BudgetTracker,
+        runners: dict[str, BoundedRunner],
+        job_id: str,
+    ) -> None:
+        self.client = client
+        self.settings = settings
+        self.budget = budget
+        self.runners = runners
+        self.job_id = job_id
 
 
-async def _run_and_ingest_alignment(
-    client: MiromindClient, job: Job, claim: Claim, surrounding: str
-) -> None:
-    try:
-        r = await check_alignment(client, claim, surrounding=surrounding)
-    except JsonRepairFailed as exc:
-        log.warning("orchestrator.alignment_failed", claim_id=claim.id, error=str(exc)[:300])
-        return
-    _ingest_specialist(
-        job=job,
-        claim=claim,
-        parsed=r.parsed,
-        stream=r.first,
-        agent_name="CitationAlignment",
-        severity_map=_ALIGNMENT_SEVERITY,
-    )
+# --- Graph wiring ----------------------------------------------------------
 
 
-async def _run_and_ingest_freshness(
-    client: MiromindClient, job: Job, claim: Claim
-) -> None:
-    try:
-        r = await check_freshness(client, claim)
-    except JsonRepairFailed as exc:
-        log.warning("orchestrator.freshness_failed", claim_id=claim.id, error=str(exc)[:300])
-        return
-    _ingest_specialist(
-        job=job,
-        claim=claim,
-        parsed=r.parsed,
-        stream=r.first,
-        agent_name="DataFreshness",
-        severity_map=_FRESHNESS_SEVERITY,
-    )
+def _build_graph(ctx: _Ctx) -> Any:
+    # mypy's overload resolution for StateGraph.add_node fights with our
+    # TypedDict-with-Annotated-reducers `_State`; the runtime API is happy.
+    graph: Any = StateGraph(_State)
+    graph.add_node("parse_pdf", _parse_node(ctx))
+    graph.add_node("planner", _planner_node(ctx))
+    graph.add_node("citation_verifier", _verifier_node(ctx))
+    graph.add_node("citation_alignment", _alignment_node(ctx))
+    graph.add_node("data_freshness", _freshness_node(ctx))
+    graph.add_node("consistency", _consistency_node(ctx))
+    graph.add_node("reporter", _reporter_node(ctx))
+
+    graph.add_edge(START, "parse_pdf")
+    graph.add_edge("parse_pdf", "planner")
+    for n in ("citation_verifier", "citation_alignment", "data_freshness", "consistency"):
+        graph.add_edge("planner", n)
+        graph.add_edge(n, "reporter")
+    graph.add_edge("reporter", END)
+    return graph.compile()
 
 
-async def _run_and_ingest_consistency(client: MiromindClient, job: Job) -> None:
-    try:
-        r = await check_consistency(client, job.claims)
-    except JsonRepairFailed as exc:
-        log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
-        return
-    trace = _build_trace(
-        job_id=job.id, claim_id="(consistency)", agent="Consistency", stream=r.first
-    )
-    job.traces.append(trace)
-    _ingest_contradictions(job=job, parsed=r.parsed, trace=trace)
+# --- Node factories --------------------------------------------------------
 
 
-def _ingest_specialist(
+def _parse_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        pdf_path = state["pdf_path"]
+        log.info("orchestrator.parse_start", pdf=str(pdf_path), job_id=ctx.job_id)
+        doc = parse_pdf(pdf_path)
+        log.info("orchestrator.parse_done", pages=len(doc.pages))
+        return {"doc": doc}
+    return node
+
+
+def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        doc = state.get("doc")
+        if doc is None:
+            return {"aborted": True, "abort_reason": "no parsed document"}
+        try:
+            result = await run_planner(ctx.client, doc)
+        except JsonRepairFailed as exc:
+            log.error("orchestrator.planner_failed", error=str(exc)[:500])
+            return {"aborted": True, "abort_reason": f"planner: {exc}"}
+
+        try:
+            _charge(ctx, result.first)
+        except BudgetExceeded as exc:
+            log.error("orchestrator.budget_exceeded_at_planner", error=str(exc))
+            return {"aborted": True, "abort_reason": str(exc)}
+
+        claims = result.parsed.to_claims()
+        trace = _build_trace(
+            job_id=ctx.job_id, claim_id="(planner)", agent="planner", stream=result.first
+        )
+        return {"claims": claims, "traces": {trace.id: trace}}
+    return node
+
+
+def _verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        return await _per_claim_specialist(
+            ctx=ctx,
+            state=state,
+            claim_filter=lambda c: c.type == ClaimType.CITATION,
+            agent_name="CitationVerifier",
+            metadata_agent="citation_verifier",
+            severity_map=_VERIFIER_SEVERITY,
+            run_call=lambda claim, surrounding: verify_citation(
+                ctx.client, claim, surrounding=surrounding
+            ),
+            uses_surrounding=True,
+        )
+    return node
+
+
+def _alignment_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        return await _per_claim_specialist(
+            ctx=ctx,
+            state=state,
+            claim_filter=lambda c: c.type == ClaimType.CITATION,
+            agent_name="CitationAlignment",
+            metadata_agent="citation_alignment",
+            severity_map=_ALIGNMENT_SEVERITY,
+            run_call=lambda claim, surrounding: check_alignment(
+                ctx.client, claim, surrounding=surrounding
+            ),
+            uses_surrounding=True,
+        )
+    return node
+
+
+def _freshness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        return await _per_claim_specialist(
+            ctx=ctx,
+            state=state,
+            claim_filter=lambda c: c.type
+            in (ClaimType.NUMERICAL_DATA, ClaimType.TIME_SENSITIVE),
+            agent_name="DataFreshness",
+            metadata_agent="data_freshness",
+            severity_map=_FRESHNESS_SEVERITY,
+            run_call=lambda claim, _: check_freshness(ctx.client, claim),
+            uses_surrounding=False,
+        )
+    return node
+
+
+def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        claims = state.get("claims", [])
+        if len(claims) < 2:  # noqa: PLR2004
+            return {}
+        try:
+            result = await check_consistency(ctx.client, claims)
+        except JsonRepairFailed as exc:
+            log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
+            return {}
+
+        try:
+            _charge(ctx, result.first)
+        except BudgetExceeded as exc:
+            log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
+            return {"aborted": True, "abort_reason": str(exc)}
+
+        trace = _build_trace(
+            job_id=ctx.job_id,
+            claim_id="(consistency)",
+            agent="Consistency",
+            stream=result.first,
+        )
+        new_findings = _contradictions_to_findings(
+            job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
+        )
+        return {"findings": new_findings, "traces": {trace.id: trace}}
+    return node
+
+
+def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if not state.get("findings"):
+            return {}
+        try:
+            result = await run_reporter(
+                ctx.client, state.get("claims", []), state["findings"]
+            )
+        except JsonRepairFailed as exc:
+            log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
+            return {}
+
+        try:
+            _charge(ctx, result.first)
+        except BudgetExceeded as exc:
+            log.warning("orchestrator.budget_exceeded_at_reporter", error=str(exc))
+            return {"aborted": True, "abort_reason": str(exc)}
+
+        trace = _build_trace(
+            job_id=ctx.job_id,
+            claim_id="(reporter)",
+            agent="Reporter",
+            stream=result.first,
+        )
+        return {
+            "audit_report_md": result.parsed.executive_summary_md,
+            "traces": {trace.id: trace},
+        }
+    return node
+
+
+# --- Per-claim specialist helper ------------------------------------------
+
+
+async def _per_claim_specialist(
     *,
-    job: Job,
+    ctx: _Ctx,
+    state: _State,
+    claim_filter: Callable[[Claim], bool],
+    agent_name: str,
+    metadata_agent: str,
+    severity_map: dict[FindingVerdict, Severity],
+    run_call: Callable[[Claim, str], Awaitable[AgentResult[Any]]],
+    uses_surrounding: bool,
+) -> dict[str, Any]:
+    matched = [c for c in state.get("claims", []) if claim_filter(c)]
+    if not matched:
+        return {}
+
+    doc = state.get("doc")
+    runner = ctx.runners[metadata_agent]
+
+    async def run_for_claim(
+        claim: Claim,
+    ) -> tuple[Claim, AgentResult[Any] | None, JsonRepairFailed | None]:
+        async with runner.acquire():
+            surrounding = (
+                _surrounding_text(doc, claim) if (uses_surrounding and doc) else ""
+            )
+            # Idempotency key travels in the model client's submit metadata.
+            # AgentRunner only forwards `{"agent": ...}` today; the key
+            # surfaces in logs and is forwarded to MiroMind via
+            # `metadata={"idempotency_key": ...}` once AgentRunner is taught
+            # about it (B3). For now we generate it for observability.
+            _ = make_idempotency_key(ctx.job_id, agent_name, claim.id)
+            try:
+                return claim, await run_call(claim, surrounding), None
+            except JsonRepairFailed as exc:
+                log.warning(
+                    "orchestrator.specialist_failed",
+                    agent=agent_name,
+                    claim_id=claim.id,
+                    error=str(exc)[:300],
+                )
+                return claim, None, exc
+
+    results = await asyncio.gather(*(run_for_claim(c) for c in matched))
+
+    new_findings: list[Finding] = []
+    new_traces: dict[str, ReasoningTrace] = {}
+    new_evidences: list[Evidence] = []
+
+    for claim, agent_result, failure in results:
+        if failure is not None or agent_result is None:
+            continue
+        try:
+            _charge(ctx, agent_result.first)
+        except BudgetExceeded as exc:
+            log.warning(
+                "orchestrator.budget_exceeded_at_specialist",
+                agent=agent_name,
+                error=str(exc),
+            )
+            return {
+                "aborted": True,
+                "abort_reason": str(exc),
+                "findings": new_findings,
+                "traces": new_traces,
+                "evidences": new_evidences,
+            }
+        trace = _build_trace(
+            job_id=ctx.job_id, claim_id=claim.id, agent=agent_name, stream=agent_result.first
+        )
+        new_traces[trace.id] = trace
+        finding, ev_records = _make_finding(
+            job_id=ctx.job_id,
+            claim=claim,
+            parsed=agent_result.parsed,
+            trace=trace,
+            agent_name=agent_name,
+            severity_map=severity_map,
+        )
+        new_findings.append(finding)
+        new_evidences.extend(ev_records)
+
+    return {
+        "findings": new_findings,
+        "traces": new_traces,
+        "evidences": new_evidences,
+    }
+
+
+# --- Build helpers --------------------------------------------------------
+
+
+def _make_finding(
+    *,
+    job_id: str,
     claim: Claim,
     parsed: Any,
-    stream: StreamCollection,
+    trace: ReasoningTrace,
     agent_name: str,
     severity_map: dict[FindingVerdict, Severity],
-) -> None:
-    trace = _build_trace(
-        job_id=job.id, claim_id=claim.id, agent=agent_name, stream=stream
-    )
-    job.traces.append(trace)
-
+) -> tuple[Finding, list[Evidence]]:
+    evidence_records: list[Evidence] = []
     evidence_ids: list[str] = []
     for ev in parsed.evidence:
         e = Evidence(
@@ -235,36 +500,35 @@ def _ingest_specialist(
             snippet=ev.snippet,
             retrieved_by_step_id=trace.steps[-1].id if trace.steps else "n/a",
         )
-        job.evidences.append(e)
+        evidence_records.append(e)
         evidence_ids.append(e.id)
 
-    job.findings.append(
-        Finding(
-            id=f"f_{uuid4().hex[:12]}",
-            job_id=job.id,
-            claim_id=claim.id,
-            agent=agent_name,
-            verdict=parsed.verdict,
-            severity=severity_map.get(parsed.verdict, Severity.MINOR),
-            confidence=parsed.confidence,
-            summary=parsed.summary,
-            evidence_ids=evidence_ids,
-            reasoning_trace_id=trace.id,
-        )
+    finding = Finding(
+        id=f"f_{uuid4().hex[:12]}",
+        job_id=job_id,
+        claim_id=claim.id,
+        agent=agent_name,
+        verdict=parsed.verdict,
+        severity=severity_map.get(parsed.verdict, Severity.MINOR),
+        confidence=parsed.confidence,
+        summary=parsed.summary,
+        evidence_ids=evidence_ids,
+        reasoning_trace_id=trace.id,
     )
+    return finding, evidence_records
 
 
-def _ingest_contradictions(
-    *, job: Job, parsed: ConsistencyOutput, trace: ReasoningTrace
-) -> None:
-    """Each contradiction becomes TWO cross-linked Finding records — one per claim."""
+def _contradictions_to_findings(
+    *, job_id: str, parsed: ConsistencyOutput, trace_id: str
+) -> list[Finding]:
+    out: list[Finding] = []
     for pair in parsed.contradictions:
-        finding_a_id = f"f_{uuid4().hex[:12]}"
-        finding_b_id = f"f_{uuid4().hex[:12]}"
-        job.findings.append(
+        a_id = f"f_{uuid4().hex[:12]}"
+        b_id = f"f_{uuid4().hex[:12]}"
+        out.append(
             Finding(
-                id=finding_a_id,
-                job_id=job.id,
+                id=a_id,
+                job_id=job_id,
                 claim_id=pair.claim_a_id,
                 agent="Consistency",
                 verdict=FindingVerdict.CONTRADICTION,
@@ -272,14 +536,14 @@ def _ingest_contradictions(
                 confidence=pair.confidence,
                 summary=pair.summary,
                 evidence_ids=[],
-                reasoning_trace_id=trace.id,
-                related_finding_ids=[finding_b_id],
+                reasoning_trace_id=trace_id,
+                related_finding_ids=[b_id],
             )
         )
-        job.findings.append(
+        out.append(
             Finding(
-                id=finding_b_id,
-                job_id=job.id,
+                id=b_id,
+                job_id=job_id,
                 claim_id=pair.claim_b_id,
                 agent="Consistency",
                 verdict=FindingVerdict.CONTRADICTION,
@@ -287,54 +551,22 @@ def _ingest_contradictions(
                 confidence=pair.confidence,
                 summary=pair.summary,
                 evidence_ids=[],
-                reasoning_trace_id=trace.id,
-                related_finding_ids=[finding_a_id],
+                reasoning_trace_id=trace_id,
+                related_finding_ids=[a_id],
             )
         )
+    return out
 
 
-def _ingest_reporter(job: Job, result: AgentResult[ReporterOutput]) -> None:
-    parsed = result.parsed
-    job.audit_report_md = parsed.executive_summary_md
-    job.traces.append(
-        _build_trace(
-            job_id=job.id,
-            claim_id="(reporter)",
-            agent="Reporter",
-            stream=result.first,
-        )
-    )
-
-    # Optionally reorder findings to match the Reporter's ranking, when valid.
-    incoming = set(parsed.ranked_finding_ids)
-    existing = {f.id for f in job.findings}
-    if incoming == existing and incoming:
-        by_id = {f.id: f for f in job.findings}
-        job.findings = [by_id[i] for i in parsed.ranked_finding_ids]
-
-
-# --- shared helpers --------------------------------------------------------
-
-
-def _surrounding_text(doc: ParsedDoc, claim: Claim) -> str:
+def _surrounding_text(doc: ParsedDoc | None, claim: Claim) -> str:
+    if doc is None:
+        return ""
     page = next((p for p in doc.pages if p.page_number == claim.page), None)
     if page is None:
         return ""
     start = max(0, claim.span[0] - _CONTEXT_WINDOW_CHARS)
     end = min(len(page.text), claim.span[1] + _CONTEXT_WINDOW_CHARS)
     return page.text[start:end]
-
-
-def _ingest_planner(job: Job, result: AgentResult[PlannerOutput]) -> None:
-    job.claims.extend(result.parsed.to_claims())
-    job.traces.append(
-        _build_trace(
-            job_id=job.id,
-            claim_id="(planner)",
-            agent="planner",
-            stream=result.first,
-        )
-    )
 
 
 def _build_trace(
@@ -355,15 +587,19 @@ def _build_trace(
     )
 
 
-def _finalize(job: Job, output_path: Path) -> None:
-    job.completed_at = datetime.utcnow()
-    job.total_tokens = sum(t.total_tokens for t in job.traces)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(job.model_dump_json(indent=2))
-    log.info(
-        "orchestrator.done",
-        job_id=job.id,
-        status=job.status,
-        n_findings=len(job.findings),
-        total_tokens=job.total_tokens,
+def _charge(ctx: _Ctx, stream: StreamCollection) -> None:
+    """Record cost into the budget tracker; raises BudgetExceeded on breach."""
+    usage = Usage(
+        input_tokens=0,
+        output_tokens=stream.total_tokens,
+        total_tokens=stream.total_tokens,
+        reasoning_tokens=stream.reasoning_tokens,
+        num_search_queries=stream.num_search_queries,
     )
+    # We don't have the input_tokens split here — assume total ≈ output for
+    # conservative-ish cost estimate. Plan B3 will populate the split from
+    # SSE-level usage events.
+    cost = cost_for_usage(
+        usage, model=ctx.settings.miromind_model, web_searches=stream.num_search_queries
+    )
+    ctx.budget.charge(cost)
