@@ -47,6 +47,8 @@ uploads/
 exports/
 data/local/
 tmp/
+examples/findings.json
+findings.json
 
 # Superpowers scaffolding (specs, plans, brainstorming artefacts)
 docs/superpowers/
