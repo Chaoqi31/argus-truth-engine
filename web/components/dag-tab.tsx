@@ -6,24 +6,26 @@ import "@xyflow/react/dist/style.css";
 import type { ReasoningTrace, Step, StepType } from "@/lib/types";
 import { stepIcon } from "@/lib/colors";
 
+// Step-type colours come from CSS custom properties so they adapt to dark
+// mode. See `--vis-*` tokens in globals.css.
 const TYPE_TINT: Record<StepType, string> = {
-  thinking: "#dbeafe",
-  web_search: "#ede9fe",
-  fetch_url_content: "#dcfce7",
-  execute_python: "#f3f4f6",
-  execute_command: "#e5e7eb",
-  tool_call: "#fef3c7",
-  message: "#fee2e2",
+  thinking: "var(--vis-thinking-bg)",
+  web_search: "var(--vis-search-bg)",
+  fetch_url_content: "var(--vis-fetch-bg)",
+  execute_python: "var(--vis-exec-bg)",
+  execute_command: "var(--vis-exec-bg)",
+  tool_call: "var(--vis-tool-bg)",
+  message: "var(--vis-message-bg)",
 };
 
 const TYPE_BORDER: Record<StepType, string> = {
-  thinking: "#93c5fd",
-  web_search: "#c4b5fd",
-  fetch_url_content: "#86efac",
-  execute_python: "#d1d5db",
-  execute_command: "#9ca3af",
-  tool_call: "#fcd34d",
-  message: "#fca5a5",
+  thinking: "var(--vis-thinking-border)",
+  web_search: "var(--vis-search-border)",
+  fetch_url_content: "var(--vis-fetch-border)",
+  execute_python: "var(--vis-exec-border)",
+  execute_command: "var(--vis-exec-border)",
+  tool_call: "var(--vis-tool-border)",
+  message: "var(--vis-message-border)",
 };
 
 export function _buildGraph(trace: ReasoningTrace): { nodes: Node[]; edges: Edge[] } {
@@ -41,8 +43,8 @@ export function _buildGraph(trace: ReasoningTrace): { nodes: Node[]; edges: Edge
       fontWeight: 500,
       whiteSpace: "pre-wrap",
       width: 280,
-      color: "#0f172a",
-      boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)",
+      color: "var(--vis-node-fg)",
+      boxShadow: "var(--shadow-card)",
     },
   }));
   const edges: Edge[] = sorted

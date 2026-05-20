@@ -1,8 +1,10 @@
 import type { FindingVerdict, Severity, StepType } from "@/lib/types";
 
+// Severity tints pair `text-{tone}-foreground` (darker) with `bg-{tone}/15`
+// (lighter tint) so contrast passes WCAG AA in both light and dark mode.
 export const severityClass: Record<Severity, string> = {
-  critical: "bg-destructive/15 text-destructive ring-destructive/40",
-  major: "bg-warning/15 text-warning ring-warning/40",
+  critical: "bg-destructive/15 text-destructive-foreground ring-destructive/40",
+  major: "bg-warning/15 text-warning-foreground ring-warning/40",
   minor: "bg-muted text-muted-foreground ring-border",
 };
 

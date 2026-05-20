@@ -3,11 +3,13 @@
 import type { Claim, Finding } from "@/lib/types";
 import { verdictTone } from "@/lib/colors";
 
+// Theme-aware tints derived from the same tokens as severity badges, so
+// dark mode renders correctly.
 const TONE_BG: Record<"danger" | "warn" | "ok" | "muted", string> = {
-  danger: "bg-red-300/40 hover:bg-red-300/60",
-  warn: "bg-yellow-300/40 hover:bg-yellow-300/60",
-  ok: "bg-green-300/40 hover:bg-green-300/60",
-  muted: "bg-gray-300/40 hover:bg-gray-300/60",
+  danger: "bg-destructive/20 hover:bg-destructive/30 text-destructive-foreground",
+  warn: "bg-warning/20 hover:bg-warning/30 text-warning-foreground",
+  ok: "bg-success/20 hover:bg-success/30 text-success-foreground",
+  muted: "bg-muted hover:bg-border text-muted-foreground",
 };
 
 interface Props {
@@ -37,17 +39,19 @@ export function HighlightOverlay({
           const tone = finding ? verdictTone[finding.verdict] : "muted";
           const bg = TONE_BG[tone];
           const isActive = c.id === activeClaimId;
+          const label = finding ? finding.verdict : c.type;
           return (
             <button
               key={c.id}
               type="button"
               onClick={() => onClaimClick(c.id)}
-              className={`rounded-md border px-2 py-1 text-xs ${bg} ${
+              aria-label={`Claim on page ${c.page}: ${c.text}. Click to inspect.`}
+              className={`min-h-9 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${bg} ${
                 isActive ? "border-primary" : "border-transparent"
               }`}
               title={c.text}
             >
-              {finding ? finding.verdict : c.type}
+              {label}
             </button>
           );
         })}
