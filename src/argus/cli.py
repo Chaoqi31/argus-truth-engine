@@ -83,3 +83,28 @@ def audit(
             )
 
     asyncio.run(_go())
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8080, "--port"),
+    log_level: str = typer.Option("INFO", "--log-level"),
+) -> None:
+    """Start the Argus HTTP + WebSocket API server."""
+    configure_logging(log_level)
+    s = settings()
+    if not s.miromind_api_key:
+        console.print("[red]ARGUS_MIROMIND_API_KEY is not set.[/red]")
+        raise typer.Exit(code=2)
+
+    # Lazy import so the CLI doesn't require uvicorn until `serve` runs.
+    import uvicorn  # noqa: PLC0415
+
+    from argus.api.app import create_app  # noqa: PLC0415
+
+    app_instance = create_app(settings=s)
+    console.print(
+        f"[green]✓[/green] Argus API at [bold]http://{host}:{port}[/bold]"
+    )
+    uvicorn.run(app_instance, host=host, port=port, log_level=log_level.lower())
