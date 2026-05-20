@@ -9,6 +9,7 @@ dependencies = [
     "aiosqlite>=0.20",
     "alembic>=1.13",
     "asyncpg>=0.29",
+    "greenlet>=3.0",
     "httpx>=0.28",
     "httpx-sse>=0.4",
     "langgraph>=0.2",
