@@ -6,6 +6,27 @@ Panel (Findings / Evidence / DAG tabs) on the right. The "Trace stream" tab
 replays the recorded reasoning steps with a configurable interval — same UX
 as a live SSE stream, deterministic for demos.
 
+## Connecting to the Argus API
+
+The web app talks to the Argus HTTP+WebSocket API (default `http://localhost:8080`).
+
+| Variable | Where | Default | Purpose |
+|---|---|---|---|
+| `ARGUS_API_HOST` | server-side (Next.js) | `http://localhost:8080` | Origin Next.js proxies `/api/argus/*` to. Set in `.env.local`. |
+| `NEXT_PUBLIC_ARGUS_WS_HOST` | client-side (browser) | `${window.location.hostname}:8080` | Host the browser opens the trace WebSocket against. |
+
+Run both processes in two terminals:
+
+```bash
+# terminal 1 — Argus API
+uv run argus serve --host 127.0.0.1 --port 8080
+
+# terminal 2 — web
+cd web && pnpm dev
+```
+
+Open <http://localhost:3000>.
+
 ## Quickstart
 
 ```bash
