@@ -45,6 +45,22 @@ The resulting `findings.json` contains:
   `execute_python` step MiroMind emitted
 - `evidences[]` — clickable external URLs that support each verdict
 
+## Persistence (optional)
+
+Pass `--db-url` to persist the completed Job to a SQL database in addition
+to `findings.json`. For local development:
+
+```bash
+docker compose up -d postgres
+uv run alembic -c alembic.ini upgrade head
+uv run argus audit examples/sample-report.pdf \
+  --db-url postgresql+asyncpg://argus:argus@localhost:5436/argus
+```
+
+The schema covers all six entities (`jobs`, `claims`, `findings`, `traces`,
+`steps`, `evidences`). Migrations are managed by Alembic; the same schema
+works against SQLite (tests) and Postgres (production).
+
 ## Quickstart — Web (Plan C)
 
 ```bash

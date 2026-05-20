@@ -58,3 +58,33 @@ def test_audit_command_passes_budget(tmp_path: Path) -> None:
         )
         assert result.exit_code == 0, result.output
         assert captured["budget_usd"] == 2.5  # noqa: PLR2004
+
+
+def test_audit_command_passes_db_url(tmp_path: Path) -> None:
+    captured: dict[str, Any] = {}
+    fake_job = Job(id="job_test", pdf_path="x.pdf", status="done")
+
+    async def _fake_audit(**kw: object) -> Job:
+        captured["repo_present"] = kw.get("repo") is not None
+        Path(str(kw["output_path"])).write_text(fake_job.model_dump_json())
+        return fake_job
+
+    with patch("argus.cli.audit_pdf", new=_fake_audit):
+        runner = CliRunner()
+        out = tmp_path / "findings.json"
+        fake_pdf = tmp_path / "fake.pdf"
+        fake_pdf.write_bytes(b"%PDF-1.4\n%fake\n")
+        result = runner.invoke(
+            app,
+            [
+                "audit",
+                str(fake_pdf),
+                "-o",
+                str(out),
+                "--db-url",
+                "sqlite+aiosqlite:///:memory:",
+            ],
+            env={"ARGUS_MIROMIND_API_KEY": "sk_test"},
+        )
+        assert result.exit_code == 0, result.output
+        assert captured["repo_present"] is True
