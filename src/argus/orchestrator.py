@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from argus.agents.base import AgentResult, StreamCollection
+from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
 from argus.agents.citation_verifier import (
     CitationVerifierOutput,
     verify_citation,
@@ -62,30 +62,47 @@ async def audit_pdf(
     log.info("orchestrator.parse_done", pages=len(doc.pages))
 
     job.status = "planning"
-    planner_result = await run_planner(client, doc)
-    _ingest_planner(job, planner_result)
+    try:
+        planner_result = await run_planner(client, doc)
+        _ingest_planner(job, planner_result)
+    except JsonRepairFailed as exc:
+        log.error("orchestrator.planner_failed", error=str(exc)[:500])
+        job.status = "failed"
+        _finalize(job, output_path)
+        return job
 
     job.status = "verifying"
     citations = [c for c in job.claims if c.type == ClaimType.CITATION]
     log.info("orchestrator.verify_start", n_citations=len(citations))
     for claim in citations:
         surrounding = _surrounding_text(doc, claim)
-        result = await verify_citation(client, claim, surrounding=surrounding)
-        _ingest_verifier(job, claim, result)
+        try:
+            result = await verify_citation(client, claim, surrounding=surrounding)
+            _ingest_verifier(job, claim, result)
+        except JsonRepairFailed as exc:
+            log.warning(
+                "orchestrator.verifier_failed",
+                claim_id=claim.id,
+                error=str(exc)[:300],
+            )
 
     job.status = "done"
+    _finalize(job, output_path)
+    return job
+
+
+def _finalize(job: Job, output_path: Path) -> None:
     job.completed_at = datetime.utcnow()
     job.total_tokens = sum(t.total_tokens for t in job.traces)
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(job.model_dump_json(indent=2))
     log.info(
         "orchestrator.done",
-        job_id=job_id,
+        job_id=job.id,
+        status=job.status,
         n_findings=len(job.findings),
         total_tokens=job.total_tokens,
     )
-    return job
 
 
 def _surrounding_text(doc: ParsedDoc, claim: Claim) -> str:
