@@ -29,11 +29,14 @@ import operator
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 from typing_extensions import TypedDict
+
+if TYPE_CHECKING:
+    from argus.db.repository import JobRepository
 
 from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
 from argus.agents.citation_alignment import check_alignment
@@ -116,6 +119,7 @@ async def audit_pdf(
     settings: Settings,
     client: MiromindClient | None = None,
     budget_usd: float = 5.0,
+    repo: JobRepository | None = None,
 ) -> Job:
     """Top-level Plan B2 pipeline — LangGraph parallel 5-agent."""
     pdf_path = Path(pdf_path)
@@ -180,6 +184,13 @@ async def audit_pdf(
         total_tokens=job.total_tokens,
         cost_usd=job.cost_usd,
     )
+    if repo is not None:
+        try:
+            await repo.save_job(job)
+            log.info("orchestrator.persisted", job_id=job.id)
+        except Exception as exc:
+            # DB failures must not lose the file output.
+            log.error("orchestrator.persist_failed", error=str(exc)[:300])
     return job
 
 
