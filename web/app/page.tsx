@@ -1,61 +1,119 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useArgusStore } from "@/lib/store";
 import { loadJobFromFile, loadSampleJob } from "@/lib/load-job";
 import { ArgusHeader } from "@/components/argus-header";
 
+const POINTS = [
+  { icon: "📚", title: "Fabricated citations", body: "Crossref / arXiv / SSRN cross-checks reveal references that don't exist." },
+  { icon: "🪞", title: "Misaligned quotes", body: "We fetch the cited source and compare paragraphs side-by-side." },
+  { icon: "📈", title: "Stale numbers", body: "FRED / World Bank / SEC EDGAR confirm whether a data point is still current." },
+  { icon: "🧩", title: "Internal contradictions", body: "We catch report pages that contradict each other." },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const setJob = useArgusStore((s) => s.setJob);
+  const [loading, setLoading] = useState<"sample" | "drop" | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const trySample = async () => {
-    const job = await loadSampleJob();
-    setJob(job);
-    router.push("/audit");
+    setLoading("sample");
+    setError(null);
+    try {
+      const job = await loadSampleJob();
+      setJob(job);
+      router.push("/audit");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setLoading(null);
+    }
   };
 
   const onPicked = async (file: File) => {
-    const job = await loadJobFromFile(file);
-    setJob(job);
-    router.push("/audit");
+    setLoading("drop");
+    setError(null);
+    try {
+      const job = await loadJobFromFile(file);
+      setJob(job);
+      router.push("/audit");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setLoading(null);
+    }
   };
 
   return (
     <>
       <ArgusHeader />
-      <main className="mx-auto flex max-w-2xl flex-col items-center gap-8 px-6 py-20 text-center">
-        <h1 className="text-4xl font-semibold tracking-tight">
-          Audit a research report.
-          <br />
-          See every reasoning step.
-        </h1>
-        <p className="max-w-xl text-muted-foreground">
-          Argus surfaces fabricated citations, misaligned quotes, stale data and
-          internal contradictions in PDF research reports — and shows the full
-          reasoning chain MiroMind used to reach each verdict.
-        </p>
-        <div className="flex flex-col items-center gap-3">
-          <button
-            type="button"
-            onClick={trySample}
-            className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
-          >
-            Try the sample audit
-          </button>
-          <label className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline">
-            …or drop a findings.json
-            <input
-              type="file"
-              accept="application/json"
-              className="sr-only"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onPicked(f);
-              }}
-            />
-          </label>
+      <main className="relative mx-auto flex max-w-4xl flex-col items-center gap-12 px-6 py-20">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] bg-[radial-gradient(ellipse_50%_60%_at_50%_0%,var(--color-primary-soft),transparent_70%)]" />
+
+        <div className="flex flex-col items-center gap-5 text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground shadow-sm">
+            <span aria-hidden className="size-1.5 rounded-full bg-success" />
+            Built for the UCWS × MiroMind Deep Research track
+          </span>
+          <h1 className="text-balance text-5xl font-semibold tracking-tight md:text-6xl">
+            Audit a research report.
+            <br />
+            <span className="text-primary">See every reasoning step.</span>
+          </h1>
+          <p className="max-w-2xl text-balance text-base text-muted-foreground md:text-lg">
+            Argus surfaces fabricated citations, misaligned quotes, stale data, and internal
+            contradictions in PDF research reports — and shows the full reasoning chain MiroMind
+            used to reach each verdict.
+          </p>
+          <div className="mt-2 flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={trySample}
+              disabled={loading !== null}
+              className="rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+            >
+              {loading === "sample" ? "Loading…" : "Try the sample audit →"}
+            </button>
+            <label className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline">
+              …or drop a findings.json from the CLI
+              <input
+                type="file"
+                accept="application/json"
+                disabled={loading !== null}
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onPicked(f);
+                }}
+              />
+            </label>
+            {error && (
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+                {error}
+              </p>
+            )}
+          </div>
         </div>
+
+        <div className="grid w-full gap-3 md:grid-cols-2">
+          {POINTS.map((p) => (
+            <div
+              key={p.title}
+              className="flex items-start gap-3 rounded-[var(--radius-card)] border border-border bg-background p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+            >
+              <span aria-hidden className="text-2xl leading-none">{p.icon}</span>
+              <div>
+                <h3 className="text-sm font-semibold">{p.title}</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">{p.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <footer className="mt-4 text-center text-xs text-muted-foreground">
+          Powered by MiroMind <code className="rounded bg-muted px-1 py-0.5 font-mono">mirothinker-1-7-deepresearch</code> via the Responses API.
+        </footer>
       </main>
     </>
   );

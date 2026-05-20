@@ -1,23 +1,78 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.18 0 0);
-  --color-muted: oklch(0.96 0 0);
-  --color-muted-foreground: oklch(0.45 0 0);
-  --color-border: oklch(0.92 0 0);
-  --color-primary: oklch(0.50 0.20 265);
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SF Mono", Monaco, "Cascadia Code", monospace;
+
+  --color-background: oklch(0.99 0.005 250);
+  --color-foreground: oklch(0.16 0.02 260);
+  --color-muted: oklch(0.965 0.01 250);
+  --color-muted-foreground: oklch(0.42 0.02 260);
+  --color-border: oklch(0.91 0.012 250);
+  --color-border-strong: oklch(0.82 0.018 250);
+  --color-primary: oklch(0.48 0.20 265);
+  --color-primary-soft: oklch(0.94 0.06 265);
   --color-destructive: oklch(0.55 0.22 25);
-  --color-warning: oklch(0.75 0.16 80);
-  --color-success: oklch(0.65 0.16 145);
+  --color-warning: oklch(0.72 0.17 75);
+  --color-success: oklch(0.62 0.16 150);
+
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.04);
+  --shadow-card-hover: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px oklch(0 0 0 / 0.08);
+
+  --radius-card: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-background: oklch(0.16 0 0);
-    --color-foreground: oklch(0.96 0 0);
-    --color-muted: oklch(0.22 0 0);
-    --color-muted-foreground: oklch(0.65 0 0);
-    --color-border: oklch(0.28 0 0);
+    --color-background: oklch(0.14 0.02 260);
+    --color-foreground: oklch(0.96 0.005 250);
+    --color-muted: oklch(0.21 0.018 260);
+    --color-muted-foreground: oklch(0.66 0.015 260);
+    --color-border: oklch(0.26 0.018 260);
+    --color-border-strong: oklch(0.36 0.022 260);
+    --color-primary: oklch(0.72 0.18 265);
+    --color-primary-soft: oklch(0.24 0.08 265);
+
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 14px oklch(0 0 0 / 0.30);
+    --shadow-card-hover: 0 1px 2px oklch(0 0 0 / 0.4), 0 10px 28px oklch(0 0 0 / 0.45);
   }
+}
+
+@layer base {
+  body {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Tighter tracking on display headings */
+  h1, h2, h3 {
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Streaming row fade-in */
+@keyframes argus-fade-in-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-row-in {
+  animation: argus-fade-in-up 280ms ease-out both;
+}
+
+/* Subtle gradient sweep for the loading shimmer on PDF placeholder */
+@keyframes argus-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 0%,
+    color-mix(in oklab, var(--color-muted) 60%, white) 50%,
+    var(--color-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: argus-shimmer 1.6s linear infinite;
 }

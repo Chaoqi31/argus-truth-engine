@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useArgusStore } from "@/lib/store";
 import { ArgusHeader } from "@/components/argus-header";
+import { JobStatsBar } from "@/components/job-stats-bar";
 import { ReasoningPanel } from "@/components/reasoning-panel";
 import { TraceStreamView } from "@/components/trace-stream-view";
 
@@ -12,15 +13,25 @@ import { TraceStreamView } from "@/components/trace-stream-view";
 // Force the PdfViewer to client-only.
 const PdfViewer = dynamic(
   () => import("@/components/pdf-viewer").then((m) => m.PdfViewer),
-  { ssr: false, loading: () => <p className="p-6 text-sm text-muted-foreground">Loading PDF viewer…</p> },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center bg-muted">
+        <div className="animate-shimmer h-3 w-48 rounded-full" aria-hidden />
+        <span className="sr-only">Loading PDF viewer</span>
+      </div>
+    ),
+  },
 );
+
+type RightMode = "reasoning" | "stream";
 
 export default function AuditPage() {
   const router = useRouter();
   const job = useArgusStore((s) => s.job);
   const activeFindingId = useArgusStore((s) => s.activeFindingId);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
-  const [rightTab, setRightTab] = useState<"reasoning" | "stream">("reasoning");
+  const [mode, setMode] = useState<RightMode>("reasoning");
 
   useEffect(() => {
     if (!job) {
@@ -39,27 +50,9 @@ export default function AuditPage() {
 
   return (
     <>
-      <ArgusHeader
-        rightSlot={
-          <div className="flex gap-1 text-xs">
-            <button
-              type="button"
-              onClick={() => setRightTab("reasoning")}
-              className={`rounded px-2 py-1 ${rightTab === "reasoning" ? "bg-muted" : ""}`}
-            >
-              Reasoning
-            </button>
-            <button
-              type="button"
-              onClick={() => setRightTab("stream")}
-              className={`rounded px-2 py-1 ${rightTab === "stream" ? "bg-muted" : ""}`}
-            >
-              Trace stream
-            </button>
-          </div>
-        }
-      />
-      <main className="grid h-[calc(100vh-3.25rem)] grid-cols-[1fr_460px]">
+      <ArgusHeader />
+      <JobStatsBar job={job} />
+      <main className="grid h-[calc(100vh-3.5rem-2.75rem)] grid-cols-[1fr_460px]">
         <PdfViewer
           fileUrl={fileUrl}
           claims={job.claims}
@@ -67,18 +60,54 @@ export default function AuditPage() {
           activeFindingId={activeFindingId}
           onClaimClick={onClaimClick}
         />
-        <aside className="border-l border-border">
-          {rightTab === "reasoning" ? (
-            <ReasoningPanel
-              job={job}
-              activeFindingId={activeFindingId}
-              onSelectFinding={setActiveFinding}
-            />
-          ) : (
-            <TraceStreamView job={job} />
-          )}
+        <aside className="flex flex-col border-l border-border">
+          <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
+            <ModeToggle current={mode} onChange={setMode} />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {mode === "reasoning" ? (
+              <ReasoningPanel
+                job={job}
+                activeFindingId={activeFindingId}
+                onSelectFinding={setActiveFinding}
+              />
+            ) : (
+              <TraceStreamView job={job} />
+            )}
+          </div>
         </aside>
       </main>
     </>
+  );
+}
+
+function ModeToggle({
+  current,
+  onChange,
+}: {
+  current: RightMode;
+  onChange: (m: RightMode) => void;
+}) {
+  const opts: Array<{ key: RightMode; label: string }> = [
+    { key: "reasoning", label: "Reasoning" },
+    { key: "stream", label: "Live trace" },
+  ];
+  return (
+    <div className="flex w-full gap-1 rounded-md bg-background p-0.5 ring-1 ring-border">
+      {opts.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => onChange(o.key)}
+          className={`flex-1 rounded px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider transition-colors ${
+            current === o.key
+              ? "bg-primary text-white"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
