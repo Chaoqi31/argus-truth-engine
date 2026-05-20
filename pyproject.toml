@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 dependencies = [
+    "aiofiles>=24.1",
     "aiosqlite>=0.20",
     "alembic>=1.13",
     "asyncpg>=0.29",
+    "fastapi>=0.115",
     "greenlet>=3.0",
     "httpx>=0.28",
     "httpx-sse>=0.4",
@@ -17,10 +19,14 @@ dependencies = [
     "pymupdf>=1.24",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    "python-multipart>=0.0.9",
+    "redis[hiredis]>=5.0",
     "sqlalchemy>=2.0",
     "structlog>=24.1",
     "tenacity>=8.5",
     "typer>=0.12",
+    "uvicorn[standard]>=0.30",
+    "websockets>=13",
     "rich>=13.7",
 ]
 

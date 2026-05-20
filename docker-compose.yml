@@ -19,3 +19,14 @@ services:
       interval: 3s
       timeout: 5s
       retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: argus-redis
+    ports:
+      - "6390:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
