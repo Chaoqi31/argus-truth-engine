@@ -81,7 +81,12 @@ class AgentRunner[T: BaseModel]:
             return AgentResult(parsed=parsed, streams=[first])
         except (ValidationError, json.JSONDecodeError) as ve:
             err_text = str(ve)
-            log.warning("agent.json_invalid", agent=self._agent_name, error=err_text)
+            log.warning(
+                "agent.json_invalid",
+                agent=self._agent_name,
+                error=err_text,
+                raw_text_snippet=first.final_text[:500],
+            )
 
         repair_input = (
             f"{input_text}\n\n"
@@ -97,15 +102,24 @@ class AgentRunner[T: BaseModel]:
             return AgentResult(parsed=parsed, streams=[first, second])
         except (ValidationError, json.JSONDecodeError) as ve2:
             raise JsonRepairFailed(
-                f"agent={self._agent_name}: JSON invalid after repair: {ve2}"
+                f"agent={self._agent_name}: JSON invalid after repair: {ve2}\n"
+                f"--- first raw (first 800 chars) ---\n{first.final_text[:800]}\n"
+                f"--- second raw (first 800 chars) ---\n{second.final_text[:800]}"
             ) from ve2
 
     async def _round_trip(
         self, *, instructions: str | None, input_text: str
     ) -> StreamCollection:
+        # MiroMind's Responses API silently ignores `instructions` and the
+        # `{role: "system"}` channel for many models — verified empirically
+        # against `mirothinker-1-7-deepresearch-mini`. We embed the system
+        # prompt directly into the input text so the model actually sees it.
+        combined = (
+            f"{instructions}\n\n---\n\n{input_text}" if instructions else input_text
+        )
         rid = await self._client.submit_background(
-            input=input_text,
-            instructions=instructions,
+            input=combined,
+            instructions=None,
             max_output_tokens=self._max_tokens,
             metadata={"agent": self._agent_name},
         )
