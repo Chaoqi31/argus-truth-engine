@@ -12,7 +12,7 @@ PAGES = [
     "Page 2 — Market overview\n\n"
     "Global widget shipments grew 4.2% YoY in 2024 (Source: WidgetWorld, 2025).",
     "Page 3 — Citations\n\n"
-    "1. Smith, J. (2021). On widget resilience. Journal of Widgets, 12(3), 45–60.\n"
+    "1. Smith, J. (2021). On widget resilience. Journal of Widgets, 12(3), 45–60.\n"  # noqa: RUF001
     "2. Doe, A. et al. (2019). Widget supply chains. SSRN 1234567.",
     "Page 4 — Conclusion\n\n"
     "Widgets remain critical to global commerce.",
