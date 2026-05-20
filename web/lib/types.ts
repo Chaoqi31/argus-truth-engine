@@ -122,6 +122,7 @@ export interface Job {
   completed_at: string | null;
   cost_usd: number;
   total_tokens: number;
+  audit_report_md: string | null;        // NEW
   claims: Claim[];
   findings: Finding[];
   traces: ReasoningTrace[];

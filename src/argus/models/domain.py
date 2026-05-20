@@ -152,6 +152,7 @@ class Job(_Base):
     completed_at: datetime | None = None
     cost_usd: float = 0.0
     total_tokens: int = 0
+    audit_report_md: str | None = None     # NEW — Reporter's executive summary
 
     claims: list[Claim] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
