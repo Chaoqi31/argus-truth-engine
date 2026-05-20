@@ -7,12 +7,12 @@ import "react-pdf/dist/Page/TextLayer.css";
 import type { Claim, Finding } from "@/lib/types";
 import { HighlightOverlay } from "@/components/highlight-overlay";
 
-// Load the worker from the pdfjs-dist package shipped with react-pdf.
+// Load the pdfjs worker from a CDN matched to the installed pdfjs-dist version.
+// (Turbopack cannot resolve the worker via `new URL("pdfjs-dist/...", import.meta.url)`
+// because pdfjs-dist arrives as a hoisted peer of react-pdf, not a direct dep.)
 if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.min.mjs",
-    import.meta.url,
-  ).toString();
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 }
 
 interface Props {
