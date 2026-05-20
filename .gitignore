@@ -49,6 +49,7 @@ data/local/
 tmp/
 examples/findings.json
 findings.json
+.data/
 
 # Superpowers scaffolding (specs, plans, brainstorming artefacts)
 docs/superpowers/

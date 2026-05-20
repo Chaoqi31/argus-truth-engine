@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     miromind_stream_timeout_s: float = 300.0
     miromind_retry_attempts: int = 3
     miromind_retry_base_delay_s: float = 1.0
+    db_url: str | None = None
 
 
 def settings() -> Settings:
