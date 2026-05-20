@@ -8,6 +8,12 @@ import { DagTab } from "@/components/dag-tab";
 
 type Tab = "findings" | "evidence" | "dag";
 
+const TABS: ReadonlyArray<{ key: Tab; label: string; icon: string }> = [
+  { key: "findings", label: "Findings", icon: "🛡" },
+  { key: "evidence", label: "Evidence", icon: "🔗" },
+  { key: "dag", label: "DAG", icon: "🧠" },
+];
+
 interface Props {
   job: Job;
   activeFindingId: string | null;
@@ -22,21 +28,25 @@ export function ReasoningPanel({ job, activeFindingId, onSelectFinding }: Props)
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex border-b border-border">
-        {(["findings", "evidence", "dag"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`flex-1 border-b-2 px-4 py-2 text-sm font-medium capitalize transition-colors ${
-              tab === t
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="flex gap-1 border-b border-border bg-muted/30 p-1.5">
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                active
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span aria-hidden className="mr-1.5">{t.icon}</span>
+              {t.label}
+            </button>
+          );
+        })}
       </div>
       <div className="flex-1 overflow-y-auto">
         {tab === "findings" && (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArgusMark } from "@/components/argus-mark";
 
 interface Props {
   rightSlot?: React.ReactNode;
@@ -8,10 +9,10 @@ interface Props {
 
 export function ArgusHeader({ rightSlot }: Props) {
   return (
-    <header className="flex items-center justify-between border-b border-border bg-background px-6 py-3">
-      <Link href="/" className="flex items-center gap-2">
-        <span aria-hidden className="text-lg">👁️‍🗨️</span>
-        <span className="font-semibold tracking-tight">Argus</span>
+    <header className="flex h-14 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-md">
+      <Link href="/" className="group flex items-center gap-2.5">
+        <ArgusMark className="text-primary transition-transform group-hover:rotate-[8deg]" />
+        <span className="text-[15px] font-semibold tracking-tight">Argus</span>
       </Link>
       {rightSlot}
     </header>
