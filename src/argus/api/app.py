@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from argus.api.deps import AppState
 from argus.api.jobs import router as jobs_router
+from argus.api.ws import router as ws_router
 from argus.config import Settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
@@ -62,5 +63,6 @@ def create_app(*, settings: Settings) -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(jobs_router)
+    app.include_router(ws_router)
 
     return app
