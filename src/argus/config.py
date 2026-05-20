@@ -22,6 +22,16 @@ class Settings(BaseSettings):
     miromind_retry_base_delay_s: float = 1.0
     db_url: str | None = None
 
+    # API server
+    api_host: str = "127.0.0.1"
+    api_port: int = 8080
+
+    # Optional Redis URL. When None, the in-process bus is used.
+    redis_url: str | None = None
+
+    # Filesystem path where uploaded PDFs are stored.
+    storage_root: str = "./uploads"
+
 
 def settings() -> Settings:
     """Build a fresh Settings instance — tests can monkeypatch via env vars."""
