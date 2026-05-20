@@ -3,58 +3,22 @@
   "pdf_path": "sample-report.pdf",
   "status": "done",
   "created_at": "2026-05-20T01:00:00.000Z",
-  "completed_at": "2026-05-20T01:03:42.000Z",
-  "cost_usd": 1.04,
-  "total_tokens": 18432,
+  "completed_at": "2026-05-20T01:06:18.000Z",
+  "cost_usd": 2.41,
+  "total_tokens": 42107,
+  "audit_report_md": "**3 material risks** found in this report.\n\n- Page 1 cites **Smith (2021)** — Crossref, Google Scholar, and SSRN all return no match. The citation is fabricated.\n- Page 2's **US Q2 2025 GDP figure (2.1%)** is now stale: BEA's Q3 release puts the latest reading at 2.4%.\n- Page 3 attributes a claim to **IMF WEO** that the original report does not make — the report's framing inverts the source's caveat.\n\nThe report's section on global widget shipments (page 2) checks out against WidgetWorld's official 2025 industry release.",
   "claims": [
-    {
-      "id": "c1",
-      "text": "Smith (2021) showed widgets are resilient.",
-      "page": 1,
-      "span": [69, 116],
-      "type": "citation",
-      "importance": "high",
-      "extracted_metadata": { "authors": ["Smith"], "year": 2021, "title": "On widget resilience" }
-    },
-    {
-      "id": "c2",
-      "text": "Doe et al. (2019) studied global widget supply chains.",
-      "page": 3,
-      "span": [40, 96],
-      "type": "citation",
-      "importance": "medium",
-      "extracted_metadata": { "authors": ["Doe", "et al."], "year": 2019, "title": "Widget supply chains" }
-    }
+    { "id": "c1", "text": "Smith (2021) showed widgets are resilient.", "page": 1, "span": [69, 116], "type": "citation", "importance": "high", "extracted_metadata": { "authors": ["Smith"], "year": 2021, "title": "On widget resilience" } },
+    { "id": "c2", "text": "US Q2 2025 GDP growth was 2.1%.", "page": 2, "span": [40, 72], "type": "numerical-data", "importance": "high", "extracted_metadata": { "indicator": "GDP growth", "country": "US", "value": 2.1, "unit": "percent", "as_of": "Q2 2025" } },
+    { "id": "c3", "text": "Per the IMF WEO, widget productivity will rise 4% annually through 2030.", "page": 3, "span": [12, 84], "type": "citation", "importance": "medium", "extracted_metadata": { "publisher": "IMF", "title": "World Economic Outlook" } },
+    { "id": "c4", "text": "Global widget shipments grew 4.2% YoY in 2024.", "page": 2, "span": [0, 48], "type": "numerical-data", "importance": "medium", "extracted_metadata": { "indicator": "widget shipments YoY", "value": 4.2, "unit": "percent", "as_of": "2024" } }
   ],
   "findings": [
-    {
-      "id": "f1",
-      "job_id": "job_demo_argus",
-      "claim_id": "c1",
-      "agent": "CitationVerifier",
-      "verdict": "fabricated",
-      "severity": "major",
-      "confidence": 0.96,
-      "summary": "No record of 'On widget resilience' by Smith (2021) in Crossref, Google Scholar, or SSRN. The reference is fabricated.",
-      "evidence_ids": ["e1", "e2", "e3"],
-      "reasoning_trace_id": "t1",
-      "related_finding_ids": [],
-      "created_at": "2026-05-20T01:02:15.000Z"
-    },
-    {
-      "id": "f2",
-      "job_id": "job_demo_argus",
-      "claim_id": "c2",
-      "agent": "CitationVerifier",
-      "verdict": "fabricated",
-      "severity": "major",
-      "confidence": 0.92,
-      "summary": "No SSRN paper with id 1234567 matches Doe et al. (2019). Author cluster has no related publication.",
-      "evidence_ids": ["e4", "e5"],
-      "reasoning_trace_id": "t2",
-      "related_finding_ids": [],
-      "created_at": "2026-05-20T01:03:32.000Z"
-    }
+    { "id": "f1", "job_id": "job_demo_argus", "claim_id": "c1", "agent": "CitationVerifier", "verdict": "fabricated", "severity": "major", "confidence": 0.96, "summary": "No record of 'On widget resilience' by Smith (2021) in Crossref, Google Scholar, or SSRN. The reference is fabricated.", "evidence_ids": ["e1", "e2", "e3"], "reasoning_trace_id": "t1", "related_finding_ids": [], "created_at": "2026-05-20T01:01:42.000Z" },
+    { "id": "f2", "job_id": "job_demo_argus", "claim_id": "c1", "agent": "CitationAlignment", "verdict": "uncertain", "severity": "minor", "confidence": 0.30, "summary": "Source could not be retrieved (no DOI, no Scholar result). Alignment check downgraded.", "evidence_ids": ["e4"], "reasoning_trace_id": "t2", "related_finding_ids": [], "created_at": "2026-05-20T01:02:30.000Z" },
+    { "id": "f3", "job_id": "job_demo_argus", "claim_id": "c2", "agent": "DataFreshness", "verdict": "stale", "severity": "major", "confidence": 0.94, "summary": "Report cites Q2 2025 US GDP growth (2.1%). BEA's Q3 2025 release puts the latest reading at 2.4%; the figure has been superseded.", "evidence_ids": ["e5"], "reasoning_trace_id": "t3", "related_finding_ids": [], "created_at": "2026-05-20T01:03:10.000Z" },
+    { "id": "f4", "job_id": "job_demo_argus", "claim_id": "c3", "agent": "CitationAlignment", "verdict": "misrepresented", "severity": "critical", "confidence": 0.88, "summary": "IMF WEO frames 4% productivity growth as a high-side scenario contingent on policy; the report omits the caveat and presents it as a baseline forecast.", "evidence_ids": ["e6"], "reasoning_trace_id": "t4", "related_finding_ids": [], "created_at": "2026-05-20T01:04:01.000Z" },
+    { "id": "f5", "job_id": "job_demo_argus", "claim_id": "c4", "agent": "DataFreshness", "verdict": "ok", "severity": "minor", "confidence": 0.78, "summary": "WidgetWorld's 2025 industry release confirms the 4.2% 2024 YoY figure.", "evidence_ids": ["e7"], "reasoning_trace_id": "t5", "related_finding_ids": [], "created_at": "2026-05-20T01:04:48.000Z" }
   ],
   "traces": [
     {
@@ -62,49 +26,103 @@
       "job_id": "job_demo_argus",
       "claim_id": "c1",
       "agent": "CitationVerifier",
-      "miromind_response_id": "resp_w_demo1",
+      "miromind_response_id": "resp_w_demo_t1",
       "started_at": "2026-05-20T01:00:30.000Z",
-      "completed_at": "2026-05-20T01:02:15.000Z",
-      "total_tokens": 8421,
-      "reasoning_tokens": 4210,
+      "completed_at": "2026-05-20T01:01:42.000Z",
+      "total_tokens": 7421,
+      "reasoning_tokens": 3210,
       "num_search_queries": 3,
       "final_verdict_step_id": "s1_v",
       "steps": [
-        { "id": "s1_t1", "trace_id": "t1", "sequence": 5, "type": "thinking", "summary": "I need to verify Smith (2021) On widget resilience. Crossref first.", "content": { "thought": "The claim cites Smith (2021) Journal of Widgets. I'll query Crossref for the bibliographic match." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:00:32.000Z" },
-        { "id": "s1_ws", "trace_id": "t1", "sequence": 9, "type": "fetch_url_content", "summary": "Crossref query for Smith 2021", "content": { "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith" }, "evidence_ids": ["e1"], "parent_step_id": "s1_t1", "created_at": "2026-05-20T01:00:55.000Z" },
-        { "id": "s1_t2", "trace_id": "t1", "sequence": 14, "type": "thinking", "summary": "Crossref returned zero matches. Fallback to Google Scholar.", "content": { "thought": "Crossref response: items: []. Trying Scholar via web_search next." }, "evidence_ids": [], "parent_step_id": "s1_ws", "created_at": "2026-05-20T01:01:12.000Z" },
-        { "id": "s1_ws2", "trace_id": "t1", "sequence": 18, "type": "web_search", "summary": "Scholar search: Smith 2021 widget resilience", "content": { "query": "Smith 2021 widget resilience" }, "evidence_ids": ["e2"], "parent_step_id": "s1_t2", "created_at": "2026-05-20T01:01:38.000Z" },
-        { "id": "s1_t3", "trace_id": "t1", "sequence": 21, "type": "thinking", "summary": "Scholar also empty. Checking SSRN for completeness.", "content": { "thought": "No Scholar match. Trying SSRN one more time." }, "evidence_ids": [], "parent_step_id": "s1_ws2", "created_at": "2026-05-20T01:01:51.000Z" },
-        { "id": "s1_ws3", "trace_id": "t1", "sequence": 24, "type": "web_search", "summary": "SSRN search for Smith 2021", "content": { "query": "site:ssrn.com Smith 2021 widget resilience" }, "evidence_ids": ["e3"], "parent_step_id": "s1_t3", "created_at": "2026-05-20T01:02:05.000Z" },
-        { "id": "s1_v", "trace_id": "t1", "sequence": 30, "type": "message", "summary": "Verdict: fabricated. No record in any indexed source.", "content": { "verdict": "fabricated", "confidence": 0.96 }, "evidence_ids": ["e1", "e2", "e3"], "parent_step_id": "s1_ws3", "created_at": "2026-05-20T01:02:15.000Z" }
+        { "id": "s1_t1", "trace_id": "t1", "sequence": 5, "type": "thinking", "summary": "Verify Smith (2021) On widget resilience. Crossref first.", "content": { "thought": "Cited as: Smith, J. (2021) Journal of Widgets 12(3). I'll query Crossref for bibliographic match." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:00:32.000Z" },
+        { "id": "s1_fu", "trace_id": "t1", "sequence": 9, "type": "fetch_url_content", "summary": "Crossref query for Smith 2021", "content": { "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith" }, "evidence_ids": ["e1"], "parent_step_id": "s1_t1", "created_at": "2026-05-20T01:00:55.000Z" },
+        { "id": "s1_t2", "trace_id": "t1", "sequence": 14, "type": "thinking", "summary": "Crossref empty. Fallback to Google Scholar.", "content": { "thought": "Items list is empty. Trying Scholar via web_search next." }, "evidence_ids": [], "parent_step_id": "s1_fu", "created_at": "2026-05-20T01:01:12.000Z" },
+        { "id": "s1_ws", "trace_id": "t1", "sequence": 18, "type": "web_search", "summary": "Scholar search: Smith 2021 widget resilience", "content": { "query": "Smith 2021 widget resilience" }, "evidence_ids": ["e2"], "parent_step_id": "s1_t2", "created_at": "2026-05-20T01:01:25.000Z" },
+        { "id": "s1_ws2", "trace_id": "t1", "sequence": 21, "type": "web_search", "summary": "SSRN site search", "content": { "query": "site:ssrn.com Smith 2021 widget resilience" }, "evidence_ids": ["e3"], "parent_step_id": "s1_ws", "created_at": "2026-05-20T01:01:35.000Z" },
+        { "id": "s1_v", "trace_id": "t1", "sequence": 30, "type": "message", "summary": "Verdict: fabricated. No record in any indexed source.", "content": { "verdict": "fabricated", "confidence": 0.96 }, "evidence_ids": ["e1", "e2", "e3"], "parent_step_id": "s1_ws2", "created_at": "2026-05-20T01:01:42.000Z" }
       ]
     },
     {
       "id": "t2",
       "job_id": "job_demo_argus",
-      "claim_id": "c2",
-      "agent": "CitationVerifier",
-      "miromind_response_id": "resp_w_demo2",
-      "started_at": "2026-05-20T01:02:20.000Z",
-      "completed_at": "2026-05-20T01:03:32.000Z",
-      "total_tokens": 7011,
-      "reasoning_tokens": 3402,
-      "num_search_queries": 2,
+      "claim_id": "c1",
+      "agent": "CitationAlignment",
+      "miromind_response_id": "resp_w_demo_t2",
+      "started_at": "2026-05-20T01:01:48.000Z",
+      "completed_at": "2026-05-20T01:02:30.000Z",
+      "total_tokens": 3120,
+      "reasoning_tokens": 1500,
+      "num_search_queries": 1,
       "final_verdict_step_id": "s2_v",
       "steps": [
-        { "id": "s2_t1", "trace_id": "t2", "sequence": 4, "type": "thinking", "summary": "SSRN 1234567 is a specific ID. I'll fetch that paper page.", "content": { "thought": "Looking up SSRN paper 1234567." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:02:22.000Z" },
-        { "id": "s2_fu", "trace_id": "t2", "sequence": 8, "type": "fetch_url_content", "summary": "SSRN paper id 1234567", "content": { "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1234567" }, "evidence_ids": ["e4"], "parent_step_id": "s2_t1", "created_at": "2026-05-20T01:02:51.000Z" },
-        { "id": "s2_t2", "trace_id": "t2", "sequence": 12, "type": "thinking", "summary": "Page exists but is a different paper, not by Doe et al. on widgets.", "content": { "thought": "SSRN 1234567 = different paper. Author search to confirm." }, "evidence_ids": [], "parent_step_id": "s2_fu", "created_at": "2026-05-20T01:03:08.000Z" },
-        { "id": "s2_ws", "trace_id": "t2", "sequence": 15, "type": "web_search", "summary": "Author cluster: Doe 2019 widget supply chains", "content": { "query": "Doe 2019 widget supply chains" }, "evidence_ids": ["e5"], "parent_step_id": "s2_t2", "created_at": "2026-05-20T01:03:20.000Z" },
-        { "id": "s2_v", "trace_id": "t2", "sequence": 22, "type": "message", "summary": "Verdict: fabricated. SSRN id maps to a different paper.", "content": { "verdict": "fabricated", "confidence": 0.92 }, "evidence_ids": ["e4", "e5"], "parent_step_id": "s2_ws", "created_at": "2026-05-20T01:03:32.000Z" }
+        { "id": "s2_t1", "trace_id": "t2", "sequence": 4, "type": "thinking", "summary": "Need source text to compare. No DOI provided.", "content": { "thought": "Try a generic web_search for the paper PDF." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:01:50.000Z" },
+        { "id": "s2_ws", "trace_id": "t2", "sequence": 8, "type": "web_search", "summary": "PDF search: Smith 2021 widget resilience filetype:pdf", "content": { "query": "Smith 2021 widget resilience filetype:pdf" }, "evidence_ids": ["e4"], "parent_step_id": "s2_t1", "created_at": "2026-05-20T01:02:10.000Z" },
+        { "id": "s2_v", "trace_id": "t2", "sequence": 14, "type": "message", "summary": "No source retrievable. Verdict downgraded to uncertain.", "content": { "verdict": "uncertain", "confidence": 0.30 }, "evidence_ids": ["e4"], "parent_step_id": "s2_ws", "created_at": "2026-05-20T01:02:30.000Z" }
+      ]
+    },
+    {
+      "id": "t3",
+      "job_id": "job_demo_argus",
+      "claim_id": "c2",
+      "agent": "DataFreshness",
+      "miromind_response_id": "resp_w_demo_t3",
+      "started_at": "2026-05-20T01:02:35.000Z",
+      "completed_at": "2026-05-20T01:03:10.000Z",
+      "total_tokens": 4502,
+      "reasoning_tokens": 1820,
+      "num_search_queries": 1,
+      "final_verdict_step_id": "s3_v",
+      "steps": [
+        { "id": "s3_t1", "trace_id": "t3", "sequence": 4, "type": "thinking", "summary": "US GDP growth is a FRED series (GDPC1). Query FRED for latest release.", "content": { "thought": "Going straight to FRED's GDPC1 series." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:02:38.000Z" },
+        { "id": "s3_fu", "trace_id": "t3", "sequence": 9, "type": "fetch_url_content", "summary": "FRED GDPC1 latest observations", "content": { "url": "https://api.stlouisfed.org/fred/series/observations?series_id=GDPC1&limit=5&sort_order=desc&api_key=…" }, "evidence_ids": ["e5"], "parent_step_id": "s3_t1", "created_at": "2026-05-20T01:02:55.000Z" },
+        { "id": "s3_t2", "trace_id": "t3", "sequence": 13, "type": "execute_python", "summary": "Compare report value (2.1%) vs FRED's most recent quarterly print (2.4%)", "content": { "code": "import json\nresp = json.loads(fred_response)\nlatest = resp['observations'][0]\nprint(latest)\n# {'date': '2025-Q3', 'value': '2.4'}\nprint('stale by 1 quarter')" }, "evidence_ids": [], "parent_step_id": "s3_fu", "created_at": "2026-05-20T01:03:02.000Z" },
+        { "id": "s3_v", "trace_id": "t3", "sequence": 18, "type": "message", "summary": "Verdict: stale. Q3 2025 figure supersedes Q2.", "content": { "verdict": "stale", "confidence": 0.94, "current_value": "2.4%" }, "evidence_ids": ["e5"], "parent_step_id": "s3_t2", "created_at": "2026-05-20T01:03:10.000Z" }
+      ]
+    },
+    {
+      "id": "t4",
+      "job_id": "job_demo_argus",
+      "claim_id": "c3",
+      "agent": "CitationAlignment",
+      "miromind_response_id": "resp_w_demo_t4",
+      "started_at": "2026-05-20T01:03:15.000Z",
+      "completed_at": "2026-05-20T01:04:01.000Z",
+      "total_tokens": 5680,
+      "reasoning_tokens": 2420,
+      "num_search_queries": 1,
+      "final_verdict_step_id": "s4_v",
+      "steps": [
+        { "id": "s4_t1", "trace_id": "t4", "sequence": 4, "type": "thinking", "summary": "Fetch the relevant IMF WEO chapter to compare framing.", "content": { "thought": "I'll fetch the public WEO chapter and search for 'productivity'." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:03:17.000Z" },
+        { "id": "s4_fu", "trace_id": "t4", "sequence": 9, "type": "fetch_url_content", "summary": "IMF WEO 2025 chapter on productivity", "content": { "url": "https://www.imf.org/en/Publications/WEO/Issues/2025/10" }, "evidence_ids": ["e6"], "parent_step_id": "s4_t1", "created_at": "2026-05-20T01:03:35.000Z" },
+        { "id": "s4_t2", "trace_id": "t4", "sequence": 13, "type": "thinking", "summary": "Source says: '4% under upside scenario, contingent on labour-market reform' — report omits caveat.", "content": { "thought": "Report's framing inverts a contingent forecast into a baseline. This is misrepresentation, not partial match." }, "evidence_ids": [], "parent_step_id": "s4_fu", "created_at": "2026-05-20T01:03:50.000Z" },
+        { "id": "s4_v", "trace_id": "t4", "sequence": 18, "type": "message", "summary": "Verdict: misrepresented. Severity critical.", "content": { "verdict": "misrepresented", "confidence": 0.88 }, "evidence_ids": ["e6"], "parent_step_id": "s4_t2", "created_at": "2026-05-20T01:04:01.000Z" }
+      ]
+    },
+    {
+      "id": "t5",
+      "job_id": "job_demo_argus",
+      "claim_id": "c4",
+      "agent": "DataFreshness",
+      "miromind_response_id": "resp_w_demo_t5",
+      "started_at": "2026-05-20T01:04:10.000Z",
+      "completed_at": "2026-05-20T01:04:48.000Z",
+      "total_tokens": 3902,
+      "reasoning_tokens": 1500,
+      "num_search_queries": 1,
+      "final_verdict_step_id": "s5_v",
+      "steps": [
+        { "id": "s5_ws", "trace_id": "t5", "sequence": 4, "type": "web_search", "summary": "WidgetWorld 2025 industry release", "content": { "query": "WidgetWorld 2025 annual widget shipments" }, "evidence_ids": ["e7"], "parent_step_id": null, "created_at": "2026-05-20T01:04:25.000Z" },
+        { "id": "s5_v", "trace_id": "t5", "sequence": 9, "type": "message", "summary": "Verdict: ok. 4.2% YoY 2024 matches WidgetWorld's official release.", "content": { "verdict": "ok", "confidence": 0.78 }, "evidence_ids": ["e7"], "parent_step_id": "s5_ws", "created_at": "2026-05-20T01:04:48.000Z" }
       ]
     }
   ],
   "evidences": [
-    { "id": "e1", "source_type": "crossref", "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith", "citation": "Crossref query", "snippet": "{\"items\":[]}", "full_content_ref": null, "retrieved_at": "2026-05-20T01:00:55.000Z", "retrieved_by_step_id": "s1_ws" },
-    { "id": "e2", "source_type": "web_page", "url": "https://scholar.google.com/scholar?q=Smith+2021+widget+resilience", "citation": "Google Scholar SERP", "snippet": "No results.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:01:38.000Z", "retrieved_by_step_id": "s1_ws2" },
-    { "id": "e3", "source_type": "ssrn", "url": "https://www.google.com/search?q=site%3Assrn.com+Smith+2021+widget+resilience", "citation": "SSRN site search", "snippet": "No matches on SSRN.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:05.000Z", "retrieved_by_step_id": "s1_ws3" },
-    { "id": "e4", "source_type": "ssrn", "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1234567", "citation": "SSRN paper 1234567", "snippet": "Title: 'A Note on Game-Theoretic Equilibria' — author unrelated.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:51.000Z", "retrieved_by_step_id": "s2_fu" },
-    { "id": "e5", "source_type": "web_page", "url": "https://scholar.google.com/scholar?q=Doe+2019+widget+supply+chains", "citation": "Google Scholar author search", "snippet": "Cluster contains no widget-supply-chain paper.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:03:20.000Z", "retrieved_by_step_id": "s2_ws" }
+    { "id": "e1", "source_type": "crossref", "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith", "citation": "Crossref query", "snippet": "{\"items\":[]}", "full_content_ref": null, "retrieved_at": "2026-05-20T01:00:55.000Z", "retrieved_by_step_id": "s1_fu" },
+    { "id": "e2", "source_type": "web_page", "url": "https://scholar.google.com/scholar?q=Smith+2021+widget+resilience", "citation": "Google Scholar SERP", "snippet": "No results.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:01:25.000Z", "retrieved_by_step_id": "s1_ws" },
+    { "id": "e3", "source_type": "ssrn", "url": "https://www.google.com/search?q=site%3Assrn.com+Smith+2021+widget+resilience", "citation": "SSRN site search", "snippet": "No matches.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:01:35.000Z", "retrieved_by_step_id": "s1_ws2" },
+    { "id": "e4", "source_type": "web_page", "url": "https://www.google.com/search?q=Smith+2021+widget+resilience+filetype%3Apdf", "citation": "Open-web PDF search", "snippet": "No matching PDF.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:10.000Z", "retrieved_by_step_id": "s2_ws" },
+    { "id": "e5", "source_type": "fred", "url": "https://api.stlouisfed.org/fred/series/observations?series_id=GDPC1", "citation": "FRED GDPC1 observations", "snippet": "{\"observations\":[{\"date\":\"2025-Q3\",\"value\":\"2.4\"}]}", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:55.000Z", "retrieved_by_step_id": "s3_fu" },
+    { "id": "e6", "source_type": "imf", "url": "https://www.imf.org/en/Publications/WEO/Issues/2025/10", "citation": "IMF WEO Oct 2025", "snippet": "Under the upside scenario, contingent on labour-market reform, productivity could grow 4% annually.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:03:35.000Z", "retrieved_by_step_id": "s4_fu" },
+    { "id": "e7", "source_type": "web_page", "url": "https://widgetworld.com/2025-industry-release", "citation": "WidgetWorld 2025 Industry Release", "snippet": "Global widget shipments grew 4.2% in 2024 compared to 2023.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:04:25.000Z", "retrieved_by_step_id": "s5_ws" }
   ]
 }
