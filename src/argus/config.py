@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     miromind_model: str = "mirothinker-1-7-deepresearch"
     miromind_request_timeout_s: float = 90.0
     miromind_stream_timeout_s: float = 300.0
+    miromind_retry_attempts: int = 3
+    miromind_retry_base_delay_s: float = 1.0
 
 
 def settings() -> Settings:

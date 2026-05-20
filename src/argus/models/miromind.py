@@ -19,8 +19,13 @@ class _StrictBase(BaseModel):
 
 
 class Usage(_StrictBase):
+    # Legacy OpenAI-style names (kept for backward compat; not emitted by MiroMind).
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    # MiroMind's actual field names (observed in live SSE response.completed payloads).
+    input_tokens: int = 0
+    output_tokens: int = 0
+    # Both APIs send this.
     total_tokens: int = 0
     reasoning_tokens: int = 0
     num_search_queries: int = 0

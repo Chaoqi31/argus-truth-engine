@@ -13,12 +13,13 @@ JSON validation, repair retries) lives in argus.agents.*.
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 import httpx
 
 from argus.config import Settings
+from argus.engineering import retry_on_transient
 from argus.log import log
 from argus.miromind.sse import sse_iter_events
 from argus.models.miromind import ResponseEvent
@@ -33,6 +34,10 @@ class MiromindClient:
             "Authorization": f"Bearer {settings.miromind_api_key}",
             "Content-Type": "application/json",
         }
+        self._submit_once: Callable[..., Awaitable[str]] = retry_on_transient(
+            attempts=settings.miromind_retry_attempts,
+            base_delay=settings.miromind_retry_base_delay_s,
+        )(self._submit_background_once)
 
     async def submit_background(
         self,
@@ -42,7 +47,27 @@ class MiromindClient:
         max_output_tokens: int | None = None,
         metadata: dict[str, str] | None = None,
     ) -> str:
-        """POST /v1/responses with background=true; return the response id."""
+        """POST /v1/responses with background=true; return the response id.
+
+        Wrapped with :func:`retry_on_transient`, so 408/425/429/5xx and
+        :class:`httpx.RequestError` failures are retried with exponential
+        backoff per :attr:`Settings.miromind_retry_attempts`.
+        """
+        return await self._submit_once(
+            input=input,
+            instructions=instructions,
+            max_output_tokens=max_output_tokens,
+            metadata=metadata,
+        )
+
+    async def _submit_background_once(
+        self,
+        *,
+        input: str | list[dict[str, Any]],
+        instructions: str | None,
+        max_output_tokens: int | None,
+        metadata: dict[str, str] | None,
+    ) -> str:
         body: dict[str, Any] = {
             "model": self._s.miromind_model,
             "input": input,
