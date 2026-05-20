@@ -20,7 +20,7 @@ This branch contains:
 - **Plan C** — Next.js frontend in [`web/`](web/) that loads `findings.json`
   and renders the PDF + Reasoning Panel + Trace replayer.
 
-## Quickstart — CLI (Plan A)
+## Quickstart — CLI
 
 Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), and a MiroMind
 API key from <https://platform.miromind.ai/>.
@@ -28,8 +28,13 @@ API key from <https://platform.miromind.ai/>.
 ```bash
 uv sync
 export ARGUS_MIROMIND_API_KEY=sk_…
-uv run argus audit examples/sample-report.pdf -o findings.json
+uv run argus audit examples/sample-report.pdf -o findings.json --budget-usd 5
 ```
+
+`--budget-usd` caps per-job MiroMind spend. The default is $5 — enough for the
+bundled 4-page sample with the flagship model at promo pricing. Jobs that
+breach the cap are aborted gracefully and write a partial `findings.json` with
+`status: "failed"`.
 
 The resulting `findings.json` contains:
 
