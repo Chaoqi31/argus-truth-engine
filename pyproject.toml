@@ -28,6 +28,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "websockets>=13",
     "rich>=13.7",
+    "json-repair>=0.30",
 ]
 
 [project.scripts]
