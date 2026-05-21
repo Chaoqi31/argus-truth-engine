@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 from argus.config import Settings
 from argus.orchestrator import audit_pdf
@@ -140,6 +141,46 @@ async def test_audit_pdf_honours_caller_supplied_job_id(tmp_path: Path) -> None:
         history = [ev async for ev in sub.iter_history()]
     assert len(history) >= 2  # at least started + finished  # noqa: PLR2004
     assert all(ev.job_id == "job_caller_supplied" for ev in history)
+
+
+async def test_audit_pdf_traps_unexpected_exception_and_publishes_failed(
+    tmp_path: Path,
+) -> None:
+    """Regression: a runtime error mid-graph must still emit a 'failed' WS event.
+
+    Live MiroMind runs occasionally produce httpx errors that bubble out of an
+    agent node after retries exhaust. Without this trap, audit_pdf raised, the
+    JobRunner only marked an internal failure, and WS subscribers hung waiting
+    for a terminal event that never came.
+    """
+    # Force the orchestrator into the unhandled-exception branch by making the
+    # MiroMind client raise on its very first call (mirrors a real httpx
+    # connection error that survives the retry layer).
+    fake_client = AsyncMock()
+    fake_client.submit_background = AsyncMock(
+        side_effect=RuntimeError("upstream peer closed"),
+    )
+
+    bus = InProcessBus()
+    out = tmp_path / "findings.json"
+    job = await audit_pdf(
+        pdf_path=FIXTURE_PDF,
+        output_path=out,
+        settings=Settings(miromind_api_key="x", miromind_retry_base_delay_s=0.001),
+        client=fake_client,
+        budget_usd=10.0,
+        trace_bus=bus,
+        job_id="job_exc_test",
+    )
+    assert job.status == "failed"
+    assert job.id == "job_exc_test"
+
+    async with bus.subscribe("job_exc_test") as sub:
+        history = [ev async for ev in sub.iter_history()]
+    kinds = [ev.kind for ev in history]
+    assert kinds[0] == "started"
+    assert kinds[-1] == "failed"
+    assert "RuntimeError" in (history[-1].payload.get("reason") or "")
 
 
 async def test_audit_pdf_no_bus_is_no_op(tmp_path: Path) -> None:

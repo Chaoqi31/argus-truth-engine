@@ -58,16 +58,17 @@ OUTPUT ONLY THE JSON OBJECT.
 class _RawClaim(BaseModel):
     """Lenient planner-side claim shape that tolerates LLM output quirks.
 
-    Real MiroMind output occasionally emits empty or unrecognised values for
-    the strict-enum fields ``type`` and ``importance``. We coerce those to
-    safe defaults rather than failing the whole run — the verdict severity
-    that the audit ultimately produces is what matters, not the planner's
-    importance label.
+    Real MiroMind output occasionally drops characters mid-buffer, leaving
+    individual claims with missing keys (e.g. ``"":"c2"`` instead of
+    ``"id":"c2"``) or missing values (e.g. ``"page":,"span":...``). Every
+    field gets a safe default so a single malformed claim cannot poison the
+    whole batch — ``PlannerOutput.to_claims`` filters out claims whose
+    ``text`` is still empty after lenient parsing.
     """
 
-    id: str
-    text: str
-    page: int = Field(ge=1)
+    id: str = ""
+    text: str = ""
+    page: int = 1
     span: list[int] | None = None  # accept anything; we normalise downstream
     type: ClaimType = ClaimType.QUALITATIVE
     importance: Literal["high", "medium", "low"] = "low"
@@ -87,6 +88,23 @@ class _RawClaim(BaseModel):
             return "low"
         return v
 
+    @field_validator("page", mode="before")
+    @classmethod
+    def _coerce_page(cls, v: object) -> object:
+        # The LLM sometimes drops the value entirely: ``"page":,"span":...``
+        # which json-repair fills in as ``None``. Treat that as page 1.
+        if v is None or v == "":
+            return 1
+        if isinstance(v, int):
+            return v if v >= 1 else 1
+        if isinstance(v, str):
+            try:
+                n = int(v)
+            except ValueError:
+                return 1
+            return n if n >= 1 else 1
+        return 1
+
 
 class PlannerOutput(BaseModel):
     """Raw planner output. Call `to_claims()` to get strict-validated Claims."""
@@ -96,17 +114,23 @@ class PlannerOutput(BaseModel):
     def to_claims(self) -> list[Claim]:
         """Convert relaxed planner output to strict-validated Claim instances.
 
-        Spans that are missing, malformed, or out of order fall back to (0, 0).
-        The downstream Citation Verifier doesn't need the span for its work;
-        the span is mainly for future UI highlighting in Plan C.
+        Claims with empty ``text`` are dropped (they're worthless to downstream
+        agents). Claims with empty ``id`` get an auto-generated stable id so
+        the orchestrator can address them. Spans that are missing, malformed,
+        or out of order fall back to ``(0, 0)``.
         """
         out: list[Claim] = []
-        for raw in self.claims:
+        for idx, raw in enumerate(self.claims):
+            text = raw.text.strip()
+            if not text:
+                # Empty text means the LLM corrupted this claim past recovery.
+                continue
+            cid = raw.id.strip() or f"c_auto_{idx}"
             span = _coerce_span(raw.span)
             out.append(
                 Claim(
-                    id=raw.id,
-                    text=raw.text,
+                    id=cid,
+                    text=text,
                     page=raw.page,
                     span=span,
                     type=raw.type,
