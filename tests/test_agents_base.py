@@ -69,6 +69,43 @@ async def test_runs_once_when_json_is_valid() -> None:
     assert client.submit_background.await_count == 1
 
 
+async def test_captures_input_output_token_split_from_usage() -> None:
+    """Regression: the cost calculator depends on input/output tokens being
+    captured separately. Charging all tokens at the output rate over-
+    estimated spend by ~5-6x and aborted live audits prematurely.
+    """
+    client = AsyncMock()
+    client.submit_background = AsyncMock(return_value="resp_x")
+
+    valid = '{"verdict":"ok","confidence":0.9}'
+
+    def _completed_with_split() -> ResponseCompletedEvent:
+        return ResponseCompletedEvent(
+            type="response.completed",
+            sequence_number=99,
+            response=ResponseSummary(
+                id="resp_x",
+                status="completed",
+                usage=Usage(
+                    input_tokens=8000,
+                    output_tokens=2000,
+                    total_tokens=10000,
+                ),
+            ),
+        )
+
+    client.stream = lambda rid, after=0: _events_seq(
+        [_msg_delta(valid), _completed_with_split()]
+    )
+
+    runner = AgentRunner(client=client, model_cls=Out, agent_name="t")
+    result = await runner.run(instructions=None, input_text="hi")
+    stream = result.first
+    assert stream.total_tokens == 10000  # noqa: PLR2004
+    assert stream.input_tokens == 8000  # noqa: PLR2004
+    assert stream.output_tokens == 2000  # noqa: PLR2004
+
+
 async def test_repairs_once_then_succeeds() -> None:
     client = AsyncMock()
     rids = iter(["resp_first", "resp_repair"])

@@ -37,12 +37,20 @@ class JsonRepairFailed(RuntimeError):
 
 @dataclass
 class StreamCollection:
-    """Result of consuming one Responses stream."""
+    """Result of consuming one Responses stream.
+
+    Captures both ``input_tokens`` and ``output_tokens`` separately so the
+    cost calculator can apply the correct per-direction price — the input
+    and output rates differ by ~8x on mirothinker models, and charging
+    every token at the output rate overestimates the bill by 5-6x.
+    """
 
     response_id: str
     final_text: str = ""
     steps: list[Step] = field(default_factory=list)
     total_tokens: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
     reasoning_tokens: int = 0
     num_search_queries: int = 0
     failed: bool = False
@@ -135,9 +143,16 @@ class AgentRunner[T: BaseModel]:
         async for ev in self._client.stream(rid, after=0):
             self._record_step(collected, ev, thinking_buf, text_buf)
             if isinstance(ev, ResponseCompletedEvent):
-                collected.total_tokens = ev.response.usage.total_tokens
-                collected.reasoning_tokens = ev.response.usage.reasoning_tokens
-                collected.num_search_queries = ev.response.usage.num_search_queries
+                usage = ev.response.usage
+                collected.total_tokens = usage.total_tokens
+                # MiroMind's actual SSE Usage uses input_tokens/output_tokens;
+                # the legacy OpenAI-style prompt_tokens/completion_tokens are
+                # populated as a fallback in our Pydantic model. Prefer the
+                # MiroMind names but fall back to legacy if the API ever flips.
+                collected.input_tokens = usage.input_tokens or usage.prompt_tokens
+                collected.output_tokens = usage.output_tokens or usage.completion_tokens
+                collected.reasoning_tokens = usage.reasoning_tokens
+                collected.num_search_queries = usage.num_search_queries
             elif isinstance(ev, ResponseFailedEvent):
                 collected.failed = True
                 collected.failure_summary = str(ev.error or "response.failed")
