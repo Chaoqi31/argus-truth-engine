@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useArgusStore } from "@/lib/store";
@@ -33,6 +33,14 @@ const PdfViewer = dynamic(
 type RightMode = "reasoning" | "stream";
 
 export default function AuditPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuditPageContent />
+    </Suspense>
+  );
+}
+
+function AuditPageContent() {
   const router = useRouter();
   const params = useSearchParams();
   const liveId = params.get("id");
@@ -142,7 +150,7 @@ export default function AuditPage() {
     if (f) setActiveFinding(f.id);
   };
 
-  const fileUrl = "/sample-report.pdf";
+  const fileUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(job.id)}/pdf` : "/sample-report.pdf";
 
   return (
     <>

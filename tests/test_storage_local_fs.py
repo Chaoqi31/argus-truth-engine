@@ -36,3 +36,10 @@ async def test_path_for_returns_filesystem_path(tmp_path: Path) -> None:
     p = s.path_for("x.pdf")
     assert p.exists()
     assert p.is_relative_to(tmp_path)
+
+
+async def test_rejects_sibling_path_with_same_prefix(tmp_path: Path) -> None:
+    s = LocalFsStorage(root=tmp_path / "uploads")
+
+    with pytest.raises(ValueError, match="escapes storage root"):
+        await s.put("../uploads_evil/x.pdf", b"x")

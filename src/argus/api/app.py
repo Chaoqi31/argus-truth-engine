@@ -24,6 +24,7 @@ def _build_state(settings: Settings) -> AppState:
     storage = LocalFsStorage(Path(settings.storage_root))
 
     repo: JobRepository | None = None
+    engine = None
     if settings.db_url:
         engine = create_engine_from_url(settings.db_url)
         repo = JobRepository(sessionmaker_from_engine(engine))
@@ -32,7 +33,13 @@ def _build_state(settings: Settings) -> AppState:
         RedisPubSubBus(settings.redis_url) if settings.redis_url else InProcessBus()
     )
 
-    return AppState(settings=settings, repo=repo, storage=storage, trace_bus=trace_bus)
+    return AppState(
+        settings=settings,
+        repo=repo,
+        storage=storage,
+        trace_bus=trace_bus,
+        db_engine=engine,
+    )
 
 
 def create_app(*, settings: Settings) -> FastAPI:
@@ -40,8 +47,14 @@ def create_app(*, settings: Settings) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        # Hooks for graceful shutdown (close Redis, dispose engines) land here later.
-        yield
+        try:
+            yield
+        finally:
+            close_bus = getattr(state.trace_bus, "close", None)
+            if close_bus is not None:
+                await close_bus()
+            if state.db_engine is not None:
+                await state.db_engine.dispose()
 
     app = FastAPI(
         title="Argus API",
@@ -53,7 +66,7 @@ def create_app(*, settings: Settings) -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_cors_origins(settings),
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -66,3 +79,9 @@ def create_app(*, settings: Settings) -> FastAPI:
     app.include_router(ws_router)
 
     return app
+
+
+def _cors_origins(settings: Settings) -> list[str]:
+    raw = settings.cors_allow_origins
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return origins or ["http://localhost:3000", "http://127.0.0.1:3000"]

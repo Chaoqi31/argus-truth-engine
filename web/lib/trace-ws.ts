@@ -47,7 +47,9 @@ export function subscribeTrace(
 
   const connect = () => {
     if (disposed || terminated) return;
-    const url = `ws://${host}/ws/jobs/${encodeURIComponent(jobId)}/trace?after=${lastSeq}`;
+    const protocol =
+      typeof window !== "undefined" && window.location.protocol === "https:" ? "wss" : "ws";
+    const url = `${protocol}://${host}/ws/jobs/${encodeURIComponent(jobId)}/trace?after=${lastSeq}`;
     const ws = new WebSocket(url);
     socket = ws;
 
@@ -59,7 +61,8 @@ export function subscribeTrace(
         callbacks.onError?.(err instanceof Error ? err : new Error(String(err)));
         return;
       }
-      if (typeof parsed.sequence === "number" && parsed.sequence > lastSeq) {
+      if (typeof parsed.sequence === "number") {
+        if (parsed.sequence <= lastSeq) return;
         lastSeq = parsed.sequence;
       }
       callbacks.onEvent(parsed);

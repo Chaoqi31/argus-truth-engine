@@ -1,16 +1,20 @@
 """HTTP /jobs endpoints."""
 from __future__ import annotations
 
+from pathlib import PurePath
 from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 
 from argus.api.runner import JobRunner
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 _HTTP_UNSUPPORTED = 415
+_HTTP_PAYLOAD_TOO_LARGE = 413
 _HTTP_NOT_FOUND = 404
+_HTTP_UNAUTHORIZED = 401
 
 
 def _runner(req: Request) -> JobRunner:
@@ -21,21 +25,55 @@ def _runner(req: Request) -> JobRunner:
     return runner
 
 
+def _require_token(request: Request) -> None:
+    token = request.app.state.argus.settings.api_token
+    if not token:
+        return
+    expected = f"Bearer {token}"
+    if request.headers.get("authorization") != expected:
+        raise HTTPException(status_code=_HTTP_UNAUTHORIZED, detail="unauthorized")
+
+
+def _safe_filename(filename: str | None) -> str:
+    name = PurePath((filename or "upload.pdf").replace("\\", "/")).name
+    return name or "upload.pdf"
+
+
 @router.post("", status_code=202)
 async def submit_job(
     request: Request,
     pdf: UploadFile = File(..., description="PDF to audit"),  # noqa: B008
 ) -> dict[str, str]:
+    _require_token(request)
     if (pdf.content_type or "").lower() != "application/pdf":
         raise HTTPException(status_code=_HTTP_UNSUPPORTED, detail="expected application/pdf")
-    blob = await pdf.read()
+    max_bytes = request.app.state.argus.settings.max_upload_bytes
+    blob = await pdf.read(max_bytes + 1)
+    if len(blob) > max_bytes:
+        raise HTTPException(status_code=_HTTP_PAYLOAD_TOO_LARGE, detail="pdf too large")
+    if not blob.startswith(b"%PDF"):
+        raise HTTPException(status_code=_HTTP_UNSUPPORTED, detail="expected PDF file")
     runner = _runner(request)
-    job_id = await runner.submit(blob, pdf.filename or "upload.pdf")
+    job_id = await runner.submit(blob, _safe_filename(pdf.filename))
     return {"job_id": job_id, "status": "running"}
+
+
+@router.get("/{job_id}/pdf")
+async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
+    _require_token(request)
+    runner = _runner(request)
+    record = runner.get(job_id)
+    if record is None or not record.pdf_key:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="pdf not found")
+    path = runner.state.storage.path_for(record.pdf_key)
+    if not path.exists():
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="pdf not found")
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
 
 
 @router.get("/{job_id}")
 async def get_job(request: Request, job_id: str) -> dict[str, Any]:
+    _require_token(request)
     runner = _runner(request)
     record = runner.get(job_id)
     if record is None:

@@ -31,6 +31,12 @@ class Settings(BaseSettings):
 
     # Filesystem path where uploaded PDFs are stored.
     storage_root: str = "./uploads"
+    max_upload_bytes: int = 25 * 1024 * 1024
+
+    # Comma-separated browser origins allowed to call the API. Keep local dev
+    # working by default without exposing wildcard CORS in production.
+    cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    api_token: str = ""
 
     # Per-job MiroMind spend cap (USD). A real 5-agent audit against
     # mirothinker-1-7-deepresearch ($4/$25 per M tokens) typically runs

@@ -58,6 +58,10 @@ class AgentResult[T: BaseModel]:
     def first(self) -> StreamCollection:
         return self.streams[0]
 
+    @property
+    def final(self) -> StreamCollection:
+        return self.streams[-1]
+
 
 class AgentRunner[T: BaseModel]:
     """Runs one Responses-API call with JSON validation + one-shot repair."""

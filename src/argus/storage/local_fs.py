@@ -35,6 +35,6 @@ class LocalFsStorage:
         """Prevent path traversal — keys must stay under root."""
         p = (self._root / key).resolve()
         root_resolved = self._root.resolve()
-        if not str(p).startswith(str(root_resolved)):
+        if not p.is_relative_to(root_resolved):
             raise ValueError(f"key escapes storage root: {key!r}")
         return p
