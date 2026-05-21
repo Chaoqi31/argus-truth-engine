@@ -20,7 +20,7 @@ class FakeSocket {
       this.onopen?.(new Event("open"));
     });
   }
-  send(_data: string) {}
+  send() {}
   close(code?: number, reason?: string) {
     this.readyState = 3;
     this.closeArgs = { code, reason };
@@ -110,6 +110,26 @@ describe("subscribeTrace", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(FakeSocket.instances).toHaveLength(2);
     expect(closeReports[closeReports.length - 1]).toBe(true);
+  });
+
+  it("ignores duplicate sequence numbers after reconnect replay", async () => {
+    const events: TraceEvent[] = [];
+    subscribeTrace(
+      "job_x",
+      { onEvent: (ev) => events.push(ev) },
+      { wsHost: "h:1", reconnectDelayMs: 5 },
+    );
+
+    await flush();
+    FakeSocket.instances[0].push({ job_id: "job_x", sequence: 1, kind: "started", payload: {} });
+    FakeSocket.instances[0].push({ job_id: "job_x", sequence: 2, kind: "step", payload: {} });
+    FakeSocket.instances[0].serverDrop();
+
+    await new Promise((r) => setTimeout(r, 20));
+    FakeSocket.instances[1].push({ job_id: "job_x", sequence: 2, kind: "step", payload: {} });
+    FakeSocket.instances[1].push({ job_id: "job_x", sequence: 3, kind: "finished", payload: {} });
+
+    expect(events.map((ev) => ev.sequence)).toEqual([1, 2, 3]);
   });
 
   it("disconnect() stops further reconnects", async () => {

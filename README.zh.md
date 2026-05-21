@@ -11,7 +11,7 @@
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
-[![Tests](https://img.shields.io/badge/tests-120_passing-success)](#测试)
+[![Tests](https://img.shields.io/badge/tests-122_passing-success)](#测试)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[English](README.md)** · **[简体中文](README.zh.md)**
@@ -211,15 +211,15 @@ wscat -c "ws://127.0.0.1:8080/ws/jobs/${JOB}/trace?after=0"
 
 ```bash
 # 后端
-uv run pytest -q          # 88 collected（无 Redis 时 1 skipped）
+uv run pytest -q          # 90 collected（无 Redis 时 1 skipped）
 uv run mypy src/argus     # 严格类型检查
 uv run ruff check .       # lint
 
 # 前端
-cd web && pnpm test       # vitest，32 passing
+cd web && pnpm test       # vitest，33 passing
 ```
 
-核心模块覆盖率 **91%**。
+核心模块覆盖率 **90%**。
 
 ### Pre-push 网关
 

@@ -18,6 +18,7 @@ FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 
 HTTP_OK = 200
 HTTP_ACCEPTED = 202
+HTTP_PAYLOAD_TOO_LARGE = 413
 HTTP_NOT_FOUND = 404
 HTTP_UNSUPPORTED = 415
 
@@ -67,6 +68,10 @@ async def test_post_jobs_accepts_pdf_and_returns_job_id(app_under_test: FastAPI)
             assert got.status_code == HTTP_OK
             assert got.json()["status"] == "done"
 
+            pdf_resp = await client.get(f"/jobs/{job_id}/pdf")
+            assert pdf_resp.status_code == HTTP_OK
+            assert pdf_resp.content.startswith(b"%PDF")
+
 
 async def test_get_missing_job_returns_404(app_under_test: FastAPI) -> None:
     async with AsyncClient(
@@ -85,3 +90,15 @@ async def test_post_rejects_non_pdf(app_under_test: FastAPI) -> None:
             files={"pdf": ("evil.txt", b"not a pdf", "text/plain")},
         )
     assert resp.status_code == HTTP_UNSUPPORTED
+
+
+async def test_post_rejects_oversized_upload(app_under_test: FastAPI) -> None:
+    app_under_test.state.argus.settings.max_upload_bytes = 3
+    async with AsyncClient(
+        transport=ASGITransport(app=app_under_test), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/jobs",
+            files={"pdf": ("sample-report.pdf", b"%PDF-1.4", "application/pdf")},
+        )
+    assert resp.status_code == HTTP_PAYLOAD_TOO_LARGE

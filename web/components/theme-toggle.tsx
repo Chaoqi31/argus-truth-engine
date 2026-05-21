@@ -33,19 +33,16 @@ const ICONS: Record<Theme, string> = {
 };
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("auto");
+  const [theme, setTheme] = useState<Theme>(() => readTheme());
 
   useEffect(() => {
-    const t = readTheme();
-    setTheme(t);
-    applyTheme(t);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   const cycle = () => {
     const next: Theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
     setTheme(next);
     localStorage.setItem(STORAGE_KEY, next);
-    applyTheme(next);
   };
 
   return (

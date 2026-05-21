@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from argus.config import Settings
 from argus.db.repository import JobRepository
@@ -22,6 +23,7 @@ class AppState:
     repo: JobRepository | None
     storage: Storage
     trace_bus: TraceBus
+    db_engine: AsyncEngine | None = None
 
 
 def get_state(request: Request) -> AppState:

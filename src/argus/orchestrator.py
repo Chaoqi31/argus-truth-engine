@@ -327,14 +327,14 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             return {"aborted": True, "abort_reason": f"planner: {exc}"}
 
         try:
-            _charge(ctx, result.first)
+            _charge_result(ctx, result)
         except BudgetExceeded as exc:
             log.error("orchestrator.budget_exceeded_at_planner", error=str(exc))
             return {"aborted": True, "abort_reason": str(exc)}
 
         claims = result.parsed.to_claims()
         trace = _build_trace(
-            job_id=ctx.job_id, claim_id="(planner)", agent="planner", stream=result.first
+            job_id=ctx.job_id, claim_id="(planner)", agent="planner", stream=result.final
         )
         await ctx.publisher.publish("step", _step_payload(trace, n_claims=len(claims)))
         return {"claims": claims, "traces": {trace.id: trace}}
@@ -411,7 +411,7 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
             return {}
 
         try:
-            _charge(ctx, result.first)
+            _charge_result(ctx, result)
         except BudgetExceeded as exc:
             log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
             return {"aborted": True, "abort_reason": str(exc)}
@@ -420,7 +420,7 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
             job_id=ctx.job_id,
             claim_id="(consistency)",
             agent="Consistency",
-            stream=result.first,
+            stream=result.final,
         )
         new_findings = _contradictions_to_findings(
             job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
@@ -445,7 +445,7 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             return {}
 
         try:
-            _charge(ctx, result.first)
+            _charge_result(ctx, result)
         except BudgetExceeded as exc:
             log.warning("orchestrator.budget_exceeded_at_reporter", error=str(exc))
             return {"aborted": True, "abort_reason": str(exc)}
@@ -454,7 +454,7 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             job_id=ctx.job_id,
             claim_id="(reporter)",
             agent="Reporter",
-            stream=result.first,
+            stream=result.final,
         )
         await ctx.publisher.publish("step", _step_payload(trace))
         return {
@@ -519,7 +519,7 @@ async def _per_claim_specialist(
         if failure is not None or agent_result is None:
             continue
         try:
-            _charge(ctx, agent_result.first)
+            _charge_result(ctx, agent_result)
         except BudgetExceeded as exc:
             log.warning(
                 "orchestrator.budget_exceeded_at_specialist",
@@ -534,7 +534,7 @@ async def _per_claim_specialist(
                 "evidences": new_evidences,
             }
         trace = _build_trace(
-            job_id=ctx.job_id, claim_id=claim.id, agent=agent_name, stream=agent_result.first
+            job_id=ctx.job_id, claim_id=claim.id, agent=agent_name, stream=agent_result.final
         )
         new_traces[trace.id] = trace
         finding, ev_records = _make_finding(
@@ -708,3 +708,8 @@ def _charge(ctx: _Ctx, stream: StreamCollection) -> None:
         usage, model=ctx.settings.miromind_model, web_searches=stream.num_search_queries
     )
     ctx.budget.charge(cost)
+
+
+def _charge_result(ctx: _Ctx, result: AgentResult[Any]) -> None:
+    for stream in result.streams:
+        _charge(ctx, stream)
