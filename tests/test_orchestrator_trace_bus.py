@@ -138,7 +138,7 @@ async def test_audit_pdf_honours_caller_supplied_job_id(tmp_path: Path) -> None:
 
     async with bus.subscribe("job_caller_supplied") as sub:
         history = [ev async for ev in sub.iter_history()]
-    assert len(history) >= 2  # at least started + finished
+    assert len(history) >= 2  # at least started + finished  # noqa: PLR2004
     assert all(ev.job_id == "job_caller_supplied" for ev in history)
 
 
