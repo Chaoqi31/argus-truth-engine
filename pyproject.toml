@@ -73,5 +73,8 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Make `pytest` work directly (without `uv run` or an editable install) so
+# the global pre-push hook can run the suite from a clean shell.
+pythonpath = ["src"]
 asyncio_mode = "auto"
 addopts = "-ra --strict-markers --cov=argus --cov-report=term-missing --cov-fail-under=0"

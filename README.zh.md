@@ -221,6 +221,18 @@ cd web && pnpm test       # vitest，32 passing
 
 核心模块覆盖率 **91%**。
 
+### Pre-push 网关
+
+想让每次 push 前自动跑完整套 gate（lint + 类型 + 后端测试 + 前端测试），新 clone
+执行一次：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+hook（[`.githooks/pre-push`](.githooks/pre-push)）走 `uv` 和 `pnpm`，用项目管理的
+环境，而不是全局 PATH 上随机的 `pytest`/`pnpm`。
+
 编排器有端到端测试，对接一个确定性的 `StreamRouter` mock 回放预设的 MiroMind SSE
 事件，所以完整 5-agent fan-out 在不烧 live credit 的前提下也能被覆盖。
 
