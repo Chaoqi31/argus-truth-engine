@@ -122,14 +122,21 @@ async def audit_pdf(
     budget_usd: float = 5.0,
     repo: JobRepository | None = None,
     trace_bus: TraceBus | None = None,
+    job_id: str | None = None,
 ) -> Job:
-    """Top-level Plan B2 pipeline — LangGraph parallel 5-agent."""
+    """Top-level Plan B2 pipeline — LangGraph parallel 5-agent.
+
+    Pass ``job_id`` to override the auto-generated id. The HTTP API uses this
+    so the submit-time id (returned by POST /jobs) equals the id under which
+    trace events are published.
+    """
     pdf_path = Path(pdf_path)
     output_path = Path(output_path)
     if client is None:
         client = MiromindClient(settings)
 
-    job_id = f"job_{uuid4().hex[:12]}"
+    if job_id is None:
+        job_id = f"job_{uuid4().hex[:12]}"
     job = Job(id=job_id, pdf_path=str(pdf_path), status="parsing")
 
     budget = BudgetTracker(max_usd=budget_usd)
