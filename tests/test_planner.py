@@ -27,6 +27,41 @@ def test_planner_output_validates_claim_types() -> None:
     assert out.claims[0].type == ClaimType.CITATION
 
 
+def test_planner_output_coerces_empty_enums_to_safe_defaults() -> None:
+    """MiroMind occasionally emits empty strings for type/importance.
+
+    The audit should still proceed; only the planner's labels are downgraded.
+    """
+    payload = {
+        "claims": [
+            {
+                "id": "c4",
+                "text": "...",
+                "page": 1,
+                "span": [0, 3],
+                "type": "",                 # empty enum
+                "importance": "",           # empty enum
+                "extracted_metadata": {},
+            },
+            {
+                "id": "c5",
+                "text": "...",
+                "page": 1,
+                "span": [0, 3],
+                "type": "not-a-real-type",  # unknown enum
+                "importance": "URGENT",     # unknown enum
+                "extracted_metadata": {},
+            },
+        ]
+    }
+    out = PlannerOutput.model_validate(payload)
+    assert len(out.claims) == 2  # noqa: PLR2004
+    assert out.claims[0].type == ClaimType.QUALITATIVE
+    assert out.claims[0].importance == "low"
+    assert out.claims[1].type == ClaimType.QUALITATIVE
+    assert out.claims[1].importance == "low"
+
+
 def test_build_planner_input_contains_page_markers() -> None:
     doc = ParsedDoc(
         source_path=None,  # type: ignore[arg-type]
