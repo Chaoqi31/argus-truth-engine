@@ -228,18 +228,6 @@ The orchestrator is exercised end-to-end against a deterministic `StreamRouter` 
 replays canned MiroMind SSE events, so the full 5-agent fan-out is tested without burning
 live credits.
 
-## 🗺️ Roadmap
-
-- [x] Plan A — vertical slice CLI (Planner + Verifier)
-- [x] Plan B1 — five agents (Alignment, Freshness, Consistency, Reporter)
-- [x] Plan B2 — LangGraph parallel pipeline + engineering controls
-- [x] Plan B3a — async SQLAlchemy persistence + Alembic
-- [x] Plan B3b — FastAPI + WebSocket + pluggable TraceBus
-- [x] Plan B3c — frontend live mode (real upload + WS streaming)
-- [x] Plan C — Next.js UI (PDF viewer, DAG, reasoning panel, trace replay)
-- [ ] Plan D-1 — labelled eval dataset + precision/recall harness
-- [ ] Plan D-2 — public demo deployment
-
 ## 🎬 Demo
 
 > Demo video — coming soon. Until then, run `pnpm dev` and click "Try the sample audit."

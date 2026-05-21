@@ -224,18 +224,6 @@ cd web && pnpm test       # vitest，32 passing
 编排器有端到端测试，对接一个确定性的 `StreamRouter` mock 回放预设的 MiroMind SSE
 事件，所以完整 5-agent fan-out 在不烧 live credit 的前提下也能被覆盖。
 
-## 🗺️ 路线图
-
-- [x] Plan A —— vertical slice CLI（Planner + Verifier）
-- [x] Plan B1 —— 五个 agent（Alignment, Freshness, Consistency, Reporter）
-- [x] Plan B2 —— LangGraph 并行流水线 + 工程化控制
-- [x] Plan B3a —— async SQLAlchemy 持久化 + Alembic
-- [x] Plan B3b —— FastAPI + WebSocket + 可插拔 TraceBus
-- [x] Plan B3c —— 前端 live 模式（真上传 + WS 流）
-- [x] Plan C —— Next.js UI（PDF viewer, DAG, reasoning panel, trace replay）
-- [ ] Plan D-1 —— 带标注的评估集 + precision/recall 计算
-- [ ] Plan D-2 —— 公网 demo 部署
-
 ## 🎬 Demo
 
 > Demo 视频 —— 即将上线。在此之前，跑 `pnpm dev` 然后点 "Try the sample audit"。
