@@ -45,12 +45,24 @@ def msg(text: str, seq: int = 1) -> ResponseOutputTextDeltaEvent:
     )
 
 
-def completed(seq: int = 99, tokens: int = 100) -> ResponseCompletedEvent:
+def completed(
+    seq: int = 99,
+    tokens: int = 100,
+    *,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+) -> ResponseCompletedEvent:
     return ResponseCompletedEvent(
         type="response.completed",
         sequence_number=seq,
         response=ResponseSummary(
-            id="resp_x", status="completed", usage=Usage(total_tokens=tokens)
+            id="resp_x",
+            status="completed",
+            usage=Usage(
+                total_tokens=tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            ),
         ),
     )
 

@@ -714,17 +714,29 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
 
 
 def _charge(ctx: _Ctx, stream: StreamCollection) -> None:
-    """Record cost into the budget tracker; raises BudgetExceeded on breach."""
+    """Record cost into the budget tracker; raises BudgetExceeded on breach.
+
+    Uses the real input/output token split captured from the MiroMind
+    response. Treating the full total as output (a previous fallback) caused
+    the budget tracker to overestimate spend by ~5-6x, which aborted audits
+    well before MiroMind's actual billing hit the cap.
+    """
+    # Some streams (e.g. mocked tests) only set total_tokens. If we don't
+    # have a split, fall back to charging total as output — still better
+    # than crashing.
+    if stream.input_tokens or stream.output_tokens:
+        input_tokens = stream.input_tokens
+        output_tokens = stream.output_tokens
+    else:
+        input_tokens = 0
+        output_tokens = stream.total_tokens
     usage = Usage(
-        input_tokens=0,
-        output_tokens=stream.total_tokens,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
         total_tokens=stream.total_tokens,
         reasoning_tokens=stream.reasoning_tokens,
         num_search_queries=stream.num_search_queries,
     )
-    # We don't have the input_tokens split here — assume total ≈ output for
-    # conservative-ish cost estimate. Plan B3 will populate the split from
-    # SSE-level usage events.
     cost = cost_for_usage(
         usage, model=ctx.settings.miromind_model, web_searches=stream.num_search_queries
     )
