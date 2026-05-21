@@ -62,6 +62,58 @@ def test_planner_output_coerces_empty_enums_to_safe_defaults() -> None:
     assert out.claims[1].importance == "low"
 
 
+def test_planner_output_tolerates_missing_required_fields() -> None:
+    """Regression: a live mini-model run produced claims with missing id/page.
+
+    Before this fix, _RawClaim's strict ``id: str`` and ``page: int = Field(ge=1)``
+    failed the whole batch on a single damaged claim. Now missing fields get
+    safe defaults; only the genuinely empty (no-text) claims are dropped.
+    """
+    payload = {
+        "claims": [
+            # claim 0: missing 'page' entirely (model dropped the value)
+            {
+                "id": "c1",
+                "text": "Smith (2021) found X.",
+                "type": "citation",
+                "importance": "high",
+                "extracted_metadata": {},
+            },
+            # claim 1: missing 'id' (model emitted ``"":"c2"`` which json-repair
+            # collapses to no id), but text + page intact
+            {
+                "text": "Global widget shipments grew 4.2% YoY in 2024.",
+                "page": 2,
+                "type": "numerical-data",
+                "importance": "high",
+                "extracted_metadata": {},
+            },
+            # claim 2: only id+page survived, text empty → must be dropped
+            {
+                "id": "c3",
+                "text": "",
+                "page": 3,
+            },
+            # claim 3: page is the literal None that json-repair leaves behind
+            {
+                "id": "c4",
+                "text": "Internal contradiction example.",
+                "page": None,
+                "type": "qualitative",
+            },
+        ]
+    }
+    out = PlannerOutput.model_validate(payload)
+    claims = out.to_claims()
+    assert len(claims) == 3  # noqa: PLR2004 — empty-text claim dropped
+    # missing 'id' got an auto-generated stable label
+    assert claims[1].id.startswith("c_auto_")
+    # missing 'page' defaulted to 1
+    assert claims[0].page == 1
+    # None page coerced to 1
+    assert claims[2].page == 1
+
+
 def test_build_planner_input_contains_page_markers() -> None:
     doc = ParsedDoc(
         source_path=None,  # type: ignore[arg-type]

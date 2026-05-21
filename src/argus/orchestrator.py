@@ -180,7 +180,23 @@ async def audit_pdf(
         "aborted": False,
         "abort_reason": "",
     }
-    final_state: _State = await graph.ainvoke(initial)
+    # Any exception escaping graph.ainvoke (transient httpx errors after
+    # retries, model API outages, etc.) must NOT crash the JobRunner. We
+    # finalize a `failed` Job, publish a terminal event so WS subscribers
+    # close cleanly, and return — the caller decides whether to surface
+    # the failure.
+    final_state: _State = {}
+    raised_exc: Exception | None = None
+    try:
+        final_state = await graph.ainvoke(initial)
+    except Exception as exc:  # top-level safety net for the orchestrator
+        raised_exc = exc
+        log.error(
+            "orchestrator.graph_raised",
+            job_id=job_id,
+            error_type=type(exc).__name__,
+            error=str(exc)[:300],
+        )
 
     job.claims = list(final_state.get("claims", []))
     job.findings = list(final_state.get("findings", []))
@@ -189,7 +205,12 @@ async def audit_pdf(
     job.audit_report_md = final_state.get("audit_report_md")
     job.cost_usd = round(budget.spent_usd, 6)
     job.total_tokens = sum(t.total_tokens for t in job.traces)
-    job.status = "failed" if final_state.get("aborted") else "done"
+    if raised_exc is not None:
+        job.status = "failed"
+        abort_reason = f"{type(raised_exc).__name__}: {str(raised_exc)[:200]}"
+    else:
+        job.status = "failed" if final_state.get("aborted") else "done"
+        abort_reason = final_state.get("abort_reason", "")
     job.completed_at = datetime.utcnow()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -217,7 +238,7 @@ async def audit_pdf(
         "cost_usd": job.cost_usd,
     }
     if job.status == "failed":
-        terminal_payload["reason"] = final_state.get("abort_reason", "")
+        terminal_payload["reason"] = abort_reason
     await publisher.publish(terminal_kind, terminal_payload)
     return job
 
