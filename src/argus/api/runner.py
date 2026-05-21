@@ -49,7 +49,7 @@ class JobRunner:
                     pdf_path=pdf_path,
                     output_path=output_path,
                     settings=self.state.settings,
-                    budget_usd=5.0,
+                    budget_usd=self.state.settings.job_budget_usd,
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
