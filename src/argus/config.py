@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Filesystem path where uploaded PDFs are stored.
     storage_root: str = "./uploads"
 
+    # Per-job MiroMind spend cap (USD). A real 5-agent audit against
+    # mirothinker-1-7-deepresearch ($4/$25 per M tokens) typically runs
+    # $5-$50 depending on PDF size; default keeps us safely under that.
+    job_budget_usd: float = 50.0
+
 
 def settings() -> Settings:
     """Build a fresh Settings instance — tests can monkeypatch via env vars."""
