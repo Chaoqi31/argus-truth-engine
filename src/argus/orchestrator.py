@@ -70,7 +70,12 @@ from argus.pdf.parser import ParsedDoc, parse_pdf
 from argus.trace_bus.base import TraceBus, TraceEvent
 
 _CONTEXT_WINDOW_CHARS = 200
-_MAX_CONCURRENT_PER_AGENT = 4
+# Per-agent concurrency. Kept conservative so the four specialist nodes fanning
+# out in parallel (verifier + alignment + freshness + consistency) don't pile
+# 16 concurrent MiroMind requests onto the API at once — the live runs at this
+# rate triggered cascading 429s and 503s. With 1 here the total concurrency
+# is bounded by the number of specialist agents (4) which the API handles.
+_MAX_CONCURRENT_PER_AGENT = 1
 
 _VERIFIER_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.FABRICATED: Severity.MAJOR,
