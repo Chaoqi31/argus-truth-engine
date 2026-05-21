@@ -14,6 +14,7 @@ import json
 from dataclasses import dataclass, field
 from uuid import uuid4
 
+import json_repair
 from pydantic import BaseModel, ValidationError
 
 from argus.log import log
@@ -200,7 +201,15 @@ def _truncate(s: str, n: int = _TRUNCATE_DEFAULT) -> str:
 
 
 def _extract_json(text: str) -> str:
-    """Strip whitespace / fences and return what looks like the JSON object."""
+    """Strip whitespace / fences and return what looks like the JSON object.
+
+    MiroMind's streamed output occasionally drops quotes, commas, or colons
+    mid-buffer (mid-token boundary issues). We first try strict ``json.loads``;
+    if that fails, ``json_repair`` heuristically fixes common LLM JSON damage
+    (missing quotes/commas, trailing commas, unescaped strings) and we retry.
+    Only if both fail do we raise ``json.JSONDecodeError`` for the caller's
+    repair-prompt fallback.
+    """
     text = text.strip()
     if text.startswith("```"):
         first = text.find("\n", 3)
@@ -211,7 +220,16 @@ def _extract_json(text: str) -> str:
         start = text.find("{")
         end = text.rfind("}") + 1
         text = text[start:end]
-    # Fail fast with json.JSONDecodeError if the substring isn't JSON; the
-    # caller catches both that and pydantic.ValidationError.
-    json.loads(text)
-    return text
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+    # json_repair returns "" if it can't recover anything useful.
+    repaired = json_repair.repair_json(text)
+    if not repaired or repaired in ("{}", "[]", '""'):
+        # Force the caller into the repair-prompt fallback by raising.
+        raise json.JSONDecodeError("json_repair could not recover", text, 0)
+    # Sanity-check that the repaired text now parses.
+    json.loads(repaired)
+    return repaired

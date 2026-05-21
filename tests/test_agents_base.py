@@ -1,12 +1,13 @@
 """Tests for the agent base class."""
 from __future__ import annotations
 
+import json
 from typing import Any
 from unittest.mock import AsyncMock
 
 from pydantic import BaseModel, Field
 
-from argus.agents.base import AgentRunner, JsonRepairFailed
+from argus.agents.base import AgentRunner, JsonRepairFailed, _extract_json
 from argus.models.miromind import (
     ResponseCompletedEvent,
     ResponseOutputTextDeltaEvent,
@@ -98,3 +99,25 @@ async def test_raises_after_repair_fails() -> None:
         assert "JSON" in str(exc)
     else:
         raise AssertionError("expected JsonRepairFailed")
+
+
+def test_extract_json_repairs_common_llm_damage() -> None:
+    """Regression: MiroMind's streamed output occasionally drops punctuation.
+
+    ``json-repair`` heuristically fixes common LLM damage (missing commas,
+    trailing commas, unescaped strings). Structural damage like a missing
+    colon between key and value cannot be fully recovered — those cases still
+    fall through to the one-shot repair-prompt round-trip.
+    """
+    damaged = '{"type":"citation""importance":"high"}'
+    parsed = json.loads(_extract_json(damaged))
+    assert parsed["type"] == "citation"
+    assert parsed["importance"] == "high"
+
+    # Trailing comma — also fixable.
+    trailing = '{"a":1,"b":2,}'
+    assert json.loads(_extract_json(trailing)) == {"a": 1, "b": 2}
+
+    # Clean JSON passes through untouched.
+    clean = '{"verdict":"ok","confidence":0.9}'
+    assert json.loads(_extract_json(clean))["verdict"] == "ok"
