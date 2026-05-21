@@ -7,12 +7,14 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from argus.agents.base import AgentResult, AgentRunner
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Claim, ClaimType
 from argus.pdf.parser import ParsedDoc
+
+_VALID_CLAIM_TYPES: set[str] = {ct.value for ct in ClaimType}
 
 SYSTEM_PROMPT = """\
 You are Argus's PLANNER agent. Your only task is to extract verifiable factual
@@ -54,15 +56,36 @@ OUTPUT ONLY THE JSON OBJECT.
 
 
 class _RawClaim(BaseModel):
-    """Lenient planner-side claim shape that tolerates LLM output quirks."""
+    """Lenient planner-side claim shape that tolerates LLM output quirks.
+
+    Real MiroMind output occasionally emits empty or unrecognised values for
+    the strict-enum fields ``type`` and ``importance``. We coerce those to
+    safe defaults rather than failing the whole run — the verdict severity
+    that the audit ultimately produces is what matters, not the planner's
+    importance label.
+    """
 
     id: str
     text: str
     page: int = Field(ge=1)
     span: list[int] | None = None  # accept anything; we normalise downstream
-    type: ClaimType
-    importance: Literal["high", "medium", "low"]
+    type: ClaimType = ClaimType.QUALITATIVE
+    importance: Literal["high", "medium", "low"] = "low"
     extracted_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def _coerce_type(cls, v: object) -> object:
+        if isinstance(v, str) and v not in _VALID_CLAIM_TYPES:
+            return ClaimType.QUALITATIVE
+        return v
+
+    @field_validator("importance", mode="before")
+    @classmethod
+    def _coerce_importance(cls, v: object) -> object:
+        if not isinstance(v, str) or v not in {"high", "medium", "low"}:
+            return "low"
+        return v
 
 
 class PlannerOutput(BaseModel):
