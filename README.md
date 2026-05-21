@@ -224,6 +224,19 @@ cd web && pnpm test       # vitest, 32 passing
 
 Coverage: **91%** on core modules.
 
+### Pre-push gate
+
+To run the full gate (lint + types + backend tests + frontend tests) before every
+push, opt this clone in once:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook ([`.githooks/pre-push`](.githooks/pre-push)) runs everything through `uv` and
+`pnpm` so it picks up the project's managed environments rather than whatever
+`pytest`/`pnpm` happen to be on global PATH.
+
 The orchestrator is exercised end-to-end against a deterministic `StreamRouter` mock that
 replays canned MiroMind SSE events, so the full 5-agent fan-out is tested without burning
 live credits.

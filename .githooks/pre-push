@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Pre-push hook for Argus.
+#
+# We override the global Codex hook (~/.codex/git-hooks/pre-push) here because
+# that hook invokes `pytest` from whatever shell PATH it finds, which doesn't
+# include this project's dependencies. We run the same checks but through
+# `uv`, which uses the project-managed venv.
+#
+# Activate per clone with:   git config core.hooksPath .githooks
+
+set -euo pipefail
+
+# Allow opt-out (matches the Codex hook's escape hatches).
+if [[ "${ECC_SKIP_GIT_HOOKS:-0}" == "1" || "${ECC_SKIP_PREPUSH:-0}" == "1" ]]; then
+  exit 0
+fi
+if [[ -f ".ecc-hooks-disable" || -f ".git/ecc-hooks-disable" ]]; then
+  exit 0
+fi
+
+# Skip branch-delete pushes (zero OID local sha).
+is_delete_only=true
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  if [[ "$local_sha" != "0000000000000000000000000000000000000000" ]]; then
+    is_delete_only=false
+    break
+  fi
+done
+if [[ "$is_delete_only" == "true" ]]; then
+  exit 0
+fi
+
+log() { printf '[argus pre-push] %s\n' "$*"; }
+fail() { printf '[argus pre-push] FAILED: %s\n' "$*" >&2; exit 1; }
+
+if ! command -v uv >/dev/null 2>&1; then
+  fail "uv not found in PATH. Install from https://docs.astral.sh/uv/"
+fi
+
+# Backend gates.
+log "ruff check ."
+uv run ruff check . || fail "ruff failed"
+
+log "mypy src/argus"
+uv run mypy src/argus || fail "mypy failed"
+
+log "pytest -q"
+uv run pytest -q || fail "pytest failed"
+
+# Frontend gates, only if web/ has been installed locally.
+if [[ -d "web/node_modules" ]]; then
+  log "web: vitest"
+  (cd web && pnpm test --run) || fail "frontend tests failed"
+else
+  log "web/node_modules not present — skipping frontend gates (run 'cd web && pnpm install' to enable)"
+fi
+
+log "All checks passed."
