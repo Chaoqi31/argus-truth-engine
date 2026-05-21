@@ -52,13 +52,10 @@ class JobRunner:
                     budget_usd=5.0,
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
+                    job_id=job_id,
                 )
-                # audit_pdf assigns its own job id; index under both so callers
-                # using the submit-time id and the orchestrator-assigned id both
-                # resolve to the same record.
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status
-                self.records[job.id] = self.records[job_id]
             except Exception as exc:
                 self.records[job_id].status = "failed"
                 self.records[job_id].error = str(exc)[:300]
