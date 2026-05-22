@@ -15,6 +15,7 @@ _HTTP_UNSUPPORTED = 415
 _HTTP_PAYLOAD_TOO_LARGE = 413
 _HTTP_NOT_FOUND = 404
 _HTTP_UNAUTHORIZED = 401
+_HTTP_BAD_REQUEST = 400
 
 
 def _runner(req: Request) -> JobRunner:
@@ -53,8 +54,25 @@ async def submit_job(
         raise HTTPException(status_code=_HTTP_PAYLOAD_TOO_LARGE, detail="pdf too large")
     if not blob.startswith(b"%PDF"):
         raise HTTPException(status_code=_HTTP_UNSUPPORTED, detail="expected PDF file")
+    # BYOK: per-request MiroMind key takes precedence over server config so the
+    # public demo never burns the operator's credits. Strip whitespace because
+    # browsers + clipboard managers love to add it.
+    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
+    server_key = (request.app.state.argus.settings.miromind_api_key or "").strip()
+    if not api_key_header and not server_key:
+        raise HTTPException(
+            status_code=_HTTP_BAD_REQUEST,
+            detail=(
+                "MiroMind API key required. Pass it via the X-Miromind-Key "
+                "request header, or configure ARGUS_MIROMIND_API_KEY on the server."
+            ),
+        )
     runner = _runner(request)
-    job_id = await runner.submit(blob, _safe_filename(pdf.filename))
+    job_id = await runner.submit(
+        blob,
+        _safe_filename(pdf.filename),
+        api_key_override=api_key_header or None,
+    )
     return {"job_id": job_id, "status": "running"}
 
 

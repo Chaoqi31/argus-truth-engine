@@ -1,0 +1,37 @@
+# Keep the build context small. Everything frontend / dev / runtime-volatile
+# is excluded; Dockerfile only COPYs pyproject.toml, uv.lock, README.md, src,
+# alembic.ini.
+
+# Caches & venvs
+.venv
+.cache
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Frontend (built and deployed separately on Vercel)
+web
+
+# Local runtime data
+.data
+uploads
+*.findings.json
+examples
+
+# Dev / docs / scratch
+docs
+scripts
+.githooks
+tests
+.git
+.gitignore
+.env
+.env.*
+*.log
+
+# Editor / OS
+.idea
+.vscode
+.DS_Store

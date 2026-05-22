@@ -6,6 +6,7 @@ import { useArgusStore } from "@/lib/store";
 import { loadSampleJob } from "@/lib/load-job";
 import { uploadPdf, UnsupportedMediaTypeError, ArgusApiError } from "@/lib/api";
 import { ArgusHeader } from "@/components/argus-header";
+import { ApiKeyInput } from "@/components/api-key-input";
 
 const POINTS = [
   { icon: "📚", title: "Fabricated citations", body: "Crossref / arXiv / SSRN cross-checks reveal references that don't exist." },
@@ -22,6 +23,7 @@ export default function HomePage() {
   const resetLive = useArgusStore((s) => s.resetLive);
   const [loading, setLoading] = useState<LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("");
 
   const trySample = async () => {
     setLoading("sample");
@@ -38,10 +40,14 @@ export default function HomePage() {
   };
 
   const onPicked = async (file: File) => {
+    if (!apiKey.trim()) {
+      setError("Please paste your MiroMind API key above first.");
+      return;
+    }
     setLoading("upload");
     setError(null);
     try {
-      const { job_id } = await uploadPdf(file);
+      const { job_id } = await uploadPdf(file, apiKey);
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
@@ -80,6 +86,7 @@ export default function HomePage() {
             used to reach each verdict.
           </p>
           <div className="mt-2 flex flex-col items-center gap-3">
+            <ApiKeyInput value={apiKey} onChange={setApiKey} />
             <label
               className={
                 "cursor-pointer rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md" +

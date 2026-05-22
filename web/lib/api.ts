@@ -30,12 +30,29 @@ export interface UploadResponse {
   status: string;
 }
 
-export async function uploadPdf(file: File): Promise<UploadResponse> {
+export async function uploadPdf(
+  file: File,
+  apiKey?: string,
+): Promise<UploadResponse> {
   const form = new FormData();
   form.append("pdf", file);
-  const resp = await fetch(`${API_BASE}/jobs`, { method: "POST", body: form });
+  // BYOK: pass the visitor's own MiroMind key via header. The backend will
+  // 400 if neither this header nor a server-side fallback key is present.
+  const headers: HeadersInit = {};
+  if (apiKey && apiKey.trim()) {
+    headers["X-Miromind-Key"] = apiKey.trim();
+  }
+  const resp = await fetch(`${API_BASE}/jobs`, {
+    method: "POST",
+    body: form,
+    headers,
+  });
   if (resp.status === 415) {
     throw new UnsupportedMediaTypeError();
+  }
+  if (resp.status === 400) {
+    const text = await resp.text().catch(() => "");
+    throw new ArgusApiError(400, text || "MiroMind API key required.");
   }
   if (!resp.ok) {
     throw new ArgusApiError(resp.status, `upload failed (${resp.status})`);
