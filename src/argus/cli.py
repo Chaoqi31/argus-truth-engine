@@ -95,8 +95,14 @@ def serve(
     configure_logging(log_level)
     s = settings()
     if not s.miromind_api_key:
-        console.print("[red]ARGUS_MIROMIND_API_KEY is not set.[/red]")
-        raise typer.Exit(code=2)
+        # BYOK deploys (Fly / Render / public demo) intentionally leave this
+        # unset so visitors supply their own key via the X-Miromind-Key
+        # header. Warn but don't refuse — POST /jobs will 400 if a request
+        # arrives without a key.
+        console.print(
+            "[yellow]ARGUS_MIROMIND_API_KEY is not set — running in BYOK "
+            "mode; each request must include an X-Miromind-Key header.[/yellow]"
+        )
 
     # Lazy import so the CLI doesn't require uvicorn until `serve` runs.
     import uvicorn  # noqa: PLC0415
