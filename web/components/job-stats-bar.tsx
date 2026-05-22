@@ -16,16 +16,50 @@ function buildStats(job: Job): Stat[] {
   const totalSteps = job.traces.reduce((n, t) => n + t.steps.length, 0);
   const totalSearches = job.traces.reduce((n, t) => n + t.num_search_queries, 0);
   const tokenStr = formatCompact(job.total_tokens);
-  const cost = job.cost_usd ? `$${job.cost_usd.toFixed(2)}` : "—";
+  const cost =
+    typeof job.cost_usd === "number"
+      ? job.cost_usd < 1
+        ? `$${job.cost_usd.toFixed(3)}`
+        : `$${job.cost_usd.toFixed(2)}`
+      : "—";
+  const uniqueAgents = new Set(job.traces.map((t) => t.agent)).size;
 
   return [
-    { label: "claims", value: String(job.claims.length) },
-    { label: "findings", value: String(job.findings.length) },
-    { label: "agents", value: String(new Set(job.traces.map((t) => t.agent)).size || 1) },
-    { label: "reasoning steps", value: String(totalSteps) },
-    { label: "web searches", value: String(totalSearches) },
-    { label: "tokens", value: tokenStr, hint: "input + output + reasoning" },
-    { label: "cost", value: cost },
+    {
+      label: "claims",
+      value: String(job.claims.length),
+      hint: "Distinct factual statements extracted from the PDF by the Planner agent.",
+    },
+    {
+      label: "findings",
+      value: String(job.findings.length),
+      hint: "Verdicts emitted by specialist agents — one per (claim × applicable check).",
+    },
+    {
+      label: "agents",
+      value: String(uniqueAgents || 1),
+      hint: "Specialist agents that emitted at least one finding on this audit (of 4 possible: CitationVerifier, CitationAlignment, DataFreshness, ConsistencyChecker).",
+    },
+    {
+      label: "reasoning steps",
+      value: String(totalSteps),
+      hint: "Total chain-of-thought + tool-call events recorded across all agents.",
+    },
+    {
+      label: "web searches",
+      value: String(totalSearches),
+      hint: "Live web_search tool calls issued by agents while verifying claims.",
+    },
+    {
+      label: "tokens",
+      value: tokenStr,
+      hint: "Total MiroMind tokens consumed (input + output + reasoning).",
+    },
+    {
+      label: "cost (USD)",
+      value: cost,
+      hint: "Real MiroMind billing for this audit, computed from the input/output token split.",
+    },
   ];
 }
 
