@@ -13,6 +13,7 @@ import { ShortcutsHint } from "@/components/shortcuts-hint";
 import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
 import { subscribeTrace } from "@/lib/trace-ws";
 import { getJob } from "@/lib/api";
+import { loadSampleJob } from "@/lib/load-job";
 import type { Job, LiveFinding, Step } from "@/lib/types";
 
 // pdf.js references browser-only globals (DOMMatrix, etc.) that fail under SSR.
@@ -70,6 +71,23 @@ function AuditPageContent() {
     resetLive();
     setRunStatus("running");
 
+    // PM-fix #2: detect bogus job_ids quickly. Without this, hitting
+    // /audit/abc-fake-id (or refreshing after the in-memory state was
+    // cleared) shows "Audit running… 0 steps · 0 findings" forever with no
+    // way out. A 404 from GET /jobs/<id> means the job genuinely isn't
+    // tracked — flip to failed with a clear reason.
+    let cancelled = false;
+    getJob(liveId).catch((err: unknown) => {
+      if (cancelled) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/\b404\b|not found/i.test(msg)) {
+        setRunStatus(
+          "failed",
+          `No audit with id "${liveId}" — it may have expired, or the URL is wrong.`,
+        );
+      }
+    });
+
     const disconnect = subscribeTrace(liveId, {
       onEvent: (ev) => {
         if (ev.kind === "step") {
@@ -99,19 +117,55 @@ function AuditPageContent() {
         setRunStatus("failed", err.message);
       },
     });
-    return () => disconnect();
+    return () => {
+      cancelled = true;
+      disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId]);
 
-  // No id, no demo, no job → bounce home.
+  // PM-fix #1: when /audit?demo=1 is hit directly (URL share, refresh, or
+  // judge typing it in), bootstrap the sample job ourselves instead of
+  // bouncing home — the prior behaviour rendered a blank page because the
+  // sample was only loaded by the landing-page button. Without this, the
+  // most common demo URL broke on refresh.
   useEffect(() => {
-    if (!liveId && !demo && !job) {
-      router.replace("/");
+    if (liveId) return; // live mode owns the page
+    if (job) return; // already loaded (e.g. via landing button)
+    if (demo) {
+      let cancelled = false;
+      loadSampleJob()
+        .then((sample) => {
+          if (!cancelled) setJob(sample);
+        })
+        .catch((err: unknown) => {
+          // Fallback: send them home with a console hint rather than a blank.
+          // eslint-disable-next-line no-console
+          console.error("loadSampleJob failed", err);
+          if (!cancelled) router.replace("/");
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [liveId, demo, job, router]);
+    router.replace("/");
+  }, [liveId, demo, job, router, setJob]);
 
-  // Live, pre-finished view: show banner + live trace + live findings preview.
+  // Live, pre-finished view: show banner + PDF + live trace + live findings preview.
   if (liveId && !job) {
+    const lastStep = liveSteps[liveSteps.length - 1] ?? null;
+    const lastAgent =
+      lastStep?.content && typeof lastStep.content === "object" && lastStep.content !== null
+        ? String((lastStep.content as Record<string, unknown>).agent ?? "")
+        : "";
+    const tokensSoFar = liveSteps.reduce((sum, s) => {
+      const t =
+        s.content && typeof s.content === "object" && s.content !== null
+          ? Number((s.content as Record<string, unknown>).total_tokens ?? 0)
+          : 0;
+      return sum + (Number.isFinite(t) ? t : 0);
+    }, 0);
+    const livePdfUrl = `/api/argus/jobs/${encodeURIComponent(liveId)}/pdf`;
     return (
       <>
         <ArgusHeader
@@ -121,10 +175,23 @@ function AuditPageContent() {
             </div>
           }
         />
-        <RunBanner runStatus={runStatus} steps={liveSteps.length} findings={liveFindings.length} reason={runError} />
+        <RunBanner
+          runStatus={runStatus}
+          steps={liveSteps.length}
+          findings={liveFindings.length}
+          reason={runError}
+          activeAgent={lastAgent}
+          tokens={tokensSoFar}
+        />
         <main className="grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
-          <div className="hidden md:flex h-full items-center justify-center bg-muted/30 text-sm text-muted-foreground">
-            PDF preview unlocks when the audit finishes.
+          <div className="hidden md:block">
+            <PdfViewer
+              fileUrl={livePdfUrl}
+              claims={[]}
+              findings={[]}
+              activeFindingId={null}
+              onClaimClick={() => {}}
+            />
           </div>
           <aside className="flex flex-col border-l border-border md:border-l">
             <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
@@ -162,8 +229,9 @@ function AuditPageContent() {
           </div>
         }
       />
+      <VerdictBanner job={job} />
       <JobStatsBar job={job} />
-      <main className="grid h-[calc(100vh-3.5rem-2.75rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
+      <main className="grid h-[calc(100vh-3.5rem-2.75rem-2.75rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
         <div className="hidden md:block">
           <PdfViewer
             fileUrl={fileUrl}
@@ -195,16 +263,87 @@ function AuditPageContent() {
   );
 }
 
+// PM-fix #3: a plain-English headline above the dense stats bar so a judge
+// (or analyst) gets the bottom-line verdict in one glance instead of having
+// to assemble it from finding cards. Pure derivation from Job — no new state.
+function VerdictBanner({ job }: { job: Job }) {
+  const sev = { critical: 0, major: 0, minor: 0 };
+  for (const f of job.findings) {
+    if (f.severity === "critical") sev.critical++;
+    else if (f.severity === "major") sev.major++;
+    else if (f.severity === "minor") sev.minor++;
+  }
+  const issues = sev.critical + sev.major + sev.minor;
+  const verdicts = new Set(job.findings.map((f) => f.verdict));
+  const flags: string[] = [];
+  if (verdicts.has("fabricated")) flags.push("fabricated citations");
+  if (verdicts.has("mismatch") || verdicts.has("misrepresented"))
+    flags.push("misaligned quotes");
+  if (verdicts.has("stale") || verdicts.has("superseded")) flags.push("stale data");
+  if (verdicts.has("contradiction")) flags.push("internal contradictions");
+
+  const tone: "danger" | "warn" | "ok" =
+    sev.critical > 0 ? "danger" : sev.major > 0 ? "warn" : "ok";
+  const toneClasses: Record<typeof tone, string> = {
+    danger: "border-destructive/40 bg-destructive/5",
+    warn: "border-amber-500/40 bg-amber-50 dark:bg-amber-950/30",
+    ok: "border-success/40 bg-success/5",
+  };
+  const dotClasses: Record<typeof tone, string> = {
+    danger: "bg-destructive",
+    warn: "bg-amber-500",
+    ok: "bg-success",
+  };
+
+  let headline: string;
+  if (issues === 0) {
+    headline = "Argus found no issues in this report.";
+  } else if (flags.length > 0) {
+    const joined =
+      flags.length === 1
+        ? flags[0]
+        : flags.slice(0, -1).join(", ") + " and " + flags[flags.length - 1];
+    headline = `Argus flagged this report for ${joined}.`;
+  } else {
+    headline = "Argus found issues worth reviewing.";
+  }
+
+  const counts: string[] = [];
+  if (sev.critical) counts.push(`${sev.critical} critical`);
+  if (sev.major) counts.push(`${sev.major} major`);
+  if (sev.minor) counts.push(`${sev.minor} minor`);
+
+  return (
+    <div
+      role="status"
+      className={`flex h-11 items-center gap-3 border-b px-6 text-sm ${toneClasses[tone]}`}
+    >
+      <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${dotClasses[tone]}`} />
+      <span className="font-medium">{headline}</span>
+      {counts.length > 0 && (
+        <span className="text-muted-foreground">
+          {counts.join(" · ")} across {job.claims.length}{" "}
+          {job.claims.length === 1 ? "claim" : "claims"}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RunBanner({
   runStatus,
   steps,
   findings,
   reason,
+  activeAgent,
+  tokens,
 }: {
   runStatus: "idle" | "running" | "done" | "failed";
   steps: number;
   findings: number;
   reason: string | null;
+  activeAgent?: string;
+  tokens?: number;
 }) {
   if (runStatus === "failed") {
     return (
@@ -216,21 +355,41 @@ function RunBanner({
       </div>
     );
   }
+  // Blended estimate using mini's input/output mix (~$2.50 per M tokens).
+  // True billing arrives with the finished Job; this is just a live cue.
+  const estCost = tokens && tokens > 0 ? (tokens * 2.5) / 1_000_000 : 0;
   return (
     <div
       role="status"
       aria-live="polite"
-      className="flex h-12 items-center gap-3 border-b border-border bg-muted/40 px-4 text-xs"
+      className="flex h-12 items-center gap-3 overflow-x-auto border-b border-border bg-muted/40 px-4 text-xs"
     >
-      <span aria-hidden className="size-2 animate-pulse rounded-full bg-success" />
-      <span>
-        Audit running… <strong>{steps}</strong> steps, <strong>{findings}</strong> findings so far.
+      <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-success" />
+      <span className="shrink-0">
+        Audit running… <strong>{steps}</strong> steps · <strong>{findings}</strong> findings
       </span>
+      {activeAgent && (
+        <span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
+          <span className="text-muted-foreground">last agent</span>
+          <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">
+            {activeAgent}
+          </code>
+        </span>
+      )}
+      {tokens !== undefined && tokens > 0 && (
+        <span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
+          <span className="text-muted-foreground">tokens</span>
+          <span className="font-mono tabular-nums">{tokens.toLocaleString()}</span>
+          <span className="text-muted-foreground">· est</span>
+          <span className="font-mono tabular-nums">${estCost.toFixed(2)}</span>
+        </span>
+      )}
     </div>
   );
 }
 
 function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   if (findings.length === 0) {
     return (
       <p className="p-6 text-xs text-muted-foreground">
@@ -244,22 +403,45 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
       : s === "major"
         ? "border-amber-500/40 bg-amber-50 dark:bg-amber-950/30"
         : "border-border bg-background";
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   return (
     <ul className="flex flex-col gap-2 overflow-y-auto p-3">
-      {findings.map((f) => (
-        <li
-          key={f.id}
-          className={`rounded-[var(--radius-card)] border ${sev(f.severity)} px-3 py-2 text-xs`}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium">{f.agent}</span>
-            <span className="font-mono uppercase tracking-wider text-[10px] text-muted-foreground">
-              {f.severity} · {f.verdict}
-            </span>
-          </div>
-          <p className="mt-1 text-muted-foreground">{f.summary}</p>
-        </li>
-      ))}
+      {findings.map((f) => {
+        const isOpen = expanded.has(f.id);
+        return (
+          <li
+            key={f.id}
+            className={`rounded-[var(--radius-card)] border ${sev(f.severity)} text-xs`}
+          >
+            <button
+              type="button"
+              onClick={() => toggle(f.id)}
+              aria-expanded={isOpen}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span className="font-medium">{f.agent}</span>
+              <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] text-muted-foreground">
+                {f.severity} · {f.verdict}
+                <span aria-hidden className="text-foreground/60">
+                  {isOpen ? "▾" : "▸"}
+                </span>
+              </span>
+            </button>
+            <p
+              className={`px-3 pb-2 text-muted-foreground ${isOpen ? "" : "line-clamp-2"}`}
+              title={isOpen ? undefined : f.summary}
+            >
+              {f.summary}
+            </p>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -295,7 +477,7 @@ function ModeToggle({
 }) {
   const opts: Array<{ key: RightMode; label: string }> = [
     { key: "reasoning", label: "Reasoning" },
-    { key: "stream", label: "Live trace" },
+    { key: "stream", label: "Trace" },
   ];
   return (
     <div className="flex w-full gap-1 rounded-md bg-background p-0.5 ring-1 ring-border">

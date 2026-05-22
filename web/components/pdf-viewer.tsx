@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -32,6 +32,8 @@ export function PdfViewer({
 }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [pageWidth, setPageWidth] = useState(720);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     const update = () => setPageWidth(Math.min(720, window.innerWidth * 0.55));
@@ -40,12 +42,28 @@ export function PdfViewer({
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  const activeClaimId = activeFindingId
-    ? findings.find((f) => f.id === activeFindingId)?.claim_id ?? null
+  const activeClaim = activeFindingId
+    ? (() => {
+        const f = findings.find((f) => f.id === activeFindingId);
+        if (!f) return null;
+        return claims.find((c) => c.id === f.claim_id) ?? null;
+      })()
     : null;
+  const activeClaimId = activeClaim?.id ?? null;
+  const activePage = activeClaim?.page ?? null;
+
+  // PM-fix #4: when a finding is selected (from the cards on the right or the
+  // PDF itself), bring the cited page into view so the highlight is visible
+  // without manual scrolling. Without this the left pane felt disconnected
+  // from the right pane.
+  useEffect(() => {
+    if (activePage == null) return;
+    const el = pageRefs.current.get(activePage);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activePage]);
 
   return (
-    <div className="overflow-y-auto bg-muted">
+    <div ref={containerRef} className="overflow-y-auto bg-muted">
       <Document
         file={fileUrl}
         onLoadSuccess={({ numPages: n }) => setNumPages(n)}
@@ -55,7 +73,14 @@ export function PdfViewer({
         {Array.from({ length: numPages }, (_, i) => i + 1).map((p) => {
           const pageClaims = claims.filter((c) => c.page === p);
           return (
-            <div key={p} className="relative mx-auto my-4 w-fit shadow">
+            <div
+              key={p}
+              ref={(el) => {
+                if (el) pageRefs.current.set(p, el);
+                else pageRefs.current.delete(p);
+              }}
+              className="relative mx-auto my-4 w-fit shadow"
+            >
               <Page pageNumber={p} width={pageWidth} renderTextLayer renderAnnotationLayer={false} />
               <HighlightOverlay
                 claims={pageClaims}

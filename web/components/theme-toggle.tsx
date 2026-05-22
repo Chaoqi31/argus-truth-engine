@@ -32,6 +32,18 @@ const ICONS: Record<Theme, string> = {
   auto: "◐",
 };
 
+const LABELS: Record<Theme, string> = {
+  light: "Light",
+  dark: "Dark",
+  auto: "System",
+};
+
+const NEXT: Record<Theme, Theme> = {
+  auto: "light",
+  light: "dark",
+  dark: "auto",
+};
+
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(() => readTheme());
 
@@ -40,7 +52,7 @@ export function ThemeToggle() {
   }, [theme]);
 
   const cycle = () => {
-    const next: Theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
+    const next = NEXT[theme];
     setTheme(next);
     localStorage.setItem(STORAGE_KEY, next);
   };
@@ -49,12 +61,12 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={cycle}
-      className="inline-flex min-h-9 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-      aria-label={`Theme: ${theme}. Click to cycle.`}
-      title={`Theme: ${theme}. Click to cycle.`}
+      className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+      aria-label={`Theme: ${LABELS[theme]}. Click to switch to ${LABELS[NEXT[theme]]}.`}
+      title={`Theme: ${LABELS[theme]} — click for ${LABELS[NEXT[theme]]}`}
     >
       <span aria-hidden>{ICONS[theme]}</span>
-      {theme}
+      <span>{LABELS[theme]}</span>
     </button>
   );
 }

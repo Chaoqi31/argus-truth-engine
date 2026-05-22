@@ -1,17 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Job } from "@/lib/types";
 import { FindingsTab } from "@/components/findings-tab";
 import { EvidenceTab } from "@/components/evidence-tab";
-import { DagTab } from "@/components/dag-tab";
 
-type Tab = "findings" | "evidence" | "dag";
+type Tab = "findings" | "evidence";
 
 const TABS: ReadonlyArray<{ key: Tab; label: string; icon: string }> = [
   { key: "findings", label: "Findings", icon: "🛡" },
   { key: "evidence", label: "Evidence", icon: "🔗" },
-  { key: "dag", label: "DAG", icon: "🧠" },
 ];
 
 interface Props {
@@ -22,9 +20,19 @@ interface Props {
 
 export function ReasoningPanel({ job, activeFindingId, onSelectFinding }: Props) {
   const [tab, setTab] = useState<Tab>("findings");
-  const activeFinding = job.findings.find((f) => f.id === activeFindingId) ?? null;
-  const trace =
-    activeFinding && job.traces.find((t) => t.id === activeFinding.reasoning_trace_id);
+
+  // PM-fix #4: when the user clicks a finding (or one is selected via the
+  // PDF), jump to the Evidence tab so the receipts are immediately visible.
+  // Without this, the click only thickens a blue border and nothing else
+  // visibly changes — users assume the click did nothing.
+  useEffect(() => {
+    if (activeFindingId) setTab("evidence");
+  }, [activeFindingId]);
+
+  const handleSelect = (id: string) => {
+    onSelectFinding(id);
+    setTab("evidence");
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -52,10 +60,9 @@ export function ReasoningPanel({ job, activeFindingId, onSelectFinding }: Props)
       </div>
       <div className="flex-1 overflow-y-auto">
         {tab === "findings" && (
-          <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={onSelectFinding} />
+          <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={handleSelect} />
         )}
         {tab === "evidence" && <EvidenceTab job={job} findingId={activeFindingId} />}
-        {tab === "dag" && <DagTab trace={trace ?? null} />}
       </div>
     </div>
   );
