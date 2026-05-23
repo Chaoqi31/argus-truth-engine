@@ -88,6 +88,33 @@ class _RawClaim(BaseModel):
             return "low"
         return v
 
+    @field_validator("extracted_metadata", mode="before")
+    @classmethod
+    def _coerce_extracted_metadata(cls, v: object) -> object:
+        # LLM sometimes emits ``"extracted_metadata": ""`` (or null) for claims
+        # where it couldn't pull out structured metadata. Treat any non-dict
+        # as an empty dict so a single sloppy field doesn't poison the batch.
+        if isinstance(v, dict):
+            return v
+        return {}
+
+    @field_validator("span", mode="before")
+    @classmethod
+    def _coerce_span_field(cls, v: object) -> object:
+        # The LLM occasionally drops a comma between claim fields, which causes
+        # json-repair to merge subsequent fields into ``span`` — e.g.
+        # ``[661, "661type:numerical-data", {"importance": ...}, {...}]``.
+        # Strict ``list[int]`` would reject the entire batch. Accept None /
+        # any non-list / lists with non-int elements as "span unknown"; the
+        # downstream ``_coerce_span`` helper turns that into ``(0, 0)``.
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            return None
+        if not all(isinstance(x, int) for x in v):
+            return None
+        return v
+
     @field_validator("page", mode="before")
     @classmethod
     def _coerce_page(cls, v: object) -> object:

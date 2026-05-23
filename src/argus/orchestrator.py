@@ -508,7 +508,7 @@ async def _per_claim_specialist(
 
     async def run_for_claim(
         claim: Claim,
-    ) -> tuple[Claim, AgentResult[Any] | None, JsonRepairFailed | None]:
+    ) -> tuple[Claim, AgentResult[Any] | None, Exception | None]:
         async with runner.acquire():
             surrounding = (
                 _surrounding_text(doc, claim) if (uses_surrounding and doc) else ""
@@ -526,6 +526,23 @@ async def _per_claim_specialist(
                     "orchestrator.specialist_failed",
                     agent=agent_name,
                     claim_id=claim.id,
+                    error=str(exc)[:300],
+                )
+                return claim, None, exc
+            except (asyncio.CancelledError, BudgetExceeded):
+                # Cancellation and budget-exhaustion are intentional aborts —
+                # propagate so the orchestrator can finalize correctly.
+                raise
+            except Exception as exc:
+                # Any other failure (RemoteProtocolError mid-stream, transient
+                # MiroMind 5xx after retries, unexpected agent crashes…) must
+                # NOT poison sibling agents. Log and treat this claim as
+                # un-audited; the surviving findings still ship.
+                log.warning(
+                    "orchestrator.specialist_failed",
+                    agent=agent_name,
+                    claim_id=claim.id,
+                    error_type=type(exc).__name__,
                     error=str(exc)[:300],
                 )
                 return claim, None, exc

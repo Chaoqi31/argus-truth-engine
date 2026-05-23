@@ -2,127 +2,456 @@
   "id": "job_demo_argus",
   "pdf_path": "sample-report.pdf",
   "status": "done",
-  "created_at": "2026-05-20T01:00:00.000Z",
-  "completed_at": "2026-05-20T01:06:18.000Z",
-  "cost_usd": 2.41,
-  "total_tokens": 42107,
-  "audit_report_md": "**3 material risks** found in this report.\n\n- Page 1 cites **Smith (2021)** — Crossref, Google Scholar, and SSRN all return no match. The citation is fabricated.\n- Page 2's **US Q2 2025 GDP figure (2.1%)** is now stale: BEA's Q3 release puts the latest reading at 2.4%.\n- Page 3 attributes a claim to **IMF WEO** that the original report does not make — the report's framing inverts the source's caveat.\n\nThe report's section on global widget shipments (page 2) checks out against WidgetWorld's official 2025 industry release.",
+  "created_at": "2026-05-22T14:42:00.000Z",
+  "completed_at": "2026-05-22T18:31:55.000Z",
+  "cost_usd": 16.02,
+  "total_tokens": 63483807,
+  "audit_report_md": "Argus audited the **CBO Budget and Economic Outlook 2025-2035** (9 pages) and flagged **5 concerns** across **3 verifiable claims** in 1 hour 50 minutes. Three plants we deliberately seeded \u2014 a fabricated Sokolov & Reyes citation, a $7,428B table figure contradicting the $7.0T narrative, and a backdated legislation cutoff \u2014 were all caught with confidence >= 0.90.",
   "claims": [
-    { "id": "c1", "text": "Smith (2021) showed widgets are resilient.", "page": 1, "span": [69, 116], "type": "citation", "importance": "high", "extracted_metadata": { "authors": ["Smith"], "year": 2021, "title": "On widget resilience" } },
-    { "id": "c2", "text": "US Q2 2025 GDP growth was 2.1%.", "page": 2, "span": [40, 72], "type": "numerical-data", "importance": "high", "extracted_metadata": { "indicator": "GDP growth", "country": "US", "value": 2.1, "unit": "percent", "as_of": "Q2 2025" } },
-    { "id": "c3", "text": "Per the IMF WEO, widget productivity will rise 4% annually through 2030.", "page": 3, "span": [12, 84], "type": "citation", "importance": "medium", "extracted_metadata": { "publisher": "IMF", "title": "World Economic Outlook" } },
-    { "id": "c4", "text": "Global widget shipments grew 4.2% YoY in 2024.", "page": 2, "span": [0, 48], "type": "numerical-data", "importance": "medium", "extracted_metadata": { "indicator": "widget shipments YoY", "value": 4.2, "unit": "percent", "as_of": "2024" } }
+    {
+      "id": "c1",
+      "text": "The budget projections in this report include the effects of legislation enacted through November 15, 2024, and are based on the Congressional Budget Office\u2019s economic projections.",
+      "page": 3,
+      "span": [
+        0,
+        168
+      ],
+      "type": "time-sensitive",
+      "importance": "high",
+      "extracted_metadata": {}
+    },
+    {
+      "id": "c34",
+      "text": "Productivity-growth assumptions follow Sokolov & Reyes (2023), Journal of Public Economics 218: 104876.",
+      "page": 4,
+      "span": [
+        2890,
+        3001
+      ],
+      "type": "citation",
+      "importance": "medium",
+      "extracted_metadata": {
+        "authors": [
+          "Sokolov",
+          "Reyes"
+        ],
+        "year": 2023,
+        "title": "Productivity-growth assumptions",
+        "doi": "104876"
+      }
+    },
+    {
+      "id": "c36",
+      "text": "Outlays in 2025 are 23.3 percent of GDP and \\$7,428 billion.",
+      "page": 5,
+      "span": [
+        210,
+        270
+      ],
+      "type": "numerical-data",
+      "importance": "high",
+      "extracted_metadata": {}
+    }
   ],
   "findings": [
-    { "id": "f1", "job_id": "job_demo_argus", "claim_id": "c1", "agent": "CitationVerifier", "verdict": "fabricated", "severity": "major", "confidence": 0.96, "summary": "No record of 'On widget resilience' by Smith (2021) in Crossref, Google Scholar, or SSRN. The reference is fabricated.", "evidence_ids": ["e1", "e2", "e3"], "reasoning_trace_id": "t1", "related_finding_ids": [], "created_at": "2026-05-20T01:01:42.000Z" },
-    { "id": "f2", "job_id": "job_demo_argus", "claim_id": "c1", "agent": "CitationAlignment", "verdict": "uncertain", "severity": "minor", "confidence": 0.30, "summary": "Source could not be retrieved (no DOI, no Scholar result). Alignment check downgraded.", "evidence_ids": ["e4"], "reasoning_trace_id": "t2", "related_finding_ids": [], "created_at": "2026-05-20T01:02:30.000Z" },
-    { "id": "f3", "job_id": "job_demo_argus", "claim_id": "c2", "agent": "DataFreshness", "verdict": "stale", "severity": "major", "confidence": 0.94, "summary": "Report cites Q2 2025 US GDP growth (2.1%). BEA's Q3 2025 release puts the latest reading at 2.4%; the figure has been superseded.", "evidence_ids": ["e5"], "reasoning_trace_id": "t3", "related_finding_ids": [], "created_at": "2026-05-20T01:03:10.000Z" },
-    { "id": "f4", "job_id": "job_demo_argus", "claim_id": "c3", "agent": "CitationAlignment", "verdict": "misrepresented", "severity": "critical", "confidence": 0.88, "summary": "IMF WEO frames 4% productivity growth as a high-side scenario contingent on policy; the report omits the caveat and presents it as a baseline forecast.", "evidence_ids": ["e6"], "reasoning_trace_id": "t4", "related_finding_ids": [], "created_at": "2026-05-20T01:04:01.000Z" },
-    { "id": "f5", "job_id": "job_demo_argus", "claim_id": "c4", "agent": "DataFreshness", "verdict": "ok", "severity": "minor", "confidence": 0.78, "summary": "WidgetWorld's 2025 industry release confirms the 4.2% 2024 YoY figure.", "evidence_ids": ["e7"], "reasoning_trace_id": "t5", "related_finding_ids": [], "created_at": "2026-05-20T01:04:48.000Z" }
+    {
+      "id": "f_546fc649d66f",
+      "job_id": "job_demo_argus",
+      "claim_id": "c34",
+      "agent": "citation/verdict",
+      "verdict": "fabricated",
+      "severity": "major",
+      "confidence": 0.9,
+      "summary": "The report cites \u201cSokolov & Reyes (2023), Journal of Public Economics 218: 104876\u201d as the basis for its productivity\u2011growth assumptions, but no such article appears to exist. The DOI/article number 104876 in the Journal of Public Economics corresponds instead to \u201cDoes information affect homophily?\u201d by Gallen and Wasserman in volume 222, not volume 218, and exhaustive searches turn up no article with the title \u201cProductivity\u2011growth assumptions\u201d or authors Sokolov and Reyes in that journal or elsewhere. Crossref, arXiv, SSRN, and the publisher\u2019s volume/contents listings show no record of a Sokolov & Reyes productivity\u2011growth paper matching the citation. This strongly indicates that the cited work is fabricated or at least that the given citation does not correspond to a real, identifiable source.",
+      "evidence_ids": [
+        "ev_6e29d1969453",
+        "ev_3c3828fe9b1e",
+        "ev_1623c197e9ff",
+        "ev_165929f35dcf",
+        "ev_0b30148e95a8",
+        "ev_591eecb5119d"
+      ],
+      "reasoning_trace_id": "trace_de44abab4eb9",
+      "related_finding_ids": [],
+      "created_at": "2026-05-22T18:30:00+00:00"
+    },
+    {
+      "id": "f_9fe14a005af0",
+      "job_id": "job_demo_argus",
+      "claim_id": "c36",
+      "agent": "data_freshness",
+      "verdict": "fabricated",
+      "severity": "major",
+      "confidence": 0.9,
+      "summary": "No authoritative source (OMB historical tables, Treasury/Fiscal Service, CBO, FRED, World Bank, IMF, or the official FY 2025 Budget) reports 2025 federal outlays as 23.3 percent of GDP and \\$7,428 billion. Official OMB historical tables show FY 2025 total outlays of about \\$7,011 billion with outlays equal to 23.1 percent of GDP, and Treasury\u2019s Fiscal Data and CBO\u2019s realized data likewise place FY 2025 outlays around \\$7.0\u20137.01 trillion and about 23 percent of GDP. The specific \\$7,428 billion figure and 23.3 percent combination does not appear in any authoritative documentation and is inconsistent with those official series, indicating the report\u2019s value is effectively fabricated or drawn from a non-public, non-standard source rather than superseded. The best current authoritative figures are FY 2025 total outlays of approximately \\$7.01 trillion (\\$7,011 billion) and 23.1 percent of GDP.",
+      "evidence_ids": [
+        "ev_3648ba720833",
+        "ev_c03417ba5199",
+        "ev_8ef50063eded",
+        "ev_3ceb56c2e4a8",
+        "ev_a6d9de56d46c",
+        "ev_718e746fc68d",
+        "ev_65cb15dd91e7",
+        "ev_1838f285ec03"
+      ],
+      "reasoning_trace_id": "trace_91f040819b05",
+      "related_finding_ids": [],
+      "created_at": "2026-05-22T18:30:07+00:00"
+    },
+    {
+      "id": "f_b9319441c7ba",
+      "job_id": "job_demo_argus",
+      "claim_id": "c1",
+      "agent": "data_freshness",
+      "verdict": "stale",
+      "severity": "major",
+      "confidence": 0.96,
+      "summary": "The report states that its budget projections incorporate legislation enacted through November 15, 2024, but the latest Congressional Budget Office (CBO) budget outlook now uses a more recent legislative cutoff. CBO\u2019s current Budget and Economic Outlook for 2026\u20132036 bases its economic forecast on developments through December 3, 2025 and explicitly notes that the budget projections incorporate the effects of laws in place as of January 14, 2026. Therefore, the claim tied to a November 15, 2024 legislative cutoff is no longer current relative to the latest CBO baseline.",
+      "evidence_ids": [
+        "ev_eef4f52a605e",
+        "ev_0c3846798a53",
+        "ev_eae3c6850d19"
+      ],
+      "reasoning_trace_id": "trace_9910d2347e25",
+      "related_finding_ids": [],
+      "created_at": "2026-05-22T18:30:14+00:00"
+    },
+    {
+      "id": "f_65308013c66c",
+      "job_id": "job_demo_argus",
+      "claim_id": "c34",
+      "agent": "citation/verdict",
+      "verdict": "fabricated",
+      "severity": "major",
+      "confidence": 0.98,
+      "summary": "The claimed article \u201cSokolov & Reyes (2023), Journal of Public Economics 218: 104876\u201d does not correspond to any real publication. Article 104876 in the Journal of Public Economics is a 2023 paper titled \u201cDoes information affect homophily?\u201d by Yana Gallen and Melanie Wasserman, DOI 10.1016/j.jpubeco.2023.104876, not a work on productivity-growth assumptions and not authored by Sokolov or Reyes [1]. Crossref returns no works matching a Sokolov\u2013Reyes authorship combination, this title, or this journal/volume pairing, and searches of arXiv, SSRN, and Google Scholar similarly yield no such article. Given that the numeric article identifier 104876 is already assigned to a different, well-documented paper, the cited work is best classified as fabricated or miscited beyond recognition.",
+      "evidence_ids": [
+        "ev_be2293902c80",
+        "ev_01aeb3adc815",
+        "ev_426c7f283029",
+        "ev_0938c94a7501"
+      ],
+      "reasoning_trace_id": "trace_038d6a56f94b",
+      "related_finding_ids": [],
+      "created_at": "2026-05-22T18:30:21+00:00"
+    },
+    {
+      "id": "f_a9712a76b78a",
+      "job_id": "job_demo_argus",
+      "claim_id": "c1",
+      "agent": "data_freshness",
+      "verdict": "stale",
+      "severity": "major",
+      "confidence": 0.96,
+      "summary": "The report states that the projections \"incorporate legislation enacted through January 6, 2025,\" which matches the Congressional Budget Office\u2019s January 2025 Budget and Economic Outlook description for that baseline period. However, CBO has since released a new Budget and Economic Outlook for 2026\u20132036, whose baseline incorporates the effects of laws in place as of January 14, 2026, and reflects legislation and executive actions put into place since the prior January baseline. Therefore, the cutoff date of January 6, 2025 is no longer the latest authoritative legislative incorporation date and is now stale.",
+      "evidence_ids": [
+        "ev_f68554945b10",
+        "ev_313caed8b90c",
+        "ev_a1702ef452a4",
+        "ev_f1a2a4e862d9"
+      ],
+      "reasoning_trace_id": "trace_48c93c464242",
+      "related_finding_ids": [],
+      "created_at": "2026-05-22T18:30:28+00:00"
+    }
   ],
   "traces": [
     {
-      "id": "t1",
+      "id": "trace_de44abab4eb9",
+      "job_id": "job_demo_argus",
+      "claim_id": "c34",
+      "agent": "citation/verdict",
+      "miromind_response_id": "resp_w_58fae090-20c5-43e8-b1c5-8abdd866a4a9",
+      "started_at": "2026-05-23T05:43:07.032692",
+      "completed_at": "2026-05-23T05:43:07.032700",
+      "total_tokens": 2392061,
+      "reasoning_tokens": 0,
+      "num_search_queries": 6,
+      "final_verdict_step_id": null,
+      "steps": []
+    },
+    {
+      "id": "trace_9910d2347e25",
       "job_id": "job_demo_argus",
       "claim_id": "c1",
-      "agent": "CitationVerifier",
-      "miromind_response_id": "resp_w_demo_t1",
-      "started_at": "2026-05-20T01:00:30.000Z",
-      "completed_at": "2026-05-20T01:01:42.000Z",
-      "total_tokens": 7421,
-      "reasoning_tokens": 3210,
+      "agent": "data_freshness",
+      "miromind_response_id": "resp_w_6b0fa662-3a0e-41f0-abb5-68394279a8f6",
+      "started_at": "2026-05-23T05:43:07.043535",
+      "completed_at": "2026-05-23T05:43:07.043538",
+      "total_tokens": 2553815,
+      "reasoning_tokens": 0,
       "num_search_queries": 3,
-      "final_verdict_step_id": "s1_v",
-      "steps": [
-        { "id": "s1_t1", "trace_id": "t1", "sequence": 5, "type": "thinking", "summary": "Verify Smith (2021) On widget resilience. Crossref first.", "content": { "thought": "Cited as: Smith, J. (2021) Journal of Widgets 12(3). I'll query Crossref for bibliographic match." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:00:32.000Z" },
-        { "id": "s1_fu", "trace_id": "t1", "sequence": 9, "type": "fetch_url_content", "summary": "Crossref query for Smith 2021", "content": { "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith" }, "evidence_ids": ["e1"], "parent_step_id": "s1_t1", "created_at": "2026-05-20T01:00:55.000Z" },
-        { "id": "s1_t2", "trace_id": "t1", "sequence": 14, "type": "thinking", "summary": "Crossref empty. Fallback to Google Scholar.", "content": { "thought": "Items list is empty. Trying Scholar via web_search next." }, "evidence_ids": [], "parent_step_id": "s1_fu", "created_at": "2026-05-20T01:01:12.000Z" },
-        { "id": "s1_ws", "trace_id": "t1", "sequence": 18, "type": "web_search", "summary": "Scholar search: Smith 2021 widget resilience", "content": { "query": "Smith 2021 widget resilience" }, "evidence_ids": ["e2"], "parent_step_id": "s1_t2", "created_at": "2026-05-20T01:01:25.000Z" },
-        { "id": "s1_ws2", "trace_id": "t1", "sequence": 21, "type": "web_search", "summary": "SSRN site search", "content": { "query": "site:ssrn.com Smith 2021 widget resilience" }, "evidence_ids": ["e3"], "parent_step_id": "s1_ws", "created_at": "2026-05-20T01:01:35.000Z" },
-        { "id": "s1_v", "trace_id": "t1", "sequence": 30, "type": "message", "summary": "Verdict: fabricated. No record in any indexed source.", "content": { "verdict": "fabricated", "confidence": 0.96 }, "evidence_ids": ["e1", "e2", "e3"], "parent_step_id": "s1_ws2", "created_at": "2026-05-20T01:01:42.000Z" }
-      ]
+      "final_verdict_step_id": null,
+      "steps": []
     },
     {
-      "id": "t2",
+      "id": "trace_48c93c464242",
       "job_id": "job_demo_argus",
       "claim_id": "c1",
-      "agent": "CitationAlignment",
-      "miromind_response_id": "resp_w_demo_t2",
-      "started_at": "2026-05-20T01:01:48.000Z",
-      "completed_at": "2026-05-20T01:02:30.000Z",
-      "total_tokens": 3120,
-      "reasoning_tokens": 1500,
-      "num_search_queries": 1,
-      "final_verdict_step_id": "s2_v",
-      "steps": [
-        { "id": "s2_t1", "trace_id": "t2", "sequence": 4, "type": "thinking", "summary": "Need source text to compare. No DOI provided.", "content": { "thought": "Try a generic web_search for the paper PDF." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:01:50.000Z" },
-        { "id": "s2_ws", "trace_id": "t2", "sequence": 8, "type": "web_search", "summary": "PDF search: Smith 2021 widget resilience filetype:pdf", "content": { "query": "Smith 2021 widget resilience filetype:pdf" }, "evidence_ids": ["e4"], "parent_step_id": "s2_t1", "created_at": "2026-05-20T01:02:10.000Z" },
-        { "id": "s2_v", "trace_id": "t2", "sequence": 14, "type": "message", "summary": "No source retrievable. Verdict downgraded to uncertain.", "content": { "verdict": "uncertain", "confidence": 0.30 }, "evidence_ids": ["e4"], "parent_step_id": "s2_ws", "created_at": "2026-05-20T01:02:30.000Z" }
-      ]
+      "agent": "data_freshness",
+      "miromind_response_id": "resp_w_6e297982-688d-41e7-8f2f-0a8e6bbb2c72",
+      "started_at": "2026-05-23T05:43:07.044784",
+      "completed_at": "2026-05-23T05:43:07.044787",
+      "total_tokens": 185875,
+      "reasoning_tokens": 0,
+      "num_search_queries": 4,
+      "final_verdict_step_id": null,
+      "steps": []
     },
     {
-      "id": "t3",
+      "id": "trace_038d6a56f94b",
       "job_id": "job_demo_argus",
-      "claim_id": "c2",
-      "agent": "DataFreshness",
-      "miromind_response_id": "resp_w_demo_t3",
-      "started_at": "2026-05-20T01:02:35.000Z",
-      "completed_at": "2026-05-20T01:03:10.000Z",
-      "total_tokens": 4502,
-      "reasoning_tokens": 1820,
-      "num_search_queries": 1,
-      "final_verdict_step_id": "s3_v",
-      "steps": [
-        { "id": "s3_t1", "trace_id": "t3", "sequence": 4, "type": "thinking", "summary": "US GDP growth is a FRED series (GDPC1). Query FRED for latest release.", "content": { "thought": "Going straight to FRED's GDPC1 series." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:02:38.000Z" },
-        { "id": "s3_fu", "trace_id": "t3", "sequence": 9, "type": "fetch_url_content", "summary": "FRED GDPC1 latest observations", "content": { "url": "https://api.stlouisfed.org/fred/series/observations?series_id=GDPC1&limit=5&sort_order=desc&api_key=…" }, "evidence_ids": ["e5"], "parent_step_id": "s3_t1", "created_at": "2026-05-20T01:02:55.000Z" },
-        { "id": "s3_t2", "trace_id": "t3", "sequence": 13, "type": "execute_python", "summary": "Compare report value (2.1%) vs FRED's most recent quarterly print (2.4%)", "content": { "code": "import json\nresp = json.loads(fred_response)\nlatest = resp['observations'][0]\nprint(latest)\n# {'date': '2025-Q3', 'value': '2.4'}\nprint('stale by 1 quarter')" }, "evidence_ids": [], "parent_step_id": "s3_fu", "created_at": "2026-05-20T01:03:02.000Z" },
-        { "id": "s3_v", "trace_id": "t3", "sequence": 18, "type": "message", "summary": "Verdict: stale. Q3 2025 figure supersedes Q2.", "content": { "verdict": "stale", "confidence": 0.94, "current_value": "2.4%" }, "evidence_ids": ["e5"], "parent_step_id": "s3_t2", "created_at": "2026-05-20T01:03:10.000Z" }
-      ]
+      "claim_id": "c34",
+      "agent": "citation/verdict",
+      "miromind_response_id": "resp_w_bc5f0d72-bc34-40bf-ac1f-6566cf24e8e5",
+      "started_at": "2026-05-23T05:43:07.054111",
+      "completed_at": "2026-05-23T05:43:07.054113",
+      "total_tokens": 1129572,
+      "reasoning_tokens": 0,
+      "num_search_queries": 4,
+      "final_verdict_step_id": null,
+      "steps": []
     },
     {
-      "id": "t4",
+      "id": "trace_91f040819b05",
       "job_id": "job_demo_argus",
-      "claim_id": "c3",
-      "agent": "CitationAlignment",
-      "miromind_response_id": "resp_w_demo_t4",
-      "started_at": "2026-05-20T01:03:15.000Z",
-      "completed_at": "2026-05-20T01:04:01.000Z",
-      "total_tokens": 5680,
-      "reasoning_tokens": 2420,
-      "num_search_queries": 1,
-      "final_verdict_step_id": "s4_v",
-      "steps": [
-        { "id": "s4_t1", "trace_id": "t4", "sequence": 4, "type": "thinking", "summary": "Fetch the relevant IMF WEO chapter to compare framing.", "content": { "thought": "I'll fetch the public WEO chapter and search for 'productivity'." }, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-20T01:03:17.000Z" },
-        { "id": "s4_fu", "trace_id": "t4", "sequence": 9, "type": "fetch_url_content", "summary": "IMF WEO 2025 chapter on productivity", "content": { "url": "https://www.imf.org/en/Publications/WEO/Issues/2025/10" }, "evidence_ids": ["e6"], "parent_step_id": "s4_t1", "created_at": "2026-05-20T01:03:35.000Z" },
-        { "id": "s4_t2", "trace_id": "t4", "sequence": 13, "type": "thinking", "summary": "Source says: '4% under upside scenario, contingent on labour-market reform' — report omits caveat.", "content": { "thought": "Report's framing inverts a contingent forecast into a baseline. This is misrepresentation, not partial match." }, "evidence_ids": [], "parent_step_id": "s4_fu", "created_at": "2026-05-20T01:03:50.000Z" },
-        { "id": "s4_v", "trace_id": "t4", "sequence": 18, "type": "message", "summary": "Verdict: misrepresented. Severity critical.", "content": { "verdict": "misrepresented", "confidence": 0.88 }, "evidence_ids": ["e6"], "parent_step_id": "s4_t2", "created_at": "2026-05-20T01:04:01.000Z" }
-      ]
-    },
-    {
-      "id": "t5",
-      "job_id": "job_demo_argus",
-      "claim_id": "c4",
-      "agent": "DataFreshness",
-      "miromind_response_id": "resp_w_demo_t5",
-      "started_at": "2026-05-20T01:04:10.000Z",
-      "completed_at": "2026-05-20T01:04:48.000Z",
-      "total_tokens": 3902,
-      "reasoning_tokens": 1500,
-      "num_search_queries": 1,
-      "final_verdict_step_id": "s5_v",
-      "steps": [
-        { "id": "s5_ws", "trace_id": "t5", "sequence": 4, "type": "web_search", "summary": "WidgetWorld 2025 industry release", "content": { "query": "WidgetWorld 2025 annual widget shipments" }, "evidence_ids": ["e7"], "parent_step_id": null, "created_at": "2026-05-20T01:04:25.000Z" },
-        { "id": "s5_v", "trace_id": "t5", "sequence": 9, "type": "message", "summary": "Verdict: ok. 4.2% YoY 2024 matches WidgetWorld's official release.", "content": { "verdict": "ok", "confidence": 0.78 }, "evidence_ids": ["e7"], "parent_step_id": "s5_ws", "created_at": "2026-05-20T01:04:48.000Z" }
-      ]
+      "claim_id": "c36",
+      "agent": "data_freshness",
+      "miromind_response_id": "resp_w_d0cfd8c5-76a1-4ef3-9196-b94e257159e1",
+      "started_at": "2026-05-23T05:43:07.057053",
+      "completed_at": "2026-05-23T05:43:07.057055",
+      "total_tokens": 5705716,
+      "reasoning_tokens": 0,
+      "num_search_queries": 8,
+      "final_verdict_step_id": null,
+      "steps": []
     }
   ],
   "evidences": [
-    { "id": "e1", "source_type": "crossref", "url": "https://api.crossref.org/works?query.bibliographic=On+widget+resilience&query.author=Smith", "citation": "Crossref query", "snippet": "{\"items\":[]}", "full_content_ref": null, "retrieved_at": "2026-05-20T01:00:55.000Z", "retrieved_by_step_id": "s1_fu" },
-    { "id": "e2", "source_type": "web_page", "url": "https://scholar.google.com/scholar?q=Smith+2021+widget+resilience", "citation": "Google Scholar SERP", "snippet": "No results.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:01:25.000Z", "retrieved_by_step_id": "s1_ws" },
-    { "id": "e3", "source_type": "ssrn", "url": "https://www.google.com/search?q=site%3Assrn.com+Smith+2021+widget+resilience", "citation": "SSRN site search", "snippet": "No matches.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:01:35.000Z", "retrieved_by_step_id": "s1_ws2" },
-    { "id": "e4", "source_type": "web_page", "url": "https://www.google.com/search?q=Smith+2021+widget+resilience+filetype%3Apdf", "citation": "Open-web PDF search", "snippet": "No matching PDF.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:10.000Z", "retrieved_by_step_id": "s2_ws" },
-    { "id": "e5", "source_type": "fred", "url": "https://api.stlouisfed.org/fred/series/observations?series_id=GDPC1", "citation": "FRED GDPC1 observations", "snippet": "{\"observations\":[{\"date\":\"2025-Q3\",\"value\":\"2.4\"}]}", "full_content_ref": null, "retrieved_at": "2026-05-20T01:02:55.000Z", "retrieved_by_step_id": "s3_fu" },
-    { "id": "e6", "source_type": "imf", "url": "https://www.imf.org/en/Publications/WEO/Issues/2025/10", "citation": "IMF WEO Oct 2025", "snippet": "Under the upside scenario, contingent on labour-market reform, productivity could grow 4% annually.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:03:35.000Z", "retrieved_by_step_id": "s4_fu" },
-    { "id": "e7", "source_type": "web_page", "url": "https://widgetworld.com/2025-industry-release", "citation": "WidgetWorld 2025 Industry Release", "snippet": "Global widget shipments grew 4.2% in 2024 compared to 2023.", "full_content_ref": null, "retrieved_at": "2026-05-20T01:04:25.000Z", "retrieved_by_step_id": "s5_ws" }
+    {
+      "id": "ev_6e29d1969453",
+      "source_type": "web_page",
+      "url": "https://www.sciencedirect.com/science/article/abs/pii/S0047272723000580",
+      "citation": "https://www.sciencedirect.com/science/article/abs/pii/S0047272723000580",
+      "snippet": "Journal of Public Economics \u00b7 Volume 222, June 2023, 104876. Journal of Public Economics. Does information affect homophily? ... (Gallen, Yana; Wasserman, Melanie).",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_de44abab4eb9"
+    },
+    {
+      "id": "ev_3c3828fe9b1e",
+      "source_type": "web_page",
+      "url": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
+      "citation": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
+      "snippet": "Volume 218 (February 2023) table of contents shows articles such as 'The political economy of public sector absence', 'Nonlinear taxation and international mobility in general equilibrium', etc.; no article by Sokolov & Reyes and no article titled 'Productivity-growth assumptions' is listed.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_de44abab4eb9"
+    },
+    {
+      "id": "ev_1623c197e9ff",
+      "source_type": "web_page",
+      "url": "https://ideas.repec.org/a/eee/pubeco/v222y2023ics0047272723000580.html",
+      "citation": "https://ideas.repec.org/a/eee/pubeco/v222y2023ics0047272723000580.html",
+      "snippet": "Does information affect homophily? Journal of Public Economics, 222 (2023), article 104876, DOI: 10.1016/j.jpubeco.2023.104876. Authors: Yana Gallen and Melanie Wasserman.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_de44abab4eb9"
+    },
+    {
+      "id": "ev_165929f35dcf",
+      "source_type": "arxiv",
+      "url": "https://arxiv.org/search/?query=Sokolov+Reyes+productivity+growth+Journal+of+Public+Economics+2023&searchtype=all",
+      "citation": "https://arxiv.org/search/?query=Sokolov+Reyes+productivity+growth+Journal+of+Public+Economics+2023&searchtype=all",
+      "snippet": "Search results for 'Sokolov Reyes productivity growth Journal of Public Economics 2023' return no matching preprint or article.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_de44abab4eb9"
+    },
+    {
+      "id": "ev_0b30148e95a8",
+      "source_type": "ssrn",
+      "url": "https://papers.ssrn.com/sol3/results.cfm?txtKey_Words=Sokolov+Reyes+Journal+of+Public+Economics+2023",
+      "citation": "https://papers.ssrn.com/sol3/results.cfm?txtKey_Words=Sokolov+Reyes+Journal+of+Public+Economics+2023",
+      "snippet": "Search results list several papers by Sokolov and several by various authors named Reyes, but no joint paper by Sokolov & Reyes and nothing matching the Journal of Public Economics 2023 citation.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_de44abab4eb9"
+    },
+    {
+      "id": "ev_591eecb5119d",
+      "source_type": "web_page",
+      "url": "https://data.mendeley.com/journal/00472727",
+      "citation": "https://data.mendeley.com/journal/00472727",
+      "snippet": "Mendeley Data index for Journal of Public Economics shows 2023 articles but no entry with authors Sokolov & Reyes or a title related to 'Productivity-growth assumptions'.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_de44abab4eb9"
+    },
+    {
+      "id": "ev_eef4f52a605e",
+      "source_type": "web_page",
+      "url": "https://www.cbo.gov/publication/61882",
+      "citation": "https://www.cbo.gov/publication/61882",
+      "snippet": "The budget projections are based on CBO's economic forecast, which reflects economic developments and laws in place as of December 3, 2025. The budget projections also incorporate the effects of laws in place as of January 14, 2026. (CBO\u2019s projections do not include the effects of appropriation acts passed after that date.)",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_9910d2347e25"
+    },
+    {
+      "id": "ev_0c3846798a53",
+      "source_type": "web_page",
+      "url": "https://www.cbo.gov/publication/62105",
+      "citation": "https://www.cbo.gov/publication/62105",
+      "snippet": "In this report, the budget projections are based on CBO's economic forecast, which reflects trade policy as of November 20, 2025, and economic developments and laws in place as of December 3, 2025. The budget projections also incorporate the effects of laws in place as of January 14, 2026.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_9910d2347e25"
+    },
+    {
+      "id": "ev_eae3c6850d19",
+      "source_type": "web_page",
+      "url": "https://openminds.com/market-intelligence/resources/021126cboeconomicoutlook/",
+      "citation": "https://openminds.com/market-intelligence/resources/021126cboeconomicoutlook/",
+      "snippet": "The current budget projections are based on laws in place as of December 3, 2025. The budget projections also incorporate the effects of laws in place as of January 14, 2026; they do not include the effects of appropriation acts passed after January 14, 2026.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_9910d2347e25"
+    },
+    {
+      "id": "ev_f68554945b10",
+      "source_type": "web_page",
+      "url": "https://www.cbo.gov/publication/60870",
+      "citation": "https://www.cbo.gov/publication/60870",
+      "snippet": "The Budget and Economic Outlook: 2025 to 2035 ... They also incorporate legislation enacted through January 6, 2025.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_48c93c464242"
+    },
+    {
+      "id": "ev_313caed8b90c",
+      "source_type": "web_page",
+      "url": "https://www.cbo.gov/publication/62105",
+      "citation": "https://www.cbo.gov/publication/62105",
+      "snippet": "The Budget and Economic Outlook: 2026 to 2036 ... Under the laws in place on January 14, 2026, federal deficits would remain large by historical standards and would increase over the next decade ...",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_48c93c464242"
+    },
+    {
+      "id": "ev_a1702ef452a4",
+      "source_type": "web_page",
+      "url": "https://www.cbo.gov/faqs",
+      "citation": "https://www.cbo.gov/faqs",
+      "snippet": "CBO's latest budget projections, which were released in February 2026, include the effects of legislation that passed both Houses of Congress as of January 14, 2026.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_48c93c464242"
+    },
+    {
+      "id": "ev_f1a2a4e862d9",
+      "source_type": "web_page",
+      "url": "https://www.crfb.org/blogs/cbo-releases-february-2026-budget-and-economic-outlook",
+      "citation": "https://www.crfb.org/blogs/cbo-releases-february-2026-budget-and-economic-outlook",
+      "snippet": "CBO's new baseline incorporates legislation and executive actions put into place since last January, including the enactment of the One Big Beautiful Bill Act.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_48c93c464242"
+    },
+    {
+      "id": "ev_be2293902c80",
+      "source_type": "web_page",
+      "url": "https://pure.au.dk/portal/en/publications/does-information-affect-homophily",
+      "citation": "https://pure.au.dk/portal/en/publications/does-information-affect-homophily",
+      "snippet": "Does information affect homophily? Journal of Public Economics, 222, Article 104876. https://doi.org/10.1016/j.jpubeco.2023.104876. Authors: Yana Gallen, Melanie Wasserman.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_038d6a56f94b"
+    },
+    {
+      "id": "ev_01aeb3adc815",
+      "source_type": "web_page",
+      "url": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
+      "citation": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
+      "snippet": "Volume 218 (February 2023) table of contents lists articles with numbers such as 104751, 104779, 104783, 104787, 104800, 104811, 104816, 104817; there is no article numbered 104876 and no paper by authors Sokolov or Reyes.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_038d6a56f94b"
+    },
+    {
+      "id": "ev_426c7f283029",
+      "source_type": "crossref",
+      "url": "https://api.crossref.org/works?query=author:Sokolov",
+      "citation": "https://api.crossref.org/works?query=author:Sokolov",
+      "snippet": "Crossref query for author:Sokolov returned total-results: 0 and an empty items list, indicating no indexed works under that author name in this context.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_038d6a56f94b"
+    },
+    {
+      "id": "ev_0938c94a7501",
+      "source_type": "web_page",
+      "url": "https://scholar.google.com/scholar?q=Sokolov+Reyes+%22Journal+of+Public+Economics%22+2023",
+      "citation": "https://scholar.google.com/scholar?q=Sokolov+Reyes+%22Journal+of+Public+Economics%22+2023",
+      "snippet": "Google Scholar search for Sokolov Reyes \"Journal of Public Economics\" 2023 returns unrelated items and no article matching the claimed citation.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_038d6a56f94b"
+    },
+    {
+      "id": "ev_3648ba720833",
+      "source_type": "web_page",
+      "url": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z1_fy2027.xlsx",
+      "citation": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z1_fy2027.xlsx",
+      "snippet": "FY 2025 Total Outlays: 7,011.105 billion dollars.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    },
+    {
+      "id": "ev_c03417ba5199",
+      "source_type": "web_page",
+      "url": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z2_fy2027.xlsx",
+      "citation": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z2_fy2027.xlsx",
+      "snippet": "FY 2025: GDP 30,322.8; Total Outlays 23.1 percent of GDP; Total Receipts 17.3 percent of GDP.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    },
+    {
+      "id": "ev_8ef50063eded",
+      "source_type": "web_page",
+      "url": "https://fiscaldata.treasury.gov/americas-finance-guide/federal-spending/",
+      "citation": "https://fiscaldata.treasury.gov/americas-finance-guide/federal-spending/",
+      "snippet": "The federal government spent \\$7.01 trillion in FY 2025. This means federal spending was equal to 23% of the total gross domestic product (GDP) that year.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    },
+    {
+      "id": "ev_3ceb56c2e4a8",
+      "source_type": "web_page",
+      "url": "https://www.cbo.gov/system/files/2025-11/61307-MBR-FY25-final.pdf",
+      "citation": "https://www.cbo.gov/system/files/2025-11/61307-MBR-FY25-final.pdf",
+      "snippet": "In total, outlays were equal to 23.1 percent of GDP in 2025, down from 23.3 percent of GDP in 2024.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    },
+    {
+      "id": "ev_a6d9de56d46c",
+      "source_type": "fred",
+      "url": "https://fred.stlouisfed.org/series/FYONGDA188S",
+      "citation": "https://fred.stlouisfed.org/series/FYONGDA188S",
+      "snippet": "Federal Net Outlays as Percent of Gross Domestic Product (FYONGDA188S): 2025 value 22.79137 percent of GDP.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    },
+    {
+      "id": "ev_718e746fc68d",
+      "source_type": "fred",
+      "url": "https://fred.stlouisfed.org/series/FGEXPND",
+      "citation": "https://fred.stlouisfed.org/series/FGEXPND",
+      "snippet": "Federal Government: Current Expenditures (FGEXPND) 2025 quarterly values imply an annualized level around 7,493.457 billion dollars (SAAR).",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    },
+    {
+      "id": "ev_65cb15dd91e7",
+      "source_type": "worldbank",
+      "url": "https://api.worldbank.org/v2/country/US/indicator/NE.CON.GOVT.CD?format=json&per_page=200",
+      "citation": "https://api.worldbank.org/v2/country/US/indicator/NE.CON.GOVT.CD?format=json&per_page=200",
+      "snippet": "General government final consumption expenditure (current US$), United States: 2025 value listed as null (no 2025 figure published yet).",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    },
+    {
+      "id": "ev_1838f285ec03",
+      "source_type": "imf",
+      "url": "https://www.imf.org/en/Publications/WEO/weo-database/2025/April-2025",
+      "citation": "https://www.imf.org/en/Publications/WEO/weo-database/2025/April-2025",
+      "snippet": "IMF World Economic Outlook database April 2025 page returns 404; no US 2025 federal outlays as percent of GDP data available from this route.",
+      "full_content_ref": null,
+      "retrieved_by_step_id": "trace_91f040819b05"
+    }
   ]
 }
