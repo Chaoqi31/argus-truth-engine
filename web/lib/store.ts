@@ -1,7 +1,14 @@
 "use client";
 
 import { create } from "zustand";
-import type { Job, LiveFinding, RunStatus, Step } from "@/lib/types";
+import type {
+  FilteredClaim,
+  Job,
+  LiveFinding,
+  ReviewClaim,
+  RunStatus,
+  Step,
+} from "@/lib/types";
 
 export type ReplayState = "idle" | "playing" | "done";
 
@@ -24,6 +31,15 @@ interface ArgusState {
   appendLiveFinding: (finding: LiveFinding) => void;
   setRunStatus: (status: RunStatus, error?: string | null) => void;
   resetLive: () => void;
+
+  // HITL review
+  reviewClaims: ReviewClaim[];
+  filteredClaims: FilteredClaim[];
+  selectedClaimIds: Set<string>;
+  setReviewReady: (claims: ReviewClaim[], filtered: FilteredClaim[]) => void;
+  toggleClaimSelection: (claimId: string) => void;
+  selectAllClaims: () => void;
+  clearReview: () => void;
 }
 
 const INITIAL_LIVE = {
@@ -33,11 +49,18 @@ const INITIAL_LIVE = {
   runError: null as string | null,
 };
 
+const INITIAL_REVIEW = {
+  reviewClaims: [] as ReviewClaim[],
+  filteredClaims: [] as FilteredClaim[],
+  selectedClaimIds: new Set<string>(),
+};
+
 export const useArgusStore = create<ArgusState>((set) => ({
   job: null,
   activeFindingId: null,
   replayState: "idle",
   ...INITIAL_LIVE,
+  ...INITIAL_REVIEW,
 
   setJob: (job) =>
     set({
@@ -53,6 +76,7 @@ export const useArgusStore = create<ArgusState>((set) => ({
       activeFindingId: null,
       replayState: "idle",
       ...INITIAL_LIVE,
+      ...INITIAL_REVIEW,
     }),
 
   appendLiveStep: (step) =>
@@ -61,4 +85,25 @@ export const useArgusStore = create<ArgusState>((set) => ({
     set((s) => ({ liveFindings: [...s.liveFindings, finding] })),
   setRunStatus: (status, error = null) => set({ runStatus: status, runError: error }),
   resetLive: () => set({ ...INITIAL_LIVE }),
+
+  // HITL review
+  setReviewReady: (claims, filtered) =>
+    set({
+      reviewClaims: claims,
+      filteredClaims: filtered,
+      selectedClaimIds: new Set(claims.map((c) => c.id)),
+      runStatus: "reviewing",
+    }),
+  toggleClaimSelection: (claimId) =>
+    set((s) => {
+      const next = new Set(s.selectedClaimIds);
+      if (next.has(claimId)) next.delete(claimId);
+      else next.add(claimId);
+      return { selectedClaimIds: next };
+    }),
+  selectAllClaims: () =>
+    set((s) => ({
+      selectedClaimIds: new Set(s.reviewClaims.map((c) => c.id)),
+    })),
+  clearReview: () => set({ ...INITIAL_REVIEW }),
 }));

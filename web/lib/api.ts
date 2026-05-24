@@ -60,6 +60,64 @@ export async function uploadPdf(
   return (await resp.json()) as UploadResponse;
 }
 
+export type ContentDomain =
+  | "general"
+  | "academic"
+  | "medical"
+  | "legal"
+  | "finance"
+  | "technology"
+  | "news"
+  | "science";
+
+export async function submitText(
+  text: string,
+  apiKey?: string,
+  options?: { contentDomain?: ContentDomain },
+): Promise<UploadResponse> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (apiKey?.trim()) {
+    headers["X-Miromind-Key"] = apiKey.trim();
+  }
+  const resp = await fetch(`${API_BASE}/jobs/text`, {
+    method: "POST",
+    body: JSON.stringify({
+      text,
+      auto_review: false,
+      content_domain: options?.contentDomain ?? "general",
+    }),
+    headers,
+  });
+  if (resp.status === 400) {
+    const msg = await resp.text().catch(() => "");
+    throw new ArgusApiError(400, msg || "MiroMind API key required.");
+  }
+  if (resp.status === 422) {
+    throw new ArgusApiError(422, "Text too short (minimum 50 characters).");
+  }
+  if (!resp.ok) {
+    throw new ArgusApiError(resp.status, `submit failed (${resp.status})`);
+  }
+  return (await resp.json()) as UploadResponse;
+}
+
+export async function submitClaimSelection(
+  jobId: string,
+  selectedClaimIds: string[],
+): Promise<void> {
+  const resp = await fetch(
+    `${API_BASE}/jobs/${encodeURIComponent(jobId)}/claims/select`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selected_claim_ids: selectedClaimIds }),
+    },
+  );
+  if (!resp.ok) {
+    throw new ArgusApiError(resp.status, `claim selection failed (${resp.status})`);
+  }
+}
+
 export async function getJob(jobId: string): Promise<Job> {
   const resp = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
   if (resp.status === 404) {

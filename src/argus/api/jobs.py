@@ -6,8 +6,19 @@ from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from argus.api.runner import JobRunner
+
+
+class TextSubmission(BaseModel):
+    text: str = Field(..., min_length=50, max_length=200_000)
+    auto_review: bool = False
+    content_domain: str = "general"  # general|academic|medical|legal|finance|technology|news|science
+
+
+class ClaimSelection(BaseModel):
+    selected_claim_ids: list[str]
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -74,6 +85,46 @@ async def submit_job(
         api_key_override=api_key_header or None,
     )
     return {"job_id": job_id, "status": "running"}
+
+
+@router.post("/text", status_code=202)
+async def submit_text_job(
+    request: Request,
+    body: TextSubmission,
+) -> dict[str, str]:
+    _require_token(request)
+    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
+    server_key = (request.app.state.argus.settings.miromind_api_key or "").strip()
+    if not api_key_header and not server_key:
+        raise HTTPException(
+            status_code=_HTTP_BAD_REQUEST,
+            detail=(
+                "MiroMind API key required. Pass it via the X-Miromind-Key "
+                "request header, or configure ARGUS_MIROMIND_API_KEY on the server."
+            ),
+        )
+    runner = _runner(request)
+    job_id = await runner.submit_text(
+        body.text,
+        api_key_override=api_key_header or None,
+        auto_review=body.auto_review,
+        content_domain=body.content_domain,
+    )
+    return {"job_id": job_id, "status": "running"}
+
+
+@router.post("/{job_id}/claims/select", status_code=200)
+async def select_claims(
+    request: Request,
+    job_id: str,
+    body: ClaimSelection,
+) -> dict[str, Any]:
+    gate = request.app.state.argus.review_gate
+    ok = gate.submit(job_id, body.selected_claim_ids)
+    if not ok:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND,
+                            detail="no pending review for this job")
+    return {"status": "resumed", "n_selected": len(body.selected_claim_ids)}
 
 
 @router.get("/{job_id}/pdf")
