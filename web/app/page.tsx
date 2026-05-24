@@ -147,17 +147,18 @@ export default function HomePage() {
         <div className="flex flex-col items-center gap-5 text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground shadow-sm">
             <span aria-hidden className="size-1.5 rounded-full bg-success" />
-            Built for the UCWS &times; MiroMind Deep Research track
+            For compliance, legal, and research teams that receive AI output
           </span>
           <h1 className="text-balance text-5xl font-semibold tracking-tight md:text-6xl">
-            Detect hallucinations in
+            The audit layer for
             <br />
             <span className="text-primary">AI-generated content.</span>
           </h1>
           <p className="max-w-2xl text-balance text-base text-muted-foreground md:text-lg">
-            Argus surfaces fabricated citations, invented statistics, stale data, and internal
-            contradictions in LLM-generated text — and shows the full reasoning chain MiroMind
-            used to reach each verdict.
+            Patronus and Galileo help you <em>build</em> AI you can ship.
+            Argus helps you <em>trust</em> AI someone else shipped to you.
+            Upload any AI-generated PDF or paste any LLM output — get every factual claim,
+            every verdict, and the full reasoning chain behind it.
           </p>
 
           <div className="mt-2 flex w-full max-w-xl flex-col items-center gap-3">
