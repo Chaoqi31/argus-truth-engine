@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { ArgusHeader } from "@/components/argus-header";
 import { ApiKeyInput } from "@/components/api-key-input";
+import { PersonaSection } from "@/components/persona-section";
 
 const POINTS = [
   {
@@ -295,6 +296,8 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+
+        <PersonaSection />
 
         <footer className="mt-4 text-center text-xs text-muted-foreground">
           Powered by MiroMind <code className="rounded bg-muted px-1 py-0.5 font-mono">mirothinker-1-7-deepresearch</code> via the Responses API.
