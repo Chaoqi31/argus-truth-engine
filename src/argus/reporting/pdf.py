@@ -1,7 +1,7 @@
 """Render a completed Job into a styled PDF audit report."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import markdown as md
@@ -53,7 +53,7 @@ def render_job_pdf(job: Job) -> bytes:
         evidence_by_finding=evidence_by_finding,
         steps_by_finding=steps_by_finding,
         executive_summary_html=exec_html,
-        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
     )
     css = CSS(filename=str(_TEMPLATE_DIR / "audit_report.css"))
     return HTML(string=html_str).write_pdf(stylesheets=[css])
