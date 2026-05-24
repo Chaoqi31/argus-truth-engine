@@ -11,9 +11,10 @@ import { TraceStreamView } from "@/components/trace-stream-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
 import { ScenarioBanner } from "@/components/scenario-banner";
+import { ExportMenu, type ExportFormat } from "@/components/export-menu";
 import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
 import { subscribeTrace } from "@/lib/trace-ws";
-import { getJob } from "@/lib/api";
+import { getJob, downloadReport } from "@/lib/api";
 import { loadSampleJob } from "@/lib/load-job";
 import type { FilteredClaim, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
@@ -68,6 +69,36 @@ function AuditPageContent() {
   const [hintOpen, setHintOpen] = useState(false);
 
   useFindingKeyboardNav(() => setHintOpen((v) => !v));
+
+  const onExport = async (fmt: ExportFormat) => {
+    if (!liveId) return;
+    if (fmt === "pdf") {
+      const blob = await downloadReport(liveId, null);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `argus-audit-${liveId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (fmt === "json") {
+      const blob = new Blob([JSON.stringify(job, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `argus-audit-${liveId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const md = job?.audit_report_md ?? "";
+      const blob = new Blob([md], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `argus-audit-${liveId}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
 
   // Live mode: open WS, accumulate, GET on finished.
   useEffect(() => {
@@ -183,6 +214,7 @@ function AuditPageContent() {
         <ArgusHeader
           rightSlot={
             <div className="flex items-center gap-2">
+              <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
               <ThemeToggle />
             </div>
           }
@@ -245,7 +277,7 @@ function AuditPageContent() {
       <ArgusHeader
         rightSlot={
           <div className="flex items-center gap-2">
-            <ExportButton job={job} />
+            <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
             <ThemeToggle />
           </div>
         }
@@ -491,28 +523,6 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
         );
       })}
     </ul>
-  );
-}
-
-function ExportButton({ job }: { job: Job }) {
-  const onClick = () => {
-    const blob = new Blob([JSON.stringify(job, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${job.id}.findings.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-9 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-      aria-label="Download this job's findings.json"
-    >
-      <span aria-hidden>⤓</span> Export
-    </button>
   );
 }
 

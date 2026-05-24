@@ -128,3 +128,13 @@ export async function getJob(jobId: string): Promise<Job> {
   }
   return (await resp.json()) as Job;
 }
+
+export async function downloadReport(jobId: string, apiKey: string | null): Promise<Blob> {
+  const headers: HeadersInit = {};
+  if (apiKey) headers["X-Miromind-Key"] = apiKey;
+  const resp = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/report.pdf`, { headers });
+  if (!resp.ok) {
+    throw new ArgusApiError(resp.status, `download failed: ${resp.status}`);
+  }
+  return await resp.blob();
+}
