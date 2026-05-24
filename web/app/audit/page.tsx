@@ -10,6 +10,7 @@ import { ReasoningPanel } from "@/components/reasoning-panel";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
+import { ScenarioBanner } from "@/components/scenario-banner";
 import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
 import { subscribeTrace } from "@/lib/trace-ws";
 import { getJob } from "@/lib/api";
@@ -249,6 +250,9 @@ function AuditPageContent() {
           </div>
         }
       />
+      {demo === "1" && job?.scenario_label && job?.persona && (
+        <ScenarioBanner label={job.scenario_label} persona={job.persona} />
+      )}
       <VerdictBanner job={job} />
       <JobStatsBar job={job} />
       <main className="grid h-[calc(100vh-3.5rem-2.75rem-2.75rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
