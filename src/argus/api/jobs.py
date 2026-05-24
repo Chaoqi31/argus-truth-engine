@@ -5,10 +5,11 @@ from pathlib import PurePath
 from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from argus.api.runner import JobRunner
+from argus.reporting.pdf import render_job_pdf
 
 
 class TextSubmission(BaseModel):
@@ -141,11 +142,7 @@ async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
 
 
 @router.get("/{job_id}/report.pdf")
-async def get_job_report_pdf(request: Request, job_id: str) -> Any:
-    from fastapi.responses import Response
-
-    from argus.reporting.pdf import render_job_pdf
-
+async def get_job_report_pdf(request: Request, job_id: str) -> Response:
     _require_token(request)
     runner = _runner(request)
     record = runner.get(job_id)
