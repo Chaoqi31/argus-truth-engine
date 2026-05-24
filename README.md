@@ -102,7 +102,7 @@ just the verdict, but the strongest case against the verdict — and why it lost
 
 ## 🏗️ How it works
 
-A LangGraph state machine fans 9 agents out over the document's claims:
+A LangGraph state machine fans 10+ specialized agents out over the document's claims:
 
 ```
                       ┌─────────────────────────────┐
