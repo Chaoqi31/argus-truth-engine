@@ -1,6 +1,7 @@
 "use client";
 
 import type { Job } from "@/lib/types";
+import { CostChip } from "@/components/cost-chip";
 
 interface Props {
   job: Job;
@@ -67,6 +68,8 @@ export function JobStatsBar({ job }: Props) {
           {i < stats.length - 1 && <span aria-hidden className="ml-5 text-border">·</span>}
         </div>
       ))}
+      {stats.length > 0 && <span aria-hidden className="text-border">·</span>}
+      <CostChip costUsd={job?.cost_usd ?? null} />
     </div>
   );
 }
