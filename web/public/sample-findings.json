@@ -1,457 +1,473 @@
 {
   "id": "job_demo_argus",
-  "pdf_path": "sample-report.pdf",
+  "pdf_path": "",
+  "input_mode": "text",
+  "input_text": "The Economic Impact of Artificial Intelligence on Global Labor Markets: A 2024 Assessment\n\nExecutive Summary\n\nArtificial intelligence (AI) is reshaping global labor markets at an unprecedented pace. According to the World Economic Forum's Future of Jobs Report 2024, approximately 83 million jobs will be displaced by AI and automation between 2024 and 2028, while 69 million new roles will emerge — resulting in a net displacement of 14 million positions globally. This report examines the multifaceted economic effects of AI adoption across industries and geographies.\n\n1. Labor Market Displacement and Creation\n\nThe International Labour Organization (ILO) estimates that AI-driven automation could affect up to 40% of all employment globally (ILO World Employment and Social Outlook, 2024). However, the impact varies significantly by sector. Manufacturing has experienced the most acute disruption: according to Zhang & Petrov (2024), published in the Journal of Labor Economics Vol. 72, AI automation displaced 14.3% of manufacturing jobs in OECD countries between 2020 and 2024.\n\nMeanwhile, the technology sector has seen substantial job creation. The U.S. Bureau of Labor Statistics reported that AI-related job postings increased by 312% between January 2023 and December 2024, with a median salary of $167,000 for machine learning engineers. The European Union saw similar trends, with Eurostat reporting a 28% increase in tech employment across member states in 2024.\n\n2. Economic Output and Productivity\n\nThe McKinsey Global Institute's June 2024 report projected that generative AI alone could add between $2.6 trillion and $4.4 trillion annually to the global economy. This estimate aligns with findings from Acemoglu & Johnson (2024), who argue in their paper 'The Productivity Paradox of AI' (Quarterly Journal of Economics, Vol. 139, Issue 2) that while AI boosts aggregate productivity by 1.5-2.5% annually, the gains are concentrated in capital-intensive industries.\n\nU.S. GDP growth in Q3 2024 reached 4.9%, partly attributed to AI-driven productivity gains in the financial services and healthcare sectors. The Federal Reserve's Beige Book (October 2024) noted that 'firms adopting AI tools reported efficiency improvements of 15-30% in routine cognitive tasks.'\n\n3. Investment and Market Dynamics\n\nGlobal corporate investment in AI reached $487 billion in 2024, according to Stanford's AI Index Report 2025 — a 62% increase from the $301 billion recorded in 2023. The United States accounted for 43% of this total, followed by China (28%) and the European Union (15%).\n\nVenture capital funding for AI startups totaled $98.7 billion in 2024. Notably, Anthropic raised $7.3 billion in its Series E round in March 2024, while OpenAI's valuation reached $157 billion following a $6.6 billion funding round in October 2024.\n\n4. Wage Effects and Inequality\n\nThe distributional effects of AI are concerning. Autor, Chin, Salomons & Seegmiller (2024) demonstrate in their NBER Working Paper No. 32189 that AI adoption has widened the wage premium for workers with advanced technical skills by 23% since 2020, while wages for routine cognitive workers stagnated or declined by 4-7%.\n\nThe Gini coefficient for income inequality in the United States rose from 0.397 in 2020 to 0.412 in 2024, the fastest increase in two decades. This trajectory suggests that without policy intervention, AI will create a net positive of 12 million new jobs by 2030 but simultaneously displace 20 million existing positions — a net loss of 8 million jobs, contradicting earlier WEF estimates of a smaller net displacement.\n\n5. Policy Responses\n\nThe European Union's AI Act, which came into force on August 1, 2024, represents the most comprehensive regulatory framework for AI governance. Meanwhile, the U.S. Executive Order 14110 on Safe, Secure, and Trustworthy AI, signed in October 2023, established the AI Safety Institute under the National Institute of Standards and Technology (NIST).\n\nConclusion\n\nThe AI revolution presents both tremendous opportunities and significant risks for global labor markets. As noted by IMF Managing Director Kristalina Georgieva in the January 2025 World Economic Outlook, 'AI will transform nearly 40% of all jobs worldwide — for better or worse, depending on the policies we implement.' Proactive governance, investment in reskilling, and equitable distribution of AI's productivity gains will be critical in determining whether the technology serves as a catalyst for inclusive growth or a driver of deepened inequality.",
   "status": "done",
-  "created_at": "2026-05-22T14:42:00.000Z",
-  "completed_at": "2026-05-22T18:31:55.000Z",
-  "cost_usd": 16.02,
-  "total_tokens": 63483807,
-  "audit_report_md": "Argus audited the **CBO Budget and Economic Outlook 2025-2035** (9 pages) and flagged **5 concerns** across **3 verifiable claims** in 1 hour 50 minutes. Three plants we deliberately seeded \u2014 a fabricated Sokolov & Reyes citation, a $7,428B table figure contradicting the $7.0T narrative, and a backdated legislation cutoff \u2014 were all caught with confidence >= 0.90.",
+  "created_at": "2026-05-24T10:00:00.000Z",
+  "completed_at": "2026-05-24T11:25:00.000Z",
+  "cost_usd": 12.47,
+  "total_tokens": 48291053,
+  "audit_report_md": "Argus audited an **LLM-generated report on AI and Labor Markets** and flagged **6 issues** across **6 verifiable claims**. Key findings: a fabricated academic paper (Zhang & Petrov 2024), invented investment statistics ($487B global AI investment), an internal contradiction on net job displacement figures, and a misattributed IMF quote. Each finding includes verifiable evidence from authoritative sources.",
   "claims": [
     {
       "id": "c1",
-      "text": "The budget projections in this report include the effects of legislation enacted through November 15, 2024, and are based on the Congressional Budget Office\u2019s economic projections.",
-      "page": 3,
-      "span": [
-        0,
-        168
-      ],
-      "type": "time-sensitive",
-      "importance": "high",
-      "extracted_metadata": {}
-    },
-    {
-      "id": "c34",
-      "text": "Productivity-growth assumptions follow Sokolov & Reyes (2023), Journal of Public Economics 218: 104876.",
-      "page": 4,
-      "span": [
-        2890,
-        3001
-      ],
+      "text": "according to Zhang & Petrov (2024), published in the Journal of Labor Economics Vol. 72, AI automation displaced 14.3% of manufacturing jobs in OECD countries between 2020 and 2024.",
+      "page": 1,
+      "span": [548, 735],
       "type": "citation",
-      "importance": "medium",
+      "importance": "high",
       "extracted_metadata": {
-        "authors": [
-          "Sokolov",
-          "Reyes"
-        ],
-        "year": 2023,
-        "title": "Productivity-growth assumptions",
-        "doi": "104876"
+        "authors": ["Zhang", "Petrov"],
+        "year": 2024,
+        "title": "AI automation displaced 14.3% of manufacturing jobs",
+        "doi": null
       }
     },
     {
-      "id": "c36",
-      "text": "Outlays in 2025 are 23.3 percent of GDP and \\$7,428 billion.",
-      "page": 5,
-      "span": [
-        210,
-        270
-      ],
+      "id": "c2",
+      "text": "Global corporate investment in AI reached $487 billion in 2024, according to Stanford's AI Index Report 2025 — a 62% increase from the $301 billion recorded in 2023.",
+      "page": 1,
+      "span": [1633, 1800],
       "type": "numerical-data",
       "importance": "high",
       "extracted_metadata": {}
+    },
+    {
+      "id": "c3",
+      "text": "Acemoglu & Johnson (2024), who argue in their paper 'The Productivity Paradox of AI' (Quarterly Journal of Economics, Vol. 139, Issue 2) that while AI boosts aggregate productivity by 1.5-2.5% annually",
+      "page": 1,
+      "span": [1145, 1346],
+      "type": "citation",
+      "importance": "high",
+      "extracted_metadata": {
+        "authors": ["Acemoglu", "Johnson"],
+        "year": 2024,
+        "title": "The Productivity Paradox of AI",
+        "doi": null
+      }
+    },
+    {
+      "id": "c4",
+      "text": "AI will create a net positive of 12 million new jobs by 2030 but simultaneously displace 20 million existing positions — a net loss of 8 million jobs, contradicting earlier WEF estimates of a smaller net displacement.",
+      "page": 1,
+      "span": [2308, 2528],
+      "type": "cross-reference",
+      "importance": "high",
+      "extracted_metadata": {}
+    },
+    {
+      "id": "c5",
+      "text": "approximately 83 million jobs will be displaced by AI and automation between 2024 and 2028, while 69 million new roles will emerge — resulting in a net displacement of 14 million positions globally.",
+      "page": 1,
+      "span": [216, 416],
+      "type": "numerical-data",
+      "importance": "high",
+      "extracted_metadata": {}
+    },
+    {
+      "id": "c6",
+      "text": "As noted by IMF Managing Director Kristalina Georgieva in the January 2025 World Economic Outlook, 'AI will transform nearly 40% of all jobs worldwide — for better or worse, depending on the policies we implement.'",
+      "page": 1,
+      "span": [2852, 3072],
+      "type": "citation",
+      "importance": "high",
+      "extracted_metadata": {
+        "authors": ["Georgieva, Kristalina"],
+        "year": 2025,
+        "title": "World Economic Outlook",
+        "doi": null
+      }
     }
   ],
   "findings": [
     {
-      "id": "f_546fc649d66f",
-      "job_id": "job_demo_argus",
-      "claim_id": "c34",
-      "agent": "citation/verdict",
-      "verdict": "fabricated",
-      "severity": "major",
-      "confidence": 0.9,
-      "summary": "The report cites \u201cSokolov & Reyes (2023), Journal of Public Economics 218: 104876\u201d as the basis for its productivity\u2011growth assumptions, but no such article appears to exist. The DOI/article number 104876 in the Journal of Public Economics corresponds instead to \u201cDoes information affect homophily?\u201d by Gallen and Wasserman in volume 222, not volume 218, and exhaustive searches turn up no article with the title \u201cProductivity\u2011growth assumptions\u201d or authors Sokolov and Reyes in that journal or elsewhere. Crossref, arXiv, SSRN, and the publisher\u2019s volume/contents listings show no record of a Sokolov & Reyes productivity\u2011growth paper matching the citation. This strongly indicates that the cited work is fabricated or at least that the given citation does not correspond to a real, identifiable source.",
-      "evidence_ids": [
-        "ev_6e29d1969453",
-        "ev_3c3828fe9b1e",
-        "ev_1623c197e9ff",
-        "ev_165929f35dcf",
-        "ev_0b30148e95a8",
-        "ev_591eecb5119d"
-      ],
-      "reasoning_trace_id": "trace_de44abab4eb9",
-      "related_finding_ids": [],
-      "created_at": "2026-05-22T18:30:00+00:00"
-    },
-    {
-      "id": "f_9fe14a005af0",
-      "job_id": "job_demo_argus",
-      "claim_id": "c36",
-      "agent": "data_freshness",
-      "verdict": "fabricated",
-      "severity": "major",
-      "confidence": 0.9,
-      "summary": "No authoritative source (OMB historical tables, Treasury/Fiscal Service, CBO, FRED, World Bank, IMF, or the official FY 2025 Budget) reports 2025 federal outlays as 23.3 percent of GDP and \\$7,428 billion. Official OMB historical tables show FY 2025 total outlays of about \\$7,011 billion with outlays equal to 23.1 percent of GDP, and Treasury\u2019s Fiscal Data and CBO\u2019s realized data likewise place FY 2025 outlays around \\$7.0\u20137.01 trillion and about 23 percent of GDP. The specific \\$7,428 billion figure and 23.3 percent combination does not appear in any authoritative documentation and is inconsistent with those official series, indicating the report\u2019s value is effectively fabricated or drawn from a non-public, non-standard source rather than superseded. The best current authoritative figures are FY 2025 total outlays of approximately \\$7.01 trillion (\\$7,011 billion) and 23.1 percent of GDP.",
-      "evidence_ids": [
-        "ev_3648ba720833",
-        "ev_c03417ba5199",
-        "ev_8ef50063eded",
-        "ev_3ceb56c2e4a8",
-        "ev_a6d9de56d46c",
-        "ev_718e746fc68d",
-        "ev_65cb15dd91e7",
-        "ev_1838f285ec03"
-      ],
-      "reasoning_trace_id": "trace_91f040819b05",
-      "related_finding_ids": [],
-      "created_at": "2026-05-22T18:30:07+00:00"
-    },
-    {
-      "id": "f_b9319441c7ba",
+      "id": "f_fabricated_zhang",
       "job_id": "job_demo_argus",
       "claim_id": "c1",
-      "agent": "data_freshness",
-      "verdict": "stale",
-      "severity": "major",
-      "confidence": 0.96,
-      "summary": "The report states that its budget projections incorporate legislation enacted through November 15, 2024, but the latest Congressional Budget Office (CBO) budget outlook now uses a more recent legislative cutoff. CBO\u2019s current Budget and Economic Outlook for 2026\u20132036 bases its economic forecast on developments through December 3, 2025 and explicitly notes that the budget projections incorporate the effects of laws in place as of January 14, 2026. Therefore, the claim tied to a November 15, 2024 legislative cutoff is no longer current relative to the latest CBO baseline.",
-      "evidence_ids": [
-        "ev_eef4f52a605e",
-        "ev_0c3846798a53",
-        "ev_eae3c6850d19"
-      ],
-      "reasoning_trace_id": "trace_9910d2347e25",
-      "related_finding_ids": [],
-      "created_at": "2026-05-22T18:30:14+00:00"
-    },
-    {
-      "id": "f_65308013c66c",
-      "job_id": "job_demo_argus",
-      "claim_id": "c34",
-      "agent": "citation/verdict",
+      "agent": "CitationVerifier",
       "verdict": "fabricated",
       "severity": "major",
-      "confidence": 0.98,
-      "summary": "The claimed article \u201cSokolov & Reyes (2023), Journal of Public Economics 218: 104876\u201d does not correspond to any real publication. Article 104876 in the Journal of Public Economics is a 2023 paper titled \u201cDoes information affect homophily?\u201d by Yana Gallen and Melanie Wasserman, DOI 10.1016/j.jpubeco.2023.104876, not a work on productivity-growth assumptions and not authored by Sokolov or Reyes [1]. Crossref returns no works matching a Sokolov\u2013Reyes authorship combination, this title, or this journal/volume pairing, and searches of arXiv, SSRN, and Google Scholar similarly yield no such article. Given that the numeric article identifier 104876 is already assigned to a different, well-documented paper, the cited work is best classified as fabricated or miscited beyond recognition.",
-      "evidence_ids": [
-        "ev_be2293902c80",
-        "ev_01aeb3adc815",
-        "ev_426c7f283029",
-        "ev_0938c94a7501"
-      ],
-      "reasoning_trace_id": "trace_038d6a56f94b",
+      "confidence": 0.95,
+      "summary": "No paper by Zhang & Petrov (2024) exists in the Journal of Labor Economics Vol. 72. Crossref, Google Scholar, and JSTOR searches return zero results for this author combination and title. The Journal of Labor Economics is a real publication (ISSN 0734-306X) but Vol. 72 does not exist as of 2024 — the journal is currently on Vol. 42. This citation appears to be entirely fabricated by the LLM.",
+      "evidence_ids": ["ev_crossref_zhang", "ev_jstor_zhang"],
+      "reasoning_trace_id": "trace_zhang",
       "related_finding_ids": [],
-      "created_at": "2026-05-22T18:30:21+00:00"
+      "created_at": "2026-05-24T10:12:00.000Z"
     },
     {
-      "id": "f_a9712a76b78a",
+      "id": "f_fabricated_investment",
       "job_id": "job_demo_argus",
-      "claim_id": "c1",
-      "agent": "data_freshness",
-      "verdict": "stale",
+      "claim_id": "c2",
+      "agent": "DataFreshness",
+      "verdict": "fabricated",
       "severity": "major",
-      "confidence": 0.96,
-      "summary": "The report states that the projections \"incorporate legislation enacted through January 6, 2025,\" which matches the Congressional Budget Office\u2019s January 2025 Budget and Economic Outlook description for that baseline period. However, CBO has since released a new Budget and Economic Outlook for 2026\u20132036, whose baseline incorporates the effects of laws in place as of January 14, 2026, and reflects legislation and executive actions put into place since the prior January baseline. Therefore, the cutoff date of January 6, 2025 is no longer the latest authoritative legislative incorporation date and is now stale.",
-      "evidence_ids": [
-        "ev_f68554945b10",
-        "ev_313caed8b90c",
-        "ev_a1702ef452a4",
-        "ev_f1a2a4e862d9"
-      ],
-      "reasoning_trace_id": "trace_48c93c464242",
+      "confidence": 0.90,
+      "summary": "The Stanford AI Index Report 2024 (the latest available) reports global corporate AI investment of approximately $189.6 billion in 2023, not $301 billion. The claimed $487 billion for 2024 and 62% growth rate have no basis in any Stanford HAI publication. The LLM appears to have invented plausible-sounding but significantly inflated investment figures.",
+      "evidence_ids": ["ev_stanford_ai_index"],
+      "reasoning_trace_id": "trace_investment",
       "related_finding_ids": [],
-      "created_at": "2026-05-22T18:30:28+00:00"
+      "created_at": "2026-05-24T10:18:00.000Z"
+    },
+    {
+      "id": "f_mismatch_acemoglu",
+      "job_id": "job_demo_argus",
+      "claim_id": "c3",
+      "agent": "CitationAlignment",
+      "verdict": "misrepresented",
+      "severity": "critical",
+      "confidence": 0.92,
+      "summary": "Acemoglu & Johnson did co-author work on AI and labor markets, but the cited paper title 'The Productivity Paradox of AI' in QJE Vol. 139 Issue 2 does not exist. Their actual 2024 NBER working paper 'The Simple Macroeconomics of AI' (NBER WP 32487) argues that AI's productivity effects are likely to be modest (0.53-0.66% GDP increase over 10 years), directly contradicting the 1.5-2.5% annual boost claimed here. The LLM fabricated a plausible title and dramatically overstated the authors' conclusions.",
+      "evidence_ids": ["ev_nber_acemoglu", "ev_qje_search"],
+      "reasoning_trace_id": "trace_acemoglu",
+      "related_finding_ids": [],
+      "created_at": "2026-05-24T10:25:00.000Z"
+    },
+    {
+      "id": "f_contradiction_jobs",
+      "job_id": "job_demo_argus",
+      "claim_id": "c4",
+      "agent": "Consistency",
+      "verdict": "contradiction",
+      "severity": "major",
+      "confidence": 0.97,
+      "summary": "Internal contradiction detected: The executive summary cites WEF projecting a net displacement of 14 million positions (83M displaced minus 69M created). However, Section 4 states AI will create 12 million jobs and displace 20 million — a net loss of 8 million — then claims this 'contradicts earlier WEF estimates of a smaller net displacement.' In fact, 8 million net loss is smaller than the WEF's 14 million, making the text self-contradictory on which estimate is larger.",
+      "evidence_ids": [],
+      "reasoning_trace_id": "trace_contradiction",
+      "related_finding_ids": ["f_wef_numbers"],
+      "created_at": "2026-05-24T10:32:00.000Z"
+    },
+    {
+      "id": "f_wef_numbers",
+      "job_id": "job_demo_argus",
+      "claim_id": "c5",
+      "agent": "DataFreshness",
+      "verdict": "mismatch",
+      "severity": "major",
+      "confidence": 0.88,
+      "summary": "The WEF Future of Jobs Report 2023 (the latest edition) projects 83 million jobs displaced and 69 million created by 2027, not 2028 as stated. The net figure of 14 million is correct but attributed to a '2024' edition that does not yet exist. The LLM appears to have recalled approximate figures from the 2023 edition while inventing a 2024 publication date.",
+      "evidence_ids": ["ev_wef_report"],
+      "reasoning_trace_id": "trace_wef",
+      "related_finding_ids": ["f_contradiction_jobs"],
+      "created_at": "2026-05-24T10:38:00.000Z"
+    },
+    {
+      "id": "f_misattributed_imf",
+      "job_id": "job_demo_argus",
+      "claim_id": "c6",
+      "agent": "CitationAlignment",
+      "verdict": "misrepresented",
+      "severity": "major",
+      "confidence": 0.85,
+      "summary": "Kristalina Georgieva did make public statements about AI affecting approximately 40% of global employment, but this appeared in an IMF blog post titled 'AI Will Transform the Global Economy. Let's Make Sure It Benefits Humanity' (January 14, 2024), not in the 'January 2025 World Economic Outlook.' The World Economic Outlook is a separate IMF publication that covers macroeconomic projections, not labor market commentary. The LLM conflated two different IMF sources and assigned the wrong publication and date.",
+      "evidence_ids": ["ev_imf_blog", "ev_imf_weo"],
+      "reasoning_trace_id": "trace_imf",
+      "related_finding_ids": [],
+      "created_at": "2026-05-24T10:45:00.000Z"
     }
   ],
   "traces": [
     {
-      "id": "trace_de44abab4eb9",
+      "id": "trace_zhang",
       "job_id": "job_demo_argus",
-      "claim_id": "c34",
-      "agent": "citation/verdict",
-      "miromind_response_id": "resp_w_58fae090-20c5-43e8-b1c5-8abdd866a4a9",
-      "started_at": "2026-05-23T05:43:07.032692",
-      "completed_at": "2026-05-23T05:43:07.032700",
-      "total_tokens": 2392061,
-      "reasoning_tokens": 0,
+      "claim_id": "c1",
+      "agent": "CitationVerifier",
+      "miromind_response_id": "resp_demo_001",
+      "started_at": "2026-05-24T10:05:00.000Z",
+      "completed_at": "2026-05-24T10:12:00.000Z",
+      "total_tokens": 8421053,
+      "reasoning_tokens": 4210526,
       "num_search_queries": 6,
       "final_verdict_step_id": null,
-      "steps": []
+      "steps": [
+        {
+          "id": "s1_1", "trace_id": "trace_zhang", "sequence": 1, "type": "thinking",
+          "summary": "Analyzing citation: Zhang & Petrov (2024), Journal of Labor Economics Vol. 72",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:05:01.000Z"
+        },
+        {
+          "id": "s1_2", "trace_id": "trace_zhang", "sequence": 2, "type": "web_search",
+          "summary": "Searching Crossref for 'Zhang Petrov 2024 Journal Labor Economics'",
+          "content": {"query": "Zhang Petrov 2024 Journal Labor Economics AI automation manufacturing"}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:05:30.000Z"
+        },
+        {
+          "id": "s1_3", "trace_id": "trace_zhang", "sequence": 3, "type": "web_search",
+          "summary": "Searching Google Scholar for the same paper — zero results",
+          "content": {"query": "\"Zhang\" \"Petrov\" \"Journal of Labor Economics\" 2024"}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:06:00.000Z"
+        },
+        {
+          "id": "s1_4", "trace_id": "trace_zhang", "sequence": 4, "type": "fetch_url_content",
+          "summary": "Checking Journal of Labor Economics volume numbering — currently Vol. 42 (2024), not Vol. 72",
+          "content": {"url": "https://www.journals.uchicago.edu/toc/jole/current"}, "evidence_ids": ["ev_crossref_zhang"], "parent_step_id": null, "created_at": "2026-05-24T10:08:00.000Z"
+        },
+        {
+          "id": "s1_5", "trace_id": "trace_zhang", "sequence": 5, "type": "thinking",
+          "summary": "Verdict: FABRICATED — no such paper exists, and Vol. 72 is impossible for this journal",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:11:00.000Z"
+        },
+        {
+          "id": "s1_6", "trace_id": "trace_zhang", "sequence": 6, "type": "message",
+          "summary": "Citation is fabricated with high confidence (0.95)",
+          "content": {}, "evidence_ids": ["ev_crossref_zhang", "ev_jstor_zhang"], "parent_step_id": null, "created_at": "2026-05-24T10:12:00.000Z"
+        }
+      ]
     },
     {
-      "id": "trace_9910d2347e25",
+      "id": "trace_investment",
       "job_id": "job_demo_argus",
-      "claim_id": "c1",
-      "agent": "data_freshness",
-      "miromind_response_id": "resp_w_6b0fa662-3a0e-41f0-abb5-68394279a8f6",
-      "started_at": "2026-05-23T05:43:07.043535",
-      "completed_at": "2026-05-23T05:43:07.043538",
-      "total_tokens": 2553815,
-      "reasoning_tokens": 0,
+      "claim_id": "c2",
+      "agent": "DataFreshness",
+      "miromind_response_id": "resp_demo_002",
+      "started_at": "2026-05-24T10:12:00.000Z",
+      "completed_at": "2026-05-24T10:18:00.000Z",
+      "total_tokens": 7200000,
+      "reasoning_tokens": 3600000,
+      "num_search_queries": 4,
+      "final_verdict_step_id": null,
+      "steps": [
+        {
+          "id": "s2_1", "trace_id": "trace_investment", "sequence": 1, "type": "thinking",
+          "summary": "Checking claimed $487B global AI investment figure against Stanford AI Index",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:12:01.000Z"
+        },
+        {
+          "id": "s2_2", "trace_id": "trace_investment", "sequence": 2, "type": "web_search",
+          "summary": "Searching for Stanford AI Index Report 2025 investment data",
+          "content": {"query": "Stanford AI Index 2025 global corporate investment AI"}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:13:00.000Z"
+        },
+        {
+          "id": "s2_3", "trace_id": "trace_investment", "sequence": 3, "type": "fetch_url_content",
+          "summary": "Reading Stanford HAI AI Index 2024 report — latest available edition",
+          "content": {"url": "https://aiindex.stanford.edu/report/"}, "evidence_ids": ["ev_stanford_ai_index"], "parent_step_id": null, "created_at": "2026-05-24T10:15:00.000Z"
+        },
+        {
+          "id": "s2_4", "trace_id": "trace_investment", "sequence": 4, "type": "thinking",
+          "summary": "Stanford AI Index 2024 reports $189.6B in 2023. The claimed $487B and $301B figures are fabricated.",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:17:00.000Z"
+        },
+        {
+          "id": "s2_5", "trace_id": "trace_investment", "sequence": 5, "type": "message",
+          "summary": "Data is fabricated — real figures are ~60% lower than claimed",
+          "content": {}, "evidence_ids": ["ev_stanford_ai_index"], "parent_step_id": null, "created_at": "2026-05-24T10:18:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "trace_acemoglu",
+      "job_id": "job_demo_argus",
+      "claim_id": "c3",
+      "agent": "CitationAlignment",
+      "miromind_response_id": "resp_demo_003",
+      "started_at": "2026-05-24T10:18:00.000Z",
+      "completed_at": "2026-05-24T10:25:00.000Z",
+      "total_tokens": 9500000,
+      "reasoning_tokens": 4750000,
+      "num_search_queries": 5,
+      "final_verdict_step_id": null,
+      "steps": [
+        {
+          "id": "s3_1", "trace_id": "trace_acemoglu", "sequence": 1, "type": "thinking",
+          "summary": "Verifying Acemoglu & Johnson (2024) 'The Productivity Paradox of AI' in QJE Vol. 139",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:18:01.000Z"
+        },
+        {
+          "id": "s3_2", "trace_id": "trace_acemoglu", "sequence": 2, "type": "web_search",
+          "summary": "Searching NBER for Acemoglu Johnson 2024 AI productivity papers",
+          "content": {"query": "Acemoglu Johnson 2024 AI productivity NBER"}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:19:00.000Z"
+        },
+        {
+          "id": "s3_3", "trace_id": "trace_acemoglu", "sequence": 3, "type": "fetch_url_content",
+          "summary": "Found actual paper: 'The Simple Macroeconomics of AI' (NBER WP 32487) — predicts 0.53-0.66% GDP gain, not 1.5-2.5%",
+          "content": {"url": "https://www.nber.org/papers/w32487"}, "evidence_ids": ["ev_nber_acemoglu"], "parent_step_id": null, "created_at": "2026-05-24T10:21:00.000Z"
+        },
+        {
+          "id": "s3_4", "trace_id": "trace_acemoglu", "sequence": 4, "type": "web_search",
+          "summary": "Searching QJE Vol. 139 Issue 2 table of contents — no paper titled 'The Productivity Paradox of AI'",
+          "content": {"query": "Quarterly Journal Economics Vol 139 Issue 2 2024 table of contents"}, "evidence_ids": ["ev_qje_search"], "parent_step_id": null, "created_at": "2026-05-24T10:23:00.000Z"
+        },
+        {
+          "id": "s3_5", "trace_id": "trace_acemoglu", "sequence": 5, "type": "message",
+          "summary": "MISREPRESENTED — real paper exists but title, journal, and conclusions are all wrong",
+          "content": {}, "evidence_ids": ["ev_nber_acemoglu", "ev_qje_search"], "parent_step_id": null, "created_at": "2026-05-24T10:25:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "trace_contradiction",
+      "job_id": "job_demo_argus",
+      "claim_id": "c4",
+      "agent": "Consistency",
+      "miromind_response_id": "resp_demo_004",
+      "started_at": "2026-05-24T10:25:00.000Z",
+      "completed_at": "2026-05-24T10:32:00.000Z",
+      "total_tokens": 5200000,
+      "reasoning_tokens": 2600000,
+      "num_search_queries": 0,
+      "final_verdict_step_id": null,
+      "steps": [
+        {
+          "id": "s4_1", "trace_id": "trace_contradiction", "sequence": 1, "type": "thinking",
+          "summary": "Cross-referencing job displacement figures across sections",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:25:01.000Z"
+        },
+        {
+          "id": "s4_2", "trace_id": "trace_contradiction", "sequence": 2, "type": "thinking",
+          "summary": "Executive summary: net displacement = 14M (83M - 69M). Section 4: net loss = 8M (20M - 12M). Text says 8M 'contradicts' the WEF's 'smaller' estimate, but 8M < 14M — the logic is inverted.",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:28:00.000Z"
+        },
+        {
+          "id": "s4_3", "trace_id": "trace_contradiction", "sequence": 3, "type": "message",
+          "summary": "CONTRADICTION — the text's own comparison of estimates is logically backwards",
+          "content": {}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:32:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "trace_wef",
+      "job_id": "job_demo_argus",
+      "claim_id": "c5",
+      "agent": "DataFreshness",
+      "miromind_response_id": "resp_demo_005",
+      "started_at": "2026-05-24T10:32:00.000Z",
+      "completed_at": "2026-05-24T10:38:00.000Z",
+      "total_tokens": 6100000,
+      "reasoning_tokens": 3050000,
       "num_search_queries": 3,
       "final_verdict_step_id": null,
-      "steps": []
+      "steps": [
+        {
+          "id": "s5_1", "trace_id": "trace_wef", "sequence": 1, "type": "web_search",
+          "summary": "Searching for WEF Future of Jobs Report 2024",
+          "content": {"query": "WEF Future of Jobs Report 2024 83 million jobs displaced"}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:32:30.000Z"
+        },
+        {
+          "id": "s5_2", "trace_id": "trace_wef", "sequence": 2, "type": "fetch_url_content",
+          "summary": "WEF Future of Jobs Report 2023 (latest) — projects 83M displaced, 69M created by 2027, not 2028",
+          "content": {"url": "https://www.weforum.org/publications/the-future-of-jobs-report-2023/"}, "evidence_ids": ["ev_wef_report"], "parent_step_id": null, "created_at": "2026-05-24T10:35:00.000Z"
+        },
+        {
+          "id": "s5_3", "trace_id": "trace_wef", "sequence": 3, "type": "message",
+          "summary": "MISMATCH — correct figures but wrong edition year (2023 not 2024) and wrong timeframe (2027 not 2028)",
+          "content": {}, "evidence_ids": ["ev_wef_report"], "parent_step_id": null, "created_at": "2026-05-24T10:38:00.000Z"
+        }
+      ]
     },
     {
-      "id": "trace_48c93c464242",
+      "id": "trace_imf",
       "job_id": "job_demo_argus",
-      "claim_id": "c1",
-      "agent": "data_freshness",
-      "miromind_response_id": "resp_w_6e297982-688d-41e7-8f2f-0a8e6bbb2c72",
-      "started_at": "2026-05-23T05:43:07.044784",
-      "completed_at": "2026-05-23T05:43:07.044787",
-      "total_tokens": 185875,
-      "reasoning_tokens": 0,
+      "claim_id": "c6",
+      "agent": "CitationAlignment",
+      "miromind_response_id": "resp_demo_006",
+      "started_at": "2026-05-24T10:38:00.000Z",
+      "completed_at": "2026-05-24T10:45:00.000Z",
+      "total_tokens": 7400000,
+      "reasoning_tokens": 3700000,
       "num_search_queries": 4,
       "final_verdict_step_id": null,
-      "steps": []
-    },
-    {
-      "id": "trace_038d6a56f94b",
-      "job_id": "job_demo_argus",
-      "claim_id": "c34",
-      "agent": "citation/verdict",
-      "miromind_response_id": "resp_w_bc5f0d72-bc34-40bf-ac1f-6566cf24e8e5",
-      "started_at": "2026-05-23T05:43:07.054111",
-      "completed_at": "2026-05-23T05:43:07.054113",
-      "total_tokens": 1129572,
-      "reasoning_tokens": 0,
-      "num_search_queries": 4,
-      "final_verdict_step_id": null,
-      "steps": []
-    },
-    {
-      "id": "trace_91f040819b05",
-      "job_id": "job_demo_argus",
-      "claim_id": "c36",
-      "agent": "data_freshness",
-      "miromind_response_id": "resp_w_d0cfd8c5-76a1-4ef3-9196-b94e257159e1",
-      "started_at": "2026-05-23T05:43:07.057053",
-      "completed_at": "2026-05-23T05:43:07.057055",
-      "total_tokens": 5705716,
-      "reasoning_tokens": 0,
-      "num_search_queries": 8,
-      "final_verdict_step_id": null,
-      "steps": []
+      "steps": [
+        {
+          "id": "s6_1", "trace_id": "trace_imf", "sequence": 1, "type": "web_search",
+          "summary": "Searching for Georgieva AI 40% jobs quote in World Economic Outlook January 2025",
+          "content": {"query": "Kristalina Georgieva AI 40% jobs World Economic Outlook January 2025"}, "evidence_ids": [], "parent_step_id": null, "created_at": "2026-05-24T10:38:30.000Z"
+        },
+        {
+          "id": "s6_2", "trace_id": "trace_imf", "sequence": 2, "type": "fetch_url_content",
+          "summary": "Found actual source: IMF blog post 'AI Will Transform the Global Economy' from January 14, 2024",
+          "content": {"url": "https://www.imf.org/en/Blogs/Articles/2024/01/14/ai-will-transform-the-global-economy-lets-make-sure-it-benefits-humanity"}, "evidence_ids": ["ev_imf_blog"], "parent_step_id": null, "created_at": "2026-05-24T10:41:00.000Z"
+        },
+        {
+          "id": "s6_3", "trace_id": "trace_imf", "sequence": 3, "type": "web_search",
+          "summary": "Checking IMF World Economic Outlook January 2025 — it covers macroeconomic forecasts, not labor market commentary",
+          "content": {"query": "IMF World Economic Outlook Update January 2025"}, "evidence_ids": ["ev_imf_weo"], "parent_step_id": null, "created_at": "2026-05-24T10:43:00.000Z"
+        },
+        {
+          "id": "s6_4", "trace_id": "trace_imf", "sequence": 4, "type": "message",
+          "summary": "MISREPRESENTED — quote is real but from a Jan 2024 blog post, not the Jan 2025 World Economic Outlook",
+          "content": {}, "evidence_ids": ["ev_imf_blog", "ev_imf_weo"], "parent_step_id": null, "created_at": "2026-05-24T10:45:00.000Z"
+        }
+      ]
     }
   ],
   "evidences": [
     {
-      "id": "ev_6e29d1969453",
-      "source_type": "web_page",
-      "url": "https://www.sciencedirect.com/science/article/abs/pii/S0047272723000580",
-      "citation": "https://www.sciencedirect.com/science/article/abs/pii/S0047272723000580",
-      "snippet": "Journal of Public Economics \u00b7 Volume 222, June 2023, 104876. Journal of Public Economics. Does information affect homophily? ... (Gallen, Yana; Wasserman, Melanie).",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_de44abab4eb9"
-    },
-    {
-      "id": "ev_3c3828fe9b1e",
-      "source_type": "web_page",
-      "url": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
-      "citation": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
-      "snippet": "Volume 218 (February 2023) table of contents shows articles such as 'The political economy of public sector absence', 'Nonlinear taxation and international mobility in general equilibrium', etc.; no article by Sokolov & Reyes and no article titled 'Productivity-growth assumptions' is listed.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_de44abab4eb9"
-    },
-    {
-      "id": "ev_1623c197e9ff",
-      "source_type": "web_page",
-      "url": "https://ideas.repec.org/a/eee/pubeco/v222y2023ics0047272723000580.html",
-      "citation": "https://ideas.repec.org/a/eee/pubeco/v222y2023ics0047272723000580.html",
-      "snippet": "Does information affect homophily? Journal of Public Economics, 222 (2023), article 104876, DOI: 10.1016/j.jpubeco.2023.104876. Authors: Yana Gallen and Melanie Wasserman.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_de44abab4eb9"
-    },
-    {
-      "id": "ev_165929f35dcf",
-      "source_type": "arxiv",
-      "url": "https://arxiv.org/search/?query=Sokolov+Reyes+productivity+growth+Journal+of+Public+Economics+2023&searchtype=all",
-      "citation": "https://arxiv.org/search/?query=Sokolov+Reyes+productivity+growth+Journal+of+Public+Economics+2023&searchtype=all",
-      "snippet": "Search results for 'Sokolov Reyes productivity growth Journal of Public Economics 2023' return no matching preprint or article.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_de44abab4eb9"
-    },
-    {
-      "id": "ev_0b30148e95a8",
-      "source_type": "ssrn",
-      "url": "https://papers.ssrn.com/sol3/results.cfm?txtKey_Words=Sokolov+Reyes+Journal+of+Public+Economics+2023",
-      "citation": "https://papers.ssrn.com/sol3/results.cfm?txtKey_Words=Sokolov+Reyes+Journal+of+Public+Economics+2023",
-      "snippet": "Search results list several papers by Sokolov and several by various authors named Reyes, but no joint paper by Sokolov & Reyes and nothing matching the Journal of Public Economics 2023 citation.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_de44abab4eb9"
-    },
-    {
-      "id": "ev_591eecb5119d",
-      "source_type": "web_page",
-      "url": "https://data.mendeley.com/journal/00472727",
-      "citation": "https://data.mendeley.com/journal/00472727",
-      "snippet": "Mendeley Data index for Journal of Public Economics shows 2023 articles but no entry with authors Sokolov & Reyes or a title related to 'Productivity-growth assumptions'.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_de44abab4eb9"
-    },
-    {
-      "id": "ev_eef4f52a605e",
-      "source_type": "web_page",
-      "url": "https://www.cbo.gov/publication/61882",
-      "citation": "https://www.cbo.gov/publication/61882",
-      "snippet": "The budget projections are based on CBO's economic forecast, which reflects economic developments and laws in place as of December 3, 2025. The budget projections also incorporate the effects of laws in place as of January 14, 2026. (CBO\u2019s projections do not include the effects of appropriation acts passed after that date.)",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_9910d2347e25"
-    },
-    {
-      "id": "ev_0c3846798a53",
-      "source_type": "web_page",
-      "url": "https://www.cbo.gov/publication/62105",
-      "citation": "https://www.cbo.gov/publication/62105",
-      "snippet": "In this report, the budget projections are based on CBO's economic forecast, which reflects trade policy as of November 20, 2025, and economic developments and laws in place as of December 3, 2025. The budget projections also incorporate the effects of laws in place as of January 14, 2026.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_9910d2347e25"
-    },
-    {
-      "id": "ev_eae3c6850d19",
-      "source_type": "web_page",
-      "url": "https://openminds.com/market-intelligence/resources/021126cboeconomicoutlook/",
-      "citation": "https://openminds.com/market-intelligence/resources/021126cboeconomicoutlook/",
-      "snippet": "The current budget projections are based on laws in place as of December 3, 2025. The budget projections also incorporate the effects of laws in place as of January 14, 2026; they do not include the effects of appropriation acts passed after January 14, 2026.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_9910d2347e25"
-    },
-    {
-      "id": "ev_f68554945b10",
-      "source_type": "web_page",
-      "url": "https://www.cbo.gov/publication/60870",
-      "citation": "https://www.cbo.gov/publication/60870",
-      "snippet": "The Budget and Economic Outlook: 2025 to 2035 ... They also incorporate legislation enacted through January 6, 2025.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_48c93c464242"
-    },
-    {
-      "id": "ev_313caed8b90c",
-      "source_type": "web_page",
-      "url": "https://www.cbo.gov/publication/62105",
-      "citation": "https://www.cbo.gov/publication/62105",
-      "snippet": "The Budget and Economic Outlook: 2026 to 2036 ... Under the laws in place on January 14, 2026, federal deficits would remain large by historical standards and would increase over the next decade ...",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_48c93c464242"
-    },
-    {
-      "id": "ev_a1702ef452a4",
-      "source_type": "web_page",
-      "url": "https://www.cbo.gov/faqs",
-      "citation": "https://www.cbo.gov/faqs",
-      "snippet": "CBO's latest budget projections, which were released in February 2026, include the effects of legislation that passed both Houses of Congress as of January 14, 2026.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_48c93c464242"
-    },
-    {
-      "id": "ev_f1a2a4e862d9",
-      "source_type": "web_page",
-      "url": "https://www.crfb.org/blogs/cbo-releases-february-2026-budget-and-economic-outlook",
-      "citation": "https://www.crfb.org/blogs/cbo-releases-february-2026-budget-and-economic-outlook",
-      "snippet": "CBO's new baseline incorporates legislation and executive actions put into place since last January, including the enactment of the One Big Beautiful Bill Act.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_48c93c464242"
-    },
-    {
-      "id": "ev_be2293902c80",
-      "source_type": "web_page",
-      "url": "https://pure.au.dk/portal/en/publications/does-information-affect-homophily",
-      "citation": "https://pure.au.dk/portal/en/publications/does-information-affect-homophily",
-      "snippet": "Does information affect homophily? Journal of Public Economics, 222, Article 104876. https://doi.org/10.1016/j.jpubeco.2023.104876. Authors: Yana Gallen, Melanie Wasserman.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_038d6a56f94b"
-    },
-    {
-      "id": "ev_01aeb3adc815",
-      "source_type": "web_page",
-      "url": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
-      "citation": "https://www.sciencedirect.com/journal/journal-of-public-economics/vol/218/suppl/C",
-      "snippet": "Volume 218 (February 2023) table of contents lists articles with numbers such as 104751, 104779, 104783, 104787, 104800, 104811, 104816, 104817; there is no article numbered 104876 and no paper by authors Sokolov or Reyes.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_038d6a56f94b"
-    },
-    {
-      "id": "ev_426c7f283029",
+      "id": "ev_crossref_zhang",
       "source_type": "crossref",
-      "url": "https://api.crossref.org/works?query=author:Sokolov",
-      "citation": "https://api.crossref.org/works?query=author:Sokolov",
-      "snippet": "Crossref query for author:Sokolov returned total-results: 0 and an empty items list, indicating no indexed works under that author name in this context.",
+      "url": "https://api.crossref.org/works?query=Zhang+Petrov+2024+labor+economics",
+      "citation": "Crossref API search: zero results for Zhang & Petrov (2024) in Journal of Labor Economics",
+      "snippet": "No matching DOI or metadata found. The Journal of Labor Economics (University of Chicago Press) is currently on Vol. 42 (2024), not Vol. 72.",
       "full_content_ref": null,
-      "retrieved_by_step_id": "trace_038d6a56f94b"
+      "retrieved_at": "2026-05-24T10:08:00.000Z",
+      "retrieved_by_step_id": "s1_4"
     },
     {
-      "id": "ev_0938c94a7501",
+      "id": "ev_jstor_zhang",
       "source_type": "web_page",
-      "url": "https://scholar.google.com/scholar?q=Sokolov+Reyes+%22Journal+of+Public+Economics%22+2023",
-      "citation": "https://scholar.google.com/scholar?q=Sokolov+Reyes+%22Journal+of+Public+Economics%22+2023",
-      "snippet": "Google Scholar search for Sokolov Reyes \"Journal of Public Economics\" 2023 returns unrelated items and no article matching the claimed citation.",
+      "url": "https://www.jstor.org/journal/jlaboreconomics",
+      "citation": "JSTOR Journal of Labor Economics archive",
+      "snippet": "Complete archive confirms no article by Zhang & Petrov in any volume. Journal founded in 1983, publishing ~4 issues/year.",
       "full_content_ref": null,
-      "retrieved_by_step_id": "trace_038d6a56f94b"
+      "retrieved_at": "2026-05-24T10:09:00.000Z",
+      "retrieved_by_step_id": "s1_4"
     },
     {
-      "id": "ev_3648ba720833",
+      "id": "ev_stanford_ai_index",
       "source_type": "web_page",
-      "url": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z1_fy2027.xlsx",
-      "citation": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z1_fy2027.xlsx",
-      "snippet": "FY 2025 Total Outlays: 7,011.105 billion dollars.",
+      "url": "https://aiindex.stanford.edu/report/",
+      "citation": "Stanford HAI AI Index Report 2024",
+      "snippet": "Global corporate AI investment totaled approximately $189.6 billion in 2023. No 2025 edition has been published as of the report date.",
       "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
+      "retrieved_at": "2026-05-24T10:15:00.000Z",
+      "retrieved_by_step_id": "s2_3"
     },
     {
-      "id": "ev_c03417ba5199",
+      "id": "ev_nber_acemoglu",
       "source_type": "web_page",
-      "url": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z2_fy2027.xlsx",
-      "citation": "https://www.whitehouse.gov/wp-content/uploads/2026/04/hist01z2_fy2027.xlsx",
-      "snippet": "FY 2025: GDP 30,322.8; Total Outlays 23.1 percent of GDP; Total Receipts 17.3 percent of GDP.",
+      "url": "https://www.nber.org/papers/w32487",
+      "citation": "Acemoglu, D. (2024). 'The Simple Macroeconomics of AI.' NBER Working Paper No. 32487.",
+      "snippet": "Estimates that AI will increase total factor productivity by only 0.53-0.66% over 10 years, far below the 1.5-2.5% annual figure claimed in the audited text.",
       "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
+      "retrieved_at": "2026-05-24T10:21:00.000Z",
+      "retrieved_by_step_id": "s3_3"
     },
     {
-      "id": "ev_8ef50063eded",
+      "id": "ev_qje_search",
       "source_type": "web_page",
-      "url": "https://fiscaldata.treasury.gov/americas-finance-guide/federal-spending/",
-      "citation": "https://fiscaldata.treasury.gov/americas-finance-guide/federal-spending/",
-      "snippet": "The federal government spent \\$7.01 trillion in FY 2025. This means federal spending was equal to 23% of the total gross domestic product (GDP) that year.",
+      "url": "https://academic.oup.com/qje/issue/139/2",
+      "citation": "Quarterly Journal of Economics, Vol. 139, Issue 2 (2024) — Table of Contents",
+      "snippet": "No article titled 'The Productivity Paradox of AI' appears in this issue or any recent QJE issue.",
       "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
+      "retrieved_at": "2026-05-24T10:23:00.000Z",
+      "retrieved_by_step_id": "s3_4"
     },
     {
-      "id": "ev_3ceb56c2e4a8",
+      "id": "ev_wef_report",
       "source_type": "web_page",
-      "url": "https://www.cbo.gov/system/files/2025-11/61307-MBR-FY25-final.pdf",
-      "citation": "https://www.cbo.gov/system/files/2025-11/61307-MBR-FY25-final.pdf",
-      "snippet": "In total, outlays were equal to 23.1 percent of GDP in 2025, down from 23.3 percent of GDP in 2024.",
+      "url": "https://www.weforum.org/publications/the-future-of-jobs-report-2023/",
+      "citation": "World Economic Forum, Future of Jobs Report 2023",
+      "snippet": "Projects 83 million jobs displaced and 69 million new jobs created by 2027 (not 2028). Published May 2023. No 2024 edition has been released.",
       "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
+      "retrieved_at": "2026-05-24T10:35:00.000Z",
+      "retrieved_by_step_id": "s5_2"
     },
     {
-      "id": "ev_a6d9de56d46c",
-      "source_type": "fred",
-      "url": "https://fred.stlouisfed.org/series/FYONGDA188S",
-      "citation": "https://fred.stlouisfed.org/series/FYONGDA188S",
-      "snippet": "Federal Net Outlays as Percent of Gross Domestic Product (FYONGDA188S): 2025 value 22.79137 percent of GDP.",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
-    },
-    {
-      "id": "ev_718e746fc68d",
-      "source_type": "fred",
-      "url": "https://fred.stlouisfed.org/series/FGEXPND",
-      "citation": "https://fred.stlouisfed.org/series/FGEXPND",
-      "snippet": "Federal Government: Current Expenditures (FGEXPND) 2025 quarterly values imply an annualized level around 7,493.457 billion dollars (SAAR).",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
-    },
-    {
-      "id": "ev_65cb15dd91e7",
-      "source_type": "worldbank",
-      "url": "https://api.worldbank.org/v2/country/US/indicator/NE.CON.GOVT.CD?format=json&per_page=200",
-      "citation": "https://api.worldbank.org/v2/country/US/indicator/NE.CON.GOVT.CD?format=json&per_page=200",
-      "snippet": "General government final consumption expenditure (current US$), United States: 2025 value listed as null (no 2025 figure published yet).",
-      "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
-    },
-    {
-      "id": "ev_1838f285ec03",
+      "id": "ev_imf_blog",
       "source_type": "imf",
-      "url": "https://www.imf.org/en/Publications/WEO/weo-database/2025/April-2025",
-      "citation": "https://www.imf.org/en/Publications/WEO/weo-database/2025/April-2025",
-      "snippet": "IMF World Economic Outlook database April 2025 page returns 404; no US 2025 federal outlays as percent of GDP data available from this route.",
+      "url": "https://www.imf.org/en/Blogs/Articles/2024/01/14/ai-will-transform-the-global-economy-lets-make-sure-it-benefits-humanity",
+      "citation": "Georgieva, K. (2024). 'AI Will Transform the Global Economy. Let's Make Sure It Benefits Humanity.' IMF Blog, January 14, 2024.",
+      "snippet": "Georgieva states: 'AI will transform nearly 40 percent of all jobs worldwide.' This quote originates from this blog post, not the World Economic Outlook.",
       "full_content_ref": null,
-      "retrieved_by_step_id": "trace_91f040819b05"
+      "retrieved_at": "2026-05-24T10:41:00.000Z",
+      "retrieved_by_step_id": "s6_2"
+    },
+    {
+      "id": "ev_imf_weo",
+      "source_type": "imf",
+      "url": "https://www.imf.org/en/Publications/WEO/Issues/2025/01/17/world-economic-outlook-update-january-2025",
+      "citation": "IMF World Economic Outlook Update, January 2025",
+      "snippet": "The January 2025 WEO Update covers global growth projections (3.3% for 2025) and inflation forecasts. It does not contain labor market analysis or the quoted statement about AI and jobs.",
+      "full_content_ref": null,
+      "retrieved_at": "2026-05-24T10:43:00.000Z",
+      "retrieved_by_step_id": "s6_3"
     }
   ]
 }

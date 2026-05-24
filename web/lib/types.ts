@@ -50,6 +50,7 @@ export interface Claim {
   type: ClaimType;
   importance: "high" | "medium" | "low";
   extracted_metadata: Record<string, unknown>;
+  parent_claim_id?: string | null;
 }
 
 export interface Evidence {
@@ -90,6 +91,21 @@ export interface ReasoningTrace {
   steps: Step[];
 }
 
+export interface ReasoningStepData {
+  step: string; // "premise" | "search" | "evidence_found" | "comparison" | "inference"
+  content: string;
+  evidence_ref?: string | null;
+  confidence_delta: number;
+}
+
+export interface ConfidenceBreakdownData {
+  source_agreement: number;
+  source_authority: number;
+  evidence_freshness: number;
+  evidence_specificity: number;
+  reasoning: string;
+}
+
 export interface Finding {
   id: string;
   job_id: string;
@@ -98,10 +114,13 @@ export interface Finding {
   verdict: FindingVerdict;
   severity: Severity;
   confidence: number;
+  confidence_breakdown?: ConfidenceBreakdownData | null;
   summary: string;
+  reasoning_chain?: ReasoningStepData[];
   evidence_ids: string[];
   reasoning_trace_id: string;
   related_finding_ids: string[];
+  challenge_result?: string | null;
   created_at: string;
 }
 
@@ -109,6 +128,9 @@ export type JobStatus =
   | "queued"
   | "parsing"
   | "planning"
+  | "atomizing"
+  | "filtering"
+  | "reviewing"
   | "verifying"
   | "reporting"
   | "done"
@@ -117,12 +139,14 @@ export type JobStatus =
 export interface Job {
   id: string;
   pdf_path: string;
+  input_text?: string | null;
+  input_mode?: "pdf" | "text";
   status: JobStatus;
   created_at: string;
   completed_at: string | null;
   cost_usd: number;
   total_tokens: number;
-  audit_report_md: string | null;        // NEW
+  audit_report_md: string | null;
   claims: Claim[];
   findings: Finding[];
   traces: ReasoningTrace[];
@@ -135,7 +159,7 @@ export function isCitationClaim(c: Claim): boolean {
 
 // --- Live-mode (B3-C) -------------------------------------------------------
 
-export type RunStatus = "idle" | "running" | "done" | "failed";
+export type RunStatus = "idle" | "running" | "reviewing" | "verifying" | "done" | "failed";
 
 /**
  * Preview shape for findings streamed over the WebSocket before the final
@@ -149,4 +173,19 @@ export interface LiveFinding {
   verdict: FindingVerdict;
   severity: Severity;
   summary: string;
+}
+
+/** Claim data sent in the review_ready trace event. */
+export interface ReviewClaim {
+  id: string;
+  text: string;
+  type: ClaimType;
+  importance: "high" | "medium" | "low";
+  parent_claim_id?: string | null;
+}
+
+export interface FilteredClaim {
+  claim_id: string;
+  text: string;
+  reason: string;
 }

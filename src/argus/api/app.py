@@ -12,6 +12,7 @@ from argus.api.deps import AppState
 from argus.api.jobs import router as jobs_router
 from argus.api.ws import router as ws_router
 from argus.config import Settings
+from argus.hitl import ReviewGate
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
 from argus.storage.local_fs import LocalFsStorage
@@ -38,6 +39,7 @@ def _build_state(settings: Settings) -> AppState:
         repo=repo,
         storage=storage,
         trace_bus=trace_bus,
+        review_gate=ReviewGate(),
         db_engine=engine,
     )
 

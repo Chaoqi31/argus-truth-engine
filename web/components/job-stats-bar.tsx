@@ -41,24 +41,9 @@ function buildStats(job: Job): Stat[] {
       hint: "Specialist agents that emitted at least one finding on this audit (of 4 possible: CitationVerifier, CitationAlignment, DataFreshness, ConsistencyChecker).",
     },
     {
-      label: "reasoning steps",
-      value: String(totalSteps),
-      hint: "Total chain-of-thought + tool-call events recorded across all agents.",
-    },
-    {
       label: "web searches",
       value: String(totalSearches),
       hint: "Live web_search tool calls issued by agents while verifying claims.",
-    },
-    {
-      label: "tokens",
-      value: tokenStr,
-      hint: "Total MiroMind tokens consumed (input + output + reasoning).",
-    },
-    {
-      label: "cost (USD)",
-      value: cost,
-      hint: "Real MiroMind billing for this audit, computed from the input/output token split.",
     },
   ];
 }

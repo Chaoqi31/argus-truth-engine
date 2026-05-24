@@ -63,7 +63,7 @@ export function PdfViewer({
   }, [activePage]);
 
   return (
-    <div ref={containerRef} className="overflow-y-auto bg-muted">
+    <div ref={containerRef} className="h-full overflow-y-auto bg-muted">
       <Document
         file={fileUrl}
         onLoadSuccess={({ numPages: n }) => setNumPages(n)}

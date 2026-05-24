@@ -9,7 +9,7 @@ from argus.models.domain import Claim, EvidenceSource, FindingVerdict
 
 SYSTEM_PROMPT = """\
 You are Argus's DATA FRESHNESS agent. For a numerical or time-sensitive claim
-in a research report, your job is to determine whether the value is the latest
+in the given content, your job is to determine whether the value is the latest
 available figure or has been superseded by a newer release.
 
 You MAY use these built-in tools: thinking, web_search, fetch_url_content,
@@ -71,6 +71,13 @@ class EvidenceOut(BaseModel):
     snippet: str = ""
 
 
+class ReasoningStepOut(BaseModel):
+    step: str
+    content: str
+    evidence_ref: str | None = None
+    confidence_delta: float = 0.0
+
+
 class DataFreshnessOutput(BaseModel):
     verdict: FindingVerdict
     confidence: float = Field(ge=0.0, le=1.0)
@@ -78,18 +85,32 @@ class DataFreshnessOutput(BaseModel):
     as_of_date: str | None = None
     current_value: str | None = None
     evidence: list[EvidenceOut] = Field(default_factory=list)
+    reasoning_chain: list[ReasoningStepOut] = Field(default_factory=list)
 
 
-def build_freshness_input(claim: Claim) -> str:
+def build_freshness_input(
+    claim: Claim,
+    *,
+    search_strategies: list[dict[str, str]] | None = None,
+) -> str:
     md = claim.extracted_metadata or {}
-    return (
+    parts = [
         "Verify whether this data point is still the latest authoritative "
         "value. Use FRED, World Bank, IMF, or SEC EDGAR as appropriate.\n\n"
         f"CLAIM (page {claim.page}): {claim.text}\n"
         f"EXTRACTED METADATA: {md}\n\n"
+    ]
+    if search_strategies:
+        parts.append("REQUIRED SEARCH PLAN (you MUST execute these searches):\n")
+        for i, s in enumerate(search_strategies, 1):
+            parts.append(f"  {i}. [{s.get('angle','')}] {s.get('query','')}"
+                         f"  (rationale: {s.get('rationale','')})\n")
+        parts.append("\nExecute ALL planned searches above first.\n\n")
+    parts.append(
         "Fetch the authoritative source and quote the current value before "
         "issuing a verdict from the allowed set."
     )
+    return "".join(parts)
 
 
 def freshness_runner(client: MiromindClient) -> AgentRunner[DataFreshnessOutput]:
@@ -102,9 +123,13 @@ def freshness_runner(client: MiromindClient) -> AgentRunner[DataFreshnessOutput]
 
 
 async def check_freshness(
-    client: MiromindClient, claim: Claim
+    client: MiromindClient,
+    claim: Claim,
+    *,
+    search_strategies: list[dict[str, str]] | None = None,
 ) -> AgentResult[DataFreshnessOutput]:
     runner = freshness_runner(client)
     return await runner.run(
-        instructions=SYSTEM_PROMPT, input_text=build_freshness_input(claim)
+        instructions=SYSTEM_PROMPT,
+        input_text=build_freshness_input(claim, search_strategies=search_strategies),
     )

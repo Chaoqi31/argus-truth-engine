@@ -8,8 +8,8 @@ from argus.miromind.client import MiromindClient
 from argus.models.domain import Claim, EvidenceSource, FindingVerdict
 
 SYSTEM_PROMPT = """\
-You are Argus's CITATION ALIGNMENT agent. For a citation in a research report,
-your job is to determine whether the report's paraphrase or quote actually
+You are Argus's CITATION ALIGNMENT agent. For a citation in the given content,
+your job is to determine whether the content's paraphrase or quote actually
 matches what the cited source says.
 
 You MAY use these built-in tools: thinking, web_search, fetch_url_content,

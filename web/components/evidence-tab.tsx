@@ -22,7 +22,7 @@ export function EvidenceTab({ job, findingId }: Props) {
       <section>
         <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Claim</h2>
         <p className="mt-1 text-base">{claim?.text ?? "(claim missing)"}</p>
-        {claim && (
+        {claim && claim.page > 0 && (
           <p className="mt-0.5 text-xs text-muted-foreground">page {claim.page}</p>
         )}
       </section>

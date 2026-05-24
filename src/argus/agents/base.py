@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from typing import Any
 from uuid import uuid4
 
 import json_repair
@@ -178,13 +179,14 @@ class AgentRunner[T: BaseModel]:
             if kind == "tool_call":
                 tool_name = item.get("name", "")
                 step_type = _TOOL_NAME_TO_STEP.get(tool_name, StepType.TOOL_CALL)
+                summary = _tool_call_summary(tool_name, item)
                 collected.steps.append(
                     Step(
                         id=f"step_{uuid4().hex[:12]}",
                         trace_id=collected.response_id,
                         sequence=ev.sequence_number,
                         type=step_type,
-                        summary=f"{tool_name or kind}",
+                        summary=summary,
                         content=item,
                     )
                 )
@@ -217,6 +219,42 @@ _TRUNCATE_DEFAULT = 140
 
 def _truncate(s: str, n: int = _TRUNCATE_DEFAULT) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def _tool_call_summary(tool_name: str, item: dict[str, Any]) -> str:
+    """Extract a human-readable summary from a MiroMind tool call item.
+
+    MiroMind's tool_call items carry arguments in various nested shapes.
+    We pull out the most useful field for display — the search query for
+    web_search, the URL for fetch_url_content, etc.
+    """
+    # Try common argument locations
+    args = item.get("arguments", item.get("call", {}))
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except (json.JSONDecodeError, TypeError):
+            args = {}
+
+    if tool_name == "web_search":
+        query = args.get("query", args.get("q", ""))
+        if query:
+            return f"search: {_truncate(query, 120)}"
+    elif tool_name == "fetch_url_content":
+        url = args.get("url", "")
+        if url:
+            return f"fetch: {_truncate(url, 120)}"
+    elif tool_name == "execute_python":
+        code = args.get("code", "")
+        if code:
+            return f"python: {_truncate(code.split(chr(10))[0], 100)}"
+
+    # Fallback: show tool name + first argument value if any
+    if args and isinstance(args, dict):
+        first_val = next(iter(args.values()), "")
+        if first_val and isinstance(first_val, str):
+            return f"{tool_name}: {_truncate(first_val, 100)}"
+    return tool_name or "tool_call"
 
 
 def _extract_json(text: str) -> str:

@@ -17,7 +17,7 @@ from argus.api.deps import AppState
 from argus.log import log
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Job
-from argus.orchestrator import audit_pdf
+from argus.orchestrator import audit_pdf, audit_text
 
 
 @dataclass
@@ -72,6 +72,7 @@ class JobRunner:
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
+                    review_gate=self.state.review_gate,
                 )
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status
@@ -79,6 +80,54 @@ class JobRunner:
                 self.records[job_id].status = "failed"
                 self.records[job_id].error = str(exc)[:300]
                 log.error("api.runner.failed", job_id=job_id, error=str(exc)[:300])
+
+        self.tasks[job_id] = asyncio.create_task(_run())
+        return job_id
+
+    async def submit_text(
+        self,
+        text: str,
+        api_key_override: str | None = None,
+        auto_review: bool = False,
+        content_domain: str = "general",
+    ) -> str:
+        job_id = f"job_{uuid4().hex[:12]}"
+        key = f"{job_id}/input.txt"
+        await self.state.storage.put(key, text.encode(), content_type="text/plain")
+        record = JobRecord(job_id=job_id, status="running")
+        self.records[job_id] = record
+
+        per_job_settings = self.state.settings
+        per_job_client: MiromindClient | None = None
+        if api_key_override:
+            per_job_settings = self.state.settings.model_copy(
+                update={"miromind_api_key": api_key_override}
+            )
+            per_job_client = MiromindClient(per_job_settings)
+
+        async def _run() -> None:
+            try:
+                txt_path = self.state.storage.path_for(key)
+                output_path = Path(str(txt_path)).with_suffix(".findings.json")
+                job = await audit_text(
+                    text=text,
+                    output_path=output_path,
+                    settings=per_job_settings,
+                    client=per_job_client,
+                    budget_usd=per_job_settings.job_budget_usd,
+                    repo=self.state.repo,
+                    trace_bus=self.state.trace_bus,
+                    job_id=job_id,
+                    review_gate=self.state.review_gate,
+                    auto_review=auto_review,
+                    content_domain=content_domain,
+                )
+                self.records[job_id].result = job
+                self.records[job_id].status = job.status
+            except Exception as exc:
+                self.records[job_id].status = "failed"
+                self.records[job_id].error = str(exc)[:300]
+                log.error("api.runner.text_failed", job_id=job_id, error=str(exc)[:300])
 
         self.tasks[job_id] = asyncio.create_task(_run())
         return job_id

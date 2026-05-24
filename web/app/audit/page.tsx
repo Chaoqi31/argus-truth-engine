@@ -14,7 +14,9 @@ import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
 import { subscribeTrace } from "@/lib/trace-ws";
 import { getJob } from "@/lib/api";
 import { loadSampleJob } from "@/lib/load-job";
-import type { Job, LiveFinding, Step } from "@/lib/types";
+import type { FilteredClaim, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
+import { TextViewer } from "@/components/text-viewer";
+import { ClaimReviewPanel } from "@/components/claim-review-panel";
 
 // pdf.js references browser-only globals (DOMMatrix, etc.) that fail under SSR.
 // Force the PdfViewer to client-only.
@@ -59,6 +61,7 @@ function AuditPageContent() {
   const appendLiveFinding = useArgusStore((s) => s.appendLiveFinding);
   const setRunStatus = useArgusStore((s) => s.setRunStatus);
   const resetLive = useArgusStore((s) => s.resetLive);
+  const setReviewReady = useArgusStore((s) => s.setReviewReady);
 
   const [mode, setMode] = useState<RightMode>("reasoning");
   const [hintOpen, setHintOpen] = useState(false);
@@ -107,6 +110,12 @@ function AuditPageContent() {
               const msg = err instanceof Error ? err.message : String(err);
               setRunStatus("failed", `Could not load final job: ${msg}`);
             });
+        } else if (ev.kind === "review_ready") {
+          const claims = (ev.payload.claims ?? []) as ReviewClaim[];
+          const filtered = (ev.payload.filtered ?? []) as FilteredClaim[];
+          setReviewReady(claims, filtered);
+        } else if (ev.kind === "resumed") {
+          setRunStatus("verifying");
         } else if (ev.kind === "failed") {
           const reason =
             typeof ev.payload.reason === "string" ? ev.payload.reason : "unknown";
@@ -151,7 +160,9 @@ function AuditPageContent() {
     router.replace("/");
   }, [liveId, demo, job, router, setJob]);
 
-  // Live, pre-finished view: show banner + PDF + live trace + live findings preview.
+  const isTextMode = params.get("mode") === "text" || job?.input_mode === "text";
+
+  // Live, pre-finished view: show banner + PDF/text + live trace + live findings preview.
   if (liveId && !job) {
     const lastStep = liveSteps[liveSteps.length - 1] ?? null;
     const lastAgent =
@@ -183,26 +194,34 @@ function AuditPageContent() {
           activeAgent={lastAgent}
           tokens={tokensSoFar}
         />
-        <main className="grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
-          <div className="hidden md:block">
-            <PdfViewer
-              fileUrl={livePdfUrl}
-              claims={[]}
-              findings={[]}
-              activeFindingId={null}
-              onClaimClick={() => {}}
-            />
-          </div>
+        <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${isTextMode ? "" : "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]"}`}>
+          {!isTextMode && (
+            <div className="hidden md:block">
+              <PdfViewer
+                fileUrl={livePdfUrl}
+                claims={[]}
+                findings={[]}
+                activeFindingId={null}
+                onClaimClick={() => {}}
+              />
+            </div>
+          )}
           <aside className="flex flex-col border-l border-border md:border-l">
-            <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Live findings preview
-              </span>
-            </div>
-            <LiveFindingsList findings={liveFindings} />
-            <div className="border-t border-border h-[18rem] min-h-0 flex flex-col">
-              <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
-            </div>
+            {runStatus === "reviewing" ? (
+              <ClaimReviewPanel jobId={liveId} />
+            ) : (
+              <>
+                <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Live findings preview
+                  </span>
+                </div>
+                <LiveFindingsList findings={liveFindings} />
+                <div className="border-t border-border h-[18rem] min-h-0 flex flex-col">
+                  <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
+                </div>
+              </>
+            )}
           </aside>
         </main>
         <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
@@ -218,6 +237,7 @@ function AuditPageContent() {
   };
 
   const fileUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(job.id)}/pdf` : "/sample-report.pdf";
+  const jobIsText = job.input_mode === "text";
 
   return (
     <>
@@ -232,14 +252,24 @@ function AuditPageContent() {
       <VerdictBanner job={job} />
       <JobStatsBar job={job} />
       <main className="grid h-[calc(100vh-3.5rem-2.75rem-2.75rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
-        <div className="hidden md:block">
-          <PdfViewer
-            fileUrl={fileUrl}
-            claims={job.claims}
-            findings={job.findings}
-            activeFindingId={activeFindingId}
-            onClaimClick={onClaimClick}
-          />
+        <div className="hidden h-full overflow-hidden md:block">
+          {jobIsText ? (
+            <TextViewer
+              text={job.input_text ?? ""}
+              claims={job.claims}
+              findings={job.findings}
+              activeFindingId={activeFindingId}
+              onClaimClick={onClaimClick}
+            />
+          ) : (
+            <PdfViewer
+              fileUrl={fileUrl}
+              claims={job.claims}
+              findings={job.findings}
+              activeFindingId={activeFindingId}
+              onClaimClick={onClaimClick}
+            />
+          )}
         </div>
         <aside className="flex flex-col border-l border-border md:border-l">
           <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
@@ -295,15 +325,16 @@ function VerdictBanner({ job }: { job: Job }) {
     ok: "bg-success",
   };
 
+  const subject = job.input_mode === "text" ? "this content" : "this report";
   let headline: string;
   if (issues === 0) {
-    headline = "Argus found no issues in this report.";
+    headline = `Argus found no issues in ${subject}.`;
   } else if (flags.length > 0) {
     const joined =
       flags.length === 1
         ? flags[0]
         : flags.slice(0, -1).join(", ") + " and " + flags[flags.length - 1];
-    headline = `Argus flagged this report for ${joined}.`;
+    headline = `Argus flagged ${subject} for ${joined}.`;
   } else {
     headline = "Argus found issues worth reviewing.";
   }
@@ -338,13 +369,26 @@ function RunBanner({
   activeAgent,
   tokens,
 }: {
-  runStatus: "idle" | "running" | "done" | "failed";
+  runStatus: RunStatus;
   steps: number;
   findings: number;
   reason: string | null;
   activeAgent?: string;
   tokens?: number;
 }) {
+  if (runStatus === "reviewing") {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex h-12 items-center gap-3 border-b border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-4 text-xs"
+      >
+        <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
+        <span className="font-medium">Select claims to verify</span>
+        <span className="text-muted-foreground">Review the extracted claims and choose which ones to verify with MiroMind.</span>
+      </div>
+    );
+  }
   if (runStatus === "failed") {
     return (
       <div
