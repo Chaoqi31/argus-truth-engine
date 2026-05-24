@@ -138,6 +138,8 @@ export type JobStatus =
 
 export interface Job {
   id: string;
+  scenario_label?: string | null;
+  persona?: string | null;
   pdf_path: string;
   input_text?: string | null;
   input_mode?: "pdf" | "text";

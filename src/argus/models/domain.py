@@ -188,6 +188,8 @@ class ContentDomain(StrEnum):
 
 class Job(_Base):
     id: str
+    scenario_label: str | None = None
+    persona: str | None = None
     pdf_path: str = ""
     input_text: str | None = None
     input_mode: Literal["pdf", "text"] = "pdf"
