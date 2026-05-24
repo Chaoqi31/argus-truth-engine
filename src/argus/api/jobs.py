@@ -140,6 +140,25 @@ async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
     return FileResponse(path, media_type="application/pdf", filename=path.name)
 
 
+@router.get("/{job_id}/report.pdf")
+async def get_job_report_pdf(request: Request, job_id: str) -> Any:
+    from fastapi.responses import Response
+
+    from argus.reporting.pdf import render_job_pdf
+
+    _require_token(request)
+    runner = _runner(request)
+    record = runner.get(job_id)
+    if record is None or record.result is None:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not ready")
+    pdf_bytes = render_job_pdf(record.result)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"content-disposition": f'attachment; filename="argus-audit-{job_id}.pdf"'},
+    )
+
+
 @router.get("/{job_id}")
 async def get_job(request: Request, job_id: str) -> dict[str, Any]:
     _require_token(request)
