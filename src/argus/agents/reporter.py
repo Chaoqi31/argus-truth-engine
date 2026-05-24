@@ -12,7 +12,8 @@ from argus.models.domain import Claim, Finding
 SYSTEM_PROMPT = """\
 You are Argus's REPORTER. The four specialist agents have finished. Your job
 is to synthesise their findings into a ranked list and a short executive
-summary for a buy-side analyst.
+summary for the audit's reader — a compliance officer, lawyer, or analyst
+who needs to act on this content within the next hour.
 
 You MUST NOT call web_search, fetch_url_content, or execute_python. Your
 input already contains everything you need.
@@ -65,7 +66,7 @@ def build_reporter_input(claims: list[Claim], findings: list[Finding]) -> str:
     ]
     return (
         "Synthesise the findings below into a ranked list and an executive "
-        "summary for a buy-side analyst.\n\n"
+        "summary for the audit's reader.\n\n"
         f"CLAIMS:\n{json.dumps(claim_payload, indent=2, ensure_ascii=False)}\n\n"
         f"FINDINGS:\n{json.dumps(finding_payload, indent=2, ensure_ascii=False)}\n"
     )
