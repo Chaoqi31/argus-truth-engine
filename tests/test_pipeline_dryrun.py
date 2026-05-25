@@ -8,22 +8,21 @@ No real API calls are made. All LLM responses are mocked.
 """
 import asyncio
 import json
+
+# Ensure src is importable
+import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Ensure src is importable
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from argus.config import Settings
 from argus.models.domain import (
-    Claim, ClaimType, ConfidenceBreakdown, Finding, FindingVerdict,
-    ReasoningStep, SearchStrategy,
+    Finding,
 )
 from argus.orchestrator import audit_text
-
 
 # --- Mock responses ---
 
@@ -149,8 +148,10 @@ class MockMiromindStream:
     async def stream(self, rid, after=0):
         """Yield minimal events to produce final_text."""
         from argus.models.miromind import (
-            ResponseCompletedEvent, ResponseOutputTextDeltaEvent,
-            ResponseSummary, Usage,
+            ResponseCompletedEvent,
+            ResponseOutputTextDeltaEvent,
+            ResponseSummary,
+            Usage,
         )
         yield ResponseOutputTextDeltaEvent(
             type="response.output_text.delta",
@@ -238,9 +239,9 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
     ]
 
     from argus.agents.atomizer import AtomOutput
+    from argus.agents.challenger import AttackerOutput, DefenderOutput, JudgeOutput
     from argus.agents.checkworthiness import CheckworthinessResult
     from argus.agents.evidence_hunter import StrategyOutput
-    from argus.agents.challenger import AttackerOutput, DefenderOutput, JudgeOutput
 
     async def mock_cheap_complete(system_prompt, user_input, model_cls):
         """Return appropriate mock based on model_cls (primary) or prompt (fallback)."""

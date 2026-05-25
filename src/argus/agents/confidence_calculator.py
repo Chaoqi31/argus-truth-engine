@@ -83,10 +83,9 @@ def _score_domain(url: str | None) -> float:
             # TLD match (e.g. ".gov", ".edu")
             if host.endswith(domain):
                 return score
-        else:
-            # Full domain match
-            if host == domain or host.endswith("." + domain):
-                return score
+        # Full domain match
+        elif host == domain or host.endswith("." + domain):
+            return score
 
     # Heuristic: longer established domains slightly higher
     if host.endswith(".org"):

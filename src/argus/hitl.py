@@ -30,7 +30,7 @@ class ReviewGate:
             return None
         try:
             await asyncio.wait_for(pending.event.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             log.info("hitl.timeout", job_id=job_id, timeout_s=timeout)
             return None
         return pending.selected_ids

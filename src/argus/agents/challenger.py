@@ -20,7 +20,6 @@ from argus.agents.confidence_calculator import compute_confidence_breakdown
 from argus.llm.cheap_client import CheapLLMClient
 from argus.log import log
 from argus.models.domain import (
-    ConfidenceBreakdown,
     Evidence,
     Finding,
     FindingVerdict,
