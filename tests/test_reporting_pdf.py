@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 from argus.models.domain import Job
 from argus.reporting.pdf import render_job_pdf
 
 SAMPLE = Path(__file__).parent.parent / "web" / "public" / "sample-findings.json"
+_MIN_PDF_BYTES = 5_000
 
 
 def _sample_job() -> Job:
@@ -17,7 +21,7 @@ def _sample_job() -> Job:
 def test_renders_non_empty_pdf_bytes():
     pdf = render_job_pdf(_sample_job())
     assert pdf.startswith(b"%PDF"), "output must be a valid PDF"
-    assert len(pdf) > 5_000, "PDF should contain real content, not just a stub"
+    assert len(pdf) > _MIN_PDF_BYTES, "PDF should contain real content, not just a stub"
 
 
 def test_pdf_contains_every_finding_summary():
@@ -33,24 +37,22 @@ def test_pdf_contains_every_finding_summary():
         if snippet_bytes in pdf or snippet_latin1 in pdf:
             continue
         # Fall back to pdftotext extraction.
-        import shutil, subprocess, tempfile
         if shutil.which("pdftotext") is None:
             raise AssertionError(
-                f"finding {finding.id!r} summary {snippet_text!r} not found in raw PDF bytes "
-                "and pdftotext is not available to fall back on"
+                f"finding {finding.id!r} summary {snippet_text!r} not found in raw "
+                "PDF bytes and pdftotext is not available to fall back on"
             )
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp.write(pdf)
             tmp_path = tmp.name
-        text = subprocess.check_output(["pdftotext", tmp_path, "-"]).decode("utf-8", errors="ignore")
-        assert snippet_text in text, f"finding {finding.id!r} summary missing from extracted PDF text"
+        out = subprocess.check_output(["pdftotext", tmp_path, "-"])
+        text = out.decode("utf-8", errors="ignore")
+        assert snippet_text in text, (
+            f"finding {finding.id!r} summary missing from extracted PDF text"
+        )
 
 
 def _extract_pdf_text(pdf: bytes) -> str:
-    import shutil
-    import subprocess
-    import tempfile
-
     if shutil.which("pdftotext") is None:
         raise RuntimeError("pdftotext is required to extract text from compressed PDFs")
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
