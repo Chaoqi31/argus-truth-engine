@@ -44,10 +44,7 @@ function LiveTrace({ steps }: { steps: Step[] }) {
         ) : (
           <ol className="flex flex-col gap-1">
             {steps.map((s) => (
-              <li key={s.id} className="flex items-start gap-2 text-xs">
-                <span aria-hidden>{stepIcon[s.type]}</span>
-                <span className="text-muted-foreground">{s.summary}</span>
-              </li>
+              <StepItem key={s.id} step={s} />
             ))}
           </ol>
         )}
@@ -104,8 +101,22 @@ function StaticReplay({ job }: { job: Job | null }) {
     );
   }
 
-  const progress = total === 0 ? 0 : shown.length / total;
+  if (total === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+        <span aria-hidden className="text-2xl">🔍</span>
+        <p className="text-sm font-medium">Trace replay available during live audits</p>
+        <p className="max-w-xs text-xs text-muted-foreground">
+          This demo shows a pre-computed audit result. Start a live audit with your own PDF to
+          watch every web search, reasoning step, and tool call stream in real time.
+        </p>
+      </div>
+    );
+  }
 
+  const progress = shown.length / total;
+
+  // Group steps by agent for the static view
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5">
@@ -139,8 +150,7 @@ function StaticReplay({ job }: { job: Job | null }) {
               <button
                 type="button"
                 onClick={play}
-                disabled={total === 0}
-                className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-xs font-medium text-white shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+                className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-xs font-medium text-white shadow-sm transition-all hover:shadow-md"
               >
                 Replay
               </button>
@@ -148,7 +158,7 @@ function StaticReplay({ job }: { job: Job | null }) {
             <button
               type="button"
               onClick={skip}
-              disabled={total === 0 || shown.length === total}
+              disabled={shown.length === total}
               className="inline-flex min-h-9 items-center rounded-md bg-muted px-3 text-xs font-medium hover:bg-border focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
             >
               Skip
@@ -170,14 +180,38 @@ function StaticReplay({ job }: { job: Job | null }) {
         ) : (
           <ol className="flex flex-col gap-1">
             {shown.map((s) => (
-              <li key={s.id} className="flex items-start gap-2 text-xs">
-                <span aria-hidden>{stepIcon[s.type]}</span>
-                <span className="text-muted-foreground">{s.summary}</span>
-              </li>
+              <StepItem key={s.id} step={s} />
             ))}
           </ol>
         )}
       </div>
     </div>
+  );
+}
+
+function StepItem({ step }: { step: Step }) {
+  const icon = stepIcon[step.type] ?? "⚙";
+  const isSearch = step.type === "web_search";
+  const isFetch = step.type === "fetch_url_content";
+
+  return (
+    <li className="flex items-start gap-2 text-xs">
+      <span aria-hidden className="mt-0.5 shrink-0">{icon}</span>
+      <div className="min-w-0 flex-1">
+        {isSearch ? (
+          <span className="text-foreground">
+            <span className="text-muted-foreground">search </span>
+            <span className="font-medium">{step.summary.replace(/^search:\s*/i, "")}</span>
+          </span>
+        ) : isFetch ? (
+          <span className="text-foreground">
+            <span className="text-muted-foreground">fetch </span>
+            <span className="break-all font-mono text-primary/80">{step.summary.replace(/^fetch:\s*/i, "")}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">{step.summary}</span>
+        )}
+      </div>
+    </li>
   );
 }

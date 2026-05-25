@@ -13,7 +13,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 def test_parse_pdf_returns_four_pages() -> None:
     doc = parse_pdf(FIXTURE)
     assert isinstance(doc, ParsedDoc)
-    assert len(doc.pages) == 4  # noqa: PLR2004
+    assert len(doc.pages) == 4
 
 
 def test_parsed_text_contains_known_citations() -> None:

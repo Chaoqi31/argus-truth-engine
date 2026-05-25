@@ -10,11 +10,24 @@ import { ReasoningPanel } from "@/components/reasoning-panel";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
+import { ScenarioBanner } from "@/components/scenario-banner";
+import { ExportMenu, type ExportFormat } from "@/components/export-menu";
+import { ApiKeyInput } from "@/components/api-key-input";
 import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
 import { subscribeTrace } from "@/lib/trace-ws";
-import { getJob } from "@/lib/api";
+import {
+  getJob,
+  downloadReport,
+  uploadPdf,
+  submitText,
+  UnsupportedMediaTypeError,
+  ArgusApiError,
+  type ContentDomain,
+} from "@/lib/api";
 import { loadSampleJob } from "@/lib/load-job";
-import type { Job, LiveFinding, Step } from "@/lib/types";
+import type { FilteredClaim, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
+import { TextViewer } from "@/components/text-viewer";
+import { ClaimReviewPanel } from "@/components/claim-review-panel";
 
 // pdf.js references browser-only globals (DOMMatrix, etc.) that fail under SSR.
 // Force the PdfViewer to client-only.
@@ -59,11 +72,42 @@ function AuditPageContent() {
   const appendLiveFinding = useArgusStore((s) => s.appendLiveFinding);
   const setRunStatus = useArgusStore((s) => s.setRunStatus);
   const resetLive = useArgusStore((s) => s.resetLive);
+  const setReviewReady = useArgusStore((s) => s.setReviewReady);
 
   const [mode, setMode] = useState<RightMode>("reasoning");
   const [hintOpen, setHintOpen] = useState(false);
 
   useFindingKeyboardNav(() => setHintOpen((v) => !v));
+
+  const onExport = async (fmt: ExportFormat) => {
+    if (!liveId) return;
+    if (fmt === "pdf") {
+      const blob = await downloadReport(liveId, null);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `argus-audit-${liveId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else if (fmt === "json") {
+      const blob = new Blob([JSON.stringify(job, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `argus-audit-${liveId}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const md = job?.audit_report_md ?? "";
+      const blob = new Blob([md], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `argus-audit-${liveId}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
 
   // Live mode: open WS, accumulate, GET on finished.
   useEffect(() => {
@@ -107,6 +151,12 @@ function AuditPageContent() {
               const msg = err instanceof Error ? err.message : String(err);
               setRunStatus("failed", `Could not load final job: ${msg}`);
             });
+        } else if (ev.kind === "review_ready") {
+          const claims = (ev.payload.claims ?? []) as ReviewClaim[];
+          const filtered = (ev.payload.filtered ?? []) as FilteredClaim[];
+          setReviewReady(claims, filtered);
+        } else if (ev.kind === "resumed") {
+          setRunStatus("verifying");
         } else if (ev.kind === "failed") {
           const reason =
             typeof ev.payload.reason === "string" ? ev.payload.reason : "unknown";
@@ -139,7 +189,6 @@ function AuditPageContent() {
           if (!cancelled) setJob(sample);
         })
         .catch((err: unknown) => {
-          // Fallback: send them home with a console hint rather than a blank.
           // eslint-disable-next-line no-console
           console.error("loadSampleJob failed", err);
           if (!cancelled) router.replace("/");
@@ -148,10 +197,12 @@ function AuditPageContent() {
         cancelled = true;
       };
     }
-    router.replace("/");
+    // No redirect — show the input UI instead (see AuditInputPage below)
   }, [liveId, demo, job, router, setJob]);
 
-  // Live, pre-finished view: show banner + PDF + live trace + live findings preview.
+  const isTextMode = params.get("mode") === "text" || job?.input_mode === "text";
+
+  // Live, pre-finished view: show banner + PDF/text + live trace + live findings preview.
   if (liveId && !job) {
     const lastStep = liveSteps[liveSteps.length - 1] ?? null;
     const lastAgent =
@@ -171,6 +222,7 @@ function AuditPageContent() {
         <ArgusHeader
           rightSlot={
             <div className="flex items-center gap-2">
+              <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
               <ThemeToggle />
             </div>
           }
@@ -183,31 +235,44 @@ function AuditPageContent() {
           activeAgent={lastAgent}
           tokens={tokensSoFar}
         />
-        <main className="grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
-          <div className="hidden md:block">
-            <PdfViewer
-              fileUrl={livePdfUrl}
-              claims={[]}
-              findings={[]}
-              activeFindingId={null}
-              onClaimClick={() => {}}
-            />
-          </div>
+        <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${isTextMode ? "" : "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]"}`}>
+          {!isTextMode && (
+            <div className="hidden md:block">
+              <PdfViewer
+                fileUrl={livePdfUrl}
+                claims={[]}
+                findings={[]}
+                activeFindingId={null}
+                onClaimClick={() => {}}
+              />
+            </div>
+          )}
           <aside className="flex flex-col border-l border-border md:border-l">
-            <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Live findings preview
-              </span>
-            </div>
-            <LiveFindingsList findings={liveFindings} />
-            <div className="border-t border-border h-[18rem] min-h-0 flex flex-col">
-              <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
-            </div>
+            {runStatus === "reviewing" ? (
+              <ClaimReviewPanel jobId={liveId} />
+            ) : (
+              <>
+                <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Live findings preview
+                  </span>
+                </div>
+                <LiveFindingsList findings={liveFindings} />
+                <div className="border-t border-border h-[18rem] min-h-0 flex flex-col">
+                  <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
+                </div>
+              </>
+            )}
           </aside>
         </main>
         <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
       </>
     );
+  }
+
+  // No live job, no demo, no existing job → show the input page
+  if (!liveId && !demo && !job) {
+    return <AuditInputPage />;
   }
 
   if (!job) return null;
@@ -218,28 +283,42 @@ function AuditPageContent() {
   };
 
   const fileUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(job.id)}/pdf` : "/sample-report.pdf";
+  const jobIsText = job.input_mode === "text";
 
   return (
     <>
       <ArgusHeader
         rightSlot={
           <div className="flex items-center gap-2">
-            <ExportButton job={job} />
+            <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
             <ThemeToggle />
           </div>
         }
       />
+      {demo === "1" && job?.scenario_label && job?.persona && (
+        <ScenarioBanner label={job.scenario_label} persona={job.persona} />
+      )}
       <VerdictBanner job={job} />
       <JobStatsBar job={job} />
       <main className="grid h-[calc(100vh-3.5rem-2.75rem-2.75rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
-        <div className="hidden md:block">
-          <PdfViewer
-            fileUrl={fileUrl}
-            claims={job.claims}
-            findings={job.findings}
-            activeFindingId={activeFindingId}
-            onClaimClick={onClaimClick}
-          />
+        <div className="hidden h-full overflow-hidden md:block">
+          {jobIsText ? (
+            <TextViewer
+              text={job.input_text ?? ""}
+              claims={job.claims}
+              findings={job.findings}
+              activeFindingId={activeFindingId}
+              onClaimClick={onClaimClick}
+            />
+          ) : (
+            <PdfViewer
+              fileUrl={fileUrl}
+              claims={job.claims}
+              findings={job.findings}
+              activeFindingId={activeFindingId}
+              onClaimClick={onClaimClick}
+            />
+          )}
         </div>
         <aside className="flex flex-col border-l border-border md:border-l">
           <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
@@ -295,15 +374,16 @@ function VerdictBanner({ job }: { job: Job }) {
     ok: "bg-success",
   };
 
+  const subject = job.input_mode === "text" ? "this content" : "this report";
   let headline: string;
   if (issues === 0) {
-    headline = "Argus found no issues in this report.";
+    headline = `Argus found no issues in ${subject}.`;
   } else if (flags.length > 0) {
     const joined =
       flags.length === 1
         ? flags[0]
         : flags.slice(0, -1).join(", ") + " and " + flags[flags.length - 1];
-    headline = `Argus flagged this report for ${joined}.`;
+    headline = `Argus flagged ${subject} for ${joined}.`;
   } else {
     headline = "Argus found issues worth reviewing.";
   }
@@ -338,13 +418,26 @@ function RunBanner({
   activeAgent,
   tokens,
 }: {
-  runStatus: "idle" | "running" | "done" | "failed";
+  runStatus: RunStatus;
   steps: number;
   findings: number;
   reason: string | null;
   activeAgent?: string;
   tokens?: number;
 }) {
+  if (runStatus === "reviewing") {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex h-12 items-center gap-3 border-b border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-4 text-xs"
+      >
+        <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
+        <span className="font-medium">Select claims to verify</span>
+        <span className="text-muted-foreground">Review the extracted claims and choose which ones to verify with MiroMind.</span>
+      </div>
+    );
+  }
   if (runStatus === "failed") {
     return (
       <div
@@ -446,28 +539,6 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
   );
 }
 
-function ExportButton({ job }: { job: Job }) {
-  const onClick = () => {
-    const blob = new Blob([JSON.stringify(job, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${job.id}.findings.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-9 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-      aria-label="Download this job's findings.json"
-    >
-      <span aria-hidden>⤓</span> Export
-    </button>
-  );
-}
-
 function ModeToggle({
   current,
   onChange,
@@ -536,4 +607,190 @@ function findingFromPayload(payload: Record<string, unknown>): LiveFinding | nul
     severity: payload.severity as LiveFinding["severity"],
     summary: payload.summary,
   };
+}
+
+/* ====================================================================== */
+/*  AUDIT INPUT PAGE — clean form shown at /audit (no job id)             */
+/* ====================================================================== */
+function AuditInputPage() {
+  const router = useRouter();
+  const resetLive = useArgusStore((s) => s.resetLive);
+  const setJob = useArgusStore((s) => s.setJob);
+  const [apiKey, setApiKey] = useState("");
+  const [inputMode, setInputMode] = useState<"text" | "pdf">("text");
+  const [textInput, setTextInput] = useState("");
+  const [contentDomain, setContentDomain] = useState<ContentDomain>("general");
+  const [loading, setLoading] = useState<"upload" | "sample" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const trySample = async () => {
+    setLoading("sample");
+    setError(null);
+    try {
+      const job = await loadSampleJob();
+      resetLive();
+      setJob(job);
+      router.push("/audit?demo=1");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setLoading(null);
+    }
+  };
+
+  const onSubmitText = async () => {
+    if (!apiKey.trim()) { setError("Please paste your MiroMind API key first."); return; }
+    if (textInput.trim().length < 50) { setError("Text must be at least 50 characters."); return; }
+    setLoading("upload");
+    setError(null);
+    try {
+      const { job_id } = await submitText(textInput, apiKey, { contentDomain });
+      resetLive();
+      router.push(`/audit?id=${encodeURIComponent(job_id)}&mode=text`);
+    } catch (e) {
+      if (e instanceof ArgusApiError) setError(`API error: ${e.message}`);
+      else if (e instanceof Error) setError(`Could not reach the Argus API. (${e.message})`);
+      else setError(String(e));
+      setLoading(null);
+    }
+  };
+
+  const onPicked = async (file: File) => {
+    if (!apiKey.trim()) { setError("Please paste your MiroMind API key first."); return; }
+    setLoading("upload");
+    setError(null);
+    try {
+      const { job_id } = await uploadPdf(file, apiKey);
+      resetLive();
+      router.push(`/audit?id=${encodeURIComponent(job_id)}`);
+    } catch (e) {
+      if (e instanceof UnsupportedMediaTypeError) setError("Only PDF files are supported.");
+      else if (e instanceof ArgusApiError) setError(`API error: ${e.message}`);
+      else if (e instanceof Error) setError(`Could not reach the Argus API. (${e.message})`);
+      else setError(String(e));
+      setLoading(null);
+    }
+  };
+
+  return (
+    <>
+      <ArgusHeader />
+      <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-6 py-16">
+        <div className="w-full max-w-xl">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold tracking-tight">Start an audit</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Paste AI-generated content or upload a PDF to verify.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)]">
+            <ApiKeyInput value={apiKey} onChange={setApiKey} />
+
+            {/* Tab toggle */}
+            <div className="mt-4 flex w-full rounded-lg border border-border bg-muted/50 p-0.5">
+              <button
+                type="button"
+                onClick={() => { setInputMode("text"); setError(null); }}
+                className={`flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${inputMode === "text" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Paste Text
+              </button>
+              <button
+                type="button"
+                onClick={() => { setInputMode("pdf"); setError(null); }}
+                className={`flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${inputMode === "pdf" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Upload PDF
+              </button>
+            </div>
+
+            {/* Text input */}
+            {inputMode === "text" && (
+              <div className="mt-4 flex flex-col gap-3">
+                <textarea
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  disabled={loading !== null}
+                  placeholder="Paste LLM-generated content here (research report, article, analysis…)"
+                  className="h-48 w-full resize-y rounded-lg border border-border bg-background p-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                />
+                <div className="flex items-center gap-2">
+                  <label htmlFor="domain-select" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                    Content domain
+                  </label>
+                  <select
+                    id="domain-select"
+                    value={contentDomain}
+                    onChange={(e) => setContentDomain(e.target.value as ContentDomain)}
+                    disabled={loading !== null}
+                    className="cursor-pointer rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                  >
+                    <option value="general">General</option>
+                    <option value="academic">Academic</option>
+                    <option value="medical">Medical</option>
+                    <option value="legal">Legal</option>
+                    <option value="finance">Finance</option>
+                    <option value="technology">Technology</option>
+                    <option value="news">News</option>
+                    <option value="science">Science</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{textInput.length.toLocaleString()} characters</span>
+                  <button
+                    type="button"
+                    onClick={onSubmitText}
+                    disabled={loading !== null || textInput.trim().length < 50}
+                    className="cursor-pointer rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {loading === "upload" ? "Submitting…" : "Check for hallucinations →"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* PDF upload */}
+            {inputMode === "pdf" && (
+              <div className="mt-4 flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border p-8 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-10 text-muted-foreground/50" aria-hidden>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                <p className="text-sm text-muted-foreground">Drop a PDF here or click to browse</p>
+                <label className={`cursor-pointer rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md ${loading !== null ? "pointer-events-none opacity-50" : ""}`}>
+                  {loading === "upload" ? "Uploading…" : "Select PDF"}
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    disabled={loading !== null}
+                    className="sr-only"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) onPicked(f); }}
+                  />
+                </label>
+              </div>
+            )}
+
+            {error && (
+              <p role="alert" aria-live="assertive" className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive-foreground">
+                {error}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={trySample}
+              disabled={loading !== null}
+              className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
+            >
+              {loading === "sample" ? "Loading…" : "…or try the sample audit (no key needed)"}
+            </button>
+          </div>
+        </div>
+      </main>
+    </>
+  );
 }

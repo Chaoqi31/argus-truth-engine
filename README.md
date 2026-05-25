@@ -3,9 +3,10 @@
 
 # 🛡️ Argus
 
-### **Audit AI-generated investment research before you trade on it.**
+### **The audit layer for AI-generated content.**
 
-*Catch fabricated citations, misaligned quotes, stale data, and self-contradictions — with the full reasoning chain laid bare.*
+*Patronus and Galileo help you build AI you can ship.*
+*Argus helps you trust AI someone else shipped to you.*
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
@@ -22,42 +23,70 @@
 
 ## 🧭 The problem
 
-Buy-side analysts read dozens of equity-research reports a week. Sell-side notes, third-party
-white papers, and an exploding population of **AI-generated** research all blend together —
-and AI authors hallucinate. They cite papers that don't exist. They paraphrase sources into
-the opposite of what was said. They quote GDP numbers superseded two quarters ago. They
-contradict themselves on page 12 of what page 3 promised.
+A compliance officer receives an AI-generated risk memo from a vendor. A lawyer
+opens a brief drafted by opposing counsel's chatbot. A buy-side PM gets a research
+note from a third-party RAG system. None of them wrote the AI; all of them have
+to *trust* it before they act on it.
 
-**A single bad citation can move billions.** And manually verifying every claim in every
-report is not a job a human should do.
+The numbers underneath this problem are not subtle:
+
+- **$67.4B** in enterprise losses to AI hallucinations in 2024
+- **1,353+** documented court cases involving AI hallucinations (and accelerating)
+- **76%** of enterprises still run human review to catch them — at ~$14K/employee/year
+- **30%** of enterprise AI projects will be abandoned by 2026 over trust issues (Gartner)
+
+The existing market (Patronus, Galileo, Vectara) sells inline scoring to the
+*producers* of AI — the teams shipping RAG pipelines and AI products. Nobody
+sells to the *consumer* of AI output. Argus does.
 
 ## 🎯 What Argus does
 
-You give it a PDF. It gives you back **every factual claim**, **every verdict on that
+You give it any AI-generated artifact — a PDF, a memo, a research note, a chatbot
+transcript. It gives you back **every factual claim**, **every verdict on that
 claim**, and **every step of reasoning** that produced the verdict.
 
 | Issue type | What it catches | How it verifies |
 |---|---|---|
-| 🪤 **Fabricated citations** | References that don't exist | Crossref / arXiv / SSRN cross-checks |
-| 🪞 **Misaligned quotes** | Paraphrase ≠ source | Fetches the cited URL, paragraph-by-paragraph compare |
-| 📉 **Stale data** | Numbers superseded by newer data | FRED / World Bank / SEC EDGAR / IMF |
-| 🧩 **Internal contradictions** | Report self-contradicts | Pairwise claim consistency check |
+| 🪤 **Fabricated references** | Papers, cases, filings that don't exist | Crossref / arXiv / SSRN / public registries |
+| 🪞 **Misrepresented sources** | Paraphrase ≠ source | Fetches the cited URL, paragraph-by-paragraph compare |
+| 📉 **Outdated data** | Numbers superseded by newer data | FRED / World Bank / SEC EDGAR / IMF |
+| 🧩 **Internal contradictions** | Document self-contradicts | Pairwise claim consistency check |
 
-Every finding ships with:
+Every finding ships with verdict, severity, confidence, evidence trail (clickable
+source URLs + snippets), and the full reasoning trace — every web search, every
+fetched page, every chain-of-thought step the agent took.
 
-- **Verdict** (`fabricated` / `mismatch` / `stale` / `contradiction` / `ok` / `uncertain`)
-- **Severity** (`critical` / `major` / `minor`)
-- **Confidence** 0–1
-- **One-line summary**
-- **Evidence trail** — clickable source URLs + snippets
-- **Full reasoning trace** — every web search, fetched page, Python check, and chain-of-thought
+## 👥 Who is this for
 
-## ✨ The killer feature: **Reasoning transparency**
+**Legal & compliance teams.** Opposing counsel filed a brief drafted with AI.
+You need to flag fabricated cases *before* you cite them back. Argus's evidence
+trail is built to be filed as part of your response.
 
-> *"You used to either trust a research report or not. Argus shows you,
-> claim by claim, how an AI verified every sentence — and which sentences it caught lying."*
+**AI governance teams (regulated industries).** Your analysts paste ChatGPT
+outputs into board memos. You need a checkpoint between "the model said it" and
+"we signed off on it." 92% of Fortune 500 require systematic factuality
+verification; Argus is your audit gate.
 
-Reasoning isn't a black box. The frontend streams every step **live** as it happens:
+**Investment & research analysts.** A vendor sent you a 40-page AI-generated
+research note. You can't read all of it; you can't trust all of it; manually
+checking every citation is uneconomic. Argus surfaces only what's wrong.
+
+## 🆚 vs. Patronus / Galileo / Vectara
+
+|  | Patronus / Galileo / Vectara | **Argus** |
+|---|---|---|
+| **Buyer** | AI infrastructure teams | **AI output consumers** (compliance, legal, research) |
+| **Integration** | API inline in RAG pipeline | **Upload file / paste text → audit report** |
+| **Primary output** | Score / classifier label | **Full reasoning chain + evidence trail + verdict** |
+| **Pricing model** | Per token / per call | **Per audit / per case** |
+| **Trust artifact** | Numerical score | **Exportable PDF audit report** (file-able, citable) |
+
+We don't compete on hallucination-classifier accuracy. We compete on **whether a
+human can read what we did and trust the verdict.**
+
+## ✨ Reasoning transparency
+
+The frontend streams every step **live** as it happens:
 
 ```
 seq=  3  🔍 web_search       CitationVerifier  ⟶  "Smith 2021 widget resilience SSRN"
@@ -66,92 +95,85 @@ seq=  5  💭 thinking          CitationVerifier ⟶  "Crossref returned 404. Ch
 seq=  6  ✅ finding emitted    CitationVerifier ⟶  fabricated · major · 0.91 confidence
 ```
 
-Watch each agent think. See every source. **Inspect every decision.**
+After verification, an **Adversarial Debate Protocol** (Attacker / Defender /
+Judge — each round costs ~$0.001 on DeepSeek) stress-tests every high-stakes
+finding. The debate transcript ships in the audit report. Reviewers see not
+just the verdict, but the strongest case against the verdict — and why it lost.
 
 ## 🏗️ How it works
 
-A LangGraph state machine fans 5 agents out over the PDF's claims:
+A LangGraph state machine fans 10+ specialized agents out over the document's claims:
 
 ```
                       ┌─────────────────────────────┐
-                      │   📄 PDF parsing (pdfplumber) │
+                      │   📄 Ingest (PDF or text)     │
                       └──────────────┬──────────────┘
                                      ▼
                       ┌─────────────────────────────┐
-                      │  🧠 Planner Agent              │
-                      │  → extracts typed claims      │
+                      │  🧠 Planner → Atomizer        │
+                      │  → typed atomic claims        │
                       └──────────────┬──────────────┘
-                                     │  fan-out
+                                     ▼
+                      ┌─────────────────────────────┐
+                      │  🎯 CheckWorthiness gate      │
+                      │  → drops trivial claims       │
+                      └──────────────┬──────────────┘
+                                     │  fan-out (per claim type)
             ┌──────────────┬─────────┼─────────┬──────────────┐
             ▼              ▼         ▼         ▼              ▼
-       ┌────────┐    ┌──────────┐  ┌──────┐  ┌──────────────┐
-       │Citation│    │ Citation │  │Data  │  │ Consistency  │
-       │Verifier│    │Alignment │  │Fresh.│  │   Checker    │
-       └───┬────┘    └────┬─────┘  └──┬───┘  └──────┬───────┘
-           └──────────────┴────┬──────┴─────────────┘
-                               │  fan-in (LangGraph reducers)
-                               ▼
+       ┌────────┐   ┌──────────┐  ┌──────┐  ┌────────────┐  ┌────────────┐
+       │Citation│   │ Citation │  │Data  │  │Consistency │  │ Evidence   │
+       │Verifier│   │Alignment │  │Fresh.│  │  Checker   │  │  Hunter    │
+       └───┬────┘   └────┬─────┘  └──┬───┘  └────┬───────┘  └────┬───────┘
+           └─────────────┴──────┬────┴───────────┴───────────────┘
+                                ▼
                       ┌─────────────────────────────┐
-                      │  📋 Reporter Agent             │
-                      │  → executive summary (MD)     │
+                      │  ⚔️ Challenger (debate)      │
+                      │  Attacker / Defender / Judge  │
+                      └──────────────┬──────────────┘
+                                     ▼
+                      ┌─────────────────────────────┐
+                      │  📋 Reporter → audit report   │
+                      │  → executive summary + PDF    │
                       └─────────────────────────────┘
 ```
 
-Each specialist runs in parallel, each handles its own subset of claim types, and a state
-reducer merges their findings without race conditions.
+Atomizer / CheckWorthiness / Challenger run on DeepSeek (cheap) so MiroMind
+spend stays in the verifiers where it matters. Typical single-document audit
+costs ~$3 in model calls — compared with ~$70 for the manual analyst review
+it replaces.
 
 ### Engineering controls
 
 - **`BoundedRunner`** — semaphore-bound concurrency per agent
 - **`BudgetTracker`** — hard USD cap, aborts mid-flight before runaway spend
 - **`retry_on_transient`** — exponential backoff for `429` / `5xx` from upstream
-- **`make_idempotency_key`** — deterministic job-keyed idempotency, ready for event-store dedup
-- **`json-repair`** — heuristic LLM JSON recovery (missing commas, unescaped strings)
+- **`make_idempotency_key`** — deterministic job-keyed idempotency
+- **`json-repair`** — heuristic LLM JSON recovery
 
-### Storage layer
+### Storage & live bus
 
-```
-domain.Pydantic ←─ 1:1 round-trip ─→ SQLAlchemy 2.0 async ORM
-                                          │
-                  ┌──── aiosqlite (tests, demo) ────┐
-                  │                                  │
-                  └──── asyncpg + Postgres (prod) ───┘
-
-Alembic migrations cover both backends from the same revision history.
-```
-
-### Live trace bus
-
-```
-audit_pdf() ──publish──→  TraceBus protocol
-                              ├── InProcessBus (asyncio.Queue, single instance)
-                              └── RedisPubSubBus (pub/sub, multi-instance safe)
-                                         │
-                                         ▼
-                              WebSocket /ws/jobs/{id}/trace
-                              ├── history replay (?after=<seq>)
-                              └── live stream until terminal event
-```
+SQLAlchemy 2.0 async ORM with aiosqlite (dev/tests) and asyncpg+Postgres (prod),
+Alembic migrations shared across both backends. A pluggable `TraceBus` ships
+live agent events over WebSocket — `InProcessBus` for single-instance, Redis
+pub/sub for multi-instance.
 
 ## 🚀 Quickstart
 
-### Option A — Web UI (recommended)
+### Option A — Web UI
 
 ```bash
 # 1. Backend
-cp .env.example .env       # fill in ARGUS_MIROMIND_API_KEY
+cp .env.example .env       # fill in ARGUS_MIROMIND_API_KEY (or skip — UI accepts BYOK)
 uv sync
 uv run argus serve --host 127.0.0.1 --port 8080
 
-# 2. Frontend (new terminal)
+# 2. Frontend
 cd web && pnpm install && pnpm dev
 
 # 3. Open http://localhost:3000
-#    Click "Upload a PDF" → watch the live audit stream.
+#    Click "…or try the sample audit" to see a curated audit without an API key.
 ```
-
-> 💡 Don't want to burn MiroMind credits? Click **"…or try the sample audit"** to load the
-> bundled demo with 6 findings across all four issue categories.
 
 ### Option B — CLI
 
@@ -164,91 +186,37 @@ uv run argus audit examples/sample-report.pdf \
   --budget-usd 50
 ```
 
-The CLI runs the same 5-agent pipeline as the server. Use `--db-url` to persist:
-
-```bash
-docker compose up -d postgres
-uv run alembic -c alembic.ini upgrade head
-uv run argus audit your-report.pdf \
-  --db-url postgresql+asyncpg://argus:argus@localhost:5436/argus
-```
-
 ### Option C — HTTP API
-
-```bash
-uv run argus serve --host 0.0.0.0 --port 8080
-```
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET`  | `/healthz` | health probe |
 | `POST` | `/jobs` | upload PDF (multipart `pdf=…`) → `{job_id}` 202 |
+| `POST` | `/jobs/text` | submit raw text → `{job_id}` 202 |
 | `GET`  | `/jobs/{job_id}` | poll status or fetch final Job JSON |
+| `GET`  | `/jobs/{job_id}/report.pdf` | download the audit report PDF |
 | `WS`   | `/ws/jobs/{job_id}/trace` | history replay + live event stream |
-
-Curl example:
-
-```bash
-JOB=$(curl -s -X POST http://127.0.0.1:8080/jobs \
-  -F "pdf=@your-report.pdf;type=application/pdf" | jq -r .job_id)
-
-# Stream live events
-wscat -c "ws://127.0.0.1:8080/ws/jobs/${JOB}/trace?after=0"
-```
 
 ## 🧰 Stack
 
 | Layer | Choice |
 |---|---|
-| **Model** | MiroMind `mirothinker-1-7-deepresearch` via Responses API |
+| **Models** | MiroMind `mirothinker-1-7-deepresearch` (verifiers) + DeepSeek (atomizer/challenger) |
 | **Orchestration** | LangGraph 1.x StateGraph with parallel fan-out + reducer fan-in |
 | **Backend** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + raw SSE |
 | **Persistence** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
+| **Reports** | Jinja2 + WeasyPrint (HTML→PDF) |
 | **Live bus** | WebSocket · pluggable `TraceBus` (in-process / Redis pub/sub) |
-| **PDF** | pdfplumber + pymupdf |
 | **Frontend** | Next.js 16 · React 19 · TypeScript 5 · Tailwind v4 · Zustand · react-pdf · @xyflow/react |
-| **CLI** | Typer · structlog |
-| **Tests** | pytest-asyncio · respx · vitest · @testing-library/react |
 
 ## 🧪 Testing
 
 ```bash
-# Backend
-uv run pytest -q          # 90 collected (1 skipped if no Redis)
-uv run mypy src/argus     # strict type-check
+uv run pytest -q          # 122 collected
+uv run mypy src/argus     # strict
 uv run ruff check .       # lint
-
-# Frontend
-cd web && pnpm test       # vitest, 33 passing
+cd web && pnpm test       # vitest
 ```
-
-Coverage: **90%** on core modules.
-
-### Pre-push gate
-
-To run the full gate (lint + types + backend tests + frontend tests) before every
-push, opt this clone in once:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-The hook ([`.githooks/pre-push`](.githooks/pre-push)) runs everything through `uv` and
-`pnpm` so it picks up the project's managed environments rather than whatever
-`pytest`/`pnpm` happen to be on global PATH.
-
-The orchestrator is exercised end-to-end against a deterministic `StreamRouter` mock that
-replays canned MiroMind SSE events, so the full 5-agent fan-out is tested without burning
-live credits.
-
-## 🎬 Demo
-
-> Demo video — coming soon. Until then, run `pnpm dev` and click "Try the sample audit."
-
-## 🤝 Contributing
-
-This project is a UCWS Singapore 2026 × MiroMind Deep Research hackathon submission.
-Issues and PRs welcome after the submission window closes.
 
 ## 📜 License
 
@@ -256,10 +224,6 @@ Issues and PRs welcome after the submission window closes.
 
 ## 🙏 Acknowledgements
 
-- **[MiroMind](https://platform.miromind.ai/)** for the `mirothinker-1-7-deepresearch`
-  model and the Responses API
+- **[MiroMind](https://platform.miromind.ai/)** for the `mirothinker-1-7-deepresearch` model
 - **[UCWS Singapore](https://www.ucws.sg/)** for hosting the hackathon
-- **[LangGraph](https://github.com/langchain-ai/langgraph)** for the agent orchestration
-  primitives
-- **[json-repair](https://github.com/mangiucugna/json_repair)** for saving us from
-  malformed LLM outputs more than once
+- **[LangGraph](https://github.com/langchain-ai/langgraph)** for the orchestration primitives

@@ -55,7 +55,7 @@ def test_finding_links_to_claim_and_evidences() -> None:
         evidence_ids=["e1", "e2"],
         reasoning_trace_id="t1",
     )
-    assert f.confidence == 0.92  # noqa: PLR2004
+    assert f.confidence == 0.92
     assert "e1" in f.evidence_ids
 
 

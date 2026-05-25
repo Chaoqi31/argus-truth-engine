@@ -1,7 +1,14 @@
 """Pytest fixtures shared across the test suite."""
 from __future__ import annotations
 
+import os
+import sys
 from collections.abc import AsyncIterator
+
+# WeasyPrint on macOS + Homebrew needs DYLD_LIBRARY_PATH for Pango/Cairo.
+# Safe no-op on Linux / CI.
+if sys.platform == "darwin":
+    os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
 
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine

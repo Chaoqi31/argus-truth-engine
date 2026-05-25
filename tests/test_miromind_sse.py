@@ -24,7 +24,7 @@ def test_sse_iter_events_yields_three_events() -> None:
         "response.reasoning_text.delta",
         "response.completed",
     ]
-    assert events[1].sequence_number == 2  # noqa: PLR2004
+    assert events[1].sequence_number == 2
 
 
 def test_sse_iter_events_skips_comments() -> None:
@@ -37,4 +37,4 @@ def test_sse_iter_events_handles_chunked_input() -> None:
     half_a = RAW[:80]
     half_b = RAW[80:]
     events = list(sse_iter_events(iter([half_a, half_b])))
-    assert len(events) == 3  # noqa: PLR2004
+    assert len(events) == 3

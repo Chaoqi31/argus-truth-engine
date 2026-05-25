@@ -62,7 +62,7 @@ async def test_subscribe_after_some_history_replays_then_streams() -> None:
                 received.append(ev)
             async for ev in sub.iter_live():
                 received.append(ev)
-                if ev.sequence == 4:  # noqa: PLR2004
+                if ev.sequence == 4:
                     break
 
     consumer = asyncio.create_task(consume())

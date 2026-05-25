@@ -189,10 +189,10 @@ async def test_full_5_agent_pipeline(tmp_path: Path) -> None:
         budget_usd=10.0,
     )
 
-    assert len(job.claims) == 3  # noqa: PLR2004
+    assert len(job.claims) == 3
     # 1 verifier (c1) + 1 alignment (c1) + 2 freshness (c2, c3)
     # + 2 paired consistency findings = 6
-    assert len(job.findings) == 6  # noqa: PLR2004
+    assert len(job.findings) == 6
     by_agent = {f.agent for f in job.findings}
     assert by_agent == {
         "CitationVerifier",
@@ -205,7 +205,7 @@ async def test_full_5_agent_pipeline(tmp_path: Path) -> None:
     assert "3 issues" in job.audit_report_md
 
     consistency_findings = [f for f in job.findings if f.agent == "Consistency"]
-    assert len(consistency_findings) == 2  # noqa: PLR2004
+    assert len(consistency_findings) == 2
     f_a, f_b = consistency_findings
     assert f_a.id in f_b.related_finding_ids
     assert f_b.id in f_a.related_finding_ids

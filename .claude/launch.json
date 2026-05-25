@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "-p", "3200"],
+      "cwd": "/Users/luochaoqi/dev/MiroMind-Deep-Research/web",
+      "port": 3200
+    }
+  ]
+}
