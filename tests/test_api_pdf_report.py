@@ -9,9 +9,12 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from argus.api.app import create_app
-from argus.api.runner import JobRunner
+from argus.api.runner import JobRecord, JobRunner
 from argus.config import Settings
 from argus.models.domain import Job
+
+_HTTP_OK = 200
+_HTTP_NOT_FOUND = 404
 
 SAMPLE = Path(__file__).parent.parent / "web" / "public" / "sample-findings.json"
 
@@ -30,7 +33,6 @@ def app_with_sample_job(tmp_path: Path) -> tuple[FastAPI, str]:
     runner = JobRunner(state=app.state.argus)
 
     # Manually populate the runner with the sample job
-    from argus.api.runner import JobRecord
     record = JobRecord(job_id=job.id, status="done", result=job, pdf_key=None)
     runner.records[job.id] = record
 
@@ -45,7 +47,7 @@ async def test_report_pdf_endpoint_returns_pdf(app_with_sample_job: tuple[FastAP
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.get(f"/jobs/{job_id}/report.pdf")
-    assert r.status_code == 200
+    assert r.status_code == _HTTP_OK
     assert r.headers["content-type"] == "application/pdf"
     assert r.content.startswith(b"%PDF")
 
@@ -57,4 +59,4 @@ async def test_report_pdf_404_for_unknown_job(app_with_sample_job: tuple[FastAPI
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         r = await client.get("/jobs/does-not-exist/report.pdf")
-    assert r.status_code == 404
+    assert r.status_code == _HTTP_NOT_FOUND
