@@ -4,9 +4,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-import markdown as md
+import markdown as md  # type: ignore[import-untyped]
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from weasyprint import CSS, HTML
+from weasyprint import CSS, HTML  # type: ignore[import-untyped]
 
 from argus.models.domain import Finding, Job, ReasoningTrace, Step
 
@@ -32,7 +32,7 @@ def render_job_pdf(job: Job) -> bytes:
     findings_ranked = _rank_findings(job.findings)
 
     evidence_by_id = {e.id: e for e in job.evidences}
-    evidence_by_finding: dict[str, list] = {
+    evidence_by_finding: dict[str, list[object]] = {
         f.id: [evidence_by_id[eid] for eid in f.evidence_ids if eid in evidence_by_id]
         for f in job.findings
     }
@@ -56,4 +56,5 @@ def render_job_pdf(job: Job) -> bytes:
         generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
     )
     css = CSS(filename=str(_TEMPLATE_DIR / "audit_report.css"))
-    return HTML(string=html_str).write_pdf(stylesheets=[css])
+    result: bytes = HTML(string=html_str).write_pdf(stylesheets=[css])
+    return result
