@@ -42,11 +42,11 @@ from argus.agents.atomizer import run_atomizer
 from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
 from argus.agents.challenger import challenge_findings
 from argus.agents.checkworthiness import run_checkworthiness
-from argus.agents.evidence_hunter import plan_search_strategies
 from argus.agents.citation_alignment import check_alignment
 from argus.agents.citation_verifier import verify_citation
 from argus.agents.consistency import ConsistencyOutput, check_consistency
 from argus.agents.data_freshness import check_freshness
+from argus.agents.evidence_hunter import plan_search_strategies
 from argus.agents.planner import run_planner
 from argus.agents.reporter import run_reporter
 from argus.config import Settings
