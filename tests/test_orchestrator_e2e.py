@@ -127,10 +127,10 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
         budget_usd=10.0,
     )
 
-    assert len(job.claims) == 2  # noqa: PLR2004
+    assert len(job.claims) == 2
     assert all(c.type == ClaimType.CITATION for c in job.claims)
     # Each citation now produces a Verifier finding AND an Alignment finding.
-    assert len(job.findings) == 4  # noqa: PLR2004
+    assert len(job.findings) == 4
     by_agent = {f.agent for f in job.findings}
     assert by_agent == {"CitationVerifier", "CitationAlignment"}
 

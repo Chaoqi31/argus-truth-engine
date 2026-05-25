@@ -27,5 +27,5 @@ async def test_healthz_returns_200(app_under_test: FastAPI) -> None:
         transport=ASGITransport(app=app_under_test), base_url="http://test"
     ) as client:
         resp = await client.get("/healthz")
-    assert resp.status_code == 200  # noqa: PLR2004
+    assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}

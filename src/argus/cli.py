@@ -105,9 +105,9 @@ def serve(
         )
 
     # Lazy import so the CLI doesn't require uvicorn until `serve` runs.
-    import uvicorn  # noqa: PLC0415
+    import uvicorn
 
-    from argus.api.app import create_app  # noqa: PLC0415
+    from argus.api.app import create_app
 
     app_instance = create_app(settings=s)
     console.print(

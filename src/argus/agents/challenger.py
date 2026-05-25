@@ -44,7 +44,7 @@ Output JSON:
   "attack_points": ["point 1", "point 2", ...],
   "strongest_attack": "your single strongest argument against the verdict",
   "attack_strength": float 0-1 (how confident you are the verdict is wrong),
-  "evidence_specificity": float 0-1 (how precisely does the existing evidence address the exact claim?)
+  "evidence_specificity": float 0-1 (how precisely does the evidence address the claim?)
 }
 """
 
@@ -81,7 +81,8 @@ Make your ruling:
 Output JSON:
 {
   "ruling": "verdict_stands" | "verdict_revised",
-  "revised_verdict": null | "ok" | "fabricated" | "partial-match" | "mismatch" | "stale" | "superseded" | "uncertain",
+  "revised_verdict": null | "ok" | "fabricated" | "partial-match"
+                    | "mismatch" | "stale" | "superseded" | "uncertain",
   "final_confidence": float 0-1,
   "ruling_reasoning": "2-3 sentences explaining the ruling",
   "key_factors": ["factor 1", "factor 2"]

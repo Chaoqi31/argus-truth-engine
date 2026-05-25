@@ -69,7 +69,6 @@ async def run_checkworthiness(
     result = await client.complete(SYSTEM_PROMPT, user_input, CheckworthinessResult)
 
     verdict_map = {r.claim_id: r for r in result.results}
-    claim_map = {c.id: c for c in claims}
 
     checkworthy: list[Claim] = []
     filtered: list[tuple[Claim, str]] = []

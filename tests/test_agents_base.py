@@ -101,9 +101,9 @@ async def test_captures_input_output_token_split_from_usage() -> None:
     runner = AgentRunner(client=client, model_cls=Out, agent_name="t")
     result = await runner.run(instructions=None, input_text="hi")
     stream = result.first
-    assert stream.total_tokens == 10000  # noqa: PLR2004
-    assert stream.input_tokens == 8000  # noqa: PLR2004
-    assert stream.output_tokens == 2000  # noqa: PLR2004
+    assert stream.total_tokens == 10000
+    assert stream.input_tokens == 8000
+    assert stream.output_tokens == 2000
 
 
 async def test_repairs_once_then_succeeds() -> None:
@@ -119,7 +119,7 @@ async def test_repairs_once_then_succeeds() -> None:
     runner = AgentRunner(client=client, model_cls=Out, agent_name="t")
     result = await runner.run(instructions=None, input_text="hi")
     assert result.parsed == Out(verdict="ok", confidence=0.5)
-    assert client.submit_background.await_count == 2  # noqa: PLR2004
+    assert client.submit_background.await_count == 2
 
 
 async def test_raises_after_repair_fails() -> None:
