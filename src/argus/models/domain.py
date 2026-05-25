@@ -75,11 +75,12 @@ class _Base(BaseModel):
 class Claim(_Base):
     id: str
     text: str
-    page: int = Field(ge=1)
+    page: int = Field(default=1, ge=0)
     span: tuple[int, int]
     type: ClaimType
     importance: Literal["high", "medium", "low"]
     extracted_metadata: dict[str, Any] = Field(default_factory=dict)
+    parent_claim_id: str | None = None
 
     @model_validator(mode="after")
     def _check_span(self) -> Claim:
@@ -127,6 +128,33 @@ class ReasoningTrace(_Base):
     steps: list[Step] = Field(default_factory=list)
 
 
+class ReasoningStep(_Base):
+    """One step in a structured reasoning chain — makes verification transparent."""
+
+    step: str  # e.g. "premise", "search", "evidence_found", "comparison", "inference"
+    content: str  # human-readable description
+    evidence_ref: str | None = None  # link to evidence ID or URL
+    confidence_delta: float = 0.0  # how this step affected confidence (+/-)
+
+
+class ConfidenceBreakdown(_Base):
+    """Decomposed confidence — explains WHY confidence is at a certain level."""
+
+    source_agreement: float = Field(default=0.0, ge=0.0, le=1.0)  # do sources agree?
+    source_authority: float = Field(default=0.0, ge=0.0, le=1.0)  # how authoritative?
+    evidence_freshness: float = Field(default=0.0, ge=0.0, le=1.0)  # how recent?
+    evidence_specificity: float = Field(default=0.0, ge=0.0, le=1.0)  # how directly relevant?
+    reasoning: str = ""  # 1-sentence explanation of the composite score
+
+
+class SearchStrategy(_Base):
+    """A planned search approach for verifying a claim from a specific angle."""
+
+    angle: str  # e.g. "direct_verification", "negation_search", "source_tracing"
+    query: str  # the actual search query to use
+    rationale: str  # why this angle is useful
+
+
 class Finding(_Base):
     id: str
     job_id: str
@@ -135,24 +163,47 @@ class Finding(_Base):
     verdict: FindingVerdict
     severity: Severity = Severity.MINOR
     confidence: float = Field(ge=0.0, le=1.0)
+    confidence_breakdown: ConfidenceBreakdown | None = None
     summary: str
+    reasoning_chain: list[ReasoningStep] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
     reasoning_trace_id: str
     related_finding_ids: list[str] = Field(default_factory=list)
+    challenge_result: str | None = None  # adversarial challenge outcome
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ContentDomain(StrEnum):
+    """Domain hint — helps the system prioritize relevant verification strategies."""
+
+    GENERAL = "general"
+    ACADEMIC = "academic"
+    MEDICAL = "medical"
+    LEGAL = "legal"
+    FINANCE = "finance"
+    TECHNOLOGY = "technology"
+    NEWS = "news"
+    SCIENCE = "science"
 
 
 class Job(_Base):
     id: str
-    pdf_path: str
+    scenario_label: str | None = None
+    persona: str | None = None
+    pdf_path: str = ""
+    input_text: str | None = None
+    input_mode: Literal["pdf", "text"] = "pdf"
+    content_domain: ContentDomain = ContentDomain.GENERAL
+    auto_review: bool = False
     status: Literal[
-        "queued", "parsing", "planning", "verifying", "reporting", "done", "failed"
+        "queued", "parsing", "planning", "atomizing", "filtering",
+        "reviewing", "verifying", "reporting", "done", "failed",
     ] = "queued"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
     cost_usd: float = 0.0
     total_tokens: int = 0
-    audit_report_md: str | None = None     # NEW — Reporter's executive summary
+    audit_report_md: str | None = None
 
     claims: list[Claim] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)

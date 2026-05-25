@@ -40,16 +40,16 @@ def test_parse_event_reasoning_delta() -> None:
     ev = parse_event(json.dumps(REASONING_DELTA))
     assert isinstance(ev, ResponseReasoningTextDeltaEvent)
     assert ev.delta == "Thinking about ..."
-    assert ev.sequence_number == 4  # noqa: PLR2004
+    assert ev.sequence_number == 4
 
 
 def test_parse_event_completed() -> None:
     ev = parse_event(json.dumps(COMPLETED))
     assert isinstance(ev, ResponseCompletedEvent)
-    assert ev.response.usage.num_search_queries == 2  # noqa: PLR2004
+    assert ev.response.usage.num_search_queries == 2
 
 
 def test_parse_event_unknown_type_returns_generic() -> None:
     ev = parse_event(json.dumps({"type": "response.unknown.delta", "sequence_number": 7}))
     assert isinstance(ev, ResponseEvent)
-    assert ev.sequence_number == 7  # noqa: PLR2004
+    assert ev.sequence_number == 7

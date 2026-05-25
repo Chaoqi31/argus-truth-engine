@@ -24,7 +24,7 @@ async def test_submit_retries_on_429_then_succeeds() -> None:
     )
     rid = await client.submit_background(input="hi", instructions=None)
     assert rid == "resp_ok"
-    assert route.call_count == 3  # noqa: PLR2004
+    assert route.call_count == 3
 
 
 @respx.mock
@@ -58,4 +58,4 @@ async def test_submit_gives_up_after_attempts() -> None:
 
     with pytest.raises(httpx.HTTPStatusError):
         await client.submit_background(input="hi", instructions=None)
-    assert route.call_count == 2  # noqa: PLR2004
+    assert route.call_count == 2

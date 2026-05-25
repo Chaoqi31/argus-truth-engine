@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_token: str = ""
 
+    # Cheap LLM for pre-processing (atomizer, checkworthiness).
+    # Defaults to DeepSeek; any OpenAI-compatible endpoint works.
+    cheap_llm_api_key: str = Field(default="")
+    cheap_llm_base_url: str = "https://api.deepseek.com"
+    cheap_llm_model: str = "deepseek-chat"
+    cheap_llm_timeout_s: float = 60.0
+
     # Per-job MiroMind spend cap (USD). A real 5-agent audit against
     # mirothinker-1-7-deepresearch ($4/$25 per M tokens) typically runs
     # $5-$50 depending on PDF size; default keeps us safely under that.

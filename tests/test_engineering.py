@@ -39,7 +39,7 @@ async def test_bounded_runner_caps_concurrency() -> None:
 
     results = await asyncio.gather(*[task(i) for i in range(8)])
     assert results == list(range(8))
-    assert peak <= 2  # noqa: PLR2004
+    assert peak <= 2
 
 
 # --- BudgetTracker --------------------------------------------------------
@@ -103,7 +103,7 @@ def test_idempotency_key_is_deterministic_and_short() -> None:
     c = make_idempotency_key("job_abc", "CitationVerifier", "c2")
     assert a == b
     assert a != c
-    assert len(a) == 16  # noqa: PLR2004
+    assert len(a) == 16
 
 
 # --- retry_on_transient ---------------------------------------------------
@@ -115,7 +115,7 @@ async def test_retry_retries_on_429_then_succeeds() -> None:
     @retry_on_transient(attempts=3, base_delay=0.01)
     async def flaky() -> str:
         calls()
-        if calls.call_count < 3:  # noqa: PLR2004
+        if calls.call_count < 3:
             req = httpx.Request("POST", "https://example.com")
             resp = httpx.Response(429, request=req)
             raise httpx.HTTPStatusError("429", request=req, response=resp)
@@ -123,7 +123,7 @@ async def test_retry_retries_on_429_then_succeeds() -> None:
 
     result = await flaky()
     assert result == "ok"
-    assert calls.call_count == 3  # noqa: PLR2004
+    assert calls.call_count == 3
 
 
 async def test_retry_does_not_retry_on_400() -> None:

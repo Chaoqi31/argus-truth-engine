@@ -38,11 +38,15 @@ from typing_extensions import TypedDict
 if TYPE_CHECKING:
     from argus.db.repository import JobRepository
 
+from argus.agents.atomizer import run_atomizer
 from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
+from argus.agents.challenger import challenge_findings
+from argus.agents.checkworthiness import run_checkworthiness
 from argus.agents.citation_alignment import check_alignment
 from argus.agents.citation_verifier import verify_citation
 from argus.agents.consistency import ConsistencyOutput, check_consistency
 from argus.agents.data_freshness import check_freshness
+from argus.agents.evidence_hunter import plan_search_strategies
 from argus.agents.planner import run_planner
 from argus.agents.reporter import run_reporter
 from argus.config import Settings
@@ -53,6 +57,8 @@ from argus.engineering import (
     cost_for_usage,
     make_idempotency_key,
 )
+from argus.hitl import ReviewGate
+from argus.llm.cheap_client import CheapLLMClient
 from argus.log import log
 from argus.miromind.client import MiromindClient
 from argus.models.domain import (
@@ -62,11 +68,12 @@ from argus.models.domain import (
     Finding,
     FindingVerdict,
     Job,
+    ReasoningStep,
     ReasoningTrace,
     Severity,
 )
 from argus.models.miromind import Usage
-from argus.pdf.parser import ParsedDoc, parse_pdf
+from argus.pdf.parser import ParsedDoc, ParsedPage, parse_pdf
 from argus.trace_bus.base import TraceBus, TraceEvent
 
 _CONTEXT_WINDOW_CHARS = 200
@@ -105,14 +112,29 @@ def _dict_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
 class _State(TypedDict, total=False):
     job_id: str
     pdf_path: Path
+    text: str | None
+    input_mode: str
     doc: ParsedDoc | None
     claims: list[Claim]
+    # Phase A outputs — preserved for UI display
+    original_claims: list[Claim]
+    filtered_claims: list[dict[str, str]]  # [{"claim_id","text","reason"}]
+    # Multi-strategy search plans (claim_id -> strategies)
+    search_strategies: dict[str, list[Any]]
     findings: Annotated[list[Finding], operator.add]
+    # Challenger overwrites findings after adversarial review
+    challenged_findings: list[Finding] | None
     traces: Annotated[dict[str, ReasoningTrace], _dict_merge]
     evidences: Annotated[list[Evidence], operator.add]
     audit_report_md: str | None
     aborted: bool
     abort_reason: str
+
+
+def _text_to_doc(text: str) -> ParsedDoc:
+    """Wrap raw text in a ParsedDoc with a single synthetic page."""
+    page = ParsedPage(page_number=1, text=text, start_offset=0)
+    return ParsedDoc(source_path=Path("<text-input>"), pages=(page,), full_text=text)
 
 
 # --- Public entry point ----------------------------------------------------
@@ -128,6 +150,8 @@ async def audit_pdf(
     repo: JobRepository | None = None,
     trace_bus: TraceBus | None = None,
     job_id: str | None = None,
+    review_gate: ReviewGate | None = None,
+    auto_review: bool = False,
 ) -> Job:
     """Top-level Plan B2 pipeline — LangGraph parallel 5-agent.
 
@@ -142,8 +166,118 @@ async def audit_pdf(
 
     if job_id is None:
         job_id = f"job_{uuid4().hex[:12]}"
-    job = Job(id=job_id, pdf_path=str(pdf_path), status="parsing")
+    job = Job(id=job_id, pdf_path=str(pdf_path), input_mode="pdf",
+              auto_review=auto_review, status="parsing")
 
+    initial: _State = {
+        "job_id": job_id,
+        "pdf_path": pdf_path,
+        "text": None,
+        "input_mode": "pdf",
+        "doc": None,
+        "claims": [],
+        "original_claims": [],
+        "filtered_claims": [],
+        "search_strategies": {},
+        "findings": [],
+        "challenged_findings": None,
+        "traces": {},
+        "evidences": [],
+        "audit_report_md": None,
+        "aborted": False,
+        "abort_reason": "",
+    }
+
+    return await _run_pipeline(
+        job=job,
+        initial=initial,
+        output_path=Path(output_path),
+        settings=settings,
+        client=client,
+        budget_usd=budget_usd,
+        repo=repo,
+        trace_bus=trace_bus,
+        review_gate=review_gate,
+        auto_review=auto_review,
+    )
+
+
+async def audit_text(
+    *,
+    text: str,
+    output_path: Path | str,
+    settings: Settings,
+    client: MiromindClient | None = None,
+    budget_usd: float = 5.0,
+    repo: JobRepository | None = None,
+    trace_bus: TraceBus | None = None,
+    job_id: str | None = None,
+    review_gate: ReviewGate | None = None,
+    auto_review: bool = False,
+    content_domain: str = "general",
+) -> Job:
+    """Audit LLM-generated text for hallucinations and errors."""
+    output_path = Path(output_path)
+    if client is None:
+        client = MiromindClient(settings)
+
+    if job_id is None:
+        job_id = f"job_{uuid4().hex[:12]}"
+    from argus.models.domain import ContentDomain
+    is_known = content_domain in ContentDomain.__members__.values()
+    domain = ContentDomain(content_domain) if is_known else ContentDomain.GENERAL
+    job = Job(
+        id=job_id, input_text=text, input_mode="text",
+        content_domain=domain, auto_review=auto_review, status="parsing",
+    )
+
+    initial: _State = {
+        "job_id": job_id,
+        "pdf_path": Path("."),
+        "text": text,
+        "input_mode": "text",
+        "doc": None,
+        "claims": [],
+        "original_claims": [],
+        "filtered_claims": [],
+        "search_strategies": {},
+        "findings": [],
+        "challenged_findings": None,
+        "traces": {},
+        "evidences": [],
+        "audit_report_md": None,
+        "aborted": False,
+        "abort_reason": "",
+    }
+
+    return await _run_pipeline(
+        job=job,
+        initial=initial,
+        output_path=output_path,
+        settings=settings,
+        client=client,
+        budget_usd=budget_usd,
+        repo=repo,
+        trace_bus=trace_bus,
+        review_gate=review_gate,
+        auto_review=auto_review,
+    )
+
+
+async def _run_pipeline(
+    *,
+    job: Job,
+    initial: _State,
+    output_path: Path,
+    settings: Settings,
+    client: MiromindClient,
+    budget_usd: float,
+    repo: JobRepository | None,
+    trace_bus: TraceBus | None,
+    review_gate: ReviewGate | None = None,
+    auto_review: bool = False,
+) -> Job:
+    job_id = job.id
     budget = BudgetTracker(max_usd=budget_usd)
     runners = {
         agent: BoundedRunner(max_concurrent=_MAX_CONCURRENT_PER_AGENT)
@@ -155,6 +289,17 @@ async def audit_pdf(
         )
     }
     publisher = _Publisher(job_id=job_id, bus=trace_bus)
+
+    # Build cheap LLM client for atomizer + checkworthiness
+    cheap_client: CheapLLMClient | None = None
+    if settings.cheap_llm_api_key:
+        cheap_client = CheapLLMClient(
+            api_key=settings.cheap_llm_api_key,
+            base_url=settings.cheap_llm_base_url,
+            model=settings.cheap_llm_model,
+            timeout_s=settings.cheap_llm_timeout_s,
+        )
+
     ctx = _Ctx(
         client=client,
         settings=settings,
@@ -162,44 +307,105 @@ async def audit_pdf(
         runners=runners,
         job_id=job_id,
         publisher=publisher,
+        cheap_client=cheap_client,
+        content_domain=job.content_domain.value,
     )
 
-    await publisher.publish("started", {"pdf_path": str(pdf_path)})
+    await publisher.publish("started", {"input_mode": job.input_mode})
 
-    graph = _build_graph(ctx)
+    # ── Phase A: parse → planner → atomizer → checkworthiness ──
+    phase_a = _build_phase_a(ctx)
 
-    initial: _State = {
-        "job_id": job_id,
-        "pdf_path": pdf_path,
-        "doc": None,
-        "claims": [],
-        "findings": [],
-        "traces": {},
-        "evidences": [],
-        "audit_report_md": None,
-        "aborted": False,
-        "abort_reason": "",
-    }
-    # Any exception escaping graph.ainvoke (transient httpx errors after
-    # retries, model API outages, etc.) must NOT crash the JobRunner. We
-    # finalize a `failed` Job, publish a terminal event so WS subscribers
-    # close cleanly, and return — the caller decides whether to surface
-    # the failure.
     final_state: _State = {}
     raised_exc: Exception | None = None
     try:
-        final_state = await graph.ainvoke(initial)
-    except Exception as exc:  # top-level safety net for the orchestrator
+        final_state = await phase_a.ainvoke(initial)
+    except Exception as exc:
         raised_exc = exc
-        log.error(
-            "orchestrator.graph_raised",
-            job_id=job_id,
-            error_type=type(exc).__name__,
-            error=str(exc)[:300],
-        )
+        log.error("orchestrator.phase_a_raised", job_id=job_id,
+                  error_type=type(exc).__name__, error=str(exc)[:300])
+
+    if raised_exc or final_state.get("aborted"):
+        return await _finalize(job, final_state, budget, publisher, output_path,
+                               repo, raised_exc, cheap_client)
+
+    # ── HITL gate: wait for user to select claims ──
+    claims_for_review = final_state.get("claims", [])
+    filtered = final_state.get("filtered_claims", [])
+
+    if review_gate and not auto_review and claims_for_review:
+        review_gate.prepare(job_id)
+        await publisher.publish("review_ready", {
+            "claims": [{"id": c.id, "text": c.text, "type": c.type.value,
+                         "importance": c.importance,
+                         "parent_claim_id": c.parent_claim_id}
+                        for c in claims_for_review],
+            "filtered": filtered,
+            "n_checkworthy": len(claims_for_review),
+            "n_filtered": len(filtered),
+        })
+        log.info("orchestrator.waiting_for_review", job_id=job_id,
+                 n_claims=len(claims_for_review))
+
+        selected_ids = await review_gate.wait(job_id, timeout=300.0)
+        review_gate.cleanup(job_id)
+
+        if selected_ids is not None:
+            # User selected specific claims
+            selected_set = set(selected_ids)
+            claims_for_review = [c for c in claims_for_review if c.id in selected_set]
+            await publisher.publish("review_submitted", {
+                "n_selected": len(claims_for_review),
+            })
+        else:
+            # Timeout — proceed with all checkworthy claims
+            await publisher.publish("review_submitted", {
+                "n_selected": len(claims_for_review),
+                "auto": True,
+            })
+    elif not auto_review and claims_for_review:
+        # No review gate available — proceed automatically
+        pass
+
+    await publisher.publish("resumed", {})
+
+    # Update state with possibly filtered claims
+    final_state["claims"] = claims_for_review
+
+    # ── Phase B: specialists → reporter ──
+    phase_b = _build_phase_b(ctx)
+
+    try:
+        final_state = await phase_b.ainvoke(final_state)
+    except Exception as exc:
+        raised_exc = exc
+        log.error("orchestrator.phase_b_raised", job_id=job_id,
+                  error_type=type(exc).__name__, error=str(exc)[:300])
+
+    return await _finalize(job, final_state, budget, publisher, output_path,
+                           repo, raised_exc, cheap_client)
+
+
+async def _finalize(
+    job: Job,
+    final_state: _State,
+    budget: BudgetTracker,
+    publisher: _Publisher,
+    output_path: Path,
+    repo: JobRepository | None,
+    raised_exc: Exception | None,
+    cheap_client: CheapLLMClient | None,
+) -> Job:
+    """Finalize job state, persist, publish terminal event."""
+    if cheap_client:
+        await cheap_client.close()
 
     job.claims = list(final_state.get("claims", []))
-    job.findings = list(final_state.get("findings", []))
+    # Prefer challenger-enriched findings
+    job.findings = list(
+        final_state.get("challenged_findings")
+        or final_state.get("findings", [])
+    )
     job.traces = list(final_state.get("traces", {}).values())
     job.evidences = list(final_state.get("evidences", []))
     job.audit_report_md = final_state.get("audit_report_md")
@@ -217,7 +423,7 @@ async def audit_pdf(
     output_path.write_text(job.model_dump_json(indent=2))
     log.info(
         "orchestrator.done",
-        job_id=job_id,
+        job_id=job.id,
         status=job.status,
         n_findings=len(job.findings),
         total_tokens=job.total_tokens,
@@ -228,7 +434,6 @@ async def audit_pdf(
             await repo.save_job(job)
             log.info("orchestrator.persisted", job_id=job.id)
         except Exception as exc:
-            # DB failures must not lose the file output.
             log.error("orchestrator.persist_failed", error=str(exc)[:300])
 
     terminal_kind = "failed" if job.status == "failed" else "finished"
@@ -256,6 +461,8 @@ class _Ctx:
         runners: dict[str, BoundedRunner],
         job_id: str,
         publisher: _Publisher,
+        cheap_client: CheapLLMClient | None = None,
+        content_domain: str = "general",
     ) -> None:
         self.client = client
         self.settings = settings
@@ -263,6 +470,8 @@ class _Ctx:
         self.runners = runners
         self.job_id = job_id
         self.publisher = publisher
+        self.cheap_client = cheap_client
+        self.content_domain = content_domain
 
 
 class _Publisher:
@@ -300,23 +509,38 @@ class _Publisher:
 # --- Graph wiring ----------------------------------------------------------
 
 
-def _build_graph(ctx: _Ctx) -> Any:
-    # mypy's overload resolution for StateGraph.add_node fights with our
-    # TypedDict-with-Annotated-reducers `_State`; the runtime API is happy.
+def _build_phase_a(ctx: _Ctx) -> Any:
+    """Phase A: parse → planner → atomizer → checkworthiness → evidence_hunter."""
     graph: Any = StateGraph(_State)
     graph.add_node("parse_pdf", _parse_node(ctx))
     graph.add_node("planner", _planner_node(ctx))
+    graph.add_node("atomizer", _atomizer_node(ctx))
+    graph.add_node("checkworthiness", _checkworthiness_node(ctx))
+    graph.add_node("evidence_hunter", _evidence_hunter_node(ctx))
+
+    graph.add_edge(START, "parse_pdf")
+    graph.add_edge("parse_pdf", "planner")
+    graph.add_edge("planner", "atomizer")
+    graph.add_edge("atomizer", "checkworthiness")
+    graph.add_edge("checkworthiness", "evidence_hunter")
+    graph.add_edge("evidence_hunter", END)
+    return graph.compile()
+
+
+def _build_phase_b(ctx: _Ctx) -> Any:
+    """Phase B: specialists (parallel) → challenger → reporter."""
+    graph: Any = StateGraph(_State)
     graph.add_node("citation_verifier", _verifier_node(ctx))
     graph.add_node("citation_alignment", _alignment_node(ctx))
     graph.add_node("data_freshness", _freshness_node(ctx))
     graph.add_node("consistency", _consistency_node(ctx))
+    graph.add_node("challenger", _challenger_node(ctx))
     graph.add_node("reporter", _reporter_node(ctx))
 
-    graph.add_edge(START, "parse_pdf")
-    graph.add_edge("parse_pdf", "planner")
     for n in ("citation_verifier", "citation_alignment", "data_freshness", "consistency"):
-        graph.add_edge("planner", n)
-        graph.add_edge(n, "reporter")
+        graph.add_edge(START, n)
+        graph.add_edge(n, "challenger")
+    graph.add_edge("challenger", "reporter")
     graph.add_edge("reporter", END)
     return graph.compile()
 
@@ -326,9 +550,14 @@ def _build_graph(ctx: _Ctx) -> Any:
 
 def _parse_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        pdf_path = state["pdf_path"]
-        log.info("orchestrator.parse_start", pdf=str(pdf_path), job_id=ctx.job_id)
-        doc = parse_pdf(pdf_path)
+        text = state.get("text")
+        if text:
+            log.info("orchestrator.parse_text", chars=len(text), job_id=ctx.job_id)
+            doc = _text_to_doc(text)
+        else:
+            pdf_path = state["pdf_path"]
+            log.info("orchestrator.parse_start", pdf=str(pdf_path), job_id=ctx.job_id)
+            doc = parse_pdf(pdf_path)
         log.info("orchestrator.parse_done", pages=len(doc.pages))
         return {"doc": doc}
     return node
@@ -341,8 +570,9 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
         doc = state.get("doc")
         if doc is None:
             return {"aborted": True, "abort_reason": "no parsed document"}
+        input_mode = state.get("input_mode", "pdf")
         try:
-            result = await run_planner(ctx.client, doc)
+            result = await run_planner(ctx.client, doc, input_mode=input_mode)
         except JsonRepairFailed as exc:
             log.error("orchestrator.planner_failed", error=str(exc)[:500])
             return {"aborted": True, "abort_reason": f"planner: {exc}"}
@@ -362,10 +592,129 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     return node
 
 
+def _atomizer_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        claims = state.get("claims", [])
+        if not claims or not ctx.cheap_client:
+            return {"original_claims": list(claims)}
+        try:
+            atoms = await run_atomizer(ctx.cheap_client, claims)
+        except Exception as exc:
+            log.warning("orchestrator.atomizer_failed", error=str(exc)[:300])
+            return {"original_claims": list(claims)}
+        log.info("orchestrator.atomized", n_original=len(claims), n_atoms=len(atoms))
+        await ctx.publisher.publish("atomized", {
+            "n_original": len(claims), "n_atoms": len(atoms),
+        })
+        return {"claims": atoms, "original_claims": list(claims)}
+    return node
+
+
+def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        claims = state.get("claims", [])
+        if not claims or not ctx.cheap_client:
+            return {}
+        try:
+            checkworthy, filtered = await run_checkworthiness(ctx.cheap_client, claims)
+        except Exception as exc:
+            log.warning("orchestrator.checkworthiness_failed", error=str(exc)[:300])
+            return {}
+        filtered_data = [
+            {"claim_id": c.id, "text": c.text, "reason": reason}
+            for c, reason in filtered
+        ]
+        log.info("orchestrator.filtered", n_checkworthy=len(checkworthy),
+                 n_filtered=len(filtered))
+        await ctx.publisher.publish("filtered", {
+            "n_checkworthy": len(checkworthy),
+            "n_filtered": len(filtered),
+        })
+        return {"claims": checkworthy, "filtered_claims": filtered_data}
+    return node
+
+
+def _evidence_hunter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        claims = state.get("claims", [])
+        if not claims or not ctx.cheap_client:
+            return {}
+        try:
+            strategies = await plan_search_strategies(
+                ctx.cheap_client, claims, content_domain=ctx.content_domain
+            )
+        except Exception as exc:
+            log.warning("orchestrator.evidence_hunter_failed", error=str(exc)[:300])
+            return {}
+        n_strategies = sum(len(v) for v in strategies.values())
+        log.info("orchestrator.search_planned", n_claims=len(claims),
+                 n_strategies=n_strategies)
+        await ctx.publisher.publish("search_planned", {
+            "n_claims": len(claims),
+            "n_strategies": n_strategies,
+            "strategies": {
+                cid: [{"angle": s.angle, "query": s.query, "rationale": s.rationale}
+                      for s in strats]
+                for cid, strats in strategies.items()
+            },
+        })
+        return {"search_strategies": strategies}
+    return node
+
+
+def _challenger_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    async def node(state: _State) -> dict[str, Any]:
+        if state.get("aborted"):
+            return {}
+        findings = state.get("findings", [])
+        if not findings or not ctx.cheap_client:
+            return {}
+        # Build claim_id -> text mapping for context
+        claims_map: dict[str, str] = {
+            c.id: c.text for c in state.get("claims", [])
+        }
+        # Build finding_id -> evidences mapping for algorithmic confidence
+        all_evidences = state.get("evidences", [])
+        evidences_map: dict[str, list[Any]] = {}
+        for f in findings:
+            evidences_map[f.id] = [
+                e for e in all_evidences if e.id in f.evidence_ids
+            ]
+        try:
+            challenged = await challenge_findings(
+                ctx.cheap_client, findings, claims_map,
+                evidences_map=evidences_map,
+            )
+        except Exception as exc:
+            log.warning("orchestrator.challenger_failed", error=str(exc)[:300])
+            return {}
+        n_revised = sum(
+            1 for f in challenged
+            if f.challenge_result and "verdict_revised" in (f.challenge_result or "").lower()
+        )
+        log.info("orchestrator.debated", n_findings=len(findings),
+                 n_revised=n_revised)
+        await ctx.publisher.publish("challenged", {
+            "n_findings": len(findings),
+            "n_revised": n_revised,
+            "debate_protocol": "attacker_defender_judge",
+        })
+        # Store in separate field to avoid operator.add doubling
+        return {"challenged_findings": challenged}
+    return node
+
+
 def _verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
         if state.get("aborted"):
             return {}
+        strategies = state.get("search_strategies", {})
         return await _per_claim_specialist(
             ctx=ctx,
             state=state,
@@ -373,10 +722,12 @@ def _verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             agent_name="CitationVerifier",
             metadata_agent="citation_verifier",
             severity_map=_VERIFIER_SEVERITY,
-            run_call=lambda claim, surrounding: verify_citation(
-                ctx.client, claim, surrounding=surrounding
+            run_call=lambda claim, surrounding, strats: verify_citation(
+                ctx.client, claim, surrounding=surrounding,
+                search_strategies=strats,
             ),
             uses_surrounding=True,
+            search_strategies=strategies,
         )
     return node
 
@@ -392,7 +743,7 @@ def _alignment_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             agent_name="CitationAlignment",
             metadata_agent="citation_alignment",
             severity_map=_ALIGNMENT_SEVERITY,
-            run_call=lambda claim, surrounding: check_alignment(
+            run_call=lambda claim, surrounding, _strats: check_alignment(
                 ctx.client, claim, surrounding=surrounding
             ),
             uses_surrounding=True,
@@ -404,6 +755,7 @@ def _freshness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
         if state.get("aborted"):
             return {}
+        strategies = state.get("search_strategies", {})
         return await _per_claim_specialist(
             ctx=ctx,
             state=state,
@@ -412,8 +764,11 @@ def _freshness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             agent_name="DataFreshness",
             metadata_agent="data_freshness",
             severity_map=_FRESHNESS_SEVERITY,
-            run_call=lambda claim, _: check_freshness(ctx.client, claim),
+            run_call=lambda claim, _, strats: check_freshness(
+                ctx.client, claim, search_strategies=strats,
+            ),
             uses_surrounding=False,
+            search_strategies=strategies,
         )
     return node
 
@@ -423,7 +778,7 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
         if state.get("aborted"):
             return {}
         claims = state.get("claims", [])
-        if len(claims) < 2:  # noqa: PLR2004
+        if len(claims) < 2:
             return {}
         try:
             result = await check_consistency(ctx.client, claims)
@@ -455,11 +810,13 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
 
 def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        if not state.get("findings"):
+        # Prefer challenger-enriched findings over raw ones
+        findings = state.get("challenged_findings") or state.get("findings", [])
+        if not findings:
             return {}
         try:
             result = await run_reporter(
-                ctx.client, state.get("claims", []), state["findings"]
+                ctx.client, state.get("claims", []), findings
             )
         except JsonRepairFailed as exc:
             log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
@@ -496,8 +853,9 @@ async def _per_claim_specialist(
     agent_name: str,
     metadata_agent: str,
     severity_map: dict[FindingVerdict, Severity],
-    run_call: Callable[[Claim, str], Awaitable[AgentResult[Any]]],
+    run_call: Callable[[Claim, str, list[dict[str, str]] | None], Awaitable[AgentResult[Any]]],
     uses_surrounding: bool,
+    search_strategies: dict[str, list[Any]] | None = None,
 ) -> dict[str, Any]:
     matched = [c for c in state.get("claims", []) if claim_filter(c)]
     if not matched:
@@ -519,8 +877,16 @@ async def _per_claim_specialist(
             # `metadata={"idempotency_key": ...}` once AgentRunner is taught
             # about it (B3). For now we generate it for observability.
             _ = make_idempotency_key(ctx.job_id, agent_name, claim.id)
+            # Pass pre-planned search strategies for this claim
+            claim_strats: list[dict[str, str]] | None = None
+            if search_strategies and claim.id in search_strategies:
+                claim_strats = [
+                    {"angle": s.angle, "query": s.query, "rationale": s.rationale}
+                    if hasattr(s, "angle") else s
+                    for s in search_strategies[claim.id]
+                ]
             try:
-                return claim, await run_call(claim, surrounding), None
+                return claim, await run_call(claim, surrounding, claim_strats), None
             except JsonRepairFailed as exc:
                 log.warning(
                     "orchestrator.specialist_failed",
@@ -621,6 +987,17 @@ def _make_finding(
         evidence_records.append(e)
         evidence_ids.append(e.id)
 
+    # Extract reasoning chain from specialist output if present
+    reasoning_chain: list[ReasoningStep] = []
+    if hasattr(parsed, "reasoning_chain") and parsed.reasoning_chain:
+        for rs in parsed.reasoning_chain:
+            reasoning_chain.append(ReasoningStep(
+                step=rs.step,
+                content=rs.content,
+                evidence_ref=rs.evidence_ref,
+                confidence_delta=rs.confidence_delta,
+            ))
+
     finding = Finding(
         id=f"f_{uuid4().hex[:12]}",
         job_id=job_id,
@@ -630,6 +1007,7 @@ def _make_finding(
         severity=severity_map.get(parsed.verdict, Severity.MINOR),
         confidence=parsed.confidence,
         summary=parsed.summary,
+        reasoning_chain=reasoning_chain,
         evidence_ids=evidence_ids,
         reasoning_trace_id=trace.id,
     )
@@ -720,7 +1098,7 @@ def _step_payload(trace: ReasoningTrace, *, n_claims: int | None = None) -> dict
 
 
 def _finding_payload(finding: Finding) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "finding_id": finding.id,
         "claim_id": finding.claim_id,
         "agent": finding.agent,
@@ -728,6 +1106,24 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
         "severity": finding.severity.value,
         "summary": finding.summary,
     }
+    if finding.reasoning_chain:
+        payload["reasoning_chain"] = [
+            {"step": rs.step, "content": rs.content,
+             "evidence_ref": rs.evidence_ref, "confidence_delta": rs.confidence_delta}
+            for rs in finding.reasoning_chain
+        ]
+    if finding.confidence_breakdown:
+        cb = finding.confidence_breakdown
+        payload["confidence_breakdown"] = {
+            "source_agreement": cb.source_agreement,
+            "source_authority": cb.source_authority,
+            "evidence_freshness": cb.evidence_freshness,
+            "evidence_specificity": cb.evidence_specificity,
+            "reasoning": cb.reasoning,
+        }
+    if finding.challenge_result:
+        payload["challenge_result"] = finding.challenge_result
+    return payload
 
 
 def _charge(ctx: _Ctx, stream: StreamCollection) -> None:
