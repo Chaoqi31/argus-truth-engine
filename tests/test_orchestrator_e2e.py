@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from argus.config import Settings
-from argus.models.domain import ClaimType, FindingVerdict, StepType
+from argus.models.domain import ClaimType, StepType
 from argus.orchestrator import audit_pdf
 from tests._helpers.mock_miromind import StreamRouter, completed, msg, tool
 
