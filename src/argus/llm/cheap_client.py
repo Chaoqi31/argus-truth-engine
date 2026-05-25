@@ -44,14 +44,16 @@ class CheapLLMClient:
         max_tokens: int = 4000,
     ) -> T:
         raw = await self._call(system_prompt, user_input, max_tokens)
+        err_msg = ""
         try:
             return self._validate(raw, model_cls)
         except (ValidationError, json.JSONDecodeError) as first_err:
-            log.warning("cheap_llm.json_invalid", error=str(first_err))
+            err_msg = str(first_err)
+            log.warning("cheap_llm.json_invalid", error=err_msg)
 
         repair_input = (
             f"{user_input}\n\n---\n"
-            f"Your previous output failed JSON validation:\n{first_err}\n"
+            f"Your previous output failed JSON validation:\n{err_msg}\n"
             "Re-emit ONLY a valid JSON object matching the required schema."
         )
         raw2 = await self._call(system_prompt, repair_input, max_tokens)

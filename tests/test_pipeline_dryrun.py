@@ -2,7 +2,8 @@
 
 Proves the data flows correctly through all 13 nodes:
   Phase A: parse → planner → atomizer → checkworthiness → evidence_hunter
-  Phase B: citation_verifier → citation_alignment → data_freshness → consistency → challenger → reporter
+  Phase B: citation_verifier → citation_alignment → data_freshness
+          → consistency → challenger → reporter
 
 No real API calls are made. All LLM responses are mocked.
 """
@@ -47,13 +48,23 @@ MOCK_PLANNER_JSON = json.dumps({
     ]
 })
 
-MOCK_ATOMIZER_JSON = json.dumps({
-    "atoms": [
-        {"parent_claim_id": "c1", "text": "Smith et al. published a paper in 2023", "type": "citation"},
-        {"parent_claim_id": "c1", "text": "Global GDP grew 3.2% in 2024", "type": "numerical-data"},
-        {"parent_claim_id": "c2", "text": "US unemployment rate was 3.4% in March 2025", "type": "numerical-data"},
-    ]
-})
+MOCK_ATOMIZER_JSON = json.dumps({"atoms": [
+    {
+        "parent_claim_id": "c1",
+        "text": "Smith et al. published a paper in 2023",
+        "type": "citation",
+    },
+    {
+        "parent_claim_id": "c1",
+        "text": "Global GDP grew 3.2% in 2024",
+        "type": "numerical-data",
+    },
+    {
+        "parent_claim_id": "c2",
+        "text": "US unemployment rate was 3.4% in March 2025",
+        "type": "numerical-data",
+    },
+]})
 
 MOCK_CHECKWORTHINESS_JSON = json.dumps({
     "results": [
@@ -63,26 +74,45 @@ MOCK_CHECKWORTHINESS_JSON = json.dumps({
     ]
 })
 
-MOCK_STRATEGY_JSON = json.dumps({
-    "strategies": [
-        {"angle": "direct_verification", "query": "Smith et al 2023 GDP growth", "rationale": "Direct search"},
-        {"angle": "source_tracing", "query": "global GDP 2024 World Bank", "rationale": "Find original source"},
-    ]
-})
+MOCK_STRATEGY_JSON = json.dumps({"strategies": [
+    {
+        "angle": "direct_verification",
+        "query": "Smith et al 2023 GDP growth",
+        "rationale": "Direct search",
+    },
+    {
+        "angle": "source_tracing",
+        "query": "global GDP 2024 World Bank",
+        "rationale": "Find original source",
+    },
+]})
 
 MOCK_VERIFIER_JSON = json.dumps({
     "verdict": "fabricated",
     "confidence": 0.85,
     "summary": "No paper by Smith et al. (2023) on GDP growth found in Crossref, arXiv, or SSRN.",
     "evidence": [
-        {"source_type": "crossref", "url": "https://api.crossref.org/works?query=smith+gdp", "snippet": "0 results"},
-        {"source_type": "web_page", "url": "https://scholar.google.com", "snippet": "No matching results"},
+        {
+            "source_type": "crossref",
+            "url": "https://api.crossref.org/works?query=smith+gdp",
+            "snippet": "0 results",
+        },
+        {
+            "source_type": "web_page",
+            "url": "https://scholar.google.com",
+            "snippet": "No matching results",
+        },
     ],
     "reasoning_chain": [
-        {"step": "premise", "content": "Claim cites Smith et al. (2023) on GDP growth", "confidence_delta": 0.0},
-        {"step": "search", "content": "Searched Crossref for 'Smith GDP 2023'", "evidence_ref": "https://api.crossref.org", "confidence_delta": 0.3},
-        {"step": "search", "content": "Searched arXiv and SSRN, no results", "confidence_delta": 0.2},
-        {"step": "inference", "content": "After 3 sources, no paper exists → fabricated", "confidence_delta": 0.35},
+        {"step": "premise", "content": "Claim cites Smith (2023)", "confidence_delta": 0.0},
+        {
+            "step": "search",
+            "content": "Searched Crossref for 'Smith GDP 2023'",
+            "evidence_ref": "https://api.crossref.org",
+            "confidence_delta": 0.3,
+        },
+        {"step": "search", "content": "arXiv and SSRN: no results", "confidence_delta": 0.2},
+        {"step": "inference", "content": "No paper found → fabricated", "confidence_delta": 0.35},
     ],
 })
 
@@ -93,20 +123,32 @@ MOCK_FRESHNESS_JSON = json.dumps({
     "as_of_date": "March 2025",
     "current_value": "3.6% (April 2025)",
     "evidence": [
-        {"source_type": "fred", "url": "https://fred.stlouisfed.org/series/UNRATE", "snippet": "3.6% Apr 2025"},
+        {
+            "source_type": "fred",
+            "url": "https://fred.stlouisfed.org/series/UNRATE",
+            "snippet": "3.6% Apr 2025",
+        },
     ],
     "reasoning_chain": [
-        {"step": "premise", "content": "Claim states 3.4% unemployment in March 2025", "confidence_delta": 0.0},
-        {"step": "search", "content": "Checked FRED UNRATE series", "evidence_ref": "https://fred.stlouisfed.org", "confidence_delta": 0.4},
-        {"step": "comparison", "content": "Report says 3.4%, latest is 3.6%", "confidence_delta": 0.3},
-        {"step": "inference", "content": "Value superseded by newer release", "confidence_delta": 0.2},
+        {"step": "premise", "content": "Claim states 3.4% unemployment", "confidence_delta": 0.0},
+        {
+            "step": "search",
+            "content": "Checked FRED UNRATE series",
+            "evidence_ref": "https://fred.stlouisfed.org",
+            "confidence_delta": 0.4,
+        },
+        {"step": "comparison", "content": "3.4% vs 3.6%", "confidence_delta": 0.3},
+        {"step": "inference", "content": "Superseded by newer release", "confidence_delta": 0.2},
     ],
 })
 
 MOCK_CONSISTENCY_JSON = json.dumps({"contradictions": []})
 
 MOCK_REPORTER_JSON = json.dumps({
-    "executive_summary_md": "## Audit Summary\n\n2 issues found: 1 fabricated citation, 1 stale data point."
+    "executive_summary_md": (
+        "## Audit Summary\n\n2 issues found:"
+        " 1 fabricated citation, 1 stale data point."
+    ),
 })
 
 MOCK_ATTACKER_JSON = json.dumps({
@@ -131,7 +173,10 @@ MOCK_JUDGE_JSON = json.dumps({
     "ruling": "verdict_stands",
     "revised_verdict": None,
     "final_confidence": 0.90,
-    "ruling_reasoning": "Attack raised weak points that were fully rebutted. 3 authoritative sources confirm absence.",
+    "ruling_reasoning": (
+        "Attack raised weak points that were fully rebutted."
+        " 3 authoritative sources confirm absence."
+    ),
     "key_factors": ["Exhaustive search across 3 databases", "No working paper trail either"],
 })
 
@@ -225,18 +270,6 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
 
     # Mock cheap LLM client
     mock_cheap = AsyncMock()
-
-    cheap_call_count = {"n": 0}
-    cheap_responses = [
-        # atomizer
-        type("R", (), {"model_dump_json": lambda self: MOCK_ATOMIZER_JSON})(),
-        # checkworthiness
-        type("R", (), {"model_dump_json": lambda self: MOCK_CHECKWORTHINESS_JSON})(),
-        # evidence_hunter (individual calls per claim)
-        None,  # handled separately
-        # challenger calls
-        None,
-    ]
 
     from argus.agents.atomizer import AtomOutput
     from argus.agents.challenger import AttackerOutput, DefenderOutput, JudgeOutput

@@ -55,7 +55,7 @@ def test_planner_output_coerces_empty_enums_to_safe_defaults() -> None:
         ]
     }
     out = PlannerOutput.model_validate(payload)
-    assert len(out.claims) == 2  # noqa: PLR2004
+    assert len(out.claims) == 2
     assert out.claims[0].type == ClaimType.QUALITATIVE
     assert out.claims[0].importance == "low"
     assert out.claims[1].type == ClaimType.QUALITATIVE
@@ -105,7 +105,7 @@ def test_planner_output_tolerates_missing_required_fields() -> None:
     }
     out = PlannerOutput.model_validate(payload)
     claims = out.to_claims()
-    assert len(claims) == 3  # noqa: PLR2004 — empty-text claim dropped
+    assert len(claims) == 3
     # missing 'id' got an auto-generated stable label
     assert claims[1].id.startswith("c_auto_")
     # missing 'page' defaulted to 1

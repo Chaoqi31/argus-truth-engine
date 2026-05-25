@@ -224,7 +224,8 @@ async def audit_text(
     if job_id is None:
         job_id = f"job_{uuid4().hex[:12]}"
     from argus.models.domain import ContentDomain
-    domain = ContentDomain(content_domain) if content_domain in ContentDomain.__members__.values() else ContentDomain.GENERAL
+    is_known = content_domain in ContentDomain.__members__.values()
+    domain = ContentDomain(content_domain) if is_known else ContentDomain.GENERAL
     job = Job(
         id=job_id, input_text=text, input_mode="text",
         content_domain=domain, auto_review=auto_review, status="parsing",
@@ -777,7 +778,7 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
         if state.get("aborted"):
             return {}
         claims = state.get("claims", [])
-        if len(claims) < 2:  # noqa: PLR2004
+        if len(claims) < 2:
             return {}
         try:
             result = await check_consistency(ctx.client, claims)

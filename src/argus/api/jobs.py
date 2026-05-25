@@ -15,7 +15,8 @@ from argus.reporting.pdf import render_job_pdf
 class TextSubmission(BaseModel):
     text: str = Field(..., min_length=50, max_length=200_000)
     auto_review: bool = False
-    content_domain: str = "general"  # general|academic|medical|legal|finance|technology|news|science
+    # general|academic|medical|legal|finance|technology|news|science
+    content_domain: str = "general"
 
 
 class ClaimSelection(BaseModel):

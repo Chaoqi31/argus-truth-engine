@@ -64,7 +64,13 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "PL", "RUF"]
-ignore = ["PLR0913"]  # too many args — fine for Pydantic models
+ignore = [
+    "PLR0913",  # too many args — fine for Pydantic models
+    "PLC0415",  # import not at top-level — lazy imports are intentional
+    "PLR2004",  # magic value in comparison — numeric thresholds are clearer inline
+    "PLR0911",  # too many return statements
+    "PLR0915",  # too many statements
+]
 
 [tool.ruff.format]
 quote-style = "double"

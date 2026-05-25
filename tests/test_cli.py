@@ -57,7 +57,7 @@ def test_audit_command_passes_budget(tmp_path: Path) -> None:
             env={"ARGUS_MIROMIND_API_KEY": "sk_test"},
         )
         assert result.exit_code == 0, result.output
-        assert captured["budget_usd"] == 2.5  # noqa: PLR2004
+        assert captured["budget_usd"] == 2.5
 
 
 def test_audit_command_passes_db_url(tmp_path: Path) -> None:

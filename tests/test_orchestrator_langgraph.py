@@ -135,7 +135,7 @@ async def test_langgraph_runs_all_five_agents_with_parallel_fan_in(tmp_path: Pat
     )
 
     # 1 verifier + 1 alignment + 1 freshness + 0 consistency (empty) = 3 findings
-    assert len(job.findings) == 3  # noqa: PLR2004
+    assert len(job.findings) == 3
     by_agent = {f.agent for f in job.findings}
     assert by_agent == {"CitationVerifier", "CitationAlignment", "DataFreshness"}
 
