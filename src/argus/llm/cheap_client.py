@@ -75,7 +75,8 @@ class CheapLLMClient:
         resp = await self._http.post("/chat/completions", json=body)
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        content: str = data["choices"][0]["message"]["content"]
+        return content
 
     @staticmethod
     def _validate(text: str, model_cls: type[T]) -> T:
