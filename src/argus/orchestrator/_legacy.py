@@ -85,6 +85,7 @@ from argus.orchestrator.assemblers import (
 )
 from argus.orchestrator.nodes.parse import _parse_node
 from argus.orchestrator.nodes.planner import _planner_node
+from argus.orchestrator.nodes.atomizer import _atomizer_node
 
 
 # --- Public entry point ----------------------------------------------------
@@ -427,25 +428,6 @@ def _build_phase_b(ctx: _Ctx) -> Any:
 
 
 
-
-def _atomizer_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        claims = state.get("claims", [])
-        if not claims or not ctx.cheap_client:
-            return {"original_claims": list(claims)}
-        try:
-            atoms = await run_atomizer(ctx.cheap_client, claims)
-        except Exception as exc:
-            log.warning("orchestrator.atomizer_failed", error=str(exc)[:300])
-            return {"original_claims": list(claims)}
-        log.info("orchestrator.atomized", n_original=len(claims), n_atoms=len(atoms))
-        await ctx.publisher.publish("atomized", {
-            "n_original": len(claims), "n_atoms": len(atoms),
-        })
-        return {"claims": atoms, "original_claims": list(claims)}
-    return node
 
 
 def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
