@@ -5,8 +5,6 @@ from pathlib import Path
 from uuid import uuid4
 
 from argus.config import Settings
-from argus.hitl import ReviewGate
-from argus.llm.cheap_client import CheapLLMClient
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Job
 from argus.orchestrator.context import _State
@@ -29,7 +27,6 @@ async def audit_pdf(
     repo: JobRepository | None = None,
     trace_bus: TraceBus | None = None,
     job_id: str | None = None,
-    review_gate: ReviewGate | None = None,
     auto_review: bool = False,
 ) -> Job:
     """Top-level Plan B2 pipeline — LangGraph parallel 5-agent.
@@ -76,7 +73,6 @@ async def audit_pdf(
             budget_usd=budget_usd,
             repo=repo,
             trace_bus=trace_bus,
-            review_gate=review_gate,
             auto_review=auto_review,
             checkpointer=checkpointer,
         )
@@ -92,7 +88,6 @@ async def audit_text(
     repo: JobRepository | None = None,
     trace_bus: TraceBus | None = None,
     job_id: str | None = None,
-    review_gate: ReviewGate | None = None,
     auto_review: bool = False,
     content_domain: str = "general",
 ) -> Job:
@@ -139,7 +134,6 @@ async def audit_text(
             budget_usd=budget_usd,
             repo=repo,
             trace_bus=trace_bus,
-            review_gate=review_gate,
             auto_review=auto_review,
             checkpointer=checkpointer,
         )

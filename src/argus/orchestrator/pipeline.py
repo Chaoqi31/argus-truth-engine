@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
 from argus.config import Settings
 from argus.engineering import BoundedRunner, BudgetExceeded, BudgetTracker
-from argus.hitl import ReviewGate
 from argus.llm.cheap_client import CheapLLMClient
 from argus.log import log
 from argus.miromind.client import MiromindClient
@@ -44,7 +43,6 @@ async def _run_pipeline(
     budget_usd: float,
     repo: JobRepository | None,
     trace_bus: TraceBus | None,
-    review_gate: ReviewGate | None = None,
     auto_review: bool = False,
     checkpointer: Any = None,
 ) -> Job:

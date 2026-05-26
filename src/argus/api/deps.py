@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from argus.config import Settings
 from argus.db.repository import JobRepository
-from argus.hitl import ReviewGate
 from argus.storage.base import Storage
 from argus.trace_bus.base import TraceBus
 
@@ -24,7 +23,6 @@ class AppState:
     repo: JobRepository | None
     storage: Storage
     trace_bus: TraceBus
-    review_gate: ReviewGate
     db_engine: AsyncEngine | None = None
 
 
