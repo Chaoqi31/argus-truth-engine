@@ -1129,7 +1129,7 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
             "retrieved_date": ci.retrieved_date,
         }
     if finding.reasoning_chain:
-        chain = []
+        chain: list[dict[str, Any]] = []
         for rs in finding.reasoning_chain:
             if isinstance(rs, VerificationStep):
                 chain.append({
