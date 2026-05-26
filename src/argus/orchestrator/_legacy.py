@@ -32,15 +32,7 @@ from langgraph.graph import END, START, StateGraph
 if TYPE_CHECKING:
     from argus.db.repository import JobRepository
 
-from argus.agents.atomizer import run_atomizer
 from argus.agents.base import AgentResult, JsonRepairFailed
-from argus.agents.checkworthiness import run_checkworthiness
-from argus.agents.confidence_calculator import compute_confidence_breakdown
-from argus.agents.consistency import check_consistency
-from argus.agents.domain_hints import get_domain_hint
-from argus.agents.planner import run_planner
-from argus.agents.reporter import run_reporter
-from argus.agents.unified_verifier import verify_claim
 from argus.config import Settings
 from argus.engineering import (
     BoundedRunner,
@@ -61,7 +53,6 @@ from argus.models.domain import (
     ReasoningTrace,
     Severity,
 )
-from argus.pdf.parser import parse_pdf
 from argus.trace_bus.base import TraceBus
 from argus.orchestrator.context import (
     _MAX_CONCURRENT_PER_AGENT,
@@ -69,19 +60,13 @@ from argus.orchestrator.context import (
     _Ctx,
     _Publisher,
     _charge_result,
-    _dict_merge,
 )
 from argus.orchestrator.assemblers import (
-    _UNIFIED_SEVERITY,
-    _coerce_evidence_source,
     _make_finding,
-    _make_unified_finding,
-    _contradictions_to_findings,
     _surrounding_text,
     _build_trace,
     _step_payload,
     _finding_payload,
-    _text_to_doc,
 )
 from argus.orchestrator.nodes.parse import _parse_node
 from argus.orchestrator.nodes.planner import _planner_node
