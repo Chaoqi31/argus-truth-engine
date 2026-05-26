@@ -65,18 +65,21 @@ async def audit_pdf(
         "abort_reason": "",
     }
 
-    return await _run_pipeline(
-        job=job,
-        initial=initial,
-        output_path=Path(output_path),
-        settings=settings,
-        client=client,
-        budget_usd=budget_usd,
-        repo=repo,
-        trace_bus=trace_bus,
-        review_gate=review_gate,
-        auto_review=auto_review,
-    )
+    from argus.orchestrator.checkpointer import build_checkpointer
+    async with build_checkpointer(settings) as checkpointer:
+        return await _run_pipeline(
+            job=job,
+            initial=initial,
+            output_path=Path(output_path),
+            settings=settings,
+            client=client,
+            budget_usd=budget_usd,
+            repo=repo,
+            trace_bus=trace_bus,
+            review_gate=review_gate,
+            auto_review=auto_review,
+            checkpointer=checkpointer,
+        )
 
 
 async def audit_text(
@@ -125,15 +128,18 @@ async def audit_text(
         "abort_reason": "",
     }
 
-    return await _run_pipeline(
-        job=job,
-        initial=initial,
-        output_path=output_path,
-        settings=settings,
-        client=client,
-        budget_usd=budget_usd,
-        repo=repo,
-        trace_bus=trace_bus,
-        review_gate=review_gate,
-        auto_review=auto_review,
-    )
+    from argus.orchestrator.checkpointer import build_checkpointer
+    async with build_checkpointer(settings) as checkpointer:
+        return await _run_pipeline(
+            job=job,
+            initial=initial,
+            output_path=output_path,
+            settings=settings,
+            client=client,
+            budget_usd=budget_usd,
+            repo=repo,
+            trace_bus=trace_bus,
+            review_gate=review_gate,
+            auto_review=auto_review,
+            checkpointer=checkpointer,
+        )

@@ -46,6 +46,7 @@ async def _run_pipeline(
     trace_bus: TraceBus | None,
     review_gate: ReviewGate | None = None,
     auto_review: bool = False,
+    checkpointer: Any = None,
 ) -> Job:
     job_id = job.id
     budget = BudgetTracker(max_usd=budget_usd)
@@ -92,13 +93,15 @@ async def _run_pipeline(
 
     await publisher.publish("started", {"input_mode": job.input_mode})
 
+    config = {"configurable": {"thread_id": job_id}}
+
     # ── Phase A: parse → planner → atomizer → checkworthiness ──
-    phase_a = _build_phase_a(ctx)
+    phase_a = _build_phase_a(ctx, checkpointer=checkpointer)
 
     final_state: _State = {}
     raised_exc: Exception | None = None
     try:
-        final_state = await phase_a.ainvoke(initial)
+        final_state = await phase_a.ainvoke(initial, config)
     except Exception as exc:
         raised_exc = exc
         log.error("orchestrator.phase_a_raised", job_id=job_id,
@@ -152,10 +155,10 @@ async def _run_pipeline(
     final_state["claims"] = claims_for_review
 
     # ── Phase B: specialists → reporter ──
-    phase_b = _build_phase_b(ctx)
+    phase_b = _build_phase_b(ctx, checkpointer=checkpointer)
 
     try:
-        final_state = await phase_b.ainvoke(final_state)
+        final_state = await phase_b.ainvoke(final_state, config)
     except Exception as exc:
         raised_exc = exc
         log.error("orchestrator.phase_b_raised", job_id=job_id,
@@ -223,7 +226,7 @@ async def _finalize(
     return job
 
 
-def _build_phase_a(ctx: _Ctx) -> Any:
+def _build_phase_a(ctx: _Ctx, checkpointer: Any = None) -> Any:
     """Phase A: parse → planner → atomizer → checkworthiness."""
     graph: Any = StateGraph(_State)
     graph.add_node("parse_pdf", _parse_node(ctx))
@@ -236,10 +239,10 @@ def _build_phase_a(ctx: _Ctx) -> Any:
     graph.add_edge("planner", "atomizer")
     graph.add_edge("atomizer", "checkworthiness")
     graph.add_edge("checkworthiness", END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
-def _build_phase_b(ctx: _Ctx) -> Any:
+def _build_phase_b(ctx: _Ctx, checkpointer: Any = None) -> Any:
     """Phase B: unified_verifier + consistency (parallel) → confidence → reporter."""
     graph: Any = StateGraph(_State)
     graph.add_node("unified_verifier", _unified_verifier_node(ctx))
@@ -252,4 +255,4 @@ def _build_phase_b(ctx: _Ctx) -> Any:
         graph.add_edge(n, "confidence")
     graph.add_edge("confidence", "reporter")
     graph.add_edge("reporter", END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
