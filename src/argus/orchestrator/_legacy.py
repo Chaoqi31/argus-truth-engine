@@ -90,6 +90,7 @@ from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
 from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
 from argus.orchestrator.nodes.consistency import _consistency_node
 from argus.orchestrator.nodes.confidence import _confidence_node
+from argus.orchestrator.nodes.reporter import _reporter_node
 
 
 # --- Public entry point ----------------------------------------------------
@@ -439,37 +440,6 @@ def _build_phase_b(ctx: _Ctx) -> Any:
 
 
 
-def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        findings = state.get("findings", [])
-        if not findings:
-            return {}
-        try:
-            result = await run_reporter(
-                ctx.client, state.get("claims", []), findings
-            )
-        except JsonRepairFailed as exc:
-            log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
-            return {}
-
-        try:
-            _charge_result(ctx, result)
-        except BudgetExceeded as exc:
-            log.warning("orchestrator.budget_exceeded_at_reporter", error=str(exc))
-            return {"aborted": True, "abort_reason": str(exc)}
-
-        trace = _build_trace(
-            job_id=ctx.job_id,
-            claim_id="(reporter)",
-            agent="Reporter",
-            stream=result.final,
-        )
-        await ctx.publisher.publish("step", _step_payload(trace))
-        return {
-            "audit_report_md": result.parsed.executive_summary_md,
-            "traces": {trace.id: trace},
-        }
-    return node
 
 
 # --- Per-claim specialist helper ------------------------------------------
