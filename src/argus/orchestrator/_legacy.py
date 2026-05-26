@@ -87,6 +87,7 @@ from argus.orchestrator.nodes.parse import _parse_node
 from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.atomizer import _atomizer_node
 from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
+from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
 
 
 # --- Public entry point ----------------------------------------------------
@@ -431,100 +432,6 @@ def _build_phase_b(ctx: _Ctx) -> Any:
 
 
 
-
-def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        claims = state.get("claims", [])
-        if not claims:
-            return {}
-
-        doc = state.get("doc")
-        runner = ctx.runners["unified_verifier"]
-
-        async def run_for_claim(
-            claim: Claim,
-        ) -> tuple[Claim, AgentResult[Any] | None, Exception | None]:
-            async with runner.acquire():
-                surrounding = _surrounding_text(doc, claim) if doc else ""
-                domain_hint = get_domain_hint(
-                    claim_type=claim.type, content_domain=ctx.content_domain,
-                )
-                _ = make_idempotency_key(ctx.job_id, "UnifiedVerifier", claim.id)
-                try:
-                    result = await verify_claim(
-                        ctx.client, claim.text,
-                        surrounding=surrounding,
-                        domain_hint=domain_hint,
-                    )
-                    return claim, result, None
-                except JsonRepairFailed as exc:
-                    log.warning(
-                        "orchestrator.specialist_failed",
-                        agent="UnifiedVerifier",
-                        claim_id=claim.id,
-                        error=str(exc)[:300],
-                    )
-                    return claim, None, exc
-                except (asyncio.CancelledError, BudgetExceeded):
-                    raise
-                except Exception as exc:
-                    log.warning(
-                        "orchestrator.specialist_failed",
-                        agent="UnifiedVerifier",
-                        claim_id=claim.id,
-                        error_type=type(exc).__name__,
-                        error=str(exc)[:300],
-                    )
-                    return claim, None, exc
-
-        results = await asyncio.gather(*(run_for_claim(c) for c in claims))
-
-        new_findings: list[Finding] = []
-        new_traces: dict[str, ReasoningTrace] = {}
-        new_evidences: list[Evidence] = []
-
-        for claim, agent_result, failure in results:
-            if failure is not None or agent_result is None:
-                continue
-            try:
-                _charge_result(ctx, agent_result)
-            except BudgetExceeded as exc:
-                log.warning(
-                    "orchestrator.budget_exceeded_at_specialist",
-                    agent="UnifiedVerifier",
-                    error=str(exc),
-                )
-                return {
-                    "aborted": True,
-                    "abort_reason": str(exc),
-                    "findings": new_findings,
-                    "traces": new_traces,
-                    "evidences": new_evidences,
-                }
-            trace = _build_trace(
-                job_id=ctx.job_id, claim_id=claim.id,
-                agent="UnifiedVerifier", stream=agent_result.final,
-            )
-            new_traces[trace.id] = trace
-            finding, ev_records = _make_unified_finding(
-                job_id=ctx.job_id,
-                claim=claim,
-                parsed=agent_result.parsed,
-                trace=trace,
-            )
-            new_findings.append(finding)
-            new_evidences.extend(ev_records)
-            await ctx.publisher.publish("step", _step_payload(trace))
-            await ctx.publisher.publish("finding", _finding_payload(finding))
-
-        return {
-            "findings": new_findings,
-            "traces": new_traces,
-            "evidences": new_evidences,
-        }
-    return node
 
 
 def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
