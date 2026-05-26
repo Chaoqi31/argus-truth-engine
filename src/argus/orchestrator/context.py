@@ -4,9 +4,12 @@ from __future__ import annotations
 import asyncio
 import operator
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from typing_extensions import TypedDict
+
+if TYPE_CHECKING:
+    from argus.cache.finding_cache import FindingCache
 
 from argus.agents.base import AgentResult, StreamCollection
 from argus.config import Settings
@@ -60,6 +63,7 @@ class _Ctx:
         publisher: _Publisher,
         cheap_client: CheapLLMClient | None = None,
         content_domain: str = "general",
+        cache: FindingCache | None = None,
     ) -> None:
         self.client = client
         self.settings = settings
@@ -69,6 +73,7 @@ class _Ctx:
         self.publisher = publisher
         self.cheap_client = cheap_client
         self.content_domain = content_domain
+        self.cache = cache
 
 
 class _Publisher:

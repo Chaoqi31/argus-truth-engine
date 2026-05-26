@@ -69,6 +69,15 @@ async def _run_pipeline(
             timeout_s=settings.cheap_llm_timeout_s,
         )
 
+    cache = None
+    if settings.cache_enabled and repo is not None:
+        from argus.cache.finding_cache import FindingCache
+        cache = FindingCache(
+            repo.sessionmaker,
+            default_ttl_days=settings.cache_ttl_days,
+            time_sensitive_ttl_days=settings.cache_ttl_time_sensitive_days,
+        )
+
     ctx = _Ctx(
         client=client,
         settings=settings,
@@ -78,6 +87,7 @@ async def _run_pipeline(
         publisher=publisher,
         cheap_client=cheap_client,
         content_domain=job.content_domain.value,
+        cache=cache,
     )
 
     await publisher.publish("started", {"input_mode": job.input_mode})
