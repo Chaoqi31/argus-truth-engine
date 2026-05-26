@@ -121,11 +121,15 @@ async def select_claims(
     job_id: str,
     body: ClaimSelection,
 ) -> dict[str, Any]:
-    gate = request.app.state.argus.review_gate
-    ok = gate.submit(job_id, body.selected_claim_ids)
-    if not ok:
-        raise HTTPException(status_code=_HTTP_NOT_FOUND,
-                            detail="no pending review for this job")
+    runner = _runner(request)
+    resumed = await runner.resume(
+        job_id=job_id, selected_claim_ids=body.selected_claim_ids,
+    )
+    if resumed is None:
+        raise HTTPException(
+            status_code=_HTTP_NOT_FOUND,
+            detail="job not in interrupted state",
+        )
     return {"status": "resumed", "n_selected": len(body.selected_claim_ids)}
 
 
