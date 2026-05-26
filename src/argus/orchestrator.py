@@ -40,9 +40,9 @@ from argus.agents.checkworthiness import run_checkworthiness
 from argus.agents.confidence_calculator import compute_confidence_breakdown
 from argus.agents.consistency import ConsistencyOutput, check_consistency
 from argus.agents.domain_hints import get_domain_hint
-from argus.agents.unified_verifier import verify_claim
 from argus.agents.planner import run_planner
 from argus.agents.reporter import run_reporter
+from argus.agents.unified_verifier import verify_claim
 from argus.config import Settings
 from argus.engineering import (
     BoundedRunner,

@@ -15,6 +15,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from argus.models.domain import (
     Claim,
     ClaimType,
+    CorrectedInfo,
     Evidence,
     EvidenceSource,
     Finding,
@@ -24,7 +25,6 @@ from argus.models.domain import (
     Severity,
     Step,
     StepType,
-    CorrectedInfo,
 )
 
 

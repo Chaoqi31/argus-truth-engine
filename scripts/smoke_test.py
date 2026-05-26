@@ -9,7 +9,6 @@ Budget capped at $5. Prints the full finding with reasoning chain.
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 
@@ -18,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from argus.config import settings as load_settings
 from argus.orchestrator import audit_text
-
 
 # --- Test text: ONE deliberately wrong claim ---
 # The real figure is ~3.1% (third estimate). We say 1.6% — clearly wrong.
@@ -38,8 +36,9 @@ async def main() -> None:
     out_path.parent.mkdir(exist_ok=True)
 
     print(f"Input text:\n  {TEST_TEXT}\n")
-    print("Running pipeline (planner → atomizer → checkworthiness → unified_verifier → reporter)...")
-    print(f"Budget cap: $5\n")
+    print("Running pipeline (planner → atomizer → checkworthiness"
+          " → unified_verifier → reporter)...")
+    print("Budget cap: $5\n")
 
     job = await audit_text(
         text=TEST_TEXT,
