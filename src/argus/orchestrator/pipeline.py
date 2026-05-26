@@ -19,7 +19,6 @@ from argus.log import log
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Job
 from argus.orchestrator.context import (
-    _MAX_CONCURRENT_PER_AGENT,
     _Ctx,
     _Publisher,
     _State,
@@ -51,11 +50,12 @@ async def _run_pipeline(
     job_id = job.id
     budget = BudgetTracker(max_usd=budget_usd)
     runners = {
-        agent: BoundedRunner(max_concurrent=_MAX_CONCURRENT_PER_AGENT)
-        for agent in (
-            "unified_verifier",
-            "consistency",
-        )
+        "unified_verifier": BoundedRunner(
+            max_concurrent=settings.unified_verifier_concurrency,
+        ),
+        "consistency": BoundedRunner(
+            max_concurrent=settings.consistency_concurrency,
+        ),
     }
     publisher = _Publisher(job_id=job_id, bus=trace_bus)
 
