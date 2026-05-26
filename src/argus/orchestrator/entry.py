@@ -1,8 +1,10 @@
 """Public orchestrator entry points — audit a PDF or raw text end-to-end."""
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from argus.config import Settings
@@ -19,7 +21,28 @@ from argus.orchestrator.pipeline import (
 from argus.trace_bus.base import TraceBus
 
 if TYPE_CHECKING:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+
     from argus.db.repository import JobRepository
+
+
+@asynccontextmanager
+async def _checkpointer_cm(
+    settings: Settings,
+    provided: BaseCheckpointSaver[Any] | None,
+) -> AsyncIterator[BaseCheckpointSaver[Any] | None]:
+    """Resolve which checkpointer to use without re-entering its lifecycle.
+
+    If the caller passed a pre-built saver (HTTP path — lifespan owns it),
+    yield it as-is. Otherwise (CLI / standalone) build a fresh one for this
+    call only.
+    """
+    if provided is not None:
+        yield provided
+        return
+    from argus.orchestrator.checkpointer import build_checkpointer
+    async with build_checkpointer(settings) as cp:
+        yield cp
 
 
 async def audit_pdf(
@@ -33,6 +56,7 @@ async def audit_pdf(
     trace_bus: TraceBus | None = None,
     job_id: str | None = None,
     auto_review: bool = False,
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> Job:
     """Top-level Plan B2 pipeline — LangGraph parallel 5-agent.
 
@@ -67,8 +91,7 @@ async def audit_pdf(
         "abort_reason": "",
     }
 
-    from argus.orchestrator.checkpointer import build_checkpointer
-    async with build_checkpointer(settings) as checkpointer:
+    async with _checkpointer_cm(settings, checkpointer) as cp:
         return await _run_pipeline(
             job=job,
             initial=initial,
@@ -79,7 +102,7 @@ async def audit_pdf(
             repo=repo,
             trace_bus=trace_bus,
             auto_review=auto_review,
-            checkpointer=checkpointer,
+            checkpointer=cp,
         )
 
 
@@ -95,6 +118,7 @@ async def audit_text(
     job_id: str | None = None,
     auto_review: bool = False,
     content_domain: str = "general",
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> Job:
     """Audit LLM-generated text for hallucinations and errors."""
     output_path = Path(output_path)
@@ -128,8 +152,7 @@ async def audit_text(
         "abort_reason": "",
     }
 
-    from argus.orchestrator.checkpointer import build_checkpointer
-    async with build_checkpointer(settings) as checkpointer:
+    async with _checkpointer_cm(settings, checkpointer) as cp:
         return await _run_pipeline(
             job=job,
             initial=initial,
@@ -140,7 +163,7 @@ async def audit_text(
             repo=repo,
             trace_bus=trace_bus,
             auto_review=auto_review,
-            checkpointer=checkpointer,
+            checkpointer=cp,
         )
 
 
@@ -154,6 +177,7 @@ async def audit_resume(
     repo: JobRepository,
     trace_bus: TraceBus | None,
     output_path: Path,
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> Job:
     """Resume an interrupted job from its checkpointer state.
 
@@ -163,13 +187,11 @@ async def audit_resume(
     """
     from langgraph.types import Command
 
-    from argus.orchestrator.checkpointer import build_checkpointer
-
     job = await repo.get_job(job_id)
     if job is None:
         raise RuntimeError(f"job {job_id} not found")
 
-    async with build_checkpointer(settings) as checkpointer:
+    async with _checkpointer_cm(settings, checkpointer) as cp:
         ctx = _build_ctx(
             job=job,
             settings=settings,
@@ -180,7 +202,7 @@ async def audit_resume(
         )
         config = {"configurable": {"thread_id": job_id}}
 
-        phase_a = _build_phase_a(ctx, checkpointer=checkpointer, auto_review=False)
+        phase_a = _build_phase_a(ctx, checkpointer=cp, auto_review=False)
 
         if selected_claim_ids is not None:
             resumed_state = await phase_a.ainvoke(
@@ -189,7 +211,7 @@ async def audit_resume(
         else:
             resumed_state = await phase_a.ainvoke(None, config)
 
-        phase_b = _build_phase_b(ctx, checkpointer=checkpointer)
+        phase_b = _build_phase_b(ctx, checkpointer=cp)
         raised_exc: Exception | None = None
         try:
             final_state = await phase_b.ainvoke(resumed_state, config)
