@@ -95,8 +95,8 @@ async def _run_pipeline(
 
     config = {"configurable": {"thread_id": job_id}}
 
-    # ── Phase A: parse → planner → atomizer → checkworthiness ──
-    phase_a = _build_phase_a(ctx, checkpointer=checkpointer)
+    # ── Phase A: parse → planner → atomizer → checkworthiness → review_gate ──
+    phase_a = _build_phase_a(ctx, checkpointer=checkpointer, auto_review=auto_review)
 
     final_state: _State = {}
     raised_exc: Exception | None = None
@@ -111,48 +111,7 @@ async def _run_pipeline(
         return await _finalize(job, final_state, budget, publisher, output_path,
                                repo, raised_exc, cheap_client)
 
-    # ── HITL gate: wait for user to select claims ──
-    claims_for_review = final_state.get("claims", [])
-    filtered = final_state.get("filtered_claims", [])
-
-    if review_gate and not auto_review and claims_for_review:
-        review_gate.prepare(job_id)
-        await publisher.publish("review_ready", {
-            "claims": [{"id": c.id, "text": c.text, "type": c.type.value,
-                         "importance": c.importance,
-                         "parent_claim_id": c.parent_claim_id}
-                        for c in claims_for_review],
-            "filtered": filtered,
-            "n_checkworthy": len(claims_for_review),
-            "n_filtered": len(filtered),
-        })
-        log.info("orchestrator.waiting_for_review", job_id=job_id,
-                 n_claims=len(claims_for_review))
-
-        selected_ids = await review_gate.wait(job_id, timeout=300.0)
-        review_gate.cleanup(job_id)
-
-        if selected_ids is not None:
-            # User selected specific claims
-            selected_set = set(selected_ids)
-            claims_for_review = [c for c in claims_for_review if c.id in selected_set]
-            await publisher.publish("review_submitted", {
-                "n_selected": len(claims_for_review),
-            })
-        else:
-            # Timeout — proceed with all checkworthy claims
-            await publisher.publish("review_submitted", {
-                "n_selected": len(claims_for_review),
-                "auto": True,
-            })
-    elif not auto_review and claims_for_review:
-        # No review gate available — proceed automatically
-        pass
-
     await publisher.publish("resumed", {})
-
-    # Update state with possibly filtered claims
-    final_state["claims"] = claims_for_review
 
     # ── Phase B: specialists → reporter ──
     phase_b = _build_phase_b(ctx, checkpointer=checkpointer)
@@ -226,19 +185,22 @@ async def _finalize(
     return job
 
 
-def _build_phase_a(ctx: _Ctx, checkpointer: Any = None) -> Any:
-    """Phase A: parse → planner → atomizer → checkworthiness."""
+def _build_phase_a(ctx: _Ctx, checkpointer: Any = None, *, auto_review: bool = False) -> Any:
+    """Phase A: parse → planner → atomizer → checkworthiness → review_gate."""
+    from argus.orchestrator.nodes.review_gate import _review_gate_node
     graph: Any = StateGraph(_State)
     graph.add_node("parse_pdf", _parse_node(ctx))
     graph.add_node("planner", _planner_node(ctx))
     graph.add_node("atomizer", _atomizer_node(ctx))
     graph.add_node("checkworthiness", _checkworthiness_node(ctx))
+    graph.add_node("review_gate", _review_gate_node(ctx, auto_review=auto_review))
 
     graph.add_edge(START, "parse_pdf")
     graph.add_edge("parse_pdf", "planner")
     graph.add_edge("planner", "atomizer")
     graph.add_edge("atomizer", "checkworthiness")
-    graph.add_edge("checkworthiness", END)
+    graph.add_edge("checkworthiness", "review_gate")
+    graph.add_edge("review_gate", END)
     return graph.compile(checkpointer=checkpointer)
 
 
