@@ -11,9 +11,19 @@ if sys.platform == "darwin":
     os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
 
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from argus.db.models import Base
+
+
+@pytest_asyncio.fixture
+async def test_sessionmaker() -> AsyncIterator[async_sessionmaker]:
+    """Per-test in-memory SQLite with full schema applied."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield async_sessionmaker(engine, expire_on_commit=False)
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture
