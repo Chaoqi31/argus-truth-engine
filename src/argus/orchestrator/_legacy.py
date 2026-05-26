@@ -89,6 +89,7 @@ from argus.orchestrator.nodes.atomizer import _atomizer_node
 from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
 from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
 from argus.orchestrator.nodes.consistency import _consistency_node
+from argus.orchestrator.nodes.confidence import _confidence_node
 
 
 # --- Public entry point ----------------------------------------------------
@@ -434,29 +435,6 @@ def _build_phase_b(ctx: _Ctx) -> Any:
 
 
 
-
-def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    """Compute algorithmic confidence breakdown for each finding.
-
-    NOTE: We mutate findings in-place rather than returning them through the
-    state reducer (``Annotated[list[Finding], operator.add]``), because the
-    add-reducer would *duplicate* findings instead of replacing them.  This
-    is safe as long as LangGraph passes the same Python objects (true for
-    in-process ``StateGraph`` without checkpointing).  If checkpointing is
-    added later, switch ``findings`` to a dict-based reducer keyed by ID.
-    """
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        findings = state.get("findings", [])
-        if not findings:
-            return {}
-        all_evidences = state.get("evidences", [])
-        for f in findings:
-            evs = [e for e in all_evidences if e.id in f.evidence_ids]
-            f.confidence_breakdown = compute_confidence_breakdown(f, evs)
-        return {}
-    return node
 
 
 
