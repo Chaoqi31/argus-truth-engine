@@ -7,6 +7,9 @@ from argus.agents.base import AgentResult, AgentRunner
 from argus.miromind.client import MiromindClient
 from argus.models.domain import FindingVerdict
 
+# Bump when prompt OR output schema changes — invalidates all prior cache.
+VERIFIER_VERSION = "v1"
+
 SYSTEM_PROMPT = """\
 You are Argus's UNIFIED VERIFIER. Your task is to determine whether a factual
 claim in a document is accurate, outdated, fabricated, or misrepresented.
