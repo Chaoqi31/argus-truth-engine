@@ -45,11 +45,20 @@ def _verifier_fab() -> str:
             "verdict": "fabricated",
             "confidence": 0.9,
             "summary": "No DOI found.",
+            "why_wrong": "Paper does not exist in Crossref or arXiv.",
+            "correct_information": None,
             "evidence": [
                 {
                     "source_type": "crossref",
                     "url": "https://api.crossref.org/works?query=Smith",
                     "snippet": "{}",
+                }
+            ],
+            "reasoning_chain": [
+                {
+                    "action": "search_crossref",
+                    "observation": "0 results",
+                    "reasoning": "No matching paper found.",
                 }
             ],
         }
@@ -62,20 +71,18 @@ def _verifier_ok() -> str:
             "verdict": "ok",
             "confidence": 0.85,
             "summary": "Found in Crossref.",
+            "why_wrong": None,
+            "correct_information": None,
             "evidence": [
                 {"source_type": "crossref", "url": "https://doi.org/10.1234/x", "snippet": "{}"}
             ],
-        }
-    )
-
-
-def _alignment_uncertain() -> str:
-    return json.dumps(
-        {
-            "verdict": "uncertain",
-            "confidence": 0.4,
-            "summary": "Source not retrievable.",
-            "evidence": [{"source_type": "web_page", "url": None, "snippet": "404"}],
+            "reasoning_chain": [
+                {
+                    "action": "search_crossref",
+                    "observation": "1 result matching DOI",
+                    "reasoning": "Citation verified.",
+                }
+            ],
         }
     )
 
@@ -93,25 +100,16 @@ def _reporter() -> str:
 async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> None:
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=120)])
-    # Two Verifier calls — first fabricated, second OK
+    # Two UnifiedVerifier calls — first fabricated, second OK
     router.add(
-        "citation_verifier",
+        "unified_verifier",
         [tool("web_search", {"q": "Smith"}, 2), msg(_verifier_fab()), completed(tokens=80)],
     )
     router.add(
-        "citation_verifier",
+        "unified_verifier",
         [tool("fetch_url_content", {"url": "y"}, 2), msg(_verifier_ok()), completed(tokens=80)],
     )
-    # Two Alignment calls — both uncertain (source unfetched)
-    router.add(
-        "citation_alignment",
-        [msg(_alignment_uncertain()), completed(tokens=40)],
-    )
-    router.add(
-        "citation_alignment",
-        [msg(_alignment_uncertain()), completed(tokens=40)],
-    )
-    # No data claims, but consistency runs (>=2 claims overall).
+    # Consistency runs (>=2 claims overall).
     router.add(
         "consistency",
         [msg(_consistency_empty()), completed(tokens=30)],
@@ -129,15 +127,15 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
 
     assert len(job.claims) == 2
     assert all(c.type == ClaimType.CITATION for c in job.claims)
-    # Each citation now produces a Verifier finding AND an Alignment finding.
-    assert len(job.findings) == 4
+    # Each citation produces one UnifiedVerifier finding (no Alignment finding).
+    assert len(job.findings) == 2
     by_agent = {f.agent for f in job.findings}
-    assert by_agent == {"CitationVerifier", "CitationAlignment"}
+    assert by_agent == {"UnifiedVerifier"}
 
     verifier_verdicts = sorted(
-        f.verdict for f in job.findings if f.agent == "CitationVerifier"
+        f.verdict for f in job.findings if f.agent == "UnifiedVerifier"
     )
-    # Challenger may revise verdicts; check we got 2 verifier findings
+    # Check we got 2 verifier findings
     assert len(verifier_verdicts) == 2
     assert any(s.type == StepType.WEB_SEARCH for t in job.traces for s in t.steps)
     assert out.exists()

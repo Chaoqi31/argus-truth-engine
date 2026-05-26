@@ -38,6 +38,8 @@ class FindingVerdict(StrEnum):
     STALE = "stale"
     SUPERSEDED = "superseded"
     CONTRADICTION = "contradiction"
+    INACCURATE = "inaccurate"
+    OUTDATED = "outdated"
     UNCERTAIN = "uncertain"
 
 
@@ -137,6 +139,23 @@ class ReasoningStep(_Base):
     confidence_delta: float = 0.0  # how this step affected confidence (+/-)
 
 
+class CorrectedInfo(_Base):
+    """What the correct information actually is, with authoritative source."""
+
+    value: str
+    source: str
+    url: str | None = None
+    retrieved_date: str | None = None
+
+
+class VerificationStep(_Base):
+    """One step in a verification chain — action/observation/reasoning triple."""
+
+    action: str
+    observation: str
+    reasoning: str
+
+
 class ConfidenceBreakdown(_Base):
     """Decomposed confidence — explains WHY confidence is at a certain level."""
 
@@ -165,11 +184,12 @@ class Finding(_Base):
     confidence: float = Field(ge=0.0, le=1.0)
     confidence_breakdown: ConfidenceBreakdown | None = None
     summary: str
-    reasoning_chain: list[ReasoningStep] = Field(default_factory=list)
+    why_wrong: str | None = None
+    correct_information: CorrectedInfo | None = None
+    reasoning_chain: list[ReasoningStep | VerificationStep] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
     reasoning_trace_id: str
     related_finding_ids: list[str] = Field(default_factory=list)
-    challenge_result: str | None = None  # adversarial challenge outcome
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
