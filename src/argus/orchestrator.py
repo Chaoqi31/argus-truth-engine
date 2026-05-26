@@ -709,7 +709,15 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
 
 
 def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    """Compute algorithmic confidence breakdown for each finding."""
+    """Compute algorithmic confidence breakdown for each finding.
+
+    NOTE: We mutate findings in-place rather than returning them through the
+    state reducer (``Annotated[list[Finding], operator.add]``), because the
+    add-reducer would *duplicate* findings instead of replacing them.  This
+    is safe as long as LangGraph passes the same Python objects (true for
+    in-process ``StateGraph`` without checkpointing).  If checkpointing is
+    added later, switch ``findings`` to a dict-based reducer keyed by ID.
+    """
     async def node(state: _State) -> dict[str, Any]:
         if state.get("aborted"):
             return {}
@@ -977,11 +985,12 @@ def _make_unified_finding(
     evidence_records: list[Evidence] = []
     evidence_ids: list[str] = []
     for ev in parsed.evidence:
+        coerced = _coerce_evidence_source(ev.source_type)
         e = Evidence(
             id=f"ev_{uuid4().hex[:12]}",
-            source_type=_coerce_evidence_source(ev.source_type),
+            source_type=coerced,
             url=ev.url,
-            citation=ev.url or f"{ev.source_type} query",
+            citation=ev.url or f"{coerced.value} query",
             snippet=ev.snippet,
             retrieved_by_step_id=trace.steps[-1].id if trace.steps else "n/a",
         )

@@ -23,9 +23,11 @@ def upgrade() -> None:
     op.add_column("findings", sa.Column("correct_info_value", sa.String(), nullable=True))
     op.add_column("findings", sa.Column("correct_info_source", sa.String(), nullable=True))
     op.add_column("findings", sa.Column("correct_info_url", sa.String(), nullable=True))
+    op.add_column("findings", sa.Column("correct_info_retrieved_date", sa.String(), nullable=True))
 
 
 def downgrade() -> None:
+    op.drop_column("findings", "correct_info_retrieved_date")
     op.drop_column("findings", "correct_info_url")
     op.drop_column("findings", "correct_info_source")
     op.drop_column("findings", "correct_info_value")

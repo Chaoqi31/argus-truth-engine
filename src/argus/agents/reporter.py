@@ -74,6 +74,7 @@ def build_reporter_input(claims: list[Claim], findings: list[Finding]) -> str:
             entry["correct_information"] = {
                 "value": f.correct_information.value,
                 "source": f.correct_information.source,
+                "url": f.correct_information.url,
             }
         finding_payload.append(entry)
     return (

@@ -203,7 +203,8 @@ async def test_langgraph_specialists_are_independent(tmp_path: Path) -> None:
     )
 
     # 1 successful verifier finding (the failed one produces no finding)
+    assert len(job.findings) >= 1, "at least one finding expected despite partial failure"
     agents = {f.agent for f in job.findings}
-    assert "UnifiedVerifier" in agents or len(job.findings) >= 0
+    assert "UnifiedVerifier" in agents
     # Reporter still ran.
     assert job.audit_report_md is not None

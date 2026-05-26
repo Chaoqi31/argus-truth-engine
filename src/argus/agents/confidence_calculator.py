@@ -136,6 +136,8 @@ def _compute_freshness(evidences: list[Evidence], finding_summary: str) -> float
 
 _NEGATIVE_VERDICTS = {
     FindingVerdict.FABRICATED,
+    FindingVerdict.INACCURATE,
+    FindingVerdict.OUTDATED,
     FindingVerdict.MISMATCH,
     FindingVerdict.MISREPRESENTED,
     FindingVerdict.STALE,

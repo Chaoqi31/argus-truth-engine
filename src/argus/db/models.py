@@ -167,6 +167,7 @@ class FindingRow(Base):
     correct_info_value: Mapped[str | None] = mapped_column(String, nullable=True)
     correct_info_source: Mapped[str | None] = mapped_column(String, nullable=True)
     correct_info_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    correct_info_retrieved_date: Mapped[str | None] = mapped_column(String, nullable=True)
 
     job: Mapped[JobRow] = relationship(back_populates="findings")
 
@@ -189,6 +190,9 @@ class FindingRow(Base):
             correct_info_value=m.correct_information.value if m.correct_information else None,
             correct_info_source=m.correct_information.source if m.correct_information else None,
             correct_info_url=m.correct_information.url if m.correct_information else None,
+            correct_info_retrieved_date=(
+                m.correct_information.retrieved_date if m.correct_information else None
+            ),
         )
 
     def to_domain(self) -> Finding:
@@ -198,6 +202,7 @@ class FindingRow(Base):
                 value=self.correct_info_value,
                 source=self.correct_info_source or "",
                 url=self.correct_info_url,
+                retrieved_date=self.correct_info_retrieved_date,
             )
         return Finding(
             id=self.id,
