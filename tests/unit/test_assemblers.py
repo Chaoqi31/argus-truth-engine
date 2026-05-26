@@ -2,7 +2,7 @@
 from argus.agents.base import StreamCollection
 from argus.agents.unified_verifier import UnifiedVerifierOutput
 from argus.models.domain import Claim, ClaimType, FindingVerdict
-from argus.orchestrator.assemblers import _make_unified_finding, _build_trace
+from argus.orchestrator.assemblers import _build_trace, _make_unified_finding
 
 
 def _minimal_stream() -> StreamCollection:

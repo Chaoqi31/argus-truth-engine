@@ -2,15 +2,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from uuid import uuid4
-
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from argus.config import Settings
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Job
 from argus.orchestrator.context import _State
-from argus.orchestrator.pipeline import _build_ctx, _build_phase_a, _build_phase_b, _finalize, _run_pipeline
+from argus.orchestrator.pipeline import (
+    _build_ctx,
+    _build_phase_a,
+    _build_phase_b,
+    _finalize,
+    _run_pipeline,
+)
 from argus.trace_bus.base import TraceBus
 
 if TYPE_CHECKING:
@@ -146,7 +151,7 @@ async def audit_resume(
     settings: Settings,
     client: MiromindClient,
     budget_usd: float,
-    repo: "JobRepository",
+    repo: JobRepository,
     trace_bus: TraceBus | None,
     output_path: Path,
 ) -> Job:

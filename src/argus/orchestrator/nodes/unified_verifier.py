@@ -20,7 +20,7 @@ from argus.orchestrator.assemblers import (
     _step_payload,
     _surrounding_text,
 )
-from argus.orchestrator.context import _Ctx, _State, _charge_result
+from argus.orchestrator.context import _charge_result, _Ctx, _State
 
 
 def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -50,7 +50,12 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     )
                     hit = await ctx.cache.get(key)
                     if hit is not None:
-                        cached_template, cached_evs = hit
+                        # TODO: also re-emit cached evidences with rebound IDs into
+                        # this job's evidence list. Today cached findings keep their
+                        # original evidence_ids which point to the cached job's rows
+                        # — fine for verdict display, but means evidence detail
+                        # cards won't render on cache hits. Tracked as follow-up.
+                        cached_template, _cached_evs = hit
                         # Re-bind to current job + claim (cached payload was from a different job)
                         rebound = cached_template.model_copy(update={
                             "id": f"fnd_{uuid4().hex[:12]}",

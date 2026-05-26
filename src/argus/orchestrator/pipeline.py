@@ -1,7 +1,6 @@
 """Pipeline orchestration — graph compilation, phase execution, finalization."""
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -12,7 +11,7 @@ if TYPE_CHECKING:
     from argus.db.repository import JobRepository
 
 from argus.config import Settings
-from argus.engineering import BoundedRunner, BudgetExceeded, BudgetTracker
+from argus.engineering import BoundedRunner, BudgetTracker
 from argus.llm.cheap_client import CheapLLMClient
 from argus.log import log
 from argus.miromind.client import MiromindClient
@@ -22,14 +21,14 @@ from argus.orchestrator.context import (
     _Publisher,
     _State,
 )
-from argus.orchestrator.nodes.parse import _parse_node
-from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.atomizer import _atomizer_node
 from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
-from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
-from argus.orchestrator.nodes.consistency import _consistency_node
 from argus.orchestrator.nodes.confidence import _confidence_node
+from argus.orchestrator.nodes.consistency import _consistency_node
+from argus.orchestrator.nodes.parse import _parse_node
+from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.reporter import _reporter_node
+from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
 from argus.trace_bus.base import TraceBus
 
 
@@ -40,7 +39,7 @@ def _build_ctx(
     client: MiromindClient,
     budget_usd: float,
     trace_bus: TraceBus | None,
-    repo: "JobRepository | None",
+    repo: JobRepository | None,
 ) -> _Ctx:
     """Construct the per-pipeline _Ctx. Shared between fresh runs and resumes."""
     runners = {

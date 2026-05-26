@@ -14,7 +14,7 @@ from argus.orchestrator.assemblers import (
     _finding_payload,
     _step_payload,
 )
-from argus.orchestrator.context import _Ctx, _State, _charge_result
+from argus.orchestrator.context import _charge_result, _Ctx, _State
 
 
 def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
