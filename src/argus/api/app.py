@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -14,6 +14,7 @@ from argus.api.ws import router as ws_router
 from argus.config import Settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
+from argus.orchestrator.checkpointer import build_checkpointer
 from argus.storage.local_fs import LocalFsStorage
 from argus.trace_bus.base import TraceBus
 from argus.trace_bus.in_process import InProcessBus
@@ -47,20 +48,31 @@ def create_app(*, settings: Settings) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        # Startup: mark abandoned jobs (worker died mid-flight) as interrupted
-        if state.repo is not None:
-            n_flipped = await state.repo.mark_running_as_interrupted()
-            if n_flipped:
-                from argus.log import log
-                log.info("startup.zombie_jobs_marked_interrupted", count=n_flipped)
-        try:
-            yield
-        finally:
-            close_bus = getattr(state.trace_bus, "close", None)
-            if close_bus is not None:
-                await close_bus()
-            if state.db_engine is not None:
-                await state.db_engine.dispose()
+        async with AsyncExitStack() as stack:
+            # Build the LangGraph checkpointer ONCE for the whole process —
+            # all audit_* / audit_resume calls share this saver. Avoids a
+            # per-job DDL roundtrip + connection setup, and prevents the
+            # `database is locked` storm that happens on SQLite when each
+            # in-flight job opens its own connection.
+            state.checkpointer = await stack.enter_async_context(
+                build_checkpointer(state.settings)
+            )
+
+            # Startup: mark abandoned jobs (worker died mid-flight) as interrupted
+            if state.repo is not None:
+                n_flipped = await state.repo.mark_running_as_interrupted()
+                if n_flipped:
+                    from argus.log import log
+                    log.info("startup.zombie_jobs_marked_interrupted",
+                             count=n_flipped)
+            try:
+                yield
+            finally:
+                close_bus = getattr(state.trace_bus, "close", None)
+                if close_bus is not None:
+                    await close_bus()
+                if state.db_engine is not None:
+                    await state.db_engine.dispose()
 
     app = FastAPI(
         title="Argus API",
