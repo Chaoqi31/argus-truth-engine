@@ -88,6 +88,7 @@ from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.atomizer import _atomizer_node
 from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
 from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
+from argus.orchestrator.nodes.consistency import _consistency_node
 
 
 # --- Public entry point ----------------------------------------------------
@@ -458,40 +459,6 @@ def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]
     return node
 
 
-
-def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        claims = state.get("claims", [])
-        if len(claims) < 2:
-            return {}
-        try:
-            result = await check_consistency(ctx.client, claims)
-        except JsonRepairFailed as exc:
-            log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
-            return {}
-
-        try:
-            _charge_result(ctx, result)
-        except BudgetExceeded as exc:
-            log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
-            return {"aborted": True, "abort_reason": str(exc)}
-
-        trace = _build_trace(
-            job_id=ctx.job_id,
-            claim_id="(consistency)",
-            agent="Consistency",
-            stream=result.final,
-        )
-        new_findings = _contradictions_to_findings(
-            job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
-        )
-        await ctx.publisher.publish("step", _step_payload(trace))
-        for finding in new_findings:
-            await ctx.publisher.publish("finding", _finding_payload(finding))
-        return {"findings": new_findings, "traces": {trace.id: trace}}
-    return node
 
 
 def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
