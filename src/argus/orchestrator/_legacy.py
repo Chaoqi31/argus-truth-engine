@@ -86,6 +86,7 @@ from argus.orchestrator.assemblers import (
 from argus.orchestrator.nodes.parse import _parse_node
 from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.atomizer import _atomizer_node
+from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
 
 
 # --- Public entry point ----------------------------------------------------
@@ -429,31 +430,6 @@ def _build_phase_b(ctx: _Ctx) -> Any:
 
 
 
-
-def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        claims = state.get("claims", [])
-        if not claims or not ctx.cheap_client:
-            return {}
-        try:
-            checkworthy, filtered = await run_checkworthiness(ctx.cheap_client, claims)
-        except Exception as exc:
-            log.warning("orchestrator.checkworthiness_failed", error=str(exc)[:300])
-            return {}
-        filtered_data = [
-            {"claim_id": c.id, "text": c.text, "reason": reason}
-            for c, reason in filtered
-        ]
-        log.info("orchestrator.filtered", n_checkworthy=len(checkworthy),
-                 n_filtered=len(filtered))
-        await ctx.publisher.publish("filtered", {
-            "n_checkworthy": len(checkworthy),
-            "n_filtered": len(filtered),
-        })
-        return {"claims": checkworthy, "filtered_claims": filtered_data}
-    return node
 
 
 def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
