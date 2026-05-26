@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from argus.agents.base import AgentResult, AgentRunner
 from argus.miromind.client import MiromindClient
-from argus.models.domain import EvidenceSource, FindingVerdict
+from argus.models.domain import FindingVerdict
 
 SYSTEM_PROMPT = """\
 You are Argus's UNIFIED VERIFIER. Your task is to determine whether a factual
@@ -73,7 +73,7 @@ OUTPUT ONLY THE JSON OBJECT.
 
 
 class EvidenceOut(BaseModel):
-    source_type: EvidenceSource
+    source_type: str  # free-form; MiroMind picks the best label
     url: str | None = None
     snippet: str = ""
 

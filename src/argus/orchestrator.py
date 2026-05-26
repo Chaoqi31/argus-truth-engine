@@ -58,6 +58,7 @@ from argus.miromind.client import MiromindClient
 from argus.models.domain import (
     Claim,
     Evidence,
+    EvidenceSource,
     Finding,
     FindingVerdict,
     Job,
@@ -87,6 +88,14 @@ _UNIFIED_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.OK: Severity.MINOR,
     FindingVerdict.UNCERTAIN: Severity.MINOR,
 }
+
+
+def _coerce_evidence_source(raw: str) -> EvidenceSource:
+    """Map a free-form source_type string from MiroMind to the enum, fallback WEB_PAGE."""
+    try:
+        return EvidenceSource(raw)
+    except ValueError:
+        return EvidenceSource.WEB_PAGE
 
 
 def _dict_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
@@ -970,7 +979,7 @@ def _make_unified_finding(
     for ev in parsed.evidence:
         e = Evidence(
             id=f"ev_{uuid4().hex[:12]}",
-            source_type=ev.source_type,
+            source_type=_coerce_evidence_source(ev.source_type),
             url=ev.url,
             citation=ev.url or f"{ev.source_type} query",
             snippet=ev.snippet,
