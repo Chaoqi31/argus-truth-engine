@@ -48,6 +48,23 @@ class JobRepository:
                 return None
             return row.to_domain()
 
+    async def mark_running_as_interrupted(self) -> int:
+        """Flip any job in 'running' state to 'interrupted'.
+
+        Called on startup — any job marked 'running' was abandoned by a
+        crashed/killed worker. Returns the number of jobs flipped.
+        """
+        from sqlalchemy import update
+
+        async with self._smaker() as session:
+            result = await session.execute(
+                update(JobRow)
+                .where(JobRow.status == "running")
+                .values(status="interrupted")
+            )
+            await session.commit()
+            return result.rowcount or 0
+
     async def list_jobs(self, *, limit: int = 20) -> list[Job]:
         async with self._smaker() as session:
             stmt = select(JobRow).order_by(JobRow.created_at.desc()).limit(limit)
