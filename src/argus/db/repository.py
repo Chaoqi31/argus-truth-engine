@@ -63,7 +63,9 @@ class JobRepository:
                 .values(status="interrupted")
             )
             await session.commit()
-            return result.rowcount or 0
+            # CursorResult exposes rowcount; cast for mypy since execute() is
+            # typed as Result[Any] generically.
+            return int(getattr(result, "rowcount", 0) or 0)
 
     async def list_jobs(self, *, limit: int = 20) -> list[Job]:
         async with self._smaker() as session:

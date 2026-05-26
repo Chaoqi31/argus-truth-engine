@@ -138,12 +138,13 @@ class JobRunner:
         selected_claim_ids: list[str] | None,
     ) -> str | None:
         """Resume an interrupted job. Returns job_id on success, None if not found."""
-        if self.state.repo is None:
+        repo = self.state.repo
+        if repo is None:
             return None
 
         record = self.records.get(job_id)
         if record is None:
-            job = await self.state.repo.get_job(job_id)
+            job = await repo.get_job(job_id)
             if job is None or job.status != "interrupted":
                 return None
             record = JobRecord(job_id=job_id, status="running")
@@ -168,7 +169,7 @@ class JobRunner:
                     settings=per_job_settings,
                     client=per_job_client,
                     budget_usd=per_job_settings.job_budget_usd,
-                    repo=self.state.repo,
+                    repo=repo,
                     trace_bus=self.state.trace_bus,
                     output_path=output_path,
                 )

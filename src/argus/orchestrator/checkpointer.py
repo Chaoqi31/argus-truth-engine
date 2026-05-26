@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -20,7 +20,7 @@ from argus.log import log
 @asynccontextmanager
 async def build_checkpointer(
     settings: Settings,
-) -> AsyncIterator[BaseCheckpointSaver | None]:
+) -> AsyncIterator[BaseCheckpointSaver[Any] | None]:
     """Yield a configured async checkpointer, or None if db_url is unset.
 
     A ``None`` checkpointer means the graph runs without persistence —

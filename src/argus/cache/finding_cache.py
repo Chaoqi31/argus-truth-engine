@@ -9,7 +9,7 @@ import json
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select, update
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from argus.db.models import FindingCacheRow
 from argus.log import log
@@ -19,7 +19,7 @@ from argus.models.domain import Evidence, Finding
 class FindingCache:
     def __init__(
         self,
-        sessionmaker: async_sessionmaker,
+        sessionmaker: async_sessionmaker[AsyncSession],
         *,
         default_ttl_days: int = 30,
         time_sensitive_ttl_days: int = 3,
@@ -88,4 +88,4 @@ class FindingCache:
         async with self._sm() as session:
             result = await session.execute(delete(FindingCacheRow))
             await session.commit()
-            return result.rowcount or 0
+            return int(getattr(result, "rowcount", 0) or 0)
