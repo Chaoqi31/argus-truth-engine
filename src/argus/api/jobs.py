@@ -133,6 +133,27 @@ async def select_claims(
     return {"status": "resumed", "n_selected": len(body.selected_claim_ids)}
 
 
+@router.post("/{job_id}/resume", status_code=202)
+async def resume_job(
+    request: Request,
+    job_id: str,
+) -> dict[str, str]:
+    """Resume a job previously marked interrupted.
+
+    Used after worker restart (Phase 6.2 marks abandoned jobs), or when
+    HITL timeout left the job paused without a claim selection.
+    """
+    _require_token(request)
+    runner = _runner(request)
+    resumed = await runner.resume(job_id=job_id, selected_claim_ids=None)
+    if resumed is None:
+        raise HTTPException(
+            status_code=_HTTP_NOT_FOUND,
+            detail="job not found or not in interrupted state",
+        )
+    return {"job_id": job_id, "status": "running"}
+
+
 @router.get("/{job_id}/pdf")
 async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
     _require_token(request)
