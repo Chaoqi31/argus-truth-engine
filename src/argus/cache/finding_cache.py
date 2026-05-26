@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from argus.db.models import FindingCacheRow
@@ -67,7 +68,13 @@ class FindingCache:
             "evidences": [e.model_dump(mode="json") for e in evidences],
         }
         async with self._sm() as session:
-            # Upsert pattern: delete + insert (portable across SQLite & Postgres)
+            # Upsert pattern: delete + insert (portable across SQLite & Postgres).
+            # Under concurrent puts of the same key, two writers can both pass
+            # the delete and race on the insert. On Postgres this surfaces as
+            # IntegrityError (unique violation on the PK). Since this is a
+            # best-effort cache, the loser silently drops its write — the
+            # winner's payload is just as valid (same verifier_version, same
+            # claim text → same verdict).
             await session.execute(
                 delete(FindingCacheRow).where(FindingCacheRow.key == key)
             )
@@ -80,8 +87,13 @@ class FindingCache:
                 created_at=datetime.utcnow(),
                 expires_at=datetime.utcnow() + ttl,
             ))
-            await session.commit()
-            log.info("cache.put", key=key[:12], domain=content_domain, ttl_days=ttl.days)
+            try:
+                await session.commit()
+                log.info("cache.put", key=key[:12], domain=content_domain,
+                         ttl_days=ttl.days)
+            except IntegrityError:
+                await session.rollback()
+                log.info("cache.put_lost_race", key=key[:12])
 
     async def clear(self) -> int:
         """Admin: drop all cache rows. Returns count cleared."""

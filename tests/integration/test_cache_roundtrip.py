@@ -67,3 +67,50 @@ async def test_cache_miss_on_unknown_key(test_sessionmaker):
     cache = FindingCache(test_sessionmaker)
     result = await cache.get("nonexistent_key_" + "0" * 50)
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_cache_put_swallows_integrity_error_from_race(
+    test_sessionmaker, monkeypatch,
+):
+    """Concurrent puts of the same key: the loser's IntegrityError is caught.
+
+    Simulated by patching AsyncSession.commit to raise on the next call.
+    The contract: put() returns normally; the winning row is preserved.
+    """
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    cache = FindingCache(test_sessionmaker)
+    key = claim_cache_key("Race claim.", domain="finance", version="v1")
+
+    # Pre-seed a row — this is the "winner" we expect to survive.
+    await cache.put(
+        key, finding=_sample_finding(), evidences=[],
+        verifier_version="v1", content_domain="finance",
+    )
+
+    # Patch commit to raise IntegrityError on the next call (simulates a
+    # concurrent writer beating us to the unique constraint).
+    original_commit = AsyncSession.commit
+    triggered = {"flag": False}
+
+    async def flaky_commit(self):  # type: ignore[no-untyped-def]
+        if not triggered["flag"]:
+            triggered["flag"] = True
+            raise IntegrityError("simulated race", None, Exception())
+        return await original_commit(self)
+
+    monkeypatch.setattr(AsyncSession, "commit", flaky_commit)
+
+    # Should not raise — the loser silently drops its write.
+    await cache.put(
+        key, finding=_sample_finding(), evidences=[],
+        verifier_version="v1", content_domain="finance",
+    )
+    assert triggered["flag"], "test setup: IntegrityError was never raised"
+
+    # Winner's row is still there (restore commit so get() works).
+    monkeypatch.setattr(AsyncSession, "commit", original_commit)
+    result = await cache.get(key)
+    assert result is not None
