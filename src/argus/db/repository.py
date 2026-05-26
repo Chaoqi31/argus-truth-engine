@@ -14,6 +14,11 @@ class JobRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._smaker = session_factory
 
+    @property
+    def sessionmaker(self) -> async_sessionmaker[AsyncSession]:
+        """Public accessor for plugging into auxiliary caches/services."""
+        return self._smaker
+
     async def save_job(self, job: Job) -> None:
         """Upsert a Job + all its nested rows.
 

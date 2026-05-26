@@ -4,13 +4,15 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
+from uuid import uuid4
 
 from argus.agents.base import AgentResult, JsonRepairFailed
 from argus.agents.domain_hints import get_domain_hint
-from argus.agents.unified_verifier import verify_claim
+from argus.agents.unified_verifier import VERIFIER_VERSION, verify_claim
+from argus.cache.key import claim_cache_key
 from argus.engineering import BudgetExceeded, make_idempotency_key
 from argus.log import log
-from argus.models.domain import Claim, Evidence, Finding, ReasoningTrace
+from argus.models.domain import Claim, ClaimType, Evidence, Finding, FindingVerdict, ReasoningTrace
 from argus.orchestrator.assemblers import (
     _build_trace,
     _finding_payload,
@@ -34,12 +36,30 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
 
         async def run_for_claim(
             claim: Claim,
-        ) -> tuple[Claim, AgentResult[Any] | None, Exception | None]:
+        ) -> tuple[Claim, AgentResult[Any] | None, Exception | None, Finding | None]:
             async with runner.acquire():
                 surrounding = _surrounding_text(doc, claim) if doc else ""
                 domain_hint = get_domain_hint(
                     claim_type=claim.type, content_domain=ctx.content_domain,
                 )
+
+                # Cache lookup before the MiroMind call
+                if ctx.cache is not None:
+                    key = claim_cache_key(
+                        claim.text, domain=ctx.content_domain, version=VERIFIER_VERSION,
+                    )
+                    hit = await ctx.cache.get(key)
+                    if hit is not None:
+                        cached_template, cached_evs = hit
+                        # Re-bind to current job + claim (cached payload was from a different job)
+                        rebound = cached_template.model_copy(update={
+                            "id": f"fnd_{uuid4().hex[:12]}",
+                            "job_id": ctx.job_id,
+                            "claim_id": claim.id,
+                            "from_cache": True,
+                        })
+                        return claim, None, None, rebound
+
                 _ = make_idempotency_key(ctx.job_id, "UnifiedVerifier", claim.id)
                 try:
                     result = await verify_claim(
@@ -47,7 +67,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         surrounding=surrounding,
                         domain_hint=domain_hint,
                     )
-                    return claim, result, None
+                    return claim, result, None, None
                 except JsonRepairFailed as exc:
                     log.warning(
                         "orchestrator.specialist_failed",
@@ -55,7 +75,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         claim_id=claim.id,
                         error=str(exc)[:300],
                     )
-                    return claim, None, exc
+                    return claim, None, exc, None
                 except (asyncio.CancelledError, BudgetExceeded):
                     raise
                 except Exception as exc:
@@ -66,7 +86,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         error_type=type(exc).__name__,
                         error=str(exc)[:300],
                     )
-                    return claim, None, exc
+                    return claim, None, exc, None
 
         results = await asyncio.gather(*(run_for_claim(c) for c in claims))
 
@@ -74,7 +94,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
         new_traces: dict[str, ReasoningTrace] = {}
         new_evidences: list[Evidence] = []
 
-        for claim, agent_result, failure in results:
+        for claim, agent_result, failure, cached_finding in results:
+            if cached_finding is not None:
+                # Cache hit path — no MiroMind cost, no fresh trace
+                new_findings.append(cached_finding)
+                await ctx.publisher.publish("finding", _finding_payload(cached_finding))
+                continue
+
             if failure is not None or agent_result is None:
                 continue
             try:
@@ -107,6 +133,20 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             new_evidences.extend(ev_records)
             await ctx.publisher.publish("step", _step_payload(trace))
             await ctx.publisher.publish("finding", _finding_payload(finding))
+
+            # Persist to cache on fresh verification (skip UNCERTAIN — often transient)
+            if ctx.cache is not None and finding.verdict != FindingVerdict.UNCERTAIN:
+                key = claim_cache_key(
+                    claim.text, domain=ctx.content_domain, version=VERIFIER_VERSION,
+                )
+                await ctx.cache.put(
+                    key,
+                    finding=finding,
+                    evidences=ev_records,
+                    verifier_version=VERIFIER_VERSION,
+                    content_domain=ctx.content_domain,
+                    time_sensitive=(claim.type == ClaimType.TIME_SENSITIVE),
+                )
 
         return {
             "findings": new_findings,
