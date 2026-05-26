@@ -7,6 +7,7 @@ client or settings is a bug.
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -50,7 +51,6 @@ def _coerce_evidence_source(raw: str) -> EvidenceSource:
 
 def _text_to_doc(text: str) -> ParsedDoc:
     """Wrap raw text in a ParsedDoc with a single synthetic page."""
-    from pathlib import Path
     page = ParsedPage(page_number=1, text=text, start_offset=0)
     return ParsedDoc(source_path=Path("<text-input>"), pages=(page,), full_text=text)
 
