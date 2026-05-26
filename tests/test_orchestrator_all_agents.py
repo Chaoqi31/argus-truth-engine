@@ -48,98 +48,114 @@ def _planner_json() -> str:
     )
 
 
+def _verifier_fabricated() -> str:
+    return json.dumps(
+        {
+            "verdict": "fabricated",
+            "confidence": 0.92,
+            "summary": "No record.",
+            "why_wrong": "Paper does not exist in any academic database.",
+            "correct_information": None,
+            "evidence": [
+                {
+                    "source_type": "crossref",
+                    "url": "https://api.crossref.org/x",
+                    "snippet": "{}",
+                }
+            ],
+            "reasoning_chain": [
+                {
+                    "action": "search_crossref",
+                    "observation": "0 results",
+                    "reasoning": "No matching paper found.",
+                }
+            ],
+        }
+    )
+
+
+def _verifier_stale() -> str:
+    return json.dumps(
+        {
+            "verdict": "stale",
+            "confidence": 0.9,
+            "summary": "Q3 release supersedes.",
+            "why_wrong": "GDP figure has been revised upward in Q3 release.",
+            "correct_information": {
+                "value": "2.4%",
+                "source": "FRED UNRATE series Q3 2025",
+            },
+            "evidence": [
+                {
+                    "source_type": "fred",
+                    "url": "https://api.stlouisfed.org/",
+                    "snippet": "2.4",
+                }
+            ],
+            "reasoning_chain": [
+                {
+                    "action": "fetch_fred",
+                    "observation": "Current value is 2.4%",
+                    "reasoning": "Claim is stale.",
+                }
+            ],
+        }
+    )
+
+
+def _verifier_ok() -> str:
+    return json.dumps(
+        {
+            "verdict": "ok",
+            "confidence": 0.7,
+            "summary": "Matches latest filing.",
+            "why_wrong": None,
+            "correct_information": None,
+            "evidence": [
+                {
+                    "source_type": "sec_edgar",
+                    "url": "https://data.sec.gov/x",
+                    "snippet": "",
+                }
+            ],
+            "reasoning_chain": [
+                {
+                    "action": "fetch_sec_edgar",
+                    "observation": "32% confirmed in latest 10-K",
+                    "reasoning": "Claim verified.",
+                }
+            ],
+        }
+    )
+
+
 async def test_full_5_agent_pipeline(tmp_path: Path) -> None:
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=120)])
+    # c1 (citation) → unified_verifier
     router.add(
-        "citation_verifier",
+        "unified_verifier",
         [
             tool("web_search", {"q": "Smith"}, 2),
-            msg(
-                json.dumps(
-                    {
-                        "verdict": "fabricated",
-                        "confidence": 0.92,
-                        "summary": "No record.",
-                        "evidence": [
-                            {
-                                "source_type": "crossref",
-                                "url": "https://api.crossref.org/x",
-                                "snippet": "{}",
-                            }
-                        ],
-                    }
-                )
-            ),
+            msg(_verifier_fabricated()),
             completed(tokens=80),
         ],
     )
+    # c2 (numerical-data) → unified_verifier
     router.add(
-        "citation_alignment",
-        [
-            tool("fetch_url_content", {"url": "x"}, 2),
-            msg(
-                json.dumps(
-                    {
-                        "verdict": "uncertain",
-                        "confidence": 0.4,
-                        "summary": "Source not retrievable.",
-                        "evidence": [
-                            {"source_type": "web_page", "url": None, "snippet": "404"}
-                        ],
-                    }
-                )
-            ),
-            completed(tokens=70),
-        ],
-    )
-    router.add(
-        "data_freshness",
+        "unified_verifier",
         [
             tool("fetch_url_content", {"url": "fred"}, 2),
-            msg(
-                json.dumps(
-                    {
-                        "verdict": "stale",
-                        "confidence": 0.9,
-                        "summary": "Q3 release supersedes.",
-                        "as_of_date": "Q2 2025",
-                        "current_value": "2.4%",
-                        "evidence": [
-                            {
-                                "source_type": "fred",
-                                "url": "https://api.stlouisfed.org/",
-                                "snippet": "2.4",
-                            }
-                        ],
-                    }
-                )
-            ),
+            msg(_verifier_stale()),
             completed(tokens=90),
         ],
     )
+    # c3 (numerical-data) → unified_verifier
     router.add(
-        "data_freshness",
+        "unified_verifier",
         [
             tool("fetch_url_content", {"url": "sec"}, 2),
-            msg(
-                json.dumps(
-                    {
-                        "verdict": "ok",
-                        "confidence": 0.7,
-                        "summary": "Matches latest filing.",
-                        "as_of_date": None,
-                        "current_value": "32%",
-                        "evidence": [
-                            {
-                                "source_type": "sec_edgar",
-                                "url": "https://data.sec.gov/x",
-                                "snippet": "",
-                            }
-                        ],
-                    }
-                )
-            ),
+            msg(_verifier_ok()),
             completed(tokens=60),
         ],
     )
@@ -190,16 +206,10 @@ async def test_full_5_agent_pipeline(tmp_path: Path) -> None:
     )
 
     assert len(job.claims) == 3
-    # 1 verifier (c1) + 1 alignment (c1) + 2 freshness (c2, c3)
-    # + 2 paired consistency findings = 6
-    assert len(job.findings) == 6
+    # 3 unified_verifier findings (c1, c2, c3) + 2 paired consistency findings = 5
+    assert len(job.findings) == 5
     by_agent = {f.agent for f in job.findings}
-    assert by_agent == {
-        "CitationVerifier",
-        "CitationAlignment",
-        "DataFreshness",
-        "Consistency",
-    }
+    assert by_agent == {"UnifiedVerifier", "Consistency"}
 
     assert job.audit_report_md is not None
     assert "3 issues" in job.audit_report_md

@@ -38,20 +38,18 @@ def _verifier_json() -> str:
             "verdict": "fabricated",
             "confidence": 0.9,
             "summary": "No record.",
+            "why_wrong": "Paper does not exist in any academic database.",
+            "correct_information": None,
             "evidence": [
                 {"source_type": "crossref", "url": "https://api.crossref.org/x", "snippet": "{}"}
             ],
-        }
-    )
-
-
-def _alignment_json() -> str:
-    return json.dumps(
-        {
-            "verdict": "uncertain",
-            "confidence": 0.4,
-            "summary": "Source not retrievable.",
-            "evidence": [{"source_type": "web_page", "url": None, "snippet": "404"}],
+            "reasoning_chain": [
+                {
+                    "action": "search_crossref",
+                    "observation": "0 results",
+                    "reasoning": "No matching paper found.",
+                }
+            ],
         }
     )
 
@@ -71,12 +69,12 @@ async def test_orchestrator_persists_to_db_when_repo_provided(
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=80)])
     router.add(
-        "citation_verifier",
+        "unified_verifier",
         [tool("web_search", {"q": "Smith"}, 2), msg(_verifier_json()), completed(tokens=60)],
     )
     router.add(
-        "citation_alignment",
-        [msg(_alignment_json()), completed(tokens=40)],
+        "consistency",
+        [msg(json.dumps({"contradictions": []})), completed(tokens=20)],
     )
     router.add("reporter", [msg(_reporter_json()), completed(tokens=20)])
 
@@ -106,12 +104,12 @@ async def test_orchestrator_skips_db_when_repo_not_provided(tmp_path: Path) -> N
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=80)])
     router.add(
-        "citation_verifier",
+        "unified_verifier",
         [msg(_verifier_json()), completed(tokens=60)],
     )
     router.add(
-        "citation_alignment",
-        [msg(_alignment_json()), completed(tokens=40)],
+        "consistency",
+        [msg(json.dumps({"contradictions": []})), completed(tokens=20)],
     )
     router.add("reporter", [msg(_reporter_json()), completed(tokens=20)])
 
