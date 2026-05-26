@@ -12,7 +12,7 @@
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
-[![Tests](https://img.shields.io/badge/tests-122_passing-success)](#testing)
+[![Tests](https://img.shields.io/badge/tests-114_passing-success)](#testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[English](README.md)** · **[简体中文](README.zh.md)**
@@ -47,14 +47,18 @@ claim**, and **every step of reasoning** that produced the verdict.
 
 | Issue type | What it catches | How it verifies |
 |---|---|---|
-| 🪤 **Fabricated references** | Papers, cases, filings that don't exist | Crossref / arXiv / SSRN / public registries |
-| 🪞 **Misrepresented sources** | Paraphrase ≠ source | Fetches the cited URL, paragraph-by-paragraph compare |
-| 📉 **Outdated data** | Numbers superseded by newer data | FRED / World Bank / SEC EDGAR / IMF |
+| 🪤 **Fabricated references** | Papers, cases, filings that don't exist | Autonomous deep research across academic and public registries |
+| ❌ **Inaccurate claims** | Factual errors in numbers, names, dates | Cross-verification against ≥2 independent authoritative sources |
+| 🪞 **Misrepresented sources** | Paraphrase ≠ source | Fetches the cited URL, compares against original |
+| 📉 **Outdated data** | Numbers superseded by newer releases | Checks latest official data from primary sources |
 | 🧩 **Internal contradictions** | Document self-contradicts | Pairwise claim consistency check |
 
-Every finding ships with verdict, severity, confidence, evidence trail (clickable
-source URLs + snippets), and the full reasoning trace — every web search, every
-fetched page, every chain-of-thought step the agent took.
+Every finding ships with:
+- **Verdict** + severity + confidence
+- **Why it's wrong** — clear explanation of the error
+- **Correct information** — what the right answer is, with authoritative source URL
+- **Reasoning chain** — step-by-step action/observation/reasoning trace
+- **Evidence trail** — clickable source URLs + snippets
 
 ## 👥 Who is this for
 
@@ -86,29 +90,42 @@ human can read what we did and trust the verdict.**
 
 ## ✨ Reasoning transparency
 
-The frontend streams every step **live** as it happens:
+Every finding includes a structured **reasoning chain** — not raw model
+thinking, but a curated sequence of action/observation/reasoning triples
+that show exactly how the verdict was reached:
 
 ```
-seq=  3  🔍 web_search       CitationVerifier  ⟶  "Smith 2021 widget resilience SSRN"
-seq=  4  🌐 fetch_url_content CitationVerifier ⟶  https://api.crossref.org/works/...
-seq=  5  💭 thinking          CitationVerifier ⟶  "Crossref returned 404. Checking arXiv..."
-seq=  6  ✅ finding emitted    CitationVerifier ⟶  fabricated · major · 0.91 confidence
+Step 1: Checked BEA's Q3 2024 Advance Estimate
+  → Found: GDP growth 2.8%, contradicts claimed 1.6%
+  → Reasoning: Initial official figure already differs from claim
+
+Step 2: Checked BEA's Q3 2024 Second Estimate
+  → Found: Still 2.8%
+  → Reasoning: Two estimates agree, 1.6% is definitively wrong
+
+Step 3: Checked BEA's Q3 2024 Third (Final) Estimate
+  → Found: Revised to 3.1%
+  → Reasoning: Most current official figure confirms the error
+
+Step 4: Traced origin of 1.6% figure
+  → Found: Belongs to Q1 2024, not Q3
+  → Reasoning: Claim conflated Q1 and Q3 data — inaccurate, not fabricated
 ```
 
-After verification, an **Adversarial Debate Protocol** (Attacker / Defender /
-Judge — each round costs ~$0.001 on DeepSeek) stress-tests every high-stakes
-finding. The debate transcript ships in the audit report. Reviewers see not
-just the verdict, but the strongest case against the verdict — and why it lost.
+The frontend streams every step **live** as it happens. Reviewers see not just
+the verdict, but *why* it's wrong and *what the correct answer is* — with
+clickable source URLs for independent verification.
 
 ## 🏗️ How it works
 
-A LangGraph state machine fans 10+ specialized agents out over the document's claims:
+A LangGraph state machine orchestrates the pipeline in two phases:
 
 ```
                       ┌─────────────────────────────┐
                       │   📄 Ingest (PDF or text)     │
                       └──────────────┬──────────────┘
                                      ▼
+                 Phase A — Preprocessing (DeepSeek, cheap)
                       ┌─────────────────────────────┐
                       │  🧠 Planner → Atomizer        │
                       │  → typed atomic claims        │
@@ -118,18 +135,20 @@ A LangGraph state machine fans 10+ specialized agents out over the document's cl
                       │  🎯 CheckWorthiness gate      │
                       │  → drops trivial claims       │
                       └──────────────┬──────────────┘
-                                     │  fan-out (per claim type)
-            ┌──────────────┬─────────┼─────────┬──────────────┐
-            ▼              ▼         ▼         ▼              ▼
-       ┌────────┐   ┌──────────┐  ┌──────┐  ┌────────────┐  ┌────────────┐
-       │Citation│   │ Citation │  │Data  │  │Consistency │  │ Evidence   │
-       │Verifier│   │Alignment │  │Fresh.│  │  Checker   │  │  Hunter    │
-       └───┬────┘   └────┬─────┘  └──┬───┘  └────┬───────┘  └────┬───────┘
-           └─────────────┴──────┬────┴───────────┴───────────────┘
-                                ▼
+                                     │
+                 Phase B — Verification (MiroMind, deep research)
+                                     │  fan-out (all claims)
+                      ┌──────────────┴──────────────┐
+                      ▼                             ▼
+               ┌─────────────┐             ┌────────────┐
+               │  Unified    │             │Consistency │
+               │  Verifier   │             │  Checker   │
+               │ (per claim) │             │ (pairwise) │
+               └──────┬──────┘             └─────┬──────┘
+                      └──────────┬───────────────┘
+                                 ▼
                       ┌─────────────────────────────┐
-                      │  ⚔️ Challenger (debate)      │
-                      │  Attacker / Defender / Judge  │
+                      │  📊 Confidence Calculator     │
                       └──────────────┬──────────────┘
                                      ▼
                       ┌─────────────────────────────┐
@@ -138,10 +157,16 @@ A LangGraph state machine fans 10+ specialized agents out over the document's cl
                       └─────────────────────────────┘
 ```
 
-Atomizer / CheckWorthiness / Challenger run on DeepSeek (cheap) so MiroMind
-spend stays in the verifiers where it matters. Typical single-document audit
-costs ~$3 in model calls — compared with ~$70 for the manual analyst review
-it replaces.
+The **UnifiedVerifier** has full autonomy over its verification strategy —
+it chooses which sources to check, which APIs to query, and how many steps
+to take. We constrain only the *output format* (verdict + why_wrong +
+correct_information + reasoning_chain) to guarantee transparency.
+Non-prescriptive **domain hints** suggest relevant authoritative sources
+based on claim type and content domain, without forcing a fixed search order.
+
+Atomizer / CheckWorthiness run on DeepSeek (cheap) so MiroMind spend stays
+in the verifier where it matters. A single-claim smoke test costs ~$0.16 in
+model calls.
 
 ### Engineering controls
 
@@ -149,7 +174,7 @@ it replaces.
 - **`BudgetTracker`** — hard USD cap, aborts mid-flight before runaway spend
 - **`retry_on_transient`** — exponential backoff for `429` / `5xx` from upstream
 - **`make_idempotency_key`** — deterministic job-keyed idempotency
-- **`json-repair`** — heuristic LLM JSON recovery
+- **`json-repair`** — heuristic LLM JSON recovery + array-unwrap for MiroMind quirks
 
 ### Storage & live bus
 
@@ -201,7 +226,7 @@ uv run argus audit examples/sample-report.pdf \
 
 | Layer | Choice |
 |---|---|
-| **Models** | MiroMind `mirothinker-1-7-deepresearch` (verifiers) + DeepSeek (atomizer/challenger) |
+| **Models** | MiroMind `mirothinker-1-7-deepresearch` (verifier/consistency/reporter) + DeepSeek (atomizer/checkworthiness) |
 | **Orchestration** | LangGraph 1.x StateGraph with parallel fan-out + reducer fan-in |
 | **Backend** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + raw SSE |
 | **Persistence** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
@@ -212,7 +237,7 @@ uv run argus audit examples/sample-report.pdf \
 ## 🧪 Testing
 
 ```bash
-uv run pytest -q          # 122 collected
+uv run pytest -q          # 114 passing
 uv run mypy src/argus     # strict
 uv run ruff check .       # lint
 cd web && pnpm test       # vitest
