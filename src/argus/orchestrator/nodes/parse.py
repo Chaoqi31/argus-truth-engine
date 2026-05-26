@@ -5,9 +5,9 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from argus.log import log
-from argus.pdf.parser import parse_pdf
 from argus.orchestrator.assemblers import _text_to_doc
 from argus.orchestrator.context import _Ctx, _State
+from argus.pdf.parser import parse_pdf
 
 
 def _parse_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:

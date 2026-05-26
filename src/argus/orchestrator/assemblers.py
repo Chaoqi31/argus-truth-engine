@@ -13,7 +13,6 @@ from uuid import uuid4
 
 from argus.agents.base import StreamCollection
 from argus.agents.consistency import ConsistencyOutput
-from argus.agents.unified_verifier import UnifiedVerifierOutput
 from argus.models.domain import (
     Claim,
     Evidence,
@@ -24,8 +23,8 @@ from argus.models.domain import (
     ReasoningTrace,
     Severity,
 )
-from argus.pdf.parser import ParsedDoc, ParsedPage
 from argus.orchestrator.context import _CONTEXT_WINDOW_CHARS
+from argus.pdf.parser import ParsedDoc, ParsedPage
 
 _UNIFIED_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.FABRICATED: Severity.MAJOR,

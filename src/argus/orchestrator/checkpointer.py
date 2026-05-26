@@ -20,7 +20,7 @@ from argus.log import log
 @asynccontextmanager
 async def build_checkpointer(
     settings: Settings,
-) -> AsyncIterator["BaseCheckpointSaver | None"]:
+) -> AsyncIterator[BaseCheckpointSaver | None]:
     """Yield a configured async checkpointer, or None if db_url is unset.
 
     A ``None`` checkpointer means the graph runs without persistence —
