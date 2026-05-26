@@ -191,6 +191,7 @@ class Finding(_Base):
     reasoning_trace_id: str
     related_finding_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    from_cache: bool = False
 
 
 class ContentDomain(StrEnum):
