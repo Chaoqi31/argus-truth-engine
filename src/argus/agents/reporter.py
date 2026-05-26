@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -10,10 +11,14 @@ from argus.miromind.client import MiromindClient
 from argus.models.domain import Claim, Finding
 
 SYSTEM_PROMPT = """\
-You are Argus's REPORTER. The four specialist agents have finished. Your job
+You are Argus's REPORTER. The verification agents have finished. Your job
 is to synthesise their findings into a ranked list and a short executive
 summary for the audit's reader — a compliance officer, lawyer, or analyst
 who needs to act on this content within the next hour.
+
+When a finding includes "why_wrong" and "correct_information", incorporate
+these into the summary so the reader understands both what is wrong AND
+what the correct answer is.
 
 You MUST NOT call web_search, fetch_url_content, or execute_python. Your
 input already contains everything you need.
@@ -52,8 +57,9 @@ def build_reporter_input(claims: list[Claim], findings: list[Finding]) -> str:
         {"id": c.id, "page": c.page, "text": c.text, "type": c.type.value}
         for c in claims
     ]
-    finding_payload = [
-        {
+    finding_payload = []
+    for f in findings:
+        entry: dict[str, Any] = {
             "id": f.id,
             "claim_id": f.claim_id,
             "agent": f.agent,
@@ -62,8 +68,14 @@ def build_reporter_input(claims: list[Claim], findings: list[Finding]) -> str:
             "confidence": f.confidence,
             "summary": f.summary,
         }
-        for f in findings
-    ]
+        if f.why_wrong:
+            entry["why_wrong"] = f.why_wrong
+        if f.correct_information:
+            entry["correct_information"] = {
+                "value": f.correct_information.value,
+                "source": f.correct_information.source,
+            }
+        finding_payload.append(entry)
     return (
         "Synthesise the findings below into a ranked list and an executive "
         "summary for the audit's reader.\n\n"
