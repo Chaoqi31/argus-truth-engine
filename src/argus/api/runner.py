@@ -72,7 +72,6 @@ class JobRunner:
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
-                    review_gate=self.state.review_gate,
                 )
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status
@@ -118,7 +117,6 @@ class JobRunner:
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
-                    review_gate=self.state.review_gate,
                     auto_review=auto_review,
                     content_domain=content_domain,
                 )
