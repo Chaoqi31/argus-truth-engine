@@ -24,10 +24,6 @@ from argus.pdf.parser import ParsedDoc
 from argus.trace_bus.base import TraceBus, TraceEvent
 
 _CONTEXT_WINDOW_CHARS = 200
-# Per-agent concurrency. Kept conservative so the parallel nodes
-# (unified_verifier + consistency) don't pile too many concurrent MiroMind
-# requests onto the API at once.
-_MAX_CONCURRENT_PER_AGENT = 1
 
 
 def _dict_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
