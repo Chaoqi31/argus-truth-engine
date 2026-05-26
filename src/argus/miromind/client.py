@@ -34,6 +34,13 @@ class MiromindClient:
             "Authorization": f"Bearer {settings.miromind_api_key}",
             "Content-Type": "application/json",
         }
+        # Process-wide rate limit shared across submit + stream. Created
+        # eagerly so the first call sees a fully-filled bucket.
+        from argus.engineering import TokenBucket  # local import: avoid cycle
+        self._bucket = TokenBucket(
+            rate_per_s=settings.miromind_rps,
+            capacity=settings.miromind_rps_burst,
+        )
         self._submit_once: Callable[..., Awaitable[str]] = retry_on_transient(
             attempts=settings.miromind_retry_attempts,
             base_delay=settings.miromind_retry_base_delay_s,
@@ -68,6 +75,7 @@ class MiromindClient:
         max_output_tokens: int | None,
         metadata: dict[str, str] | None,
     ) -> str:
+        await self._bucket.acquire()
         body: dict[str, Any] = {
             "model": self._s.miromind_model,
             "input": input,
@@ -134,6 +142,7 @@ class MiromindClient:
     async def _stream_once(
         self, url: str, *, after: int
     ) -> AsyncIterator[ResponseEvent]:
+        await self._bucket.acquire()
         params = {"stream": "true", "after": str(after)}
         async with (
             httpx.AsyncClient(timeout=self._s.miromind_stream_timeout_s) as http,
