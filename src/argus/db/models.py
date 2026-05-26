@@ -24,6 +24,7 @@ from argus.models.domain import (
     Severity,
     Step,
     StepType,
+    CorrectedInfo,
 )
 
 
@@ -162,6 +163,10 @@ class FindingRow(Base):
     reasoning_trace_id: Mapped[str] = mapped_column(String)
     related_finding_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    why_wrong: Mapped[str | None] = mapped_column(String, nullable=True)
+    correct_info_value: Mapped[str | None] = mapped_column(String, nullable=True)
+    correct_info_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    correct_info_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
     job: Mapped[JobRow] = relationship(back_populates="findings")
 
@@ -180,9 +185,20 @@ class FindingRow(Base):
             reasoning_trace_id=m.reasoning_trace_id,
             related_finding_ids=list(m.related_finding_ids),
             created_at=m.created_at,
+            why_wrong=m.why_wrong,
+            correct_info_value=m.correct_information.value if m.correct_information else None,
+            correct_info_source=m.correct_information.source if m.correct_information else None,
+            correct_info_url=m.correct_information.url if m.correct_information else None,
         )
 
     def to_domain(self) -> Finding:
+        corrected = None
+        if self.correct_info_value is not None:
+            corrected = CorrectedInfo(
+                value=self.correct_info_value,
+                source=self.correct_info_source or "",
+                url=self.correct_info_url,
+            )
         return Finding(
             id=self.id,
             job_id=self.job_id,
@@ -196,6 +212,8 @@ class FindingRow(Base):
             reasoning_trace_id=self.reasoning_trace_id,
             related_finding_ids=list(self.related_finding_ids or []),
             created_at=self.created_at,
+            why_wrong=self.why_wrong,
+            correct_information=corrected,
         )
 
 
