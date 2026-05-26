@@ -68,3 +68,85 @@ def test_evidence_url_optional_but_citation_required() -> None:
         retrieved_by_step_id="s1",
     )
     assert e.url is None
+
+
+def test_finding_with_why_wrong_and_correction():
+    """UnifiedVerifier output includes why_wrong and correct_information."""
+    from argus.models.domain import CorrectedInfo, VerificationStep
+    f = Finding(
+        id="f_1",
+        job_id="j1",
+        claim_id="c1",
+        agent="UnifiedVerifier",
+        verdict=FindingVerdict.INACCURATE,
+        severity=Severity.MAJOR,
+        confidence=0.92,
+        summary="GDP figure is outdated.",
+        why_wrong="The claim cites the advance estimate (2.8%) which was revised to 3.1%.",
+        correct_information=CorrectedInfo(
+            value="2024 Q3 GDP growth rate: 3.1% (third estimate)",
+            source="Bureau of Economic Analysis via FRED",
+            url="https://fred.stlouisfed.org/series/GDP",
+            retrieved_date="2026-05-26",
+        ),
+        reasoning_chain=[
+            VerificationStep(
+                action="Searched 'US 2024 Q3 GDP growth rate official'",
+                observation="BEA released three estimates: advance 2.8%, second 2.8%, third 3.1%",
+                reasoning="The claim uses the advance estimate which has been superseded",
+            ),
+        ],
+        evidence_ids=[],
+        reasoning_trace_id="t1",
+    )
+    assert f.verdict == FindingVerdict.INACCURATE
+    assert f.why_wrong is not None
+    assert f.correct_information is not None
+    assert f.correct_information.value == "2024 Q3 GDP growth rate: 3.1% (third estimate)"
+    assert len(f.reasoning_chain) == 1
+    assert f.reasoning_chain[0].action is not None
+
+
+def test_finding_ok_verdict_no_correction():
+    """When verdict is ok, why_wrong and correct_information are None."""
+    from argus.models.domain import VerificationStep
+    f = Finding(
+        id="f_2",
+        job_id="j1",
+        claim_id="c2",
+        agent="UnifiedVerifier",
+        verdict=FindingVerdict.OK,
+        severity=Severity.MINOR,
+        confidence=0.95,
+        summary="Claim verified against two independent sources.",
+        reasoning_chain=[
+            VerificationStep(
+                action="Searched CrossRef for 'Smith 2021 widget resilience'",
+                observation="Found DOI 10.1234/x with matching title and authors",
+                reasoning="Primary source confirmed",
+            ),
+        ],
+        evidence_ids=[],
+        reasoning_trace_id="t2",
+    )
+    assert f.why_wrong is None
+    assert f.correct_information is None
+
+
+def test_verification_step_structure():
+    """VerificationStep uses action/observation/reasoning triple."""
+    from argus.models.domain import VerificationStep
+    step = VerificationStep(
+        action="Fetched https://api.crossref.org/works?query=Smith",
+        observation="No matching results found",
+        reasoning="CrossRef has no record of this paper",
+    )
+    assert step.action == "Fetched https://api.crossref.org/works?query=Smith"
+    assert step.observation == "No matching results found"
+    assert step.reasoning == "CrossRef has no record of this paper"
+
+
+def test_outdated_verdict():
+    """OUTDATED verdict value works."""
+    assert FindingVerdict.OUTDATED == "outdated"
+    assert FindingVerdict.INACCURATE == "inaccurate"

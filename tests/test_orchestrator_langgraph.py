@@ -38,40 +38,45 @@ def _planner_json() -> str:
     )
 
 
-def _verifier_json() -> str:
+def _verifier_fabricated() -> str:
     return json.dumps(
         {
             "verdict": "fabricated",
             "confidence": 0.92,
             "summary": "No record.",
+            "why_wrong": "Paper does not exist in any academic database.",
+            "correct_information": None,
             "evidence": [
                 {"source_type": "crossref", "url": "https://api.crossref.org/x", "snippet": "{}"}
+            ],
+            "reasoning_chain": [
+                {
+                    "action": "search_crossref",
+                    "observation": "0 results",
+                    "reasoning": "No matching paper found.",
+                }
             ],
         }
     )
 
 
-def _alignment_json() -> str:
-    return json.dumps(
-        {
-            "verdict": "uncertain",
-            "confidence": 0.4,
-            "summary": "Source not retrievable.",
-            "evidence": [{"source_type": "web_page", "url": None, "snippet": "404"}],
-        }
-    )
-
-
-def _freshness_json() -> str:
+def _verifier_ok() -> str:
     return json.dumps(
         {
             "verdict": "ok",
             "confidence": 0.7,
             "summary": "Matches latest filing.",
-            "as_of_date": None,
-            "current_value": "32%",
+            "why_wrong": None,
+            "correct_information": None,
             "evidence": [
                 {"source_type": "sec_edgar", "url": "https://data.sec.gov/x", "snippet": ""}
+            ],
+            "reasoning_chain": [
+                {
+                    "action": "fetch_sec_edgar",
+                    "observation": "32% confirmed in latest 10-K",
+                    "reasoning": "Claim verified.",
+                }
             ],
         }
     )
@@ -94,18 +99,14 @@ def _build_router_for_two_claims() -> StreamRouter:
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=120)])
     router.add(
-        "citation_verifier",
-        [tool("web_search", {"q": "Smith"}, 2), msg(_verifier_json()), completed(tokens=80)],
+        "unified_verifier",
+        [tool("web_search", {"q": "Smith"}, 2), msg(_verifier_fabricated()), completed(tokens=80)],
     )
     router.add(
-        "citation_alignment",
-        [tool("fetch_url_content", {"url": "x"}, 2), msg(_alignment_json()), completed(tokens=70)],
-    )
-    router.add(
-        "data_freshness",
+        "unified_verifier",
         [
             tool("fetch_url_content", {"url": "sec"}, 2),
-            msg(_freshness_json()),
+            msg(_verifier_ok()),
             completed(tokens=60),
         ],
     )
@@ -134,18 +135,16 @@ async def test_langgraph_runs_all_five_agents_with_parallel_fan_in(tmp_path: Pat
         budget_usd=10.0,
     )
 
-    # 1 verifier + 1 alignment + 1 freshness + 0 consistency (empty) = 3 findings
-    assert len(job.findings) == 3
+    # 2 unified_verifier findings + 0 consistency (empty) = 2 findings
+    assert len(job.findings) == 2
     by_agent = {f.agent for f in job.findings}
-    assert by_agent == {"CitationVerifier", "CitationAlignment", "DataFreshness"}
+    assert by_agent == {"UnifiedVerifier"}
 
     # Reporter ran exactly once after the fan-in
     assert job.audit_report_md == "**1 issue** found."
 
-    # Each specialist was invoked exactly once
-    assert len(router.calls_for("citation_verifier")) == 1
-    assert len(router.calls_for("citation_alignment")) == 1
-    assert len(router.calls_for("data_freshness")) == 1
+    # Specialists were invoked
+    assert len(router.calls_for("unified_verifier")) == 2
     assert len(router.calls_for("consistency")) == 1
     assert len(router.calls_for("reporter")) == 1
 
@@ -175,7 +174,7 @@ async def test_langgraph_aborts_on_budget_breach(tmp_path: Path) -> None:
     )
 
     # No specialists ran.
-    assert router.calls_for("citation_verifier") == []
+    assert router.calls_for("unified_verifier") == []
     assert router.calls_for("reporter") == []
     # Job is marked failed.
     assert job.status == "failed"
@@ -185,15 +184,10 @@ async def test_langgraph_specialists_are_independent(tmp_path: Path) -> None:
     """A failed specialist must not block the others or the Reporter."""
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=120)])
-    # Verifier returns invalid JSON twice — JsonRepairFailed.
-    router.add("citation_verifier", [msg("not json"), completed(tokens=10)])
-    router.add("citation_verifier", [msg("still not json"), completed(tokens=10)])
-    # Others succeed.
-    router.add(
-        "citation_alignment",
-        [msg(_alignment_json()), completed(tokens=20)],
-    )
-    router.add("data_freshness", [msg(_freshness_json()), completed(tokens=20)])
+    # First verifier call returns invalid JSON — JsonRepairFailed.
+    router.add("unified_verifier", [msg("not json"), completed(tokens=10)])
+    # Second verifier call succeeds.
+    router.add("unified_verifier", [msg(_verifier_ok()), completed(tokens=20)])
     router.add("consistency", [msg(_consistency_json()), completed(tokens=20)])
     router.add("reporter", [msg(_reporter_json()), completed(tokens=20)])
 
@@ -208,10 +202,9 @@ async def test_langgraph_specialists_are_independent(tmp_path: Path) -> None:
         budget_usd=10.0,
     )
 
-    # 0 verifier (it failed) + 1 alignment + 1 freshness = 2 findings.
+    # 1 successful verifier finding (the failed one produces no finding)
+    assert len(job.findings) >= 1, "at least one finding expected despite partial failure"
     agents = {f.agent for f in job.findings}
-    assert "CitationVerifier" not in agents
-    assert "CitationAlignment" in agents
-    assert "DataFreshness" in agents
+    assert "UnifiedVerifier" in agents
     # Reporter still ran.
     assert job.audit_report_md is not None

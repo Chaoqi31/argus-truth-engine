@@ -1,9 +1,8 @@
 """Dry-run integration test — exercises the full pipeline with mocked LLM/API calls.
 
-Proves the data flows correctly through all 13 nodes:
-  Phase A: parse → planner → atomizer → checkworthiness → evidence_hunter
-  Phase B: citation_verifier → citation_alignment → data_freshness
-          → consistency → challenger → reporter
+Proves the data flows correctly through all nodes:
+  Phase A: parse → planner → atomizer → checkworthiness
+  Phase B: unified_verifier + consistency → confidence → reporter
 
 No real API calls are made. All LLM responses are mocked.
 """
@@ -74,23 +73,12 @@ MOCK_CHECKWORTHINESS_JSON = json.dumps({
     ]
 })
 
-MOCK_STRATEGY_JSON = json.dumps({"strategies": [
-    {
-        "angle": "direct_verification",
-        "query": "Smith et al 2023 GDP growth",
-        "rationale": "Direct search",
-    },
-    {
-        "angle": "source_tracing",
-        "query": "global GDP 2024 World Bank",
-        "rationale": "Find original source",
-    },
-]})
-
 MOCK_VERIFIER_JSON = json.dumps({
     "verdict": "fabricated",
     "confidence": 0.85,
     "summary": "No paper by Smith et al. (2023) on GDP growth found in Crossref, arXiv, or SSRN.",
+    "why_wrong": "Paper does not exist in any academic database.",
+    "correct_information": None,
     "evidence": [
         {
             "source_type": "crossref",
@@ -104,15 +92,16 @@ MOCK_VERIFIER_JSON = json.dumps({
         },
     ],
     "reasoning_chain": [
-        {"step": "premise", "content": "Claim cites Smith (2023)", "confidence_delta": 0.0},
         {
-            "step": "search",
-            "content": "Searched Crossref for 'Smith GDP 2023'",
-            "evidence_ref": "https://api.crossref.org",
-            "confidence_delta": 0.3,
+            "action": "search_crossref",
+            "observation": "0 results for Smith GDP 2023",
+            "reasoning": "No matching paper found in Crossref.",
         },
-        {"step": "search", "content": "arXiv and SSRN: no results", "confidence_delta": 0.2},
-        {"step": "inference", "content": "No paper found → fabricated", "confidence_delta": 0.35},
+        {
+            "action": "search_arxiv",
+            "observation": "No results",
+            "reasoning": "No paper found → fabricated.",
+        },
     ],
 })
 
@@ -120,8 +109,11 @@ MOCK_FRESHNESS_JSON = json.dumps({
     "verdict": "stale",
     "confidence": 0.9,
     "summary": "US unemployment was 3.4% in March 2025 but has been revised to 3.6% in April 2025.",
-    "as_of_date": "March 2025",
-    "current_value": "3.6% (April 2025)",
+    "why_wrong": "Unemployment figure has been revised upward in April 2025 release.",
+    "correct_information": {
+        "value": "3.6%",
+        "source": "FRED UNRATE series April 2025",
+    },
     "evidence": [
         {
             "source_type": "fred",
@@ -130,15 +122,16 @@ MOCK_FRESHNESS_JSON = json.dumps({
         },
     ],
     "reasoning_chain": [
-        {"step": "premise", "content": "Claim states 3.4% unemployment", "confidence_delta": 0.0},
         {
-            "step": "search",
-            "content": "Checked FRED UNRATE series",
-            "evidence_ref": "https://fred.stlouisfed.org",
-            "confidence_delta": 0.4,
+            "action": "fetch_fred",
+            "observation": "FRED UNRATE shows 3.6% for April 2025",
+            "reasoning": "Claim value is stale; superseded by newer release.",
         },
-        {"step": "comparison", "content": "3.4% vs 3.6%", "confidence_delta": 0.3},
-        {"step": "inference", "content": "Superseded by newer release", "confidence_delta": 0.2},
+        {
+            "action": "compare_values",
+            "observation": "3.4% (claim) vs 3.6% (current)",
+            "reasoning": "Significant revision warrants stale verdict.",
+        },
     ],
 })
 
@@ -149,35 +142,6 @@ MOCK_REPORTER_JSON = json.dumps({
         "## Audit Summary\n\n2 issues found:"
         " 1 fabricated citation, 1 stale data point."
     ),
-})
-
-MOCK_ATTACKER_JSON = json.dumps({
-    "attack_points": ["Could be an unpublished preprint", "Crossref doesn't index all papers"],
-    "strongest_attack": "Some working papers aren't in Crossref or arXiv",
-    "attack_strength": 0.25,
-    "evidence_specificity": 0.8,
-})
-
-MOCK_DEFENDER_JSON = json.dumps({
-    "rebuttals": [
-        {"attack_point": "Could be an unpublished preprint", "response": "rebut",
-         "argument": "GDP growth claims cite published works, not preprints"},
-        {"attack_point": "Crossref doesn't index all papers", "response": "rebut",
-         "argument": "We also checked arXiv, SSRN, and Scholar - all negative"},
-    ],
-    "defense_holds": True,
-    "defense_confidence": 0.88,
-})
-
-MOCK_JUDGE_JSON = json.dumps({
-    "ruling": "verdict_stands",
-    "revised_verdict": None,
-    "final_confidence": 0.90,
-    "ruling_reasoning": (
-        "Attack raised weak points that were fully rebutted."
-        " 3 authoritative sources confirm absence."
-    ),
-    "key_factors": ["Exhaustive search across 3 databases", "No working paper trail either"],
 })
 
 
@@ -235,7 +199,7 @@ def settings():
 
 @pytest.mark.asyncio
 async def test_full_pipeline_dryrun(settings, tmp_path):
-    """Full pipeline dry-run: all 13 nodes execute, data flows correctly."""
+    """Full pipeline dry-run: all nodes execute, data flows correctly."""
 
     # Track which mock was called for which stage
     call_sequence = []
@@ -244,13 +208,13 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
     mock_client = MagicMock()
     planner_stream = MockMiromindStream(MOCK_PLANNER_JSON)
     verifier_stream = MockMiromindStream(MOCK_VERIFIER_JSON)
-    freshness_stream = MockMiromindStream(MOCK_FRESHNESS_JSON)
     consistency_stream = MockMiromindStream(MOCK_CONSISTENCY_JSON)
     reporter_stream = MockMiromindStream(MOCK_REPORTER_JSON)
 
     submit_count = {"n": 0}
+    # unified_verifier handles all claims (citation + numerical-data)
     responses = [planner_stream, verifier_stream, verifier_stream,
-                 freshness_stream, consistency_stream, reporter_stream]
+                 consistency_stream, reporter_stream]
 
     async def mock_submit(**kwargs):
         idx = min(submit_count["n"], len(responses) - 1)
@@ -272,27 +236,15 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
     mock_cheap = AsyncMock()
 
     from argus.agents.atomizer import AtomOutput
-    from argus.agents.challenger import AttackerOutput, DefenderOutput, JudgeOutput
     from argus.agents.checkworthiness import CheckworthinessResult
-    from argus.agents.evidence_hunter import StrategyOutput
 
     async def mock_cheap_complete(system_prompt, user_input, model_cls):
-        """Return appropriate mock based on model_cls (primary) or prompt (fallback)."""
-        # Match by model class first — always unambiguous
-        if model_cls == AttackerOutput:
-            return AttackerOutput.model_validate_json(MOCK_ATTACKER_JSON)
-        elif model_cls == DefenderOutput:
-            return DefenderOutput.model_validate_json(MOCK_DEFENDER_JSON)
-        elif model_cls == JudgeOutput:
-            return JudgeOutput.model_validate_json(MOCK_JUDGE_JSON)
-        elif model_cls == AtomOutput:
+        """Return appropriate mock based on model_cls."""
+        if model_cls == AtomOutput:
             return AtomOutput.model_validate_json(MOCK_ATOMIZER_JSON)
         elif model_cls == CheckworthinessResult:
             return CheckworthinessResult.model_validate_json(MOCK_CHECKWORTHINESS_JSON)
-        elif model_cls == StrategyOutput:
-            return StrategyOutput.model_validate_json(MOCK_STRATEGY_JSON)
-        # Fallback by prompt content
-        return StrategyOutput.model_validate_json(MOCK_STRATEGY_JSON)
+        return AtomOutput.model_validate_json(MOCK_ATOMIZER_JSON)
 
     mock_cheap.complete = mock_cheap_complete
     mock_cheap.close = AsyncMock()
@@ -317,15 +269,11 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
     assert len(job.claims) > 0, "Should have claims"
     assert job.audit_report_md is not None, "Should have report"
 
-    # Verify findings have new innovation features
+    # Verify findings have confidence breakdown from algorithmic calculator
     for f in job.findings:
         assert isinstance(f, Finding)
-        # After challenger, findings should have reasoning chain + confidence breakdown
-        if f.challenge_result:
-            assert f.confidence_breakdown is not None, \
-                f"Finding {f.id} missing confidence_breakdown after challenge"
-            assert len(f.reasoning_chain) > 0, \
-                f"Finding {f.id} missing reasoning_chain after challenge"
+        assert f.confidence_breakdown is not None, \
+            f"Finding {f.id} missing confidence_breakdown"
 
     print(f"Pipeline completed: status={job.status}")
     print(f"  Claims: {len(job.claims)}")
@@ -335,8 +283,7 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
     print(f"  Cost: ${job.cost_usd:.4f}")
     for f in job.findings:
         print(f"  Finding: {f.verdict.value} (conf={f.confidence:.2f}) "
-              f"chain={len(f.reasoning_chain)} steps, "
-              f"challenge={f.challenge_result[:40] if f.challenge_result else 'none'}")
+              f"chain={len(f.reasoning_chain)} steps")
 
 
 if __name__ == "__main__":

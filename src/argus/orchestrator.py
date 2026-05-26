@@ -1,18 +1,14 @@
-"""Argus orchestrator — LangGraph parallel 5-agent pipeline (Plan B2).
+"""Argus orchestrator — LangGraph parallel pipeline.
 
 Flow (LangGraph StateGraph):
 
-    parse_pdf  ->  planner  ---->  verifier     ---+
-                            +-->   alignment    --->  reporter  ->  END
-                            +-->   freshness    ---+
-                            +-->   consistency  ---+
+  Phase A: parse_pdf → planner → atomizer → checkworthiness
+  Phase B: unified_verifier  ---+
+           consistency       --->  confidence → reporter → END
 
-Each specialist node:
-  * receives the full claims list from State,
-  * filters claims it handles,
-  * runs them through `asyncio.gather` bounded by a per-agent semaphore,
-  * appends to `findings` / `traces` / `evidences` (LangGraph reducers
-    merge across the 4 parallel branches without races).
+The UnifiedVerifier processes ALL claims (no claim-type filtering) and
+lets MiroMind decide the verification strategy. Domain hints are injected
+based on claim type and content domain.
 
 Engineering controls:
   * BoundedRunner per agent caps in-flight per-claim concurrency.
@@ -40,15 +36,13 @@ if TYPE_CHECKING:
 
 from argus.agents.atomizer import run_atomizer
 from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
-from argus.agents.challenger import challenge_findings
 from argus.agents.checkworthiness import run_checkworthiness
-from argus.agents.citation_alignment import check_alignment
-from argus.agents.citation_verifier import verify_citation
+from argus.agents.confidence_calculator import compute_confidence_breakdown
 from argus.agents.consistency import ConsistencyOutput, check_consistency
-from argus.agents.data_freshness import check_freshness
-from argus.agents.evidence_hunter import plan_search_strategies
+from argus.agents.domain_hints import get_domain_hint
 from argus.agents.planner import run_planner
 from argus.agents.reporter import run_reporter
+from argus.agents.unified_verifier import verify_claim
 from argus.config import Settings
 from argus.engineering import (
     BoundedRunner,
@@ -63,8 +57,8 @@ from argus.log import log
 from argus.miromind.client import MiromindClient
 from argus.models.domain import (
     Claim,
-    ClaimType,
     Evidence,
+    EvidenceSource,
     Finding,
     FindingVerdict,
     Job,
@@ -77,32 +71,31 @@ from argus.pdf.parser import ParsedDoc, ParsedPage, parse_pdf
 from argus.trace_bus.base import TraceBus, TraceEvent
 
 _CONTEXT_WINDOW_CHARS = 200
-# Per-agent concurrency. Kept conservative so the four specialist nodes fanning
-# out in parallel (verifier + alignment + freshness + consistency) don't pile
-# 16 concurrent MiroMind requests onto the API at once — the live runs at this
-# rate triggered cascading 429s and 503s. With 1 here the total concurrency
-# is bounded by the number of specialist agents (4) which the API handles.
+# Per-agent concurrency. Kept conservative so the parallel nodes
+# (unified_verifier + consistency) don't pile too many concurrent MiroMind
+# requests onto the API at once.
 _MAX_CONCURRENT_PER_AGENT = 1
 
-_VERIFIER_SEVERITY: dict[FindingVerdict, Severity] = {
+_UNIFIED_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.FABRICATED: Severity.MAJOR,
-    FindingVerdict.PARTIAL_MATCH: Severity.MINOR,
-    FindingVerdict.OK: Severity.MINOR,
-    FindingVerdict.UNCERTAIN: Severity.MINOR,
-}
-_ALIGNMENT_SEVERITY: dict[FindingVerdict, Severity] = {
-    FindingVerdict.MISMATCH: Severity.MAJOR,
+    FindingVerdict.INACCURATE: Severity.MAJOR,
+    FindingVerdict.OUTDATED: Severity.MAJOR,
     FindingVerdict.MISREPRESENTED: Severity.CRITICAL,
-    FindingVerdict.PARTIAL_MATCH: Severity.MINOR,
-    FindingVerdict.OK: Severity.MINOR,
-    FindingVerdict.UNCERTAIN: Severity.MINOR,
-}
-_FRESHNESS_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.STALE: Severity.MAJOR,
     FindingVerdict.SUPERSEDED: Severity.CRITICAL,
+    FindingVerdict.PARTIAL_MATCH: Severity.MINOR,
+    FindingVerdict.MISMATCH: Severity.MAJOR,
     FindingVerdict.OK: Severity.MINOR,
     FindingVerdict.UNCERTAIN: Severity.MINOR,
 }
+
+
+def _coerce_evidence_source(raw: str) -> EvidenceSource:
+    """Map a free-form source_type string from MiroMind to the enum, fallback WEB_PAGE."""
+    try:
+        return EvidenceSource(raw)
+    except ValueError:
+        return EvidenceSource.WEB_PAGE
 
 
 def _dict_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
@@ -119,11 +112,7 @@ class _State(TypedDict, total=False):
     # Phase A outputs — preserved for UI display
     original_claims: list[Claim]
     filtered_claims: list[dict[str, str]]  # [{"claim_id","text","reason"}]
-    # Multi-strategy search plans (claim_id -> strategies)
-    search_strategies: dict[str, list[Any]]
     findings: Annotated[list[Finding], operator.add]
-    # Challenger overwrites findings after adversarial review
-    challenged_findings: list[Finding] | None
     traces: Annotated[dict[str, ReasoningTrace], _dict_merge]
     evidences: Annotated[list[Evidence], operator.add]
     audit_report_md: str | None
@@ -178,9 +167,7 @@ async def audit_pdf(
         "claims": [],
         "original_claims": [],
         "filtered_claims": [],
-        "search_strategies": {},
         "findings": [],
-        "challenged_findings": None,
         "traces": {},
         "evidences": [],
         "audit_report_md": None,
@@ -240,9 +227,7 @@ async def audit_text(
         "claims": [],
         "original_claims": [],
         "filtered_claims": [],
-        "search_strategies": {},
         "findings": [],
-        "challenged_findings": None,
         "traces": {},
         "evidences": [],
         "audit_report_md": None,
@@ -282,9 +267,7 @@ async def _run_pipeline(
     runners = {
         agent: BoundedRunner(max_concurrent=_MAX_CONCURRENT_PER_AGENT)
         for agent in (
-            "citation_verifier",
-            "citation_alignment",
-            "data_freshness",
+            "unified_verifier",
             "consistency",
         )
     }
@@ -401,11 +384,7 @@ async def _finalize(
         await cheap_client.close()
 
     job.claims = list(final_state.get("claims", []))
-    # Prefer challenger-enriched findings
-    job.findings = list(
-        final_state.get("challenged_findings")
-        or final_state.get("findings", [])
-    )
+    job.findings = list(final_state.get("findings", []))
     job.traces = list(final_state.get("traces", {}).values())
     job.evidences = list(final_state.get("evidences", []))
     job.audit_report_md = final_state.get("audit_report_md")
@@ -510,37 +489,33 @@ class _Publisher:
 
 
 def _build_phase_a(ctx: _Ctx) -> Any:
-    """Phase A: parse → planner → atomizer → checkworthiness → evidence_hunter."""
+    """Phase A: parse → planner → atomizer → checkworthiness."""
     graph: Any = StateGraph(_State)
     graph.add_node("parse_pdf", _parse_node(ctx))
     graph.add_node("planner", _planner_node(ctx))
     graph.add_node("atomizer", _atomizer_node(ctx))
     graph.add_node("checkworthiness", _checkworthiness_node(ctx))
-    graph.add_node("evidence_hunter", _evidence_hunter_node(ctx))
 
     graph.add_edge(START, "parse_pdf")
     graph.add_edge("parse_pdf", "planner")
     graph.add_edge("planner", "atomizer")
     graph.add_edge("atomizer", "checkworthiness")
-    graph.add_edge("checkworthiness", "evidence_hunter")
-    graph.add_edge("evidence_hunter", END)
+    graph.add_edge("checkworthiness", END)
     return graph.compile()
 
 
 def _build_phase_b(ctx: _Ctx) -> Any:
-    """Phase B: specialists (parallel) → challenger → reporter."""
+    """Phase B: unified_verifier + consistency (parallel) → confidence → reporter."""
     graph: Any = StateGraph(_State)
-    graph.add_node("citation_verifier", _verifier_node(ctx))
-    graph.add_node("citation_alignment", _alignment_node(ctx))
-    graph.add_node("data_freshness", _freshness_node(ctx))
+    graph.add_node("unified_verifier", _unified_verifier_node(ctx))
     graph.add_node("consistency", _consistency_node(ctx))
-    graph.add_node("challenger", _challenger_node(ctx))
+    graph.add_node("confidence", _confidence_node(ctx))
     graph.add_node("reporter", _reporter_node(ctx))
 
-    for n in ("citation_verifier", "citation_alignment", "data_freshness", "consistency"):
+    for n in ("unified_verifier", "consistency"):
         graph.add_edge(START, n)
-        graph.add_edge(n, "challenger")
-    graph.add_edge("challenger", "reporter")
+        graph.add_edge(n, "confidence")
+    graph.add_edge("confidence", "reporter")
     graph.add_edge("reporter", END)
     return graph.compile()
 
@@ -638,139 +613,124 @@ def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, A
     return node
 
 
-def _evidence_hunter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
         if state.get("aborted"):
             return {}
         claims = state.get("claims", [])
-        if not claims or not ctx.cheap_client:
+        if not claims:
             return {}
-        try:
-            strategies = await plan_search_strategies(
-                ctx.cheap_client, claims, content_domain=ctx.content_domain
+
+        doc = state.get("doc")
+        runner = ctx.runners["unified_verifier"]
+
+        async def run_for_claim(
+            claim: Claim,
+        ) -> tuple[Claim, AgentResult[Any] | None, Exception | None]:
+            async with runner.acquire():
+                surrounding = _surrounding_text(doc, claim) if doc else ""
+                domain_hint = get_domain_hint(
+                    claim_type=claim.type, content_domain=ctx.content_domain,
+                )
+                _ = make_idempotency_key(ctx.job_id, "UnifiedVerifier", claim.id)
+                try:
+                    result = await verify_claim(
+                        ctx.client, claim.text,
+                        surrounding=surrounding,
+                        domain_hint=domain_hint,
+                    )
+                    return claim, result, None
+                except JsonRepairFailed as exc:
+                    log.warning(
+                        "orchestrator.specialist_failed",
+                        agent="UnifiedVerifier",
+                        claim_id=claim.id,
+                        error=str(exc)[:300],
+                    )
+                    return claim, None, exc
+                except (asyncio.CancelledError, BudgetExceeded):
+                    raise
+                except Exception as exc:
+                    log.warning(
+                        "orchestrator.specialist_failed",
+                        agent="UnifiedVerifier",
+                        claim_id=claim.id,
+                        error_type=type(exc).__name__,
+                        error=str(exc)[:300],
+                    )
+                    return claim, None, exc
+
+        results = await asyncio.gather(*(run_for_claim(c) for c in claims))
+
+        new_findings: list[Finding] = []
+        new_traces: dict[str, ReasoningTrace] = {}
+        new_evidences: list[Evidence] = []
+
+        for claim, agent_result, failure in results:
+            if failure is not None or agent_result is None:
+                continue
+            try:
+                _charge_result(ctx, agent_result)
+            except BudgetExceeded as exc:
+                log.warning(
+                    "orchestrator.budget_exceeded_at_specialist",
+                    agent="UnifiedVerifier",
+                    error=str(exc),
+                )
+                return {
+                    "aborted": True,
+                    "abort_reason": str(exc),
+                    "findings": new_findings,
+                    "traces": new_traces,
+                    "evidences": new_evidences,
+                }
+            trace = _build_trace(
+                job_id=ctx.job_id, claim_id=claim.id,
+                agent="UnifiedVerifier", stream=agent_result.final,
             )
-        except Exception as exc:
-            log.warning("orchestrator.evidence_hunter_failed", error=str(exc)[:300])
-            return {}
-        n_strategies = sum(len(v) for v in strategies.values())
-        log.info("orchestrator.search_planned", n_claims=len(claims),
-                 n_strategies=n_strategies)
-        await ctx.publisher.publish("search_planned", {
-            "n_claims": len(claims),
-            "n_strategies": n_strategies,
-            "strategies": {
-                cid: [{"angle": s.angle, "query": s.query, "rationale": s.rationale}
-                      for s in strats]
-                for cid, strats in strategies.items()
-            },
-        })
-        return {"search_strategies": strategies}
+            new_traces[trace.id] = trace
+            finding, ev_records = _make_unified_finding(
+                job_id=ctx.job_id,
+                claim=claim,
+                parsed=agent_result.parsed,
+                trace=trace,
+            )
+            new_findings.append(finding)
+            new_evidences.extend(ev_records)
+            await ctx.publisher.publish("step", _step_payload(trace))
+            await ctx.publisher.publish("finding", _finding_payload(finding))
+
+        return {
+            "findings": new_findings,
+            "traces": new_traces,
+            "evidences": new_evidences,
+        }
     return node
 
 
-def _challenger_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
+    """Compute algorithmic confidence breakdown for each finding.
+
+    NOTE: We mutate findings in-place rather than returning them through the
+    state reducer (``Annotated[list[Finding], operator.add]``), because the
+    add-reducer would *duplicate* findings instead of replacing them.  This
+    is safe as long as LangGraph passes the same Python objects (true for
+    in-process ``StateGraph`` without checkpointing).  If checkpointing is
+    added later, switch ``findings`` to a dict-based reducer keyed by ID.
+    """
     async def node(state: _State) -> dict[str, Any]:
         if state.get("aborted"):
             return {}
         findings = state.get("findings", [])
-        if not findings or not ctx.cheap_client:
+        if not findings:
             return {}
-        # Build claim_id -> text mapping for context
-        claims_map: dict[str, str] = {
-            c.id: c.text for c in state.get("claims", [])
-        }
-        # Build finding_id -> evidences mapping for algorithmic confidence
         all_evidences = state.get("evidences", [])
-        evidences_map: dict[str, list[Any]] = {}
         for f in findings:
-            evidences_map[f.id] = [
-                e for e in all_evidences if e.id in f.evidence_ids
-            ]
-        try:
-            challenged = await challenge_findings(
-                ctx.cheap_client, findings, claims_map,
-                evidences_map=evidences_map,
-            )
-        except Exception as exc:
-            log.warning("orchestrator.challenger_failed", error=str(exc)[:300])
-            return {}
-        n_revised = sum(
-            1 for f in challenged
-            if f.challenge_result and "verdict_revised" in (f.challenge_result or "").lower()
-        )
-        log.info("orchestrator.debated", n_findings=len(findings),
-                 n_revised=n_revised)
-        await ctx.publisher.publish("challenged", {
-            "n_findings": len(findings),
-            "n_revised": n_revised,
-            "debate_protocol": "attacker_defender_judge",
-        })
-        # Store in separate field to avoid operator.add doubling
-        return {"challenged_findings": challenged}
+            evs = [e for e in all_evidences if e.id in f.evidence_ids]
+            f.confidence_breakdown = compute_confidence_breakdown(f, evs)
+        return {}
     return node
 
-
-def _verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        strategies = state.get("search_strategies", {})
-        return await _per_claim_specialist(
-            ctx=ctx,
-            state=state,
-            claim_filter=lambda c: c.type == ClaimType.CITATION,
-            agent_name="CitationVerifier",
-            metadata_agent="citation_verifier",
-            severity_map=_VERIFIER_SEVERITY,
-            run_call=lambda claim, surrounding, strats: verify_citation(
-                ctx.client, claim, surrounding=surrounding,
-                search_strategies=strats,
-            ),
-            uses_surrounding=True,
-            search_strategies=strategies,
-        )
-    return node
-
-
-def _alignment_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        return await _per_claim_specialist(
-            ctx=ctx,
-            state=state,
-            claim_filter=lambda c: c.type == ClaimType.CITATION,
-            agent_name="CitationAlignment",
-            metadata_agent="citation_alignment",
-            severity_map=_ALIGNMENT_SEVERITY,
-            run_call=lambda claim, surrounding, _strats: check_alignment(
-                ctx.client, claim, surrounding=surrounding
-            ),
-            uses_surrounding=True,
-        )
-    return node
-
-
-def _freshness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        strategies = state.get("search_strategies", {})
-        return await _per_claim_specialist(
-            ctx=ctx,
-            state=state,
-            claim_filter=lambda c: c.type
-            in (ClaimType.NUMERICAL_DATA, ClaimType.TIME_SENSITIVE),
-            agent_name="DataFreshness",
-            metadata_agent="data_freshness",
-            severity_map=_FRESHNESS_SEVERITY,
-            run_call=lambda claim, _, strats: check_freshness(
-                ctx.client, claim, search_strategies=strats,
-            ),
-            uses_surrounding=False,
-            search_strategies=strategies,
-        )
-    return node
 
 
 def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -810,8 +770,7 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
 
 def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        # Prefer challenger-enriched findings over raw ones
-        findings = state.get("challenged_findings") or state.get("findings", [])
+        findings = state.get("findings", [])
         if not findings:
             return {}
         try:
@@ -1014,6 +973,66 @@ def _make_finding(
     return finding, evidence_records
 
 
+def _make_unified_finding(
+    *,
+    job_id: str,
+    claim: Claim,
+    parsed: Any,
+    trace: ReasoningTrace,
+) -> tuple[Finding, list[Evidence]]:
+    from argus.models.domain import CorrectedInfo, VerificationStep
+
+    evidence_records: list[Evidence] = []
+    evidence_ids: list[str] = []
+    for ev in parsed.evidence:
+        coerced = _coerce_evidence_source(ev.source_type)
+        e = Evidence(
+            id=f"ev_{uuid4().hex[:12]}",
+            source_type=coerced,
+            url=ev.url,
+            citation=ev.url or f"{coerced.value} query",
+            snippet=ev.snippet,
+            retrieved_by_step_id=trace.steps[-1].id if trace.steps else "n/a",
+        )
+        evidence_records.append(e)
+        evidence_ids.append(e.id)
+
+    reasoning_chain: list[VerificationStep] = []
+    for rs in parsed.reasoning_chain:
+        reasoning_chain.append(VerificationStep(
+            action=rs.action,
+            observation=rs.observation,
+            reasoning=rs.reasoning,
+        ))
+
+    corrected = None
+    if parsed.correct_information is not None:
+        ci = parsed.correct_information
+        corrected = CorrectedInfo(
+            value=ci.value,
+            source=ci.source,
+            url=ci.url,
+            retrieved_date=ci.retrieved_date,
+        )
+
+    finding = Finding(
+        id=f"f_{uuid4().hex[:12]}",
+        job_id=job_id,
+        claim_id=claim.id,
+        agent="UnifiedVerifier",
+        verdict=parsed.verdict,
+        severity=_UNIFIED_SEVERITY.get(parsed.verdict, Severity.MINOR),
+        confidence=parsed.confidence,
+        summary=parsed.summary,
+        why_wrong=parsed.why_wrong,
+        correct_information=corrected,
+        reasoning_chain=reasoning_chain,
+        evidence_ids=evidence_ids,
+        reasoning_trace_id=trace.id,
+    )
+    return finding, evidence_records
+
+
 def _contradictions_to_findings(
     *, job_id: str, parsed: ConsistencyOutput, trace_id: str
 ) -> list[Finding]:
@@ -1098,6 +1117,8 @@ def _step_payload(trace: ReasoningTrace, *, n_claims: int | None = None) -> dict
 
 
 def _finding_payload(finding: Finding) -> dict[str, Any]:
+    from argus.models.domain import VerificationStep
+
     payload: dict[str, Any] = {
         "finding_id": finding.id,
         "claim_id": finding.claim_id,
@@ -1106,12 +1127,33 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
         "severity": finding.severity.value,
         "summary": finding.summary,
     }
+    if finding.why_wrong:
+        payload["why_wrong"] = finding.why_wrong
+    if finding.correct_information:
+        ci = finding.correct_information
+        payload["correct_information"] = {
+            "value": ci.value,
+            "source": ci.source,
+            "url": ci.url,
+            "retrieved_date": ci.retrieved_date,
+        }
     if finding.reasoning_chain:
-        payload["reasoning_chain"] = [
-            {"step": rs.step, "content": rs.content,
-             "evidence_ref": rs.evidence_ref, "confidence_delta": rs.confidence_delta}
-            for rs in finding.reasoning_chain
-        ]
+        chain: list[dict[str, Any]] = []
+        for rs in finding.reasoning_chain:
+            if isinstance(rs, VerificationStep):
+                chain.append({
+                    "action": rs.action,
+                    "observation": rs.observation,
+                    "reasoning": rs.reasoning,
+                })
+            else:
+                chain.append({
+                    "step": rs.step,
+                    "content": rs.content,
+                    "evidence_ref": rs.evidence_ref,
+                    "confidence_delta": rs.confidence_delta,
+                })
+        payload["reasoning_chain"] = chain
     if finding.confidence_breakdown:
         cb = finding.confidence_breakdown
         payload["confidence_breakdown"] = {
@@ -1121,8 +1163,6 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
             "evidence_specificity": cb.evidence_specificity,
             "reasoning": cb.reasoning,
         }
-    if finding.challenge_result:
-        payload["challenge_result"] = finding.challenge_result
     return payload
 
 

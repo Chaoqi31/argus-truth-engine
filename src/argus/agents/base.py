@@ -257,6 +257,18 @@ def _tool_call_summary(tool_name: str, item: dict[str, Any]) -> str:
     return tool_name or "tool_call"
 
 
+def _unwrap_single_element_array(text: str) -> str:
+    """If *text* is a JSON array containing exactly one object, return that object.
+
+    MiroMind's deep-research models occasionally wrap the result in ``[{…}]``
+    instead of ``{…}``.  Pydantic expects an object, so we unwrap it here.
+    """
+    parsed = json.loads(text)
+    if isinstance(parsed, list) and len(parsed) == 1 and isinstance(parsed[0], dict):
+        return json.dumps(parsed[0], ensure_ascii=False)
+    return text
+
+
 def _extract_json(text: str) -> str:
     """Strip whitespace / fences and return what looks like the JSON object.
 
@@ -279,7 +291,7 @@ def _extract_json(text: str) -> str:
         text = text[start:end]
     try:
         json.loads(text)
-        return text
+        return _unwrap_single_element_array(text)
     except json.JSONDecodeError:
         pass
     # json_repair returns "" if it can't recover anything useful.
@@ -289,4 +301,4 @@ def _extract_json(text: str) -> str:
         raise json.JSONDecodeError("json_repair could not recover", text, 0)
     # Sanity-check that the repaired text now parses.
     json.loads(repaired)
-    return repaired
+    return _unwrap_single_element_array(repaired)
