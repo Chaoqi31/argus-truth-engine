@@ -219,6 +219,7 @@ class Job(_Base):
     status: Literal[
         "queued", "parsing", "planning", "atomizing", "filtering",
         "reviewing", "verifying", "reporting", "done", "failed",
+        "interrupted",
     ] = "queued"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None

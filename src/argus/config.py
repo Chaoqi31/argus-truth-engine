@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     miromind_rps: float = 10.0
     miromind_rps_burst: int = 20
 
+    # --- Result cache (Phase 4) ---
+    cache_enabled: bool = True
+    cache_ttl_days: int = 30
+    cache_ttl_time_sensitive_days: int = 3
+    # HITL timeout — replaces the 300s hardcoded value in old ReviewGate
+    hitl_timeout_s: float = 1800.0
+
 
 def settings() -> Settings:
     """Build a fresh Settings instance — tests can monkeypatch via env vars."""
