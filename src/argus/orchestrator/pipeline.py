@@ -33,21 +33,16 @@ from argus.orchestrator.nodes.reporter import _reporter_node
 from argus.trace_bus.base import TraceBus
 
 
-async def _run_pipeline(
+def _build_ctx(
     *,
     job: Job,
-    initial: _State,
-    output_path: Path,
     settings: Settings,
     client: MiromindClient,
     budget_usd: float,
-    repo: JobRepository | None,
     trace_bus: TraceBus | None,
-    auto_review: bool = False,
-    checkpointer: Any = None,
-) -> Job:
-    job_id = job.id
-    budget = BudgetTracker(max_usd=budget_usd)
+    repo: "JobRepository | None",
+) -> _Ctx:
+    """Construct the per-pipeline _Ctx. Shared between fresh runs and resumes."""
     runners = {
         "unified_verifier": BoundedRunner(
             max_concurrent=settings.unified_verifier_concurrency,
@@ -56,9 +51,9 @@ async def _run_pipeline(
             max_concurrent=settings.consistency_concurrency,
         ),
     }
-    publisher = _Publisher(job_id=job_id, bus=trace_bus)
+    publisher = _Publisher(job_id=job.id, bus=trace_bus)
+    budget = BudgetTracker(max_usd=budget_usd)
 
-    # Build cheap LLM client for atomizer + checkworthiness
     cheap_client: CheapLLMClient | None = None
     if settings.cheap_llm_api_key:
         cheap_client = CheapLLMClient(
@@ -77,17 +72,44 @@ async def _run_pipeline(
             time_sensitive_ttl_days=settings.cache_ttl_time_sensitive_days,
         )
 
-    ctx = _Ctx(
+    return _Ctx(
         client=client,
         settings=settings,
         budget=budget,
         runners=runners,
-        job_id=job_id,
+        job_id=job.id,
         publisher=publisher,
         cheap_client=cheap_client,
         content_domain=job.content_domain.value,
         cache=cache,
     )
+
+
+async def _run_pipeline(
+    *,
+    job: Job,
+    initial: _State,
+    output_path: Path,
+    settings: Settings,
+    client: MiromindClient,
+    budget_usd: float,
+    repo: JobRepository | None,
+    trace_bus: TraceBus | None,
+    auto_review: bool = False,
+    checkpointer: Any = None,
+) -> Job:
+    job_id = job.id
+    ctx = _build_ctx(
+        job=job,
+        settings=settings,
+        client=client,
+        budget_usd=budget_usd,
+        trace_bus=trace_bus,
+        repo=repo,
+    )
+    budget = ctx.budget
+    publisher = ctx.publisher
+    cheap_client = ctx.cheap_client
 
     await publisher.publish("started", {"input_mode": job.input_mode})
 

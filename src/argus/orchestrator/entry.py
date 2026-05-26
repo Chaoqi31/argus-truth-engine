@@ -4,14 +4,14 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
+from typing import TYPE_CHECKING
+
 from argus.config import Settings
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Job
 from argus.orchestrator.context import _State
-from argus.orchestrator.pipeline import _run_pipeline
+from argus.orchestrator.pipeline import _build_ctx, _build_phase_a, _build_phase_b, _finalize, _run_pipeline
 from argus.trace_bus.base import TraceBus
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from argus.db.repository import JobRepository
@@ -136,4 +136,69 @@ async def audit_text(
             trace_bus=trace_bus,
             auto_review=auto_review,
             checkpointer=checkpointer,
+        )
+
+
+async def audit_resume(
+    *,
+    job_id: str,
+    selected_claim_ids: list[str] | None,
+    settings: Settings,
+    client: MiromindClient,
+    budget_usd: float,
+    repo: "JobRepository",
+    trace_bus: TraceBus | None,
+    output_path: Path,
+) -> Job:
+    """Resume an interrupted job from its checkpointer state.
+
+    ``selected_claim_ids``:
+      * list — submitted from HITL review; passes as resume value
+      * None — generic "continue from where you left off"
+    """
+    from langgraph.types import Command
+
+    from argus.orchestrator.checkpointer import build_checkpointer
+
+    job = await repo.get_job(job_id)
+    if job is None:
+        raise RuntimeError(f"job {job_id} not found")
+
+    async with build_checkpointer(settings) as checkpointer:
+        ctx = _build_ctx(
+            job=job,
+            settings=settings,
+            client=client,
+            budget_usd=budget_usd,
+            trace_bus=trace_bus,
+            repo=repo,
+        )
+        config = {"configurable": {"thread_id": job_id}}
+
+        phase_a = _build_phase_a(ctx, checkpointer=checkpointer, auto_review=False)
+
+        if selected_claim_ids is not None:
+            resumed_state = await phase_a.ainvoke(
+                Command(resume=selected_claim_ids), config,
+            )
+        else:
+            resumed_state = await phase_a.ainvoke(None, config)
+
+        phase_b = _build_phase_b(ctx, checkpointer=checkpointer)
+        raised_exc: Exception | None = None
+        try:
+            final_state = await phase_b.ainvoke(resumed_state, config)
+        except Exception as exc:
+            raised_exc = exc
+            final_state = resumed_state
+
+        return await _finalize(
+            job,
+            final_state,
+            ctx.budget,
+            ctx.publisher,
+            output_path,
+            repo,
+            raised_exc,
+            ctx.cheap_client,
         )
