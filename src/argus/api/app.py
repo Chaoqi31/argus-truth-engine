@@ -58,6 +58,16 @@ def create_app(*, settings: Settings) -> FastAPI:
                 build_checkpointer(state.settings)
             )
 
+            # Register the rest of the teardowns on the same exit stack so
+            # they fire regardless of where startup might raise (mark-zombie
+            # below, lifespan body, or shutdown). LIFO order at exit:
+            #   db_engine.dispose() → trace_bus.close() → checkpointer.__aexit__()
+            if state.db_engine is not None:
+                stack.push_async_callback(state.db_engine.dispose)
+            close_bus = getattr(state.trace_bus, "close", None)
+            if close_bus is not None:
+                stack.push_async_callback(close_bus)
+
             # Startup: mark abandoned jobs (worker died mid-flight) as interrupted
             if state.repo is not None:
                 n_flipped = await state.repo.mark_running_as_interrupted()
@@ -65,14 +75,7 @@ def create_app(*, settings: Settings) -> FastAPI:
                     from argus.log import log
                     log.info("startup.zombie_jobs_marked_interrupted",
                              count=n_flipped)
-            try:
-                yield
-            finally:
-                close_bus = getattr(state.trace_bus, "close", None)
-                if close_bus is not None:
-                    await close_bus()
-                if state.db_engine is not None:
-                    await state.db_engine.dispose()
+            yield
 
     app = FastAPI(
         title="Argus API",
