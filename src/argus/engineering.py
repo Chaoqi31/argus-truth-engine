@@ -139,6 +139,48 @@ def make_idempotency_key(job_id: str, agent: str, claim_id: str) -> str:
     return hashlib.sha1(raw, usedforsecurity=False).hexdigest()[:16]
 
 
+# --- Rate limiting -------------------------------------------------------
+
+
+class TokenBucket:
+    """Process-wide async leaky-bucket rate limiter.
+
+    Tokens refill continuously at ``rate_per_s``; capacity bounds burst size.
+    ``acquire()`` blocks asynchronously until a token is available.
+
+    Thread-safe within a single event loop. Do not share across loops.
+    """
+
+    def __init__(self, *, rate_per_s: float, capacity: int) -> None:
+        if rate_per_s <= 0:
+            raise ValueError("rate_per_s must be > 0")
+        if capacity < 1:
+            raise ValueError("capacity must be >= 1")
+        self._rate = rate_per_s
+        self._capacity = capacity
+        self._tokens = float(capacity)
+        self._last: float | None = None  # set on first acquire from the running loop
+        self._lock = asyncio.Lock()
+
+    async def acquire(self, tokens: int = 1) -> None:
+        if tokens > self._capacity:
+            raise ValueError(f"requested {tokens} tokens > capacity {self._capacity}")
+        async with self._lock:
+            while True:
+                loop = asyncio.get_running_loop()
+                now = loop.time()
+                if self._last is None:
+                    self._last = now
+                elapsed = now - self._last
+                self._tokens = min(self._capacity, self._tokens + elapsed * self._rate)
+                self._last = now
+                if self._tokens >= tokens:
+                    self._tokens -= tokens
+                    return
+                wait_s = (tokens - self._tokens) / self._rate
+                await asyncio.sleep(wait_s)
+
+
 # --- Retry ----------------------------------------------------------------
 
 

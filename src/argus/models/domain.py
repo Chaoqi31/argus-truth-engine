@@ -191,6 +191,7 @@ class Finding(_Base):
     reasoning_trace_id: str
     related_finding_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    from_cache: bool = False
 
 
 class ContentDomain(StrEnum):
@@ -218,6 +219,7 @@ class Job(_Base):
     status: Literal[
         "queued", "parsing", "planning", "atomizing", "filtering",
         "reviewing", "verifying", "reporting", "done", "failed",
+        "interrupted",
     ] = "queued"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None

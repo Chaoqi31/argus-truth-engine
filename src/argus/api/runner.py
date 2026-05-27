@@ -18,6 +18,7 @@ from argus.log import log
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Job
 from argus.orchestrator import audit_pdf, audit_text
+from argus.orchestrator.entry import audit_resume
 
 
 @dataclass
@@ -72,7 +73,7 @@ class JobRunner:
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
-                    review_gate=self.state.review_gate,
+                    checkpointer=self.state.checkpointer,
                 )
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status
@@ -118,9 +119,9 @@ class JobRunner:
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
-                    review_gate=self.state.review_gate,
                     auto_review=auto_review,
                     content_domain=content_domain,
+                    checkpointer=self.state.checkpointer,
                 )
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status
@@ -128,6 +129,59 @@ class JobRunner:
                 self.records[job_id].status = "failed"
                 self.records[job_id].error = str(exc)[:300]
                 log.error("api.runner.text_failed", job_id=job_id, error=str(exc)[:300])
+
+        self.tasks[job_id] = asyncio.create_task(_run())
+        return job_id
+
+    async def resume(
+        self,
+        *,
+        job_id: str,
+        selected_claim_ids: list[str] | None,
+    ) -> str | None:
+        """Resume an interrupted job. Returns job_id on success, None if not found."""
+        repo = self.state.repo
+        if repo is None:
+            return None
+
+        record = self.records.get(job_id)
+        if record is None:
+            job = await repo.get_job(job_id)
+            if job is None or job.status != "interrupted":
+                return None
+            record = JobRecord(job_id=job_id, status="running")
+            self.records[job_id] = record
+        else:
+            record.status = "running"
+
+        output_path = Path(
+            self.state.storage.path_for(record.pdf_key or f"{job_id}/input.txt")
+        ).with_suffix(".findings.json")
+
+        # BYOK note: the original job already captured Phase A with the
+        # per-job client; resume uses the server-level settings/client.
+        per_job_settings = self.state.settings
+        per_job_client = MiromindClient(per_job_settings)
+
+        async def _run() -> None:
+            try:
+                job = await audit_resume(
+                    job_id=job_id,
+                    selected_claim_ids=selected_claim_ids,
+                    settings=per_job_settings,
+                    client=per_job_client,
+                    budget_usd=per_job_settings.job_budget_usd,
+                    repo=repo,
+                    trace_bus=self.state.trace_bus,
+                    output_path=output_path,
+                    checkpointer=self.state.checkpointer,
+                )
+                self.records[job_id].result = job
+                self.records[job_id].status = job.status
+            except Exception as exc:
+                self.records[job_id].status = "failed"
+                self.records[job_id].error = str(exc)[:300]
+                log.error("api.runner.resume_failed", job_id=job_id, error=str(exc)[:300])
 
         self.tasks[job_id] = asyncio.create_task(_run())
         return job_id

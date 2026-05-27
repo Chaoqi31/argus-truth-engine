@@ -50,6 +50,24 @@ class Settings(BaseSettings):
     # $5-$50 depending on PDF size; default keeps us safely under that.
     job_budget_usd: float = 50.0
 
+    # --- Concurrency & rate limits (Phase 3 of arch improvements) ---
+    # Per-agent in-flight claim cap during Phase B verification.
+    unified_verifier_concurrency: int = 5
+    consistency_concurrency: int = 2
+    # Process-wide MiroMind request rate ceiling. Shared across all jobs +
+    # all agents. Default 10 req/s gives headroom under MiroMind's
+    # documented limits while preventing 429 storms.
+    miromind_rps: float = 10.0
+    miromind_rps_burst: int = 20
+
+    # --- Result cache (Phase 4) ---
+    cache_enabled: bool = True
+    cache_ttl_days: int = 30
+    cache_ttl_time_sensitive_days: int = 3
+    # NOTE: there is no HITL timeout setting. LangGraph's interrupt() pauses
+    # indefinitely until Command(resume=...) arrives. If a polling-based
+    # timeout job is ever introduced, add the setting then.
+
 
 def settings() -> Settings:
     """Build a fresh Settings instance — tests can monkeypatch via env vars."""
