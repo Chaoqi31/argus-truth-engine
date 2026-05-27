@@ -60,3 +60,4 @@ web/.next/
 web/out/
 web/.env.local
 web/coverage/
+local.db

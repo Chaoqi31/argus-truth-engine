@@ -14,6 +14,11 @@ class JobRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._smaker = session_factory
 
+    @property
+    def sessionmaker(self) -> async_sessionmaker[AsyncSession]:
+        """Public accessor for plugging into auxiliary caches/services."""
+        return self._smaker
+
     async def save_job(self, job: Job) -> None:
         """Upsert a Job + all its nested rows.
 
@@ -42,6 +47,25 @@ class JobRepository:
             if row is None:
                 return None
             return row.to_domain()
+
+    async def mark_running_as_interrupted(self) -> int:
+        """Flip any job in 'running' state to 'interrupted'.
+
+        Called on startup — any job marked 'running' was abandoned by a
+        crashed/killed worker. Returns the number of jobs flipped.
+        """
+        from sqlalchemy import update
+
+        async with self._smaker() as session:
+            result = await session.execute(
+                update(JobRow)
+                .where(JobRow.status == "running")
+                .values(status="interrupted")
+            )
+            await session.commit()
+            # CursorResult exposes rowcount; cast for mypy since execute() is
+            # typed as Result[Any] generically.
+            return int(getattr(result, "rowcount", 0) or 0)
 
     async def list_jobs(self, *, limit: int = 20) -> list[Job]:
         async with self._smaker() as session:
