@@ -27,16 +27,23 @@ def _review_gate_node(
         if auto_review or not claims:
             return {}  # straight through
 
-        await ctx.publisher.publish("review_ready", {
-            "claims": [
-                {"id": c.id, "text": c.text, "type": c.type.value,
-                 "importance": c.importance,
-                 "parent_claim_id": c.parent_claim_id}
-                for c in claims
-            ],
-            "filtered": state.get("filtered_claims", []),
-            "n_checkworthy": len(claims),
-        })
+        # LangGraph interrupt() is replay-based: when Command(resume=...)
+        # arrives, this node body re-executes from the top. The original
+        # invocation (audit_pdf/audit_text) already published
+        # "review_ready" once; trace_bus history serves it to
+        # reconnecting clients. Skip the re-publish on resume to avoid
+        # the duplicate arriving AFTER the user has already submitted.
+        if not ctx.is_resuming:
+            await ctx.publisher.publish("review_ready", {
+                "claims": [
+                    {"id": c.id, "text": c.text, "type": c.type.value,
+                     "importance": c.importance,
+                     "parent_claim_id": c.parent_claim_id}
+                    for c in claims
+                ],
+                "filtered": state.get("filtered_claims", []),
+                "n_checkworthy": len(claims),
+            })
 
         # interrupt() raises an internal signal LangGraph catches; the
         # graph pauses and the checkpointer persists state. Resume via

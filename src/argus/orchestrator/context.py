@@ -64,6 +64,7 @@ class _Ctx:
         cheap_client: CheapLLMClient | None = None,
         content_domain: str = "general",
         cache: FindingCache | None = None,
+        is_resuming: bool = False,
     ) -> None:
         self.client = client
         self.settings = settings
@@ -74,6 +75,12 @@ class _Ctx:
         self.cheap_client = cheap_client
         self.content_domain = content_domain
         self.cache = cache
+        # True when this _Ctx was constructed for audit_resume. Nodes that
+        # publish "first-time" events (e.g. review_ready) check this to avoid
+        # re-emitting on graph replay — the events were already published on
+        # the original audit_pdf/audit_text call and trace_bus history serves
+        # them to reconnecting clients.
+        self.is_resuming = is_resuming
 
 
 class _Publisher:

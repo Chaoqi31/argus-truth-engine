@@ -199,6 +199,7 @@ async def audit_resume(
             budget_usd=budget_usd,
             trace_bus=trace_bus,
             repo=repo,
+            is_resuming=True,
         )
         config = {"configurable": {"thread_id": job_id}}
 
