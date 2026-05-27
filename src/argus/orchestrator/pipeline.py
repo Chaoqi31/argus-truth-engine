@@ -40,6 +40,7 @@ def _build_ctx(
     budget_usd: float,
     trace_bus: TraceBus | None,
     repo: JobRepository | None,
+    is_resuming: bool = False,
 ) -> _Ctx:
     """Construct the per-pipeline _Ctx. Shared between fresh runs and resumes."""
     runners = {
@@ -81,6 +82,7 @@ def _build_ctx(
         cheap_client=cheap_client,
         content_domain=job.content_domain.value,
         cache=cache,
+        is_resuming=is_resuming,
     )
 
 
