@@ -11,32 +11,6 @@ import Link from "next/link";
 import { ArgusMark } from "@/components/argus-mark";
 
 /* ------------------------------------------------------------------ */
-/*  Aurora Background — animated mesh gradient blobs                  */
-/* ------------------------------------------------------------------ */
-function AuroraBackground() {
-  return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      {/* Blob 1 — blue/indigo — hero area */}
-      <div className="animate-aurora-1 absolute -top-20 left-[15%] h-[600px] w-[700px] rounded-full bg-gradient-to-br from-blue-300/50 via-indigo-200/40 to-transparent blur-[120px]" />
-      {/* Blob 2 — violet/purple — right side */}
-      <div className="animate-aurora-2 absolute top-[25%] -right-10 h-[500px] w-[600px] rounded-full bg-gradient-to-bl from-violet-300/40 via-purple-200/30 to-transparent blur-[120px]" />
-      {/* Blob 3 — cyan/teal — bottom-left */}
-      <div className="animate-aurora-3 absolute bottom-[10%] left-[20%] h-[450px] w-[550px] rounded-full bg-gradient-to-tr from-cyan-200/35 via-sky-200/25 to-transparent blur-[120px]" />
-      {/* Blob 4 — rose/pink accent — adds warmth */}
-      <div className="animate-aurora-2 absolute top-[60%] right-[15%] h-[350px] w-[400px] rounded-full bg-gradient-to-bl from-rose-200/20 via-pink-100/15 to-transparent blur-[100px]" />
-      {/* Dot grid overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.45]"
-        style={{
-          backgroundImage: "radial-gradient(circle, oklch(0.72 0.03 260) 0.8px, transparent 0.8px)",
-          backgroundSize: "28px 28px",
-        }}
-      />
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /*  Section wrapper — fade-in-up on scroll                            */
 /* ------------------------------------------------------------------ */
 function RevealSection({
@@ -85,9 +59,7 @@ function StatPoint({
       style={{ transitionDelay: `${delay}ms` }}
     >
       <p className="text-3xl font-bold tabular-nums md:text-4xl">
-        <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-          {prefix}{count.toLocaleString()}{suffix}
-        </span>
+        {prefix}{count.toLocaleString()}{suffix}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>
     </div>
@@ -95,9 +67,9 @@ function StatPoint({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Glass card with spotlight glow                                    */
+/*  Feature card — clean white, whisper shadow                        */
 /* ------------------------------------------------------------------ */
-function GlassFeatureCard({
+function FeatureCard({
   title,
   body,
   icon,
@@ -112,18 +84,14 @@ function GlassFeatureCard({
 }) {
   return (
     <div
-      className={`group relative cursor-default overflow-hidden rounded-2xl border border-white/80 bg-white/70 p-6 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-md transition-all duration-500 hover:border-primary/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-1 ${trigger ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+      className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${trigger ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      {/* Spotlight glow on hover */}
-      <div className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-violet-500/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-      <div className="relative">
-        <div className="mb-4 flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-violet-500/10 text-primary ring-1 ring-primary/10 transition-transform duration-300 group-hover:scale-110">
-          {icon}
-        </div>
-        <h3 className="text-base font-semibold">{title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
+      <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary">
+        {icon}
       </div>
+      <h3 className="text-base font-semibold">{title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
     </div>
   );
 }
@@ -150,14 +118,14 @@ function PipelineStep({
     <div className="flex gap-5">
       <div className="flex flex-col items-center">
         <div
-          className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-violet-500 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all duration-500 ${trigger ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}
+          className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white transition-all duration-500 ${trigger ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}
           style={{ transitionDelay: `${delay}ms` }}
         >
           {step}
         </div>
         {!isLast && (
           <div
-            className={`w-px flex-1 bg-gradient-to-b from-primary/30 to-border transition-all duration-700 origin-top ${trigger ? "scale-y-100" : "scale-y-0"}`}
+            className={`w-px flex-1 bg-border transition-all duration-700 origin-top ${trigger ? "scale-y-100" : "scale-y-0"}`}
             style={{ transitionDelay: `${delay + 200}ms` }}
           />
         )}
@@ -202,6 +170,14 @@ const CheckIcon = (
   </svg>
 );
 
+/* ------------------------------------------------------------------ */
+/*  Buttons — Kraken primary (solid purple) + white outlined          */
+/* ------------------------------------------------------------------ */
+const PRIMARY_BTN =
+  "cursor-pointer rounded-[12px] bg-primary px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#5741d8] disabled:opacity-50";
+const WHITE_BTN =
+  "cursor-pointer rounded-[12px] border border-border bg-background px-8 py-3.5 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-all hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] disabled:opacity-50";
+
 /* ================================================================== */
 /*  LANDING PAGE                                                      */
 /* ================================================================== */
@@ -232,10 +208,10 @@ export default function HomePage() {
   return (
     <>
       {/* ============================================================ */}
-      {/* NAV — glassmorphism                                          */}
+      {/* NAV                                                          */}
       {/* ============================================================ */}
-      <header className="mx-auto max-w-5xl px-4 pt-3">
-        <nav className="flex h-12 items-center justify-between rounded-2xl border border-border/50 bg-white/70 px-5 shadow-sm backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-border bg-background">
+        <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <Link href="/" className="group flex items-center gap-2">
             <ArgusMark className="text-primary transition-transform group-hover:rotate-[8deg]" />
             <span className="text-[15px] font-semibold tracking-tight">Argus</span>
@@ -244,7 +220,7 @@ export default function HomePage() {
             <Link href="/for-teams" className="text-muted-foreground transition-colors hover:text-foreground">For teams</Link>
             <Link
               href="/audit"
-              className="cursor-pointer rounded-lg bg-gradient-to-r from-primary to-violet-500 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30"
+              className="cursor-pointer rounded-[12px] bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#5741d8]"
             >
               Start auditing
             </Link>
@@ -253,22 +229,19 @@ export default function HomePage() {
       </header>
 
       <main className="relative">
-        {/* Global aurora background */}
-        <AuroraBackground />
-
         {/* ============================================================ */}
         {/* HERO                                                         */}
         {/* ============================================================ */}
         <section
           ref={heroReveal.ref}
-          className="relative flex min-h-[calc(100vh-60px)] flex-col items-center justify-center px-6"
+          className="relative flex min-h-[calc(100vh-56px)] flex-col items-center justify-center px-6 pt-16"
         >
           <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
             {/* Badge */}
             <div
-              className={`mb-8 inline-flex items-center gap-2 rounded-full border border-border/50 bg-white/60 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-all duration-700 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"}`}
+              className={`mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-700 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"}`}
             >
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="size-1.5 rounded-full bg-success" />
               For compliance, legal, and research teams
             </div>
 
@@ -277,9 +250,7 @@ export default function HomePage() {
               className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-7xl transition-all duration-700 delay-100 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
             >
               The audit layer for{" "}
-              <span className="bg-gradient-to-r from-primary via-violet-500 to-indigo-500 bg-clip-text text-transparent">
-                AI-generated content
-              </span>
+              <span className="text-primary">AI-generated content</span>
             </h1>
 
             {/* Subtitle */}
@@ -305,19 +276,14 @@ export default function HomePage() {
             <div
               className={`mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 transition-all duration-700 delay-500 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
             >
-              <Link
-                href="/audit"
-                className="group relative cursor-pointer overflow-hidden rounded-xl bg-gradient-to-r from-primary to-violet-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
-              >
-                <span className="relative z-10">Start auditing</span>
-                {/* Shine sweep on hover */}
-                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+              <Link href="/audit" className={PRIMARY_BTN}>
+                Start auditing
               </Link>
               <button
                 type="button"
                 onClick={trySample}
                 disabled={loading}
-                className="cursor-pointer rounded-xl border border-white/80 bg-white/70 px-8 py-3.5 text-sm font-medium shadow-sm backdrop-blur-md transition-all hover:border-primary/20 hover:bg-white/90 hover:shadow-md disabled:opacity-50"
+                className={WHITE_BTN}
               >
                 {loading ? "Loading…" : "See a sample audit"}
               </button>
@@ -333,7 +299,7 @@ export default function HomePage() {
 
           {/* Scroll indicator */}
           <div className={`mt-12 pb-8 transition-all duration-700 delay-1000 ${heroReveal.isVisible ? "opacity-100" : "opacity-0"}`}>
-            <div className="animate-float flex flex-col items-center gap-2 text-muted-foreground/50">
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <span className="text-[10px] uppercase tracking-widest">Scroll to explore</span>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden>
                 <polyline points="6 9 12 15 18 9" />
@@ -358,28 +324,28 @@ export default function HomePage() {
           </div>
 
           <div className="mt-16 grid gap-5 sm:grid-cols-2">
-            <GlassFeatureCard
+            <FeatureCard
               icon={BookIcon}
               title="Fabricated references"
               body="Cross-checks citations against Crossref, arXiv, SSRN, and public registries. Papers, cases, or filings that don't exist get flagged."
               trigger={featuresReveal.isVisible}
               delay={0}
             />
-            <GlassFeatureCard
+            <FeatureCard
               icon={QuoteIcon}
               title="Misrepresented sources"
               body="Fetches the original source and compares paragraph-by-paragraph. What was claimed vs. what was actually said."
               trigger={featuresReveal.isVisible}
               delay={120}
             />
-            <GlassFeatureCard
+            <FeatureCard
               icon={ChartIcon}
               title="Outdated data"
               body="Verifies statistics, figures, and dates against live authoritative sources — FRED, World Bank, SEC EDGAR, IMF."
               trigger={featuresReveal.isVisible}
               delay={240}
             />
-            <GlassFeatureCard
+            <FeatureCard
               icon={AlertIcon}
               title="Internal contradictions"
               body="Pairwise consistency check across claims within the same document. Page 3 says X, page 12 says not-X."
@@ -392,10 +358,7 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* HOW IT WORKS                                                 */}
         {/* ============================================================ */}
-        <section ref={pipelineReveal.ref} className="relative py-28">
-          {/* Section tint — makes aurora blobs visible through content */}
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-indigo-50/60 via-white/40 to-indigo-50/60" />
-
+        <section ref={pipelineReveal.ref} className="relative bg-muted py-28">
           <div className="mx-auto max-w-3xl px-6">
             <div className={`text-center transition-all duration-700 ${pipelineReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">How it works</p>
@@ -447,9 +410,9 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* Mini trace demo — glass card */}
+            {/* Mini trace demo — dark code surface */}
             <div
-              className={`overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-2xl shadow-slate-900/20 transition-all duration-700 delay-200 ${transparencyReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+              className={`overflow-hidden rounded-[var(--radius-card)] border border-border bg-[#101114] p-5 shadow-[var(--shadow-card-hover)] transition-all duration-700 delay-200 ${transparencyReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
             >
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/30">
                 Live reasoning trace
@@ -462,9 +425,7 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* WHO USES ARGUS                                               */}
         {/* ============================================================ */}
-        <section ref={personaReveal.ref} className="relative py-28">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-violet-50/50 via-white/30 to-violet-50/50" />
-
+        <section ref={personaReveal.ref} className="relative bg-muted py-28">
           <div className="mx-auto max-w-5xl px-6">
             <div className={`text-center transition-all duration-700 ${personaReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Who uses Argus</p>
@@ -505,17 +466,14 @@ export default function HomePage() {
               ].map((p, i) => (
                 <div
                   key={p.title}
-                  className={`group relative overflow-hidden rounded-2xl border border-white/80 bg-white/70 p-6 shadow-[0_2px_20px_rgba(0,0,0,0.04)] backdrop-blur-md transition-all duration-500 hover:border-primary/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-1 ${personaReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+                  className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${personaReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
                   style={{ transitionDelay: `${i * 120}ms` }}
                 >
-                  <div className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-violet-500/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                  <div className="relative">
-                    <div className="mb-4 flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-violet-500/10 text-primary ring-1 ring-primary/10">
-                      {p.icon}
-                    </div>
-                    <h3 className="text-base font-semibold">{p.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{p.body}</p>
+                  <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary">
+                    {p.icon}
                   </div>
+                  <h3 className="text-base font-semibold">{p.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{p.body}</p>
                 </div>
               ))}
             </div>
@@ -535,18 +493,14 @@ export default function HomePage() {
               planted errors — no API key needed.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-              <Link
-                href="/audit"
-                className="group relative cursor-pointer overflow-hidden rounded-xl bg-gradient-to-r from-primary to-violet-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:shadow-xl hover:shadow-primary/30"
-              >
-                <span className="relative z-10">Start auditing</span>
-                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+              <Link href="/audit" className={PRIMARY_BTN}>
+                Start auditing
               </Link>
               <button
                 type="button"
                 onClick={trySample}
                 disabled={loading}
-                className="cursor-pointer rounded-xl border border-white/80 bg-white/70 px-8 py-3.5 text-sm font-medium shadow-sm backdrop-blur-md transition-all hover:border-primary/20 hover:bg-white/90 hover:shadow-md disabled:opacity-50"
+                className={WHITE_BTN}
               >
                 {loading ? "Loading…" : "See a sample audit"}
               </button>
@@ -557,11 +511,11 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* FOOTER                                                       */}
         {/* ============================================================ */}
-        <footer className="border-t border-border/50 py-8">
+        <footer className="border-t border-border py-8">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-6 text-xs text-muted-foreground">
             <span>
               Powered by MiroMind{" "}
-              <code className="rounded-md bg-muted/60 px-1.5 py-0.5 font-mono text-[10px]">mirothinker-1-7-deepresearch</code>
+              <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px]">mirothinker-1-7-deepresearch</code>
             </span>
             <span>UCWS Singapore 2026</span>
           </div>

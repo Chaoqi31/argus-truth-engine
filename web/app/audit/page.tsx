@@ -8,7 +8,6 @@ import { ArgusHeader } from "@/components/argus-header";
 import { JobStatsBar } from "@/components/job-stats-bar";
 import { ReasoningPanel } from "@/components/reasoning-panel";
 import { TraceStreamView } from "@/components/trace-stream-view";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
 import { ScenarioBanner } from "@/components/scenario-banner";
 import { ExportMenu, type ExportFormat } from "@/components/export-menu";
@@ -223,7 +222,6 @@ function AuditPageContent() {
           rightSlot={
             <div className="flex items-center gap-2">
               <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
-              <ThemeToggle />
             </div>
           }
         />
@@ -291,7 +289,6 @@ function AuditPageContent() {
         rightSlot={
           <div className="flex items-center gap-2">
             <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
-            <ThemeToggle />
           </div>
         }
       />
@@ -365,7 +362,7 @@ function VerdictBanner({ job }: { job: Job }) {
     sev.critical > 0 ? "danger" : sev.major > 0 ? "warn" : "ok";
   const toneClasses: Record<typeof tone, string> = {
     danger: "border-destructive/40 bg-destructive/5",
-    warn: "border-amber-500/40 bg-amber-50 dark:bg-amber-950/30",
+    warn: "border-amber-500/40 bg-amber-50",
     ok: "border-success/40 bg-success/5",
   };
   const dotClasses: Record<typeof tone, string> = {
@@ -430,7 +427,7 @@ function RunBanner({
       <div
         role="status"
         aria-live="polite"
-        className="flex h-12 items-center gap-3 border-b border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-4 text-xs"
+        className="flex h-12 items-center gap-3 border-b border-amber-500/40 bg-amber-50 px-4 text-xs"
       >
         <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
         <span className="font-medium">Select claims to verify</span>
@@ -494,7 +491,7 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
     s === "critical"
       ? "border-destructive/40 bg-destructive/5"
       : s === "major"
-        ? "border-amber-500/40 bg-amber-50 dark:bg-amber-950/30"
+        ? "border-amber-500/40 bg-amber-50"
         : "border-border bg-background";
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -741,7 +738,7 @@ function AuditInputPage() {
                     type="button"
                     onClick={onSubmitText}
                     disabled={loading !== null || textInput.trim().length < 50}
-                    className="cursor-pointer rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+                    className="cursor-pointer rounded-[12px] bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5741d8] disabled:pointer-events-none disabled:opacity-50"
                   >
                     {loading === "upload" ? "Submitting…" : "Check for hallucinations →"}
                   </button>
@@ -759,7 +756,7 @@ function AuditInputPage() {
                   <line x1="9" y1="15" x2="15" y2="15" />
                 </svg>
                 <p className="text-sm text-muted-foreground">Drop a PDF here or click to browse</p>
-                <label className={`cursor-pointer rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md ${loading !== null ? "pointer-events-none opacity-50" : ""}`}>
+                <label className={`cursor-pointer rounded-[12px] bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5741d8] ${loading !== null ? "pointer-events-none opacity-50" : ""}`}>
                   {loading === "upload" ? "Uploading…" : "Select PDF"}
                   <input
                     type="file"

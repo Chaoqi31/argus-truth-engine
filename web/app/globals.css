@@ -1,27 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, "SF Mono", Monaco, "Cascadia Code", monospace;
+  --font-sans: var(--font-sans), "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Monaco, monospace;
 
-  --color-background: oklch(0.99 0.005 250);
-  --color-foreground: oklch(0.16 0.02 260);
-  --color-muted: oklch(0.965 0.01 250);
-  --color-muted-foreground: oklch(0.42 0.02 260);
-  --color-border: oklch(0.91 0.012 250);
-  --color-border-strong: oklch(0.82 0.018 250);
-  --color-primary: oklch(0.48 0.20 265);
-  --color-primary-soft: oklch(0.94 0.06 265);
-  --color-destructive: oklch(0.55 0.22 25);
-  --color-destructive-foreground: oklch(0.40 0.20 25); /* text on destructive/15 tint */
-  --color-warning: oklch(0.72 0.17 75);
-  --color-warning-foreground: oklch(0.42 0.13 75);     /* text on warning/15 tint, passes AA */
-  --color-success: oklch(0.62 0.16 150);
-  --color-success-foreground: oklch(0.38 0.15 150);
+  /* --- Kraken-inspired palette (light only) --- */
+  --color-background: #ffffff;          /* primary surface */
+  --color-foreground: #101114;          /* near-black text */
+  --color-muted: #f3f3f6;               /* light cool-gray surface */
+  --color-muted-foreground: #686b82;    /* cool gray — secondary text */
+  --color-border: #dedee5;              /* divider border */
+  --color-border-strong: #c4c5d0;       /* stronger border */
+  --color-primary: #7132f5;             /* Kraken Purple — CTA / links */
+  --color-primary-soft: #efeafe;        /* light purple tint surface */
+  --color-destructive: #d92d20;
+  --color-destructive-foreground: #b42318; /* text on destructive/15 tint */
+  --color-warning: #d18700;
+  --color-warning-foreground: #8a5a00;     /* text on warning/15 tint, passes AA */
+  --color-success: #149e61;             /* Kraken green */
+  --color-success-foreground: #026b3f;  /* Kraken green dark */
 
   /* Data-vis colours used by the DAG view. These are NOT theme colours;
-     they encode step type and must stay legible in both light and dark
-     mode. Background tints and border tints are paired. */
+     they encode step type and must stay legible. Background tints and
+     border tints are paired. */
   --vis-thinking-bg: oklch(0.95 0.045 260);
   --vis-thinking-border: oklch(0.72 0.11 260);
   --vis-search-bg: oklch(0.94 0.05 295);
@@ -34,110 +35,26 @@
   --vis-tool-border: oklch(0.70 0.13 85);
   --vis-message-bg: oklch(0.95 0.045 25);
   --vis-message-border: oklch(0.68 0.16 25);
-  --vis-node-fg: oklch(0.18 0.02 260);
+  --vis-node-fg: #101114;
 
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.04);
-  --shadow-card-hover: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px oklch(0 0 0 / 0.08);
+  /* Whisper-level elevation (Kraken) */
+  --shadow-card: 0 1px 4px rgba(16, 24, 40, 0.04);
+  --shadow-card-hover: 0 4px 24px rgba(0, 0, 0, 0.06);
 
   --radius-card: 12px;
 }
 
-/* Dark tokens — applied either by system preference (default) or by the
-   explicit `.theme-dark` class set by the in-app theme toggle. The
-   `.theme-light` class wins back and disables the dark overrides. */
-@media (prefers-color-scheme: dark) {
-  html:not(.theme-light) {
-    --color-background: oklch(0.14 0.02 260);
-    --color-foreground: oklch(0.96 0.005 250);
-    --color-muted: oklch(0.21 0.018 260);
-    --color-muted-foreground: oklch(0.66 0.015 260);
-    --color-border: oklch(0.26 0.018 260);
-    --color-border-strong: oklch(0.36 0.022 260);
-    --color-primary: oklch(0.72 0.18 265);
-    --color-primary-soft: oklch(0.24 0.08 265);
-
-    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 14px oklch(0 0 0 / 0.30);
-    --shadow-card-hover: 0 1px 2px oklch(0 0 0 / 0.4), 0 10px 28px oklch(0 0 0 / 0.45);
-  }
-}
-
-html.theme-dark {
-  --color-background: oklch(0.14 0.02 260);
-  --color-foreground: oklch(0.96 0.005 250);
-  --color-muted: oklch(0.21 0.018 260);
-  --color-muted-foreground: oklch(0.66 0.015 260);
-  --color-border: oklch(0.26 0.018 260);
-  --color-border-strong: oklch(0.36 0.022 260);
-  --color-primary: oklch(0.72 0.18 265);
-  --color-primary-soft: oklch(0.24 0.08 265);
-
-  /* Foreground variants need to be light enough on dark tints */
-  --color-destructive-foreground: oklch(0.78 0.18 25);
-  --color-warning-foreground: oklch(0.80 0.15 75);
-  --color-success-foreground: oklch(0.78 0.15 150);
-
-  /* Data-vis dark mode — keep colour identity, reduce saturation slightly */
-  --vis-thinking-bg: oklch(0.32 0.06 260);
-  --vis-thinking-border: oklch(0.55 0.13 260);
-  --vis-search-bg: oklch(0.32 0.07 295);
-  --vis-search-border: oklch(0.58 0.15 295);
-  --vis-fetch-bg: oklch(0.30 0.06 155);
-  --vis-fetch-border: oklch(0.55 0.13 155);
-  --vis-exec-bg: oklch(0.28 0.01 250);
-  --vis-exec-border: oklch(0.45 0.01 250);
-  --vis-tool-bg: oklch(0.32 0.08 85);
-  --vis-tool-border: oklch(0.58 0.14 85);
-  --vis-message-bg: oklch(0.32 0.07 25);
-  --vis-message-border: oklch(0.58 0.16 25);
-  --vis-node-fg: oklch(0.96 0.005 250);
-
-  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 14px oklch(0 0 0 / 0.30);
-  --shadow-card-hover: 0 1px 2px oklch(0 0 0 / 0.4), 0 10px 28px oklch(0 0 0 / 0.45);
-}
-
-/* Same dark overrides under system preference */
-@media (prefers-color-scheme: dark) {
-  html:not(.theme-light) {
-    --color-destructive-foreground: oklch(0.78 0.18 25);
-    --color-warning-foreground: oklch(0.80 0.15 75);
-    --color-success-foreground: oklch(0.78 0.15 150);
-
-    --vis-thinking-bg: oklch(0.32 0.06 260);
-    --vis-thinking-border: oklch(0.55 0.13 260);
-    --vis-search-bg: oklch(0.32 0.07 295);
-    --vis-search-border: oklch(0.58 0.15 295);
-    --vis-fetch-bg: oklch(0.30 0.06 155);
-    --vis-fetch-border: oklch(0.55 0.13 155);
-    --vis-exec-bg: oklch(0.28 0.01 250);
-    --vis-exec-border: oklch(0.45 0.01 250);
-    --vis-tool-bg: oklch(0.32 0.08 85);
-    --vis-tool-border: oklch(0.58 0.14 85);
-    --vis-message-bg: oklch(0.32 0.07 25);
-    --vis-message-border: oklch(0.58 0.16 25);
-    --vis-node-fg: oklch(0.96 0.005 250);
-  }
-}
-
 @layer base {
+  html {
+    color-scheme: light;
+  }
+
   body {
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Subtle noise texture overlay for depth */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    opacity: 0.025;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-    background-size: 256px 256px;
-  }
-
-  /* Tighter tracking on display headings */
+  /* Tighter tracking on display headings (Kraken-Brand style) */
   h1, h2, h3 {
     letter-spacing: -0.02em;
   }
@@ -167,35 +84,6 @@ html.theme-dark {
   100% { background-position: 200% 0; }
 }
 
-/* Pulse glow for hero CTA */
-@keyframes argus-glow {
-  0%, 100% { box-shadow: 0 0 20px oklch(0.48 0.20 265 / 0.3); }
-  50%      { box-shadow: 0 0 40px oklch(0.48 0.20 265 / 0.5); }
-}
-
-/* Aurora mesh gradient — slow-drifting blobs */
-@keyframes argus-aurora-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%      { transform: translate(30px, -40px) scale(1.05); }
-  66%      { transform: translate(-20px, 20px) scale(0.95); }
-}
-@keyframes argus-aurora-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%      { transform: translate(-40px, 30px) scale(1.08); }
-  66%      { transform: translate(25px, -15px) scale(0.92); }
-}
-@keyframes argus-aurora-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%      { transform: translate(20px, 25px) scale(0.97); }
-  66%      { transform: translate(-30px, -20px) scale(1.03); }
-}
-
-/* Floating particle drift */
-@keyframes argus-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-12px); }
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .animate-row-in {
     animation: argus-fade-in-up 280ms ease-out both;
@@ -218,23 +106,6 @@ html.theme-dark {
 
   .animate-reveal-scale {
     animation: argus-reveal-scale 800ms ease-out both;
-  }
-
-  .animate-glow {
-    animation: argus-glow 3s ease-in-out infinite;
-  }
-
-  .animate-aurora-1 {
-    animation: argus-aurora-1 20s ease-in-out infinite;
-  }
-  .animate-aurora-2 {
-    animation: argus-aurora-2 25s ease-in-out infinite;
-  }
-  .animate-aurora-3 {
-    animation: argus-aurora-3 22s ease-in-out infinite;
-  }
-  .animate-float {
-    animation: argus-float 6s ease-in-out infinite;
   }
 }
 
