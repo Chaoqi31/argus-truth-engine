@@ -61,7 +61,7 @@ export function FindingCard({ finding, active, onClick, onReplay }: Props) {
         setSpot({ x: e.clientX - r.left, y: e.clientY - r.top, on: true });
       }}
       onMouseLeave={() => setSpot((s) => ({ ...s, on: false }))}
-      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] ${
+      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--cc-glow-hover)] ${
         active ? "border-primary" : "border-border hover:border-border-strong"
       }`}
     >

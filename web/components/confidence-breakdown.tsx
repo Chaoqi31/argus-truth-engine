@@ -1,3 +1,6 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
 import type { ConfidenceBreakdownData } from "@/lib/types";
 
 interface Props {
@@ -16,6 +19,70 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
+/** Bar that grows 0 → pct% then emits a brief purple burst at the tip. */
+function GrowBar({ pct, delay }: { pct: number; delay: number }) {
+  const reduceMotion = useReducedMotion();
+  const delayS = delay / 1000;
+  const showBurst = !reduceMotion && pct > 2;
+
+  return (
+    <div className="relative mt-1 h-1.5 w-full">
+      {/* Track + animated fill (clipped so bar never overflows track) */}
+      <div className="absolute inset-0 overflow-hidden rounded-full bg-muted">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-primary to-[#5741d8]"
+          initial={{ width: "0%" }}
+          animate={{ width: `${pct}%` }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.9, delay: delayS, ease: [0.22, 1, 0.36, 1] }
+          }
+        />
+      </div>
+
+      {/*
+       * Burst layers — absolutely positioned at the bar's final tip.
+       * Sit outside the clipped track div so they can overflow freely.
+       * Fire just as the bar eases into its final position (~delayS + 0.88s).
+       */}
+      {showBurst && (
+        <>
+          {/* Radial glow: expands outward and fades */}
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              left: `${pct}%`,
+              width: 20,
+              height: 20,
+              background:
+                "radial-gradient(circle, rgba(113,50,245,0.72) 0%, transparent 65%)",
+            }}
+            initial={{ scale: 0.2, opacity: 0 }}
+            animate={{ scale: [0.2, 2.8, 0.2], opacity: [0, 0.62, 0] }}
+            transition={{ duration: 0.65, delay: delayS + 0.88, ease: "easeOut" }}
+          />
+          {/* Ring ripple: thin ring expands and fades — the "射线" accent */}
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              left: `${pct}%`,
+              width: 6,
+              height: 6,
+              border: "1.5px solid rgba(113,50,245,0.55)",
+            }}
+            initial={{ scale: 0.5, opacity: 0.6 }}
+            animate={{ scale: 4.2, opacity: 0 }}
+            transition={{ duration: 0.55, delay: delayS + 0.9, ease: "easeOut" }}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ConfidenceBreakdown({ breakdown }: Props) {
   return (
     <div className="space-y-2.5">
@@ -30,23 +97,13 @@ export function ConfidenceBreakdown({ breakdown }: Props) {
                 {pct}%
               </span>
             </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              {/* Grows 0 → value with a purple glow (see globals .cc-bar-animate);
-                  staggered per factor. Honors prefers-reduced-motion. */}
-              <div
-                className="cc-bar-animate h-full rounded-full bg-gradient-to-r from-primary to-[var(--cc-primary-bright,#7132f5)]"
-                style={
-                  {
-                    "--cc-fill": `${pct}%`,
-                    "--cc-delay": `${i * 110}ms`,
-                  } as React.CSSProperties
-                }
-              />
-            </div>
+            <GrowBar pct={pct} delay={i * 110} />
           </div>
         );
       })}
-      <p className="pt-0.5 text-xs leading-snug text-muted-foreground">{breakdown.reasoning}</p>
+      <p className="pt-0.5 text-xs leading-snug text-muted-foreground">
+        {breakdown.reasoning}
+      </p>
     </div>
   );
 }

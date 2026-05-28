@@ -440,7 +440,7 @@ function Timeline({
                 aria-current={state === "active"}
                 className="group flex w-full items-start gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--cc-bg)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
               >
-                <TimelineNode state={state} />
+                <TimelineNode state={state} type={s.type} />
                 <span className="min-w-0 flex-1">
                   <span
                     className="block font-mono text-[10px] uppercase tracking-wider"
@@ -476,20 +476,58 @@ function Timeline({
   );
 }
 
-function TimelineNode({ state }: { state: "past" | "active" | "future" }) {
+function TimelineNode({
+  state,
+  type,
+}: {
+  state: "past" | "active" | "future";
+  type: StepType;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+
+  // Active node: a glowing icon chip with a spring "pop" on becoming active and
+  // an outward sonar-ping behind it. Past/future stay as quiet dots.
+  if (state === "active") {
+    return (
+      <span aria-hidden className="relative mt-0.5 grid size-5 shrink-0 place-items-center">
+        {/* Sonar-ping halo — outward-rippling, fades. Decorative overlay. */}
+        {!reduceMotion && (
+          <span
+            className="cc-pulse-glow pointer-events-none absolute inset-0 rounded-full"
+            style={{ backgroundColor: "color-mix(in oklab, var(--cc-primary) 38%, transparent)" }}
+          />
+        )}
+        {/* Glowing icon chip — springs to scale 1.2 then settles to 1.0. */}
+        <motion.span
+          key={type}
+          initial={reduceMotion ? false : { scale: 0.7 }}
+          animate={{ scale: reduceMotion ? 1 : [1.2, 1] }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { type: "spring", stiffness: 520, damping: 18, mass: 0.6 }
+          }
+          className="relative grid size-5 place-items-center rounded-full text-[10px] leading-none"
+          style={{
+            backgroundColor: "color-mix(in oklab, var(--cc-primary) 18%, transparent)",
+            border: "1px solid var(--cc-border-glow)",
+            boxShadow: "var(--cc-glow-hover)",
+          }}
+        >
+          {stepIcon[type] ?? "•"}
+        </motion.span>
+      </span>
+    );
+  }
+
   return (
     <span
       aria-hidden
-      className="mt-0.5 size-2.5 shrink-0 rounded-full transition-all duration-300"
+      className="mt-1.5 size-2.5 shrink-0 rounded-full transition-all duration-300"
       style={
-        state === "active"
-          ? {
-              backgroundColor: "var(--cc-primary)",
-              boxShadow: "0 0 0 4px color-mix(in oklab, var(--cc-primary) 16%, transparent)",
-            }
-          : state === "past"
-            ? { backgroundColor: "var(--cc-primary)", opacity: 0.85 }
-            : { backgroundColor: "var(--cc-text-muted)", opacity: 0.35 }
+        state === "past"
+          ? { backgroundColor: "var(--cc-primary)", opacity: 0.85 }
+          : { backgroundColor: "var(--cc-text-muted)", opacity: 0.35 }
       }
     />
   );

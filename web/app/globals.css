@@ -64,12 +64,17 @@
   --cc-surface: #ffffff;       /* panels */
   --cc-raised: #ffffff;        /* cards / raised */
   --cc-border: #dedee5;
-  --cc-border-glow: rgba(113, 50, 245, 0.30);
+  --cc-border-glow: rgba(113, 50, 245, 0.45);
   --cc-text: #101114;
   --cc-text-muted: #686b82;
   --cc-primary: #7132f5;
   --cc-primary-bright: #5741d8;
   --cc-glow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  /* Stronger "neon diffuse" elevation reserved for hover / active / spotlight.
+     Resting state stays whisper-level (--cc-glow); strong glow is opt-in. */
+  --cc-glow-hover:
+    0 8px 40px rgba(113, 50, 245, 0.28),
+    0 0 0 1px rgba(113, 50, 245, 0.22);
   --cc-danger: #e5484d;        /* critical / fabricated */
   --cc-warn: #d97706;          /* major / stale */
   --cc-ok: #149e61;            /* ok */
@@ -94,6 +99,25 @@
   background-color: var(--cc-glass-bg);
   border: 1px solid var(--cc-border);
   box-shadow: var(--shadow-card);
+}
+
+/* Frosted-glass helper — RESERVED FOR EMPTY-STATE / ILLUSTRATION CONTAINERS
+   ONLY. Content surfaces (drawers, modals, cards) must stay solid + opaque
+   (use .cc-glass). This deliberately relaxes the "no glassmorphism" rule for
+   decorative empty-state layers — see DESIGN.md §10 + web/CLAUDE.md. */
+.cc-glass-modern {
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.20),
+      rgba(113, 50, 245, 0.05)
+    );
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 8px 32px rgba(113, 50, 245, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 /* Plain light canvas for the cockpit backdrop (no neon glow). */
@@ -159,6 +183,22 @@
   100% { box-shadow: 0 0 0 rgba(113, 50, 245, 0); }
 }
 
+/* Cockpit: outward-rippling halo for an active timeline node — expands and
+   fades like a sonar ping. Apply to an ::before/overlay layer (it scales). */
+@keyframes cc-pulse-glow {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  70%  { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Cockpit: gentle CSS-only float fallback. The primary float is driven by
+   `motion` in components; this is the no-JS / static fallback. */
+@keyframes cc-float {
+  0%   { transform: translateY(-8px); }
+  50%  { transform: translateY(8px); }
+  100% { transform: translateY(-8px); }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .animate-row-in {
     animation: argus-fade-in-up 280ms ease-out both;
@@ -190,6 +230,16 @@
       cc-bar-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) var(--cc-delay, 0ms) forwards,
       cc-bar-glow 1400ms ease-out var(--cc-delay, 0ms) forwards;
   }
+
+  /* Sonar-ping halo for an active timeline node (decorative overlay layer). */
+  .cc-pulse-glow {
+    animation: cc-pulse-glow 1800ms ease-out infinite;
+  }
+
+  /* CSS-only float fallback (components prefer motion-driven floats). */
+  .cc-float {
+    animation: cc-float 3s ease-in-out infinite;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -200,6 +250,12 @@
   /* Skip the grow/glow — snap to the target width immediately. */
   .cc-bar-animate {
     width: var(--cc-fill, 0%);
+    animation: none;
+  }
+
+  /* Disable decorative motion when the user prefers reduced motion. */
+  .cc-pulse-glow,
+  .cc-float {
     animation: none;
   }
 }
