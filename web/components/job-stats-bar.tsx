@@ -34,12 +34,12 @@ function buildStats(job: Job): Stat[] {
     {
       label: "findings",
       value: String(job.findings.length),
-      hint: "Verdicts emitted by specialist agents — one per (claim × applicable check).",
+      hint: "Verdicts from the autonomous verifier (one per checked claim) plus the consistency checker's cross-claim contradictions.",
     },
     {
       label: "agents",
       value: String(uniqueAgents || 1),
-      hint: "Specialist agents that emitted at least one finding on this audit (of 4 possible: CitationVerifier, CitationAlignment, DataFreshness, ConsistencyChecker).",
+      hint: "Distinct agents that ran on this audit — the per-claim verifier and the cross-claim consistency checker.",
     },
     {
       label: "web searches",

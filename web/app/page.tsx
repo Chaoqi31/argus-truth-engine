@@ -363,18 +363,18 @@ export default function HomePage() {
             <div className={`text-center transition-all duration-700 ${pipelineReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">How it works</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-                10+ agents. One audit.
+                Two phases. One audit.
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
-                A LangGraph state machine fans specialized agents out in parallel,
-                then merges their findings without race conditions.
+                A LangGraph state machine fans verification out in parallel,
+                then merges the findings without race conditions.
               </p>
             </div>
 
             <div className="mt-16">
               <PipelineStep step={1} title="Parse & atomize" body="PDF or text is parsed, then broken into atomic, independently verifiable claims. A checkworthiness gate filters trivial statements." trigger={pipelineReveal.isVisible} delay={0} />
-              <PipelineStep step={2} title="Multi-agent verification" body="Each claim type is routed to the right specialist — CitationVerifier, DataFreshness, CitationAlignment, or ConsistencyChecker — running in parallel." trigger={pipelineReveal.isVisible} delay={200} />
-              <PipelineStep step={3} title="Adversarial debate" body="Every high-stakes finding is stress-tested by an Attacker / Defender / Judge debate. The transcript ships with the report." trigger={pipelineReveal.isVisible} delay={400} />
+              <PipelineStep step={2} title="Autonomous verification" body="A self-directed verifier investigates each claim in parallel — choosing its own tools and sources, constrained only by the output schema. A consistency checker runs alongside it to catch claims that contradict each other." trigger={pipelineReveal.isVisible} delay={200} />
+              <PipelineStep step={3} title="Confidence & cross-verification" body="Each verdict is corroborated against multiple independent, authoritative sources. Confidence is then decomposed into four auditable factors — source agreement, source authority, evidence freshness, and evidence specificity." trigger={pipelineReveal.isVisible} delay={400} />
               <PipelineStep step={4} title="Audit report" body="Findings are ranked by severity and confidence. An exportable PDF audit report is generated — ready to file, attach, or cite." trigger={pipelineReveal.isVisible} delay={600} isLast />
             </div>
           </div>
@@ -397,9 +397,9 @@ export default function HomePage() {
               </p>
               <ul className="mt-7 space-y-3 text-sm">
                 {[
-                  "Watch each agent think in real-time via WebSocket",
+                  "Watch the verifier think in real-time via WebSocket",
                   "Every source URL is clickable and verifiable",
-                  "Adversarial debate transcript included",
+                  "Every verdict ships why it's wrong and the correct answer",
                   "Confidence decomposed into 4 auditable factors",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5">

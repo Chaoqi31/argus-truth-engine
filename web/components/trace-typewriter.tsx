@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 
 const LINES = [
-  { seq: 1, icon: "plan", agent: "Planner", text: 'Extracting 24 claims from document…' },
-  { seq: 3, icon: "search", agent: "CitationVerifier", text: '"Smith 2021 widget resilience SSRN"' },
-  { seq: 4, icon: "fetch", agent: "CitationVerifier", text: "https://api.crossref.org/works/…" },
-  { seq: 5, icon: "think", agent: "CitationVerifier", text: '"Crossref returned 404. Checking arXiv…"' },
-  { seq: 6, icon: "finding", agent: "CitationVerifier", text: "fabricated · major · 0.91" },
-  { seq: 8, icon: "search", agent: "DataFreshness", text: '"US GDP growth rate 2024 FRED"' },
-  { seq: 9, icon: "finding", agent: "DataFreshness", text: "stale · critical · 0.96" },
-  { seq: 11, icon: "think", agent: "Challenger", text: '"Attacker: could this be a preprint?"' },
-  { seq: 12, icon: "finding", agent: "Challenger", text: "verdict upheld after debate" },
+  { seq: 1, icon: "plan", agent: "Atomizer", text: "Extracted 24 claims from document" },
+  { seq: 3, icon: "search", agent: "UnifiedVerifier", text: '"Smith 2021 widget resilience SSRN"' },
+  { seq: 4, icon: "fetch", agent: "UnifiedVerifier", text: "https://api.crossref.org/works/…" },
+  { seq: 5, icon: "think", agent: "UnifiedVerifier", text: '"Crossref 404, no DOI on arXiv either"' },
+  { seq: 6, icon: "finding", agent: "UnifiedVerifier", text: "fabricated · major · 0.91" },
+  { seq: 8, icon: "search", agent: "UnifiedVerifier", text: '"US GDP growth rate 2024 FRED"' },
+  { seq: 9, icon: "finding", agent: "UnifiedVerifier", text: "stale · critical · 0.96" },
+  { seq: 11, icon: "think", agent: "Consistency", text: '"Claim 7 says 12%, claim 19 says 8%"' },
+  { seq: 12, icon: "finding", agent: "Consistency", text: "contradiction · major · 0.88" },
 ];
 
 const ICON_MAP: Record<string, string> = {

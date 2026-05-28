@@ -11,6 +11,7 @@ const job: Job = {
   completed_at: null,
   cost_usd: 0,
   total_tokens: 100,
+  audit_report_md: null,
   claims: [
     {
       id: "c1",
@@ -27,7 +28,7 @@ const job: Job = {
       id: "f1",
       job_id: "j1",
       claim_id: "c1",
-      agent: "CitationVerifier",
+      agent: "UnifiedVerifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.96,
@@ -43,7 +44,7 @@ const job: Job = {
       id: "t1",
       job_id: "j1",
       claim_id: "c1",
-      agent: "CitationVerifier",
+      agent: "UnifiedVerifier",
       miromind_response_id: "r1",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: null,
