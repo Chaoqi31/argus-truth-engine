@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useArgusStore } from "@/lib/store";
 import { ArgusHeader } from "@/components/argus-header";
 import { JobStatsBar } from "@/components/job-stats-bar";
-import { ReasoningPanel } from "@/components/reasoning-panel";
+import { FindingsTab } from "@/components/findings-tab";
+import { EvidenceTab } from "@/components/evidence-tab";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
 import { ScenarioBanner } from "@/components/scenario-banner";
@@ -27,6 +28,12 @@ import { loadSampleJob } from "@/lib/load-job";
 import type { FilteredClaim, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
+import { FindingDrawer } from "@/components/cockpit/finding-drawer";
+import { ReasoningReplay } from "@/components/cockpit/reasoning-replay";
+import { CommandPalette } from "@/components/cockpit/command-palette";
+import { EvidenceDiff } from "@/components/cockpit/evidence-diff";
+import CountUp from "@/components/react-bits/CountUp";
+import BlurText from "@/components/react-bits/BlurText";
 
 // pdf.js references browser-only globals (DOMMatrix, etc.) that fail under SSR.
 // Force the PdfViewer to client-only.
@@ -43,7 +50,51 @@ const PdfViewer = dynamic(
   },
 );
 
-type RightMode = "reasoning" | "stream";
+// Right "reasoning console": Evidence for the active finding, or the trace stream.
+type RightMode = "evidence" | "trace";
+
+/** Global ⌘K / Ctrl+K listener that toggles the command palette. */
+function useCommandPaletteHotkey() {
+  const setPaletteOpen = useArgusStore((s) => s.setPaletteOpen);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setPaletteOpen]);
+}
+
+/** Prominent search pill that opens the ⌘K command palette. */
+function PaletteHint() {
+  const setPaletteOpen = useArgusStore((s) => s.setPaletteOpen);
+  return (
+    <button
+      type="button"
+      onClick={() => setPaletteOpen(true)}
+      aria-label="Search findings (Command K)"
+      className="hidden items-center gap-2 rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] px-3 py-1.5 text-[13px] text-[var(--cc-text-muted)] shadow-[var(--shadow-card)] transition-colors hover:border-[var(--cc-primary)] hover:text-[var(--cc-text)] sm:inline-flex"
+    >
+      <SearchIcon />
+      <span className="min-w-[8.5rem] text-left">Search findings…</span>
+      <kbd className="rounded border border-[var(--cc-border)] bg-[var(--cc-surface)] px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[var(--cc-text-muted)]">
+        ⌘K
+      </kbd>
+    </button>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0">
+      <circle cx="6" cy="6" r="4.25" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M9.2 9.2L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function AuditPage() {
   return (
@@ -62,6 +113,8 @@ function AuditPageContent() {
   const job = useArgusStore((s) => s.job);
   const activeFindingId = useArgusStore((s) => s.activeFindingId);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
+  const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
+  const setReplayOpen = useArgusStore((s) => s.setReplayOpen);
   const liveSteps = useArgusStore((s) => s.liveSteps);
   const liveFindings = useArgusStore((s) => s.liveFindings);
   const runStatus = useArgusStore((s) => s.runStatus);
@@ -73,10 +126,11 @@ function AuditPageContent() {
   const resetLive = useArgusStore((s) => s.resetLive);
   const setReviewReady = useArgusStore((s) => s.setReviewReady);
 
-  const [mode, setMode] = useState<RightMode>("reasoning");
+  const [mode, setMode] = useState<RightMode>("evidence");
   const [hintOpen, setHintOpen] = useState(false);
 
   useFindingKeyboardNav(() => setHintOpen((v) => !v));
+  useCommandPaletteHotkey();
 
   const onExport = async (fmt: ExportFormat) => {
     if (!liveId) return;
@@ -144,7 +198,7 @@ function AuditPageContent() {
             .then((full) => {
               setJob(full);
               setRunStatus("done");
-              setMode("reasoning");
+              setMode("evidence");
             })
             .catch((err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
@@ -217,10 +271,11 @@ function AuditPageContent() {
     }, 0);
     const livePdfUrl = `/api/argus/jobs/${encodeURIComponent(liveId)}/pdf`;
     return (
-      <>
+      <div className="cockpit cc-backdrop min-h-screen">
         <ArgusHeader
           rightSlot={
             <div className="flex items-center gap-2">
+              <PaletteHint />
               <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
             </div>
           }
@@ -245,18 +300,18 @@ function AuditPageContent() {
               />
             </div>
           )}
-          <aside className="flex flex-col border-l border-border md:border-l">
+          <aside className="flex flex-col border-l border-[var(--cc-border)]">
             {runStatus === "reviewing" ? (
               <ClaimReviewPanel jobId={liveId} />
             ) : (
               <>
-                <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
+                <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
                   <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                     Live findings preview
                   </span>
                 </div>
                 <LiveFindingsList findings={liveFindings} />
-                <div className="border-t border-border h-[18rem] min-h-0 flex flex-col">
+                <div className="border-t border-[var(--cc-border)] h-[18rem] min-h-0 flex flex-col">
                   <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
                 </div>
               </>
@@ -264,7 +319,8 @@ function AuditPageContent() {
           </aside>
         </main>
         <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
-      </>
+        <CommandPalette />
+      </div>
     );
   }
 
@@ -275,19 +331,35 @@ function AuditPageContent() {
 
   if (!job) return null;
 
+  // Clicking a finding (card or document span): select it, open the detail
+  // drawer, and surface its evidence in the right console (preserves PM-fix #4:
+  // a click must visibly surface the receipts, not just thicken a border).
+  const selectFinding = (id: string) => {
+    setActiveFinding(id);
+    setDrawerFinding(id);
+    setMode("evidence");
+  };
+
   const onClaimClick = (claimId: string) => {
     const f = job.findings.find((f) => f.claim_id === claimId);
-    if (f) setActiveFinding(f.id);
+    if (f) selectFinding(f.id);
+  };
+
+  // Open the cinematic reasoning replay directly for a finding (per-card entry).
+  const replayFinding = (id: string) => {
+    setActiveFinding(id);
+    setReplayOpen(true, id);
   };
 
   const fileUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(job.id)}/pdf` : "/sample-report.pdf";
   const jobIsText = job.input_mode === "text";
 
   return (
-    <>
+    <div className="cockpit cc-backdrop min-h-screen">
       <ArgusHeader
         rightSlot={
           <div className="flex items-center gap-2">
+            <PaletteHint />
             <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
           </div>
         }
@@ -295,10 +367,11 @@ function AuditPageContent() {
       {demo === "1" && job?.scenario_label && job?.persona && (
         <ScenarioBanner label={job.scenario_label} persona={job.persona} />
       )}
-      <VerdictBanner job={job} />
+      <VerdictHero job={job} />
       <JobStatsBar job={job} />
-      <main className="grid h-[calc(100vh-3.5rem-2.75rem-2.75rem)] grid-cols-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
-        <div className="hidden h-full overflow-hidden md:block">
+      <main className="grid h-[calc(100vh-3.5rem-2.75rem-7rem)] grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_400px]">
+        {/* Zone 1 — document frame */}
+        <div className="hidden h-full overflow-hidden lg:block">
           {jobIsText ? (
             <TextViewer
               text={job.input_text ?? ""}
@@ -317,17 +390,30 @@ function AuditPageContent() {
             />
           )}
         </div>
-        <aside className="flex flex-col border-l border-border md:border-l">
-          <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-2">
-            <ModeToggle current={mode} onChange={setMode} />
+
+        {/* Zone 2 — findings as premium cards */}
+        <section className="flex min-h-0 flex-col border-[var(--cc-border)] lg:border-l">
+          <div className="flex items-center gap-2 border-b border-[var(--cc-border)] bg-muted px-4 py-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Findings
+            </span>
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {job.findings.length}
+            </span>
           </div>
-          <div className="flex-1 overflow-hidden">
-            {mode === "reasoning" ? (
-              <ReasoningPanel
-                job={job}
-                activeFindingId={activeFindingId}
-                onSelectFinding={setActiveFinding}
-              />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={selectFinding} onReplay={replayFinding} />
+          </div>
+        </section>
+
+        {/* Zone 3 — reasoning console (evidence / live trace) */}
+        <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
+          <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
+            <ConsoleToggle current={mode} onChange={setMode} />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {mode === "evidence" ? (
+              <EvidenceTab job={job} findingId={activeFindingId} />
             ) : (
               <TraceStreamView job={job} />
             )}
@@ -335,14 +421,25 @@ function AuditPageContent() {
         </aside>
       </main>
       <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
-    </>
+
+      {/* Cockpit surfaces (T1 stubs; filled by T2–T4). Each reads its own store
+          slot, so rendering them unconditionally is safe (they no-op closed). */}
+      <FindingDrawer />
+      <ReasoningReplay />
+      <CommandPalette />
+      <EvidenceDiff />
+    </div>
   );
 }
 
-// PM-fix #3: a plain-English headline above the dense stats bar so a judge
-// (or analyst) gets the bottom-line verdict in one glance instead of having
-// to assemble it from finding cards. Pure derivation from Job — no new state.
-function VerdictBanner({ job }: { job: Job }) {
+/* ====================================================================== */
+/*  VERDICT HERO — dramatic on-load reveal above the stats bar            */
+/* ====================================================================== */
+// Replaces the old flat VerdictBanner. Pure derivation from Job — no new state.
+// Large headline (BlurText reveal), glowing status dot, severity counts via
+// CountUp. Honors prefers-reduced-motion (BlurText/CountUp degrade gracefully
+// when not in view / reduced motion via their own guards).
+function VerdictHero({ job }: { job: Job }) {
   const sev = { critical: 0, major: 0, minor: 0 };
   for (const f of job.findings) {
     if (f.severity === "critical") sev.critical++;
@@ -360,15 +457,10 @@ function VerdictBanner({ job }: { job: Job }) {
 
   const tone: "danger" | "warn" | "ok" =
     sev.critical > 0 ? "danger" : sev.major > 0 ? "warn" : "ok";
-  const toneClasses: Record<typeof tone, string> = {
-    danger: "border-destructive/40 bg-destructive/5",
-    warn: "border-amber-500/40 bg-amber-50",
-    ok: "border-success/40 bg-success/5",
-  };
-  const dotClasses: Record<typeof tone, string> = {
-    danger: "bg-destructive",
-    warn: "bg-amber-500",
-    ok: "bg-success",
+  const toneColor: Record<typeof tone, string> = {
+    danger: "var(--cc-danger)",
+    warn: "var(--cc-warn)",
+    ok: "var(--cc-ok)",
   };
 
   const subject = job.input_mode === "text" ? "this content" : "this report";
@@ -385,25 +477,64 @@ function VerdictBanner({ job }: { job: Job }) {
     headline = "Argus found issues worth reviewing.";
   }
 
-  const counts: string[] = [];
-  if (sev.critical) counts.push(`${sev.critical} critical`);
-  if (sev.major) counts.push(`${sev.major} major`);
-  if (sev.minor) counts.push(`${sev.minor} minor`);
+  const counts: Array<{ n: number; label: string; color: string }> = [];
+  if (sev.critical) counts.push({ n: sev.critical, label: "critical", color: "var(--cc-danger)" });
+  if (sev.major) counts.push({ n: sev.major, label: "major", color: "var(--cc-warn)" });
+  if (sev.minor) counts.push({ n: sev.minor, label: "minor", color: "var(--cc-text-muted)" });
 
   return (
-    <div
+    <section
       role="status"
-      className={`flex h-11 items-center gap-3 border-b px-6 text-sm ${toneClasses[tone]}`}
+      className="relative flex h-28 items-center gap-5 overflow-hidden border-b border-[var(--cc-border)] px-6"
     >
-      <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${dotClasses[tone]}`} />
-      <span className="font-medium">{headline}</span>
+      <span
+        aria-hidden
+        className="cc-status-dot size-3 shrink-0 rounded-full"
+        style={{ color: toneColor[tone], backgroundColor: toneColor[tone] }}
+      />
+      <div className="min-w-0 flex-1">
+        <BlurText
+          key={headline}
+          text={headline}
+          className="text-xl font-bold tracking-tight text-[var(--cc-text)] md:text-2xl"
+          animateBy="words"
+          delay={60}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          {issues === 0
+            ? "No factual issues detected across the checked claims."
+            : "Verdicts below link to external evidence and reasoning."}
+        </p>
+      </div>
+
       {counts.length > 0 && (
-        <span className="text-muted-foreground">
-          {counts.join(" · ")} across {job.claims.length}{" "}
-          {job.claims.length === 1 ? "claim" : "claims"}
-        </span>
+        <div className="hidden shrink-0 items-center gap-5 sm:flex">
+          {counts.map((c) => (
+            <div key={c.label} className="text-right">
+              <CountUp
+                to={c.n}
+                duration={1.1}
+                className="block font-mono text-2xl font-bold tabular-nums"
+              />
+              <span
+                className="text-[10px] uppercase tracking-wider"
+                style={{ color: c.color }}
+              >
+                {c.label}
+              </span>
+            </div>
+          ))}
+          <div className="text-right">
+            <span className="block font-mono text-2xl font-bold tabular-nums text-muted-foreground">
+              {job.claims.length}
+            </span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {job.claims.length === 1 ? "claim" : "claims"}
+            </span>
+          </div>
+        </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -427,10 +558,10 @@ function RunBanner({
       <div
         role="status"
         aria-live="polite"
-        className="flex h-12 items-center gap-3 border-b border-amber-500/40 bg-amber-50 px-4 text-xs"
+        className="flex h-12 items-center gap-3 border-b border-[var(--cc-warn)]/40 bg-[var(--cc-warn)]/10 px-4 text-xs"
       >
-        <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
-        <span className="font-medium">Select claims to verify</span>
+        <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--cc-warn)]" />
+        <span className="font-medium text-[var(--cc-text)]">Select claims to verify</span>
         <span className="text-muted-foreground">Review the extracted claims and choose which ones to verify with MiroMind.</span>
       </div>
     );
@@ -439,7 +570,7 @@ function RunBanner({
     return (
       <div
         role="alert"
-        className="flex h-12 items-center gap-3 border-b border-destructive/40 bg-destructive/10 px-4 text-xs text-destructive-foreground"
+        className="flex h-12 items-center gap-3 border-b border-[var(--cc-danger)]/40 bg-[var(--cc-danger)]/10 px-4 text-xs text-[var(--cc-danger)]"
       >
         Audit failed — {reason ?? "unknown"}
       </div>
@@ -452,16 +583,16 @@ function RunBanner({
     <div
       role="status"
       aria-live="polite"
-      className="flex h-12 items-center gap-3 overflow-x-auto border-b border-border bg-muted/40 px-4 text-xs"
+      className="flex h-12 items-center gap-3 overflow-x-auto border-b border-[var(--cc-border)] bg-muted px-4 text-xs"
     >
-      <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-success" />
-      <span className="shrink-0">
+      <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--cc-ok)]" />
+      <span className="shrink-0 text-[var(--cc-text)]">
         Audit running… <strong>{steps}</strong> steps · <strong>{findings}</strong> findings
       </span>
       {activeAgent && (
         <span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
           <span className="text-muted-foreground">last agent</span>
-          <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-[var(--cc-text)]">
             {activeAgent}
           </code>
         </span>
@@ -469,9 +600,9 @@ function RunBanner({
       {tokens !== undefined && tokens > 0 && (
         <span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
           <span className="text-muted-foreground">tokens</span>
-          <span className="font-mono tabular-nums">{tokens.toLocaleString()}</span>
+          <span className="font-mono tabular-nums text-[var(--cc-text)]">{tokens.toLocaleString()}</span>
           <span className="text-muted-foreground">· est</span>
-          <span className="font-mono tabular-nums">${estCost.toFixed(2)}</span>
+          <span className="font-mono tabular-nums text-[var(--cc-text)]">${estCost.toFixed(2)}</span>
         </span>
       )}
     </div>
@@ -489,10 +620,10 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
   }
   const sev = (s: LiveFinding["severity"]): string =>
     s === "critical"
-      ? "border-destructive/40 bg-destructive/5"
+      ? "border-[var(--cc-danger)]/40 bg-[var(--cc-danger)]/10"
       : s === "major"
-        ? "border-amber-500/40 bg-amber-50"
-        : "border-border bg-background";
+        ? "border-[var(--cc-warn)]/40 bg-[var(--cc-warn)]/10"
+        : "border-border bg-muted";
   const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -515,7 +646,7 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
               aria-expanded={isOpen}
               className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <span className="font-medium">{f.agent}</span>
+              <span className="font-medium text-[var(--cc-text)]">{f.agent}</span>
               <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] text-muted-foreground">
                 {f.severity} · {f.verdict}
                 <span aria-hidden className="text-foreground/60">
@@ -536,7 +667,7 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
   );
 }
 
-function ModeToggle({
+function ConsoleToggle({
   current,
   onChange,
 }: {
@@ -544,11 +675,11 @@ function ModeToggle({
   onChange: (m: RightMode) => void;
 }) {
   const opts: Array<{ key: RightMode; label: string }> = [
-    { key: "reasoning", label: "Reasoning" },
-    { key: "stream", label: "Trace" },
+    { key: "evidence", label: "Evidence" },
+    { key: "trace", label: "Trace" },
   ];
   return (
-    <div className="flex w-full gap-1 rounded-md bg-background p-0.5 ring-1 ring-border">
+    <div className="flex w-full gap-1 rounded-md bg-muted p-0.5 ring-1 ring-[var(--cc-border)]">
       {opts.map((o) => (
         <button
           key={o.key}
@@ -557,7 +688,7 @@ function ModeToggle({
           aria-pressed={current === o.key}
           className={`min-h-9 flex-1 rounded px-2.5 text-[11px] font-medium uppercase tracking-wider transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary ${
             current === o.key
-              ? "bg-primary text-white"
+              ? "bg-[var(--cc-primary)] text-white shadow-[var(--cc-glow)]"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >

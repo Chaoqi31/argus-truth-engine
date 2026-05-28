@@ -44,6 +44,68 @@
   --radius-card: 12px;
 }
 
+/* ======================================================================
+   "Command Center" scope — audit result experience only. Applied via the
+   `.cockpit` class on the audit page root. Re-skinned to the light Kraken
+   design language (matches the landing page); the --cc-* tokens are kept as
+   the shared contract so existing cockpit-native components need no rename.
+
+   Light Kraken palette (see web/CLAUDE.md + repo DESIGN.md):
+     app bg #f7f7fa · panels/cards #ffffff · borders #dedee5 · text #101114 ·
+     muted text #686b82 · primary #7132f5 (hover #5741d8) · danger #e5484d ·
+     warn #d97706 · ok #149e61. Elevation is whisper-level, never glow.
+
+   Panels — especially the finding drawer and modals — are SOLID #ffffff so
+   nothing shows through (`.cc-glass` is opaque here, not translucent).
+   ====================================================================== */
+.cockpit {
+  /* --- light command-center palette --- */
+  --cc-bg: #f7f7fa;            /* base canvas */
+  --cc-surface: #ffffff;       /* panels */
+  --cc-raised: #ffffff;        /* cards / raised */
+  --cc-border: #dedee5;
+  --cc-border-glow: rgba(113, 50, 245, 0.30);
+  --cc-text: #101114;
+  --cc-text-muted: #686b82;
+  --cc-primary: #7132f5;
+  --cc-primary-bright: #5741d8;
+  --cc-glow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --cc-danger: #e5484d;        /* critical / fabricated */
+  --cc-warn: #d97706;          /* major / stale */
+  --cc-ok: #149e61;            /* ok */
+  --cc-glass-bg: #ffffff;      /* solid — drawers/modals are opaque */
+
+  /* The base @theme --color-* tokens are already the light Kraken palette;
+     we intentionally do NOT remap them here, so reused leaf components
+     (finding-card, evidence-tab, …) render in the light theme directly. */
+
+  /* whisper-level elevation (Kraken) */
+  --shadow-card: 0 1px 4px rgba(16, 24, 40, 0.04);
+  --shadow-card-hover: 0 4px 24px rgba(0, 0, 0, 0.06);
+
+  background-color: var(--cc-bg);
+  color: var(--cc-text);
+  color-scheme: light;
+}
+
+/* Solid panel helper — opaque surface + hairline border + whisper shadow.
+   (No backdrop-blur/translucency: drawers and modals must be fully opaque.) */
+.cc-glass {
+  background-color: var(--cc-glass-bg);
+  border: 1px solid var(--cc-border);
+  box-shadow: var(--shadow-card);
+}
+
+/* Plain light canvas for the cockpit backdrop (no neon glow). */
+.cc-backdrop {
+  background: var(--cc-bg);
+}
+
+/* Status dot used in the verdict hero — soft halo, no neon bloom. */
+.cc-status-dot {
+  box-shadow: 0 0 0 4px color-mix(in oklab, currentColor 16%, transparent);
+}
+
 @layer base {
   html {
     color-scheme: light;
@@ -84,6 +146,19 @@
   100% { background-position: 200% 0; }
 }
 
+/* Cockpit: confidence bar grows 0 → target width with a purple glow that
+   fades after the fill settles. `--cc-fill` is set inline per bar. */
+@keyframes cc-bar-fill {
+  from { width: 0%; }
+  to   { width: var(--cc-fill, 0%); }
+}
+
+@keyframes cc-bar-glow {
+  0%   { box-shadow: 0 0 0 rgba(113, 50, 245, 0); }
+  40%  { box-shadow: 0 0 8px rgba(113, 50, 245, 0.30); }
+  100% { box-shadow: 0 0 0 rgba(113, 50, 245, 0); }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .animate-row-in {
     animation: argus-fade-in-up 280ms ease-out both;
@@ -107,11 +182,25 @@
   .animate-reveal-scale {
     animation: argus-reveal-scale 800ms ease-out both;
   }
+
+  /* Confidence bar: grow + glow. Delay set inline via --cc-delay. */
+  .cc-bar-animate {
+    width: 0%;
+    animation:
+      cc-bar-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) var(--cc-delay, 0ms) forwards,
+      cc-bar-glow 1400ms ease-out var(--cc-delay, 0ms) forwards;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer {
     background: var(--color-muted);
+  }
+
+  /* Skip the grow/glow — snap to the target width immediately. */
+  .cc-bar-animate {
+    width: var(--cc-fill, 0%);
+    animation: none;
   }
 }
 

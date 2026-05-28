@@ -40,6 +40,23 @@ interface ArgusState {
   toggleClaimSelection: (claimId: string) => void;
   selectAllClaims: () => void;
   clearReview: () => void;
+
+  // cockpit surfaces (T1 contract; filled by T2–T4 surface agents)
+  drawerFindingId: string | null;
+  replayOpen: boolean;
+  replayFindingId: string | null;
+  paletteOpen: boolean;
+  evidenceDiff: EvidenceDiffTarget | null;
+  setDrawerFinding: (id: string | null) => void;
+  setReplayOpen: (open: boolean, findingId?: string | null) => void;
+  setPaletteOpen: (open: boolean) => void;
+  setEvidenceDiff: (target: EvidenceDiffTarget | null) => void;
+}
+
+/** Identifies which finding+evidence pair the evidence-diff modal compares. */
+export interface EvidenceDiffTarget {
+  findingId: string;
+  evidenceId: string;
 }
 
 const INITIAL_LIVE = {
@@ -55,12 +72,21 @@ const INITIAL_REVIEW = {
   selectedClaimIds: new Set<string>(),
 };
 
+const INITIAL_COCKPIT = {
+  drawerFindingId: null as string | null,
+  replayOpen: false,
+  replayFindingId: null as string | null,
+  paletteOpen: false,
+  evidenceDiff: null as EvidenceDiffTarget | null,
+};
+
 export const useArgusStore = create<ArgusState>((set) => ({
   job: null,
   activeFindingId: null,
   replayState: "idle",
   ...INITIAL_LIVE,
   ...INITIAL_REVIEW,
+  ...INITIAL_COCKPIT,
 
   setJob: (job) =>
     set({
@@ -77,6 +103,7 @@ export const useArgusStore = create<ArgusState>((set) => ({
       replayState: "idle",
       ...INITIAL_LIVE,
       ...INITIAL_REVIEW,
+      ...INITIAL_COCKPIT,
     }),
 
   appendLiveStep: (step) =>
@@ -106,4 +133,14 @@ export const useArgusStore = create<ArgusState>((set) => ({
       selectedClaimIds: new Set(s.reviewClaims.map((c) => c.id)),
     })),
   clearReview: () => set({ ...INITIAL_REVIEW }),
+
+  // cockpit surfaces
+  setDrawerFinding: (id) => set({ drawerFindingId: id }),
+  setReplayOpen: (open, findingId) =>
+    set((s) => ({
+      replayOpen: open,
+      replayFindingId: open ? (findingId ?? s.replayFindingId) : null,
+    })),
+  setPaletteOpen: (open) => set({ paletteOpen: open }),
+  setEvidenceDiff: (target) => set({ evidenceDiff: target }),
 }));

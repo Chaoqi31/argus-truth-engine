@@ -10,13 +10,14 @@ const minimalJob: Job = {
   completed_at: null,
   cost_usd: 0,
   total_tokens: 0,
+  audit_report_md: null,
   claims: [],
   findings: [
     {
       id: "f1",
       job_id: "j1",
       claim_id: "c1",
-      agent: "CitationVerifier",
+      agent: "UnifiedVerifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.9,
@@ -90,7 +91,7 @@ describe("live-mode state", () => {
     const f: LiveFinding = {
       id: "f1",
       claim_id: "c1",
-      agent: "CitationVerifier",
+      agent: "UnifiedVerifier",
       verdict: "fabricated",
       severity: "major",
       summary: "No record",

@@ -1,5 +1,6 @@
 import type { Job } from "@/lib/types";
 import { stepIcon } from "@/lib/colors";
+import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
 
 interface Props {
   job: Job;
@@ -40,6 +41,17 @@ export function EvidenceTab({ job, findingId }: Props) {
           ))}
         </ol>
       </section>
+
+      {finding.confidence_breakdown && (
+        <section>
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Confidence breakdown
+          </h2>
+          <div className="mt-2">
+            <ConfidenceBreakdown breakdown={finding.confidence_breakdown} />
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
