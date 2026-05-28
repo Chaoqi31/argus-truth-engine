@@ -54,6 +54,9 @@ findings.json
 # Superpowers scaffolding (specs, plans, brainstorming artefacts)
 docs/superpowers/
 
+# Local Claude Code guidance (not shipped)
+CLAUDE.md
+
 # Frontend
 web/node_modules/
 web/.next/
@@ -61,3 +64,5 @@ web/out/
 web/.env.local
 web/coverage/
 local.db
+.vercel
+.env*
