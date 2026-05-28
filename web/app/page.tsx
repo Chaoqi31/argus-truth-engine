@@ -8,6 +8,7 @@ import { useScrollReveal } from "@/lib/use-scroll-reveal";
 import { useCountUp } from "@/lib/use-count-up";
 import { HeroProductMock } from "@/components/hero-product-mock";
 import Link from "next/link";
+import Image from "next/image";
 import { ArgusMark } from "@/components/argus-mark";
 
 /* ------------------------------------------------------------------ */
@@ -212,9 +213,9 @@ export default function HomePage() {
       {/* ============================================================ */}
       <header className="sticky top-0 z-50 border-b border-border bg-background">
         <nav className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="group flex items-center gap-2">
+          <Link href="/" className="group flex items-center gap-2.5">
             <ArgusMark className="text-primary transition-transform group-hover:rotate-[8deg]" />
-            <span className="text-[15px] font-semibold tracking-tight">Argus</span>
+            <span className="text-xl font-bold tracking-tight">Argus</span>
           </Link>
           <div className="flex items-center gap-5 text-sm">
             <Link href="/for-teams" className="text-muted-foreground transition-colors hover:text-foreground">For teams</Link>
@@ -236,15 +237,20 @@ export default function HomePage() {
           ref={heroReveal.ref}
           className="relative flex min-h-[calc(100vh-56px)] flex-col items-center justify-center px-6 pt-16"
         >
-          <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
-            {/* Badge */}
-            <div
-              className={`mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-700 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"}`}
-            >
-              <span className="size-1.5 rounded-full bg-success" />
-              For compliance, legal, and research teams
-            </div>
+          {/* Background glow */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center overflow-hidden">
+            <Image
+              src="/images/hero-glow.png"
+              alt=""
+              aria-hidden
+              width={1400}
+              height={1050}
+              className="w-full max-w-6xl opacity-75"
+              priority
+            />
+          </div>
 
+          <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
             {/* Headline */}
             <h1
               className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-7xl transition-all duration-700 delay-100 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}

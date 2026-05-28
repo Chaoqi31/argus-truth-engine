@@ -33,10 +33,18 @@ there, not inline.
   `shadow-[var(--shadow-card-hover)]`.
 - **Shadows are whisper-level only** — use the card-shadow tokens, never heavy
   `shadow-2xl`/glow.
-- **Restraint over spectacle**: no aurora/mesh-gradient backgrounds, no glassmorphism
-  (`backdrop-blur` + `white/70`), no gradient-clip text, no glow/float animations.
-  Headings get accent color via solid `text-primary`, not gradient fills.
+- **Restraint over spectacle** (default): no aurora/mesh-gradient backgrounds, no
+  glassmorphism (`backdrop-blur` + `white/70`), no gradient-clip text, no glow/float
+  animations. Headings get accent color via solid `text-primary`, not gradient fills.
   Subtle scroll-reveal fade-up is fine.
+- **Command-center exception (deliberate)**: inside the `.cockpit` scope the restraint
+  rule is intentionally relaxed for stronger reasoning-transparency visuals — allowed:
+  `.cc-glass-modern` (frosted glass) **on empty-state / illustration containers only**,
+  purposeful glow/float/pulse (`--cc-glow-hover`, `.cc-float`, `.cc-pulse-glow`,
+  `GlassIllustration`), and a bolder hover/spotlight 3D feel. Hard limit: **content
+  surfaces stay solid + opaque** — drawers, modals, and finding cards use `.cc-glass`
+  (never frosted); strong glow is hover/active/spotlight-only, resting stays whisper.
+  See repo-root `DESIGN.md` §10.
 - **Headings**: bold, tight tracking (`tracking-tight`, `-0.02em` applied to h1–h3 in base).
 - **Dark code surfaces are allowed** only for terminal/trace panels (`bg-[#101114]`),
   e.g. the reasoning-trace typewriter — these are deliberate code affordances, not theme.

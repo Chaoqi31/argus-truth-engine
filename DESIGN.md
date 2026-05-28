@@ -156,12 +156,13 @@ drawers/modals must stay light and solid.
 | `--cc-surface` | `#ffffff` | panels |
 | `--cc-raised` | `#ffffff` | cards / raised |
 | `--cc-border` | `#dedee5` | hairline border |
-| `--cc-border-glow` | `rgba(113,50,245,0.30)` | hover/spotlight accent |
+| `--cc-border-glow` | `rgba(113,50,245,0.45)` | hover/spotlight accent (bolder neon diffuse) |
 | `--cc-text` | `#101114` | primary text |
 | `--cc-text-muted` | `#686b82` | secondary text |
 | `--cc-primary` | `#7132f5` | Kraken purple |
 | `--cc-primary-bright` | `#5741d8` | hover / gradient end |
-| `--cc-glow` | `0 4px 24px rgba(0,0,0,0.06)` | whisper elevation (no neon) |
+| `--cc-glow` | `0 4px 24px rgba(0,0,0,0.06)` | whisper elevation (resting state) |
+| `--cc-glow-hover` | `0 8px 40px rgba(113,50,245,0.28), 0 0 0 1px rgba(113,50,245,0.22)` | bold neon-diffuse glow — **hover/active/spotlight only** |
 | `--cc-danger` | `#e5484d` | critical / fabricated |
 | `--cc-warn` | `#d97706` | major / stale |
 | `--cc-ok` | `#149e61` | ok |
@@ -169,14 +170,38 @@ drawers/modals must stay light and solid.
 ### Helpers
 - **`.cc-glass`** — **solid** `#ffffff` + `1px solid --cc-border` + whisper `--shadow-card`.
   (No `backdrop-blur`/translucency: drawers and modals are fully opaque.)
+- **`.cc-glass-modern`** — frosted glass (`backdrop-filter: blur(24px)`, 20% white + faint
+  purple wash, bright hairline, soft purple shadow). **Reserved for empty-state /
+  illustration containers only** — never for content surfaces. See "Relaxed effects" below.
 - **`.cc-backdrop`** — plain light canvas (`var(--cc-bg)`), no radial wash.
 - **`.cc-status-dot`** — status dot with a soft halo (uses `currentColor`), no neon bloom.
 - **`.cc-bar-animate`** — confidence bar grows `0 → --cc-fill` with a faint, fading purple
   glow; stagger via inline `--cc-delay`. Snaps instantly under `prefers-reduced-motion: reduce`.
+- **`.cc-pulse-glow`** — outward-rippling "sonar" halo for an active timeline node
+  (decorative overlay; off under reduced motion).
+- **`.cc-float`** — CSS-only slow float fallback (Y ±8px, 3s); components prefer a
+  motion-driven float (e.g. `GlassIllustration`). Off under reduced motion.
+
+### Components
+- **`GlassIllustration`** (`components/cockpit/glass-illustration.tsx`) — a tasteful frosted
+  3D SVG illustration (glass orb + refracted prism beam + faint document/lens, ~140px) for
+  empty states. Props: `size?: number` (default 140), `className?: string`. Floats via
+  `motion/react` (Y `[-8, 8]`, `easeInOut`, `repeat: Infinity`, `duration: 3`), static under
+  reduced motion. Uses `.cc-glass-modern`.
+
+### Relaxed effects (deliberate exception to the restraint rule)
+The general system bans glassmorphism, glow, and float/pulse animation. The command center
+**intentionally relaxes** this for richer reasoning-transparency visuals, with two hard limits:
+1. **Frosted glass (`.cc-glass-modern`) is for decorative empty-state / illustration layers
+   only.** Content panels — drawers, modals, finding cards — stay **solid and opaque**
+   (`.cc-glass`); never make readable content translucent.
+2. **Bold glow is opt-in via `--cc-glow-hover`** and lives on hover / active / spotlight
+   states (e.g. finding-card hover). Resting elevation stays whisper-level (`--cc-glow`).
 
 ### Motion
 Purposeful only: entrance reveals (BlurText headline), CountUp severity counts,
 confidence bars growing 0→value with glow, drawer slide, command-palette/replay reveals,
-finding-card pointer spotlight. All honor `prefers-reduced-motion`. Animation lib: `motion`
-(react-bits variants live in `web/components/react-bits/`). No shader backgrounds, no
-glitch/ASCII text.
+finding-card pointer spotlight + neon hover glow, slow float on the empty-state
+`GlassIllustration`, and the `cc-pulse-glow` halo on the active timeline node. All honor
+`prefers-reduced-motion`. Animation lib: `motion` (react-bits variants live in
+`web/components/react-bits/`). No shader backgrounds, no glitch/ASCII text.

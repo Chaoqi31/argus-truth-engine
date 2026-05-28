@@ -13,7 +13,7 @@ export function ArgusHeader({ rightSlot }: Props) {
       <div className="flex items-center">
         <Link href="/" className="group flex items-center gap-2.5">
           <ArgusMark className="text-primary transition-transform group-hover:rotate-[8deg]" />
-          <span className="text-[15px] font-semibold tracking-tight">Argus</span>
+          <span className="text-xl font-bold tracking-tight">Argus</span>
         </Link>
         <nav className="ml-6 flex items-center gap-4 text-sm text-muted-foreground">
           <Link href="/for-teams" className="hover:text-foreground">For teams</Link>
