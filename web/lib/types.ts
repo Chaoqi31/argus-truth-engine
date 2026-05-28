@@ -91,13 +91,6 @@ export interface ReasoningTrace {
   steps: Step[];
 }
 
-export interface ReasoningStepData {
-  step: string; // "premise" | "search" | "evidence_found" | "comparison" | "inference"
-  content: string;
-  evidence_ref?: string | null;
-  confidence_delta: number;
-}
-
 export interface ConfidenceBreakdownData {
   source_agreement: number;
   source_authority: number;
@@ -116,11 +109,9 @@ export interface Finding {
   confidence: number;
   confidence_breakdown?: ConfidenceBreakdownData | null;
   summary: string;
-  reasoning_chain?: ReasoningStepData[];
   evidence_ids: string[];
   reasoning_trace_id: string;
   related_finding_ids: string[];
-  challenge_result?: string | null;
   created_at: string;
 }
 

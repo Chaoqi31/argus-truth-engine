@@ -9,6 +9,7 @@ from argus.db.repository import JobRepository
 from argus.models.domain import (
     Claim,
     ClaimType,
+    ConfidenceBreakdown,
     Evidence,
     EvidenceSource,
     Finding,
@@ -36,6 +37,28 @@ async def test_save_then_get(sqlite_engine: object) -> None:
     assert loaded.id == job.id
     assert len(loaded.findings) == 1
     assert loaded.findings[0].verdict == job.findings[0].verdict
+
+
+async def test_confidence_breakdown_round_trips(sqlite_engine: object) -> None:
+    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
+    repo = JobRepository(smaker)
+
+    job = _sample_job()
+    breakdown = ConfidenceBreakdown(
+        source_agreement=0.8,
+        source_authority=0.6,
+        evidence_freshness=0.4,
+        evidence_specificity=0.9,
+        reasoning="Authoritative sources broadly agree.",
+    )
+    job.findings[0].confidence_breakdown = breakdown
+
+    await repo.save_job(job)
+    loaded = await repo.get_job(job.id)
+
+    assert loaded is not None
+    restored = loaded.findings[0].confidence_breakdown
+    assert restored == breakdown
 
 
 async def test_get_missing_returns_none(sqlite_engine: object) -> None:
