@@ -86,8 +86,8 @@ export function ChallengeResult({ result }: { result: string }) {
     <div
       className={`mt-2 rounded-md border px-2 py-1 text-xs ${
         succeeded
-          ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
-          : "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200"
+          ? "border-amber-300 bg-amber-50 text-amber-800"
+          : "border-green-300 bg-green-50 text-green-800"
       }`}
     >
       <span className="font-medium">

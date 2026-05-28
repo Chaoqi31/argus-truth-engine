@@ -9,11 +9,7 @@ import { TraceTypewriter } from "@/components/trace-typewriter";
 export function HeroProductMock() {
   return (
     <div className="relative mx-auto w-full max-w-3xl">
-      {/* Glow behind the frame */}
-      <div className="absolute -inset-6 -z-10 rounded-3xl bg-gradient-to-b from-primary/25 via-violet-500/15 to-transparent blur-3xl" />
-      <div className="absolute -inset-1 -z-[5] rounded-xl bg-gradient-to-br from-primary/20 via-violet-500/10 to-indigo-500/20" />
-
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d1117] shadow-2xl">
+      <div className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-[#101114] shadow-[var(--shadow-card-hover)]">
         {/* Browser chrome */}
         <div className="flex items-center gap-2 border-b border-white/10 bg-white/5 px-4 py-2.5">
           <span className="size-2.5 rounded-full bg-white/20" />
