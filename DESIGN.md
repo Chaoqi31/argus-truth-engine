@@ -123,3 +123,60 @@ Breakpoints: 375px, 425px, 640px, 768px, 1024px, 1280px, 1536px
 
 ### Example Component Prompts
 - "Create hero: white background. Kraken-Brand 48px weight 700, letter-spacing -1px. Purple CTA (#7132f5, 12px radius, 13px 16px padding)."
+
+---
+
+## 10. Command Center (audit result experience — light Kraken)
+
+The **audit result experience** (`web/app/audit/page.tsx` and its panels) shares the
+same **light Kraken** design language as the marketing/landing surfaces (sections 1–9).
+It was briefly shipped as a near-black "cockpit" but has been re-skinned to light per
+user feedback: panels read like the rest of the app, drawers and modals are solid (never
+translucent), and elevation is whisper-level — no neon glow.
+
+**Scope:** the audit page opts in via the `.cockpit` class on the page root. The class no
+longer changes the theme; it just provides the `--cc-*` tokens (below) as a stable contract
+for the cockpit-native components. Source of truth for the redesign:
+`docs/superpowers/specs/2026-05-28-audit-command-center-redesign.md`.
+
+### How it works
+The `.cockpit` scope in `app/globals.css` defines the `--cc-*` tokens at **light Kraken
+values**. It intentionally does **not** re-map the base `--color-*` semantic tokens, so
+reused leaf components that reference `bg-background` / `text-foreground` / `border-border`
+render in the standard light theme directly. Cockpit-native components reference the
+`--cc-*` tokens by name. **Never hardcode hex in components** — use `--cc-*` (or the base
+semantic tokens) by name. The only legitimate dark surface is the live trace/typewriter
+code panel (a deliberate code affordance, section 9) — the reasoning replay stage and all
+drawers/modals must stay light and solid.
+
+### Tokens (`--cc-*`) — light Kraken
+| Token | Value | Role |
+|-------|-------|------|
+| `--cc-bg` | `#f7f7fa` | base canvas / raised-on-panel contrast |
+| `--cc-surface` | `#ffffff` | panels |
+| `--cc-raised` | `#ffffff` | cards / raised |
+| `--cc-border` | `#dedee5` | hairline border |
+| `--cc-border-glow` | `rgba(113,50,245,0.30)` | hover/spotlight accent |
+| `--cc-text` | `#101114` | primary text |
+| `--cc-text-muted` | `#686b82` | secondary text |
+| `--cc-primary` | `#7132f5` | Kraken purple |
+| `--cc-primary-bright` | `#5741d8` | hover / gradient end |
+| `--cc-glow` | `0 4px 24px rgba(0,0,0,0.06)` | whisper elevation (no neon) |
+| `--cc-danger` | `#e5484d` | critical / fabricated |
+| `--cc-warn` | `#d97706` | major / stale |
+| `--cc-ok` | `#149e61` | ok |
+
+### Helpers
+- **`.cc-glass`** — **solid** `#ffffff` + `1px solid --cc-border` + whisper `--shadow-card`.
+  (No `backdrop-blur`/translucency: drawers and modals are fully opaque.)
+- **`.cc-backdrop`** — plain light canvas (`var(--cc-bg)`), no radial wash.
+- **`.cc-status-dot`** — status dot with a soft halo (uses `currentColor`), no neon bloom.
+- **`.cc-bar-animate`** — confidence bar grows `0 → --cc-fill` with a faint, fading purple
+  glow; stagger via inline `--cc-delay`. Snaps instantly under `prefers-reduced-motion: reduce`.
+
+### Motion
+Purposeful only: entrance reveals (BlurText headline), CountUp severity counts,
+confidence bars growing 0→value with glow, drawer slide, command-palette/replay reveals,
+finding-card pointer spotlight. All honor `prefers-reduced-motion`. Animation lib: `motion`
+(react-bits variants live in `web/components/react-bits/`). No shader backgrounds, no
+glitch/ASCII text.
