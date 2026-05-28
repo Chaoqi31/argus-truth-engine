@@ -15,6 +15,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from argus.models.domain import (
     Claim,
     ClaimType,
+    ConfidenceBreakdown,
     CorrectedInfo,
     Evidence,
     EvidenceSource,
@@ -158,6 +159,7 @@ class FindingRow(Base):
     verdict: Mapped[str] = mapped_column(String)
     severity: Mapped[str] = mapped_column(String)
     confidence: Mapped[float] = mapped_column(Float)
+    confidence_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     summary: Mapped[str] = mapped_column(String)
     evidence_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     reasoning_trace_id: Mapped[str] = mapped_column(String)
@@ -181,6 +183,9 @@ class FindingRow(Base):
             verdict=m.verdict.value,
             severity=m.severity.value,
             confidence=m.confidence,
+            confidence_breakdown=(
+                m.confidence_breakdown.model_dump() if m.confidence_breakdown else None
+            ),
             summary=m.summary,
             evidence_ids=list(m.evidence_ids),
             reasoning_trace_id=m.reasoning_trace_id,
@@ -212,6 +217,11 @@ class FindingRow(Base):
             verdict=FindingVerdict(self.verdict),
             severity=Severity(self.severity),
             confidence=self.confidence,
+            confidence_breakdown=(
+                ConfidenceBreakdown(**self.confidence_breakdown)
+                if self.confidence_breakdown
+                else None
+            ),
             summary=self.summary,
             evidence_ids=list(self.evidence_ids or []),
             reasoning_trace_id=self.reasoning_trace_id,

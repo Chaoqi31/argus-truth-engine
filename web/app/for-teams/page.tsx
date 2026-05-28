@@ -48,15 +48,15 @@ const PERSONAS = [
 const FEATURES = [
   {
     title: "4 types of error detection",
-    body: "Fabricated references, misrepresented sources, outdated data, and internal contradictions — each with a specialized verification agent.",
+    body: "Fabricated references, misrepresented sources, outdated data, and internal contradictions — caught by one autonomous verifier that picks its own sources and tools per claim.",
   },
   {
     title: "Full reasoning transparency",
     body: "Every web search, every fetched source, every chain-of-thought step is recorded and visible. Not a black-box score — a readable audit trail.",
   },
   {
-    title: "Adversarial debate protocol",
-    body: "Each high-stakes finding is stress-tested by an Attacker / Defender / Judge debate. The transcript ships with the report so reviewers see both sides.",
+    title: "Decomposed confidence score",
+    body: "Every verdict's confidence breaks down into four auditable factors — source agreement, source authority, evidence freshness, and evidence specificity — so reviewers can see why a finding is trusted, not just how much.",
   },
   {
     title: "Exportable audit report",
