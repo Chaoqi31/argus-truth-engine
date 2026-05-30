@@ -106,6 +106,38 @@ async def test_captures_input_output_token_split_from_usage() -> None:
     assert stream.output_tokens == 2000
 
 
+async def test_forwards_idempotency_key_to_submit() -> None:
+    client = AsyncMock()
+    client.submit_background = AsyncMock(return_value="resp_x")
+    valid = '{"verdict":"ok","confidence":0.9}'
+    client.stream = lambda rid, after=0: _events_seq([_msg_delta(valid), _completed()])
+
+    runner = AgentRunner(client=client, model_cls=Out, agent_name="t")
+    await runner.run(instructions=None, input_text="hi", idempotency_key="key_abc")
+
+    assert client.submit_background.await_args.kwargs["idempotency_key"] == "key_abc"
+
+
+async def test_repair_round_trip_uses_distinct_idempotency_key() -> None:
+    # The repair round-trip sends a *different* payload, so it must use a
+    # distinct key — otherwise a server honoring Idempotency-Key would return
+    # the cached (malformed) response and the repair would be a silent no-op.
+    client = AsyncMock()
+    rids = iter(["resp_first", "resp_repair"])
+    client.submit_background = AsyncMock(side_effect=lambda **kw: next(rids))
+    bad = "this is not json"
+    fixed = '{"verdict":"ok","confidence":0.5}'
+    streams = iter([[_msg_delta(bad), _completed()], [_msg_delta(fixed), _completed()]])
+    client.stream = lambda rid, after=0: _events_seq(next(streams))
+
+    runner = AgentRunner(client=client, model_cls=Out, agent_name="t")
+    await runner.run(instructions=None, input_text="hi", idempotency_key="key_abc")
+
+    assert client.submit_background.await_count == 2
+    keys = [c.kwargs["idempotency_key"] for c in client.submit_background.await_args_list]
+    assert keys == ["key_abc", "key_abc:repair"]
+
+
 async def test_repairs_once_then_succeeds() -> None:
     client = AsyncMock()
     rids = iter(["resp_first", "resp_repair"])

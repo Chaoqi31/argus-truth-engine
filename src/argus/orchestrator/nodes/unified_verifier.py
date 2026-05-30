@@ -65,12 +65,15 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         })
                         return claim, None, None, rebound
 
-                _ = make_idempotency_key(ctx.job_id, "UnifiedVerifier", claim.id)
+                idem_key = make_idempotency_key(
+                    ctx.job_id, "UnifiedVerifier", claim.id
+                )
                 try:
                     result = await verify_claim(
                         ctx.client, claim.text,
                         surrounding=surrounding,
                         domain_hint=domain_hint,
+                        idempotency_key=idem_key,
                     )
                     return claim, result, None, None
                 except JsonRepairFailed as exc:

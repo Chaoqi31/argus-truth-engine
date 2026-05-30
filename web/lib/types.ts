@@ -99,6 +99,14 @@ export interface ConfidenceBreakdownData {
   reasoning: string;
 }
 
+/** The corrected fact for an inaccurate/outdated/misrepresented claim. */
+export interface CorrectedInfo {
+  value: string;
+  source: string;
+  url?: string | null;
+  retrieved_date?: string | null;
+}
+
 export interface Finding {
   id: string;
   job_id: string;
@@ -109,6 +117,10 @@ export interface Finding {
   confidence: number;
   confidence_breakdown?: ConfidenceBreakdownData | null;
   summary: string;
+  /** Plain-language explanation of *why* the claim is wrong (non-OK verdicts). */
+  why_wrong?: string | null;
+  /** What the right answer is, with an authoritative source. */
+  correct_information?: CorrectedInfo | null;
   evidence_ids: string[];
   reasoning_trace_id: string;
   related_finding_ids: string[];

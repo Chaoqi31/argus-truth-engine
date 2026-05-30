@@ -78,6 +78,9 @@
   --cc-danger: #e5484d;        /* critical / fabricated */
   --cc-warn: #d97706;          /* major / stale */
   --cc-ok: #149e61;            /* ok */
+  --cc-danger-tint: rgba(229,72,77,0.12);  --cc-danger-border: rgba(229,72,77,0.35);
+  --cc-warn-tint:   rgba(217,119,6,0.12);  --cc-warn-border:   rgba(217,119,6,0.35);
+  --cc-ok-tint:     rgba(20,158,97,0.12);  --cc-ok-border:     rgba(20,158,97,0.35);
   --cc-glass-bg: #ffffff;      /* solid — drawers/modals are opaque */
 
   /* The base @theme --color-* tokens are already the light Kraken palette;
