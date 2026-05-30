@@ -1,6 +1,7 @@
 import type { Job } from "@/lib/types";
 import { stepIcon } from "@/lib/colors";
 import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
+import { safeHttpUrl } from "@/lib/url";
 
 interface Props {
   job: Job;
@@ -59,9 +60,9 @@ export function EvidenceTab({ job, findingId }: Props) {
           <p className="mt-1 text-sm leading-relaxed">{finding.correct_information.value}</p>
           <p className="mt-1.5 flex flex-wrap items-center gap-1 font-mono text-xs text-muted-foreground">
             <span className="uppercase tracking-wider">Source:</span>
-            {finding.correct_information.url ? (
+            {safeHttpUrl(finding.correct_information.url) ? (
               <a
-                href={finding.correct_information.url}
+                href={safeHttpUrl(finding.correct_information.url)!}
                 target="_blank"
                 rel="noreferrer noopener"
                 className="text-primary underline-offset-2 hover:underline"
@@ -100,16 +101,18 @@ export function EvidenceTab({ job, findingId }: Props) {
             <li key={e.id} className="rounded-md border border-border p-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-xs text-muted-foreground">{e.source_type}</span>
-                {e.url && (
+                {safeHttpUrl(e.url) ? (
                   <a
-                    href={e.url}
+                    href={safeHttpUrl(e.url)!}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="text-xs text-primary underline-offset-2 hover:underline"
                   >
                     {e.citation}
                   </a>
-                )}
+                ) : e.citation ? (
+                  <span className="text-xs text-muted-foreground">{e.citation}</span>
+                ) : null}
               </div>
               {e.snippet && (
                 <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{e.snippet}</p>

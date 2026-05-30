@@ -11,6 +11,7 @@ import {
 import { useArgusStore } from "@/lib/store";
 import { stepIcon } from "@/lib/colors";
 import type { CorrectedInfo, Finding, Job, Step, StepType } from "@/lib/types";
+import { safeHttpUrl } from "@/lib/url";
 
 /**
  * Reasoning replay (T3 surface) — the demo 1:30–2:30 centerpiece.
@@ -893,9 +894,9 @@ function VerdictReveal({
           </p>
           <p className="mt-0.5 font-mono text-[11px] text-[var(--cc-text-muted)]">
             Source:{" "}
-            {correctInfo.url ? (
+            {safeHttpUrl(correctInfo.url) ? (
               <a
-                href={correctInfo.url}
+                href={safeHttpUrl(correctInfo.url)!}
                 target="_blank"
                 rel="noreferrer noopener"
                 className="text-[var(--cc-primary-bright)] underline underline-offset-2 hover:text-[var(--cc-primary)]"
@@ -1258,24 +1259,24 @@ function toneColor(tone: Tone): string {
 function toneTint(tone: Tone): string {
   switch (tone) {
     case "danger":
-      return "rgba(255,92,108,0.12)";
+      return "var(--cc-danger-tint)";
     case "warn":
-      return "rgba(255,184,77,0.12)";
+      return "var(--cc-warn-tint)";
     case "ok":
-      return "rgba(46,230,160,0.12)";
+      return "var(--cc-ok-tint)";
     default:
-      return "rgba(255,255,255,0.05)";
+      return "transparent";
   }
 }
 
 function toneBorder(tone: Tone): string {
   switch (tone) {
     case "danger":
-      return "rgba(255,92,108,0.35)";
+      return "var(--cc-danger-border)";
     case "warn":
-      return "rgba(255,184,77,0.35)";
+      return "var(--cc-warn-border)";
     case "ok":
-      return "rgba(46,230,160,0.35)";
+      return "var(--cc-ok-border)";
     default:
       return "var(--cc-border)";
   }

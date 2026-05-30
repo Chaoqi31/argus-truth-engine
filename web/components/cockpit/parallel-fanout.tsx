@@ -69,18 +69,18 @@ function toneColor(tone: Tone): string {
 
 function toneTint(tone: Tone): string {
   switch (tone) {
-    case "danger": return "rgba(229,72,77,0.12)";
-    case "warn":   return "rgba(217,119,6,0.12)";
-    case "ok":     return "rgba(20,158,97,0.12)";
-    default:       return "rgba(104,107,130,0.10)";
+    case "danger": return "var(--cc-danger-tint)";
+    case "warn":   return "var(--cc-warn-tint)";
+    case "ok":     return "var(--cc-ok-tint)";
+    default:       return "transparent";
   }
 }
 
 function toneBorder(tone: Tone): string {
   switch (tone) {
-    case "danger": return "rgba(229,72,77,0.35)";
-    case "warn":   return "rgba(217,119,6,0.35)";
-    case "ok":     return "rgba(20,158,97,0.35)";
+    case "danger": return "var(--cc-danger-border)";
+    case "warn":   return "var(--cc-warn-border)";
+    case "ok":     return "var(--cc-ok-border)";
     default:       return "var(--cc-border)";
   }
 }
@@ -89,7 +89,7 @@ function toneBorder(tone: Tone): string {
 // Derive lanes from a completed job.
 // ---------------------------------------------------------------------------
 
-function buildLanes(job: Job): Lane[] {
+export function buildLanes(job: Job): Lane[] {
   const claimById = new Map(job.claims.map((c) => [c.id, c]));
   const findingByTraceId = new Map(
     job.findings.map((f) => [f.reasoning_trace_id, f]),

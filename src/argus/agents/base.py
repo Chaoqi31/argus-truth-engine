@@ -120,10 +120,15 @@ class AgentRunner[T: BaseModel]:
             "Please re-emit ONLY a valid JSON object matching the required schema. "
             "Do not include any prose, code fences, or commentary."
         )
+        # The repair round-trip sends a *different* payload (the original input
+        # plus the validation error), so it must NOT reuse the first request's
+        # idempotency key: a server that honors Idempotency-Key would return the
+        # cached (malformed) response and the repair would be a silent no-op.
+        repair_key = f"{idempotency_key}:repair" if idempotency_key else None
         second = await self._round_trip(
             instructions=instructions,
             input_text=repair_input,
-            idempotency_key=idempotency_key,
+            idempotency_key=repair_key,
         )
         try:
             parsed = self._validate(second.final_text)
