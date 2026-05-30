@@ -53,18 +53,25 @@ class MiromindClient:
         instructions: str | None,
         max_output_tokens: int | None = None,
         metadata: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> str:
         """POST /v1/responses with background=true; return the response id.
 
         Wrapped with :func:`retry_on_transient`, so 408/425/429/5xx and
         :class:`httpx.RequestError` failures are retried with exponential
-        backoff per :attr:`Settings.miromind_retry_attempts`.
+        backoff per :attr:`Settings.miromind_retry_attempts`. The deterministic
+        ``idempotency_key`` is reused across those transient retries (same
+        payload), so a server that honors ``Idempotency-Key`` can de-duplicate
+        the retried request rather than billing it twice. (Soft guarantee — it
+        only helps if MiroMind honors the header; at minimum the key tags the
+        work unit deterministically via ``metadata``.)
         """
         return await self._submit_once(
             input=input,
             instructions=instructions,
             max_output_tokens=max_output_tokens,
             metadata=metadata,
+            idempotency_key=idempotency_key,
         )
 
     async def _submit_background_once(
@@ -74,6 +81,7 @@ class MiromindClient:
         instructions: str | None,
         max_output_tokens: int | None,
         metadata: dict[str, str] | None,
+        idempotency_key: str | None,
     ) -> str:
         await self._bucket.acquire()
         body: dict[str, Any] = {
@@ -86,15 +94,23 @@ class MiromindClient:
             body["instructions"] = instructions
         if max_output_tokens is not None:
             body["max_output_tokens"] = max_output_tokens
+        if idempotency_key is not None:
+            metadata = {**(metadata or {}), "idempotency_key": idempotency_key}
         if metadata is not None:
             body["metadata"] = metadata
+
+        # Merge the per-request Idempotency-Key header without mutating the
+        # shared self._headers dict.
+        headers = self._headers
+        if idempotency_key is not None:
+            headers = {**headers, "Idempotency-Key": idempotency_key}
 
         async with httpx.AsyncClient(
             timeout=self._s.miromind_request_timeout_s
         ) as http:
             resp = await http.post(
                 f"{self._s.miromind_base_url}/responses",
-                headers=self._headers,
+                headers=headers,
                 content=json.dumps(body),
             )
             resp.raise_for_status()

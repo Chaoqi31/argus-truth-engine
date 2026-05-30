@@ -10,7 +10,8 @@ import {
 } from "motion/react";
 import { useArgusStore } from "@/lib/store";
 import { stepIcon } from "@/lib/colors";
-import type { Finding, Job, Step, StepType } from "@/lib/types";
+import type { CorrectedInfo, Finding, Job, Step, StepType } from "@/lib/types";
+import { safeHttpUrl } from "@/lib/url";
 
 /**
  * Reasoning replay (T3 surface) — the demo 1:30–2:30 centerpiece.
@@ -315,7 +316,7 @@ function Theater({
             showVerdict={verdictRevealed}
             verdict={verdict}
             tone={tone}
-            summary={finding?.summary ?? null}
+            finding={finding}
           />
         </div>
       </div>
@@ -543,7 +544,7 @@ function Stage({
   showVerdict,
   verdict,
   tone,
-  summary,
+  finding,
 }: {
   step: Step | undefined;
   index: number;
@@ -552,7 +553,7 @@ function Stage({
   showVerdict: boolean;
   verdict: string | null;
   tone: Tone;
-  summary: string | null;
+  finding: Finding | null;
 }) {
   const [scope, animate] = useAnimate();
 
@@ -605,34 +606,12 @@ function Stage({
       {/* verdict reveal on the final step */}
       <AnimatePresence>
         {isVerdictStep && verdict && (
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: reduceMotion ? 0 : 0.12 }}
-            className="mt-1 flex flex-col gap-2 border-t border-[var(--cc-border)] pt-5"
-          >
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
-              Verdict
-            </span>
-            <div className="flex items-center gap-3">
-              <span
-                aria-hidden
-                className="cc-status-dot size-3 rounded-full"
-                style={{ color: toneColor(tone), backgroundColor: toneColor(tone) }}
-              />
-              <span
-                className="text-2xl font-semibold tracking-tight md:text-3xl"
-                style={{ color: toneColor(tone) }}
-              >
-                {verdict.toUpperCase()}
-              </span>
-            </div>
-            {summary && (
-              <p className="text-sm leading-relaxed text-[var(--cc-text-muted)]">
-                {summary}
-              </p>
-            )}
-          </motion.div>
+          <VerdictReveal
+            verdict={verdict}
+            tone={tone}
+            finding={finding}
+            reduceMotion={reduceMotion}
+          />
         )}
       </AnimatePresence>
     </div>
@@ -668,11 +647,272 @@ function StageBody({ step }: { step: Step }) {
     );
   }
 
-  // thinking / message / tool_call / execute_* — render as the agent's note.
+  if (step.type === "thinking") {
+    const thought =
+      typeof step.content?.thought === "string" ? step.content.thought : null;
+    return <ThinkingTypewriter text={thought ?? summary} isFallback={!thought} />;
+  }
+
+  // message / tool_call / execute_* — render as the agent's note.
   return (
     <p className="text-xl leading-relaxed text-[var(--cc-text)] md:text-2xl">
       {summary}
     </p>
+  );
+}
+
+/**
+ * Renders thinking content as a monospace dark-panel typewriter.
+ * Honors prefers-reduced-motion: when reduced, shows the full text immediately.
+ * Speed is calibrated to STEP_DWELL.thinking (1300 ms) so the text flows
+ * within the step's natural dwell window at a comfortable reading pace.
+ */
+function ThinkingTypewriter({
+  text,
+  isFallback,
+}: {
+  text: string;
+  isFallback: boolean;
+}) {
+  const reduceMotion = useReducedMotion() ?? false;
+  // idxRef drives the visible slice; displayed mirrors it for renders.
+  const idxRef = useRef(reduceMotion ? text.length : 0);
+  const [displayed, setDisplayed] = useState(() =>
+    reduceMotion ? text : "",
+  );
+
+  useEffect(() => {
+    // When text/reduceMotion changes, reset the cursor and kick off a new interval.
+    idxRef.current = reduceMotion ? text.length : 0;
+
+    if (reduceMotion) {
+      // All updates happen inside the timer callback — defer even this reset.
+      const id = setTimeout(() => setDisplayed(text), 0);
+      return () => clearTimeout(id);
+    }
+
+    // Target: finish in ~1 200 ms (within STEP_DWELL.thinking=1300 ms).
+    const tickMs = 22; // ~45 fps
+    const charsPerTick = Math.max(1, Math.ceil(text.length / (1200 / tickMs)));
+
+    const id = setInterval(() => {
+      idxRef.current = Math.min(idxRef.current + charsPerTick, text.length);
+      const slice = text.slice(0, idxRef.current);
+      setDisplayed(slice);
+      if (idxRef.current >= text.length) clearInterval(id);
+    }, tickMs);
+
+    return () => clearInterval(id);
+  }, [text, reduceMotion]);
+
+  return (
+    <div
+      className="relative flex flex-col gap-2 overflow-hidden rounded-lg"
+      style={{ backgroundColor: "#101114" }}
+    >
+      {/* terminal chrome bar */}
+      <div className="flex items-center gap-1.5 border-b border-white/[0.07] px-4 py-2.5">
+        <span aria-hidden className="size-2.5 rounded-full bg-[#ff5f57] opacity-70" />
+        <span aria-hidden className="size-2.5 rounded-full bg-[#febc2e] opacity-70" />
+        <span aria-hidden className="size-2.5 rounded-full bg-[#28c840] opacity-70" />
+        <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.18em] text-white/30">
+          {isFallback ? "thinking" : "thought stream"}
+        </span>
+      </div>
+      {/* text area */}
+      <pre
+        className="max-h-[22rem] overflow-y-auto whitespace-pre-wrap break-words px-4 pb-4 font-mono text-sm leading-relaxed"
+        style={{ color: "rgba(180,185,210,0.92)" }}
+      >
+        {displayed}
+        {/* blinking cursor */}
+        {!reduceMotion && displayed.length < text.length && (
+          <motion.span
+            aria-hidden
+            animate={{ opacity: [1, 0] }}
+            transition={{ repeat: Infinity, duration: 0.6, ease: "linear" }}
+            className="inline-block h-[1em] w-[2px] translate-y-[2px] bg-[var(--cc-primary-bright)]"
+          />
+        )}
+      </pre>
+    </div>
+  );
+}
+
+/**
+ * Staggered verdict reveal — the cinematic climax of the replay.
+ * Sections appear in sequence: verdict badge → confidence counter →
+ * reasoning sentence → why_wrong → correct_information.
+ */
+function VerdictReveal({
+  verdict,
+  tone,
+  finding,
+  reduceMotion,
+}: {
+  verdict: string;
+  tone: Tone;
+  finding: Finding | null;
+  reduceMotion: boolean;
+}) {
+  const confidenceTarget = finding ? Math.round(finding.confidence * 100) : null;
+  // startRef tracks when this VerdictReveal mounted (or target changed).
+  const countStartRef = useRef<number | null>(null);
+  const [confidenceDisplayed, setConfidenceDisplayed] = useState(() =>
+    reduceMotion ? (confidenceTarget ?? 0) : 0,
+  );
+
+  // Count up the confidence figure via rAF — no synchronous setState in body.
+  useEffect(() => {
+    if (reduceMotion || confidenceTarget === null) return;
+    countStartRef.current = null; // reset; rAF will capture real start time
+    const duration = 700; // ms
+    let frame: number;
+    const tick = (now: number) => {
+      if (countStartRef.current === null) countStartRef.current = now;
+      const elapsed = now - countStartRef.current;
+      const t = Math.min(1, elapsed / duration);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      setConfidenceDisplayed(Math.round(eased * confidenceTarget));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [confidenceTarget, reduceMotion]);
+
+  const reasoningText = finding?.confidence_breakdown?.reasoning ?? null;
+  const whyWrong = finding?.why_wrong ?? null;
+  const correctInfo: CorrectedInfo | null = finding?.correct_information ?? null;
+
+  const stagger = (i: number) =>
+    reduceMotion
+      ? {}
+      : {
+          initial: { opacity: 0, y: 8 },
+          animate: { opacity: 1, y: 0 },
+          transition: {
+            duration: 0.38,
+            ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+            delay: i * 0.14,
+          },
+        };
+
+  return (
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: reduceMotion ? 0 : 0.12 }}
+      className="mt-1 flex flex-col gap-4 border-t border-[var(--cc-border)] pt-5"
+    >
+      {/* 1 — Verdict badge */}
+      <motion.div className="flex flex-col gap-2" {...stagger(0)}>
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
+          Verdict
+        </span>
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden
+            className="size-3 rounded-full"
+            style={{
+              backgroundColor: toneColor(tone),
+              boxShadow: `0 0 10px 2px ${toneColor(tone)}55`,
+            }}
+          />
+          <span
+            className="text-2xl font-semibold tracking-tight md:text-3xl"
+            style={{ color: toneColor(tone) }}
+          >
+            {verdict.toUpperCase()}
+          </span>
+        </div>
+        {finding?.summary && (
+          <p className="text-sm leading-relaxed text-[var(--cc-text-muted)]">
+            {finding.summary}
+          </p>
+        )}
+      </motion.div>
+
+      {/* 2 — Confidence counter */}
+      {confidenceTarget !== null && (
+        <motion.div className="flex items-baseline gap-2" {...stagger(1)}>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
+            Confidence
+          </span>
+          <span
+            className="font-mono text-lg font-semibold tabular-nums"
+            style={{ color: toneColor(tone) }}
+          >
+            {confidenceDisplayed}%
+          </span>
+        </motion.div>
+      )}
+
+      {/* 3 — Reasoning sentence */}
+      {reasoningText && (
+        <motion.div className="flex flex-col gap-1" {...stagger(2)}>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
+            Confidence reasoning
+          </span>
+          <p className="text-sm leading-relaxed text-[var(--cc-text-muted)]">
+            {reasoningText}
+          </p>
+        </motion.div>
+      )}
+
+      {/* 4 — Why wrong */}
+      {whyWrong && (
+        <motion.div
+          className="flex flex-col gap-1 rounded-lg px-4 py-3"
+          style={{ backgroundColor: toneTint(tone), border: `1px solid ${toneBorder(tone)}` }}
+          {...stagger(3)}
+        >
+          <span
+            className="font-mono text-[10px] uppercase tracking-[0.18em]"
+            style={{ color: toneColor(tone) }}
+          >
+            Why it&apos;s wrong
+          </span>
+          <p className="text-sm leading-relaxed" style={{ color: toneColor(tone) }}>
+            {whyWrong}
+          </p>
+        </motion.div>
+      )}
+
+      {/* 5 — Correct information */}
+      {correctInfo && (
+        <motion.div
+          className="flex flex-col gap-1 rounded-lg border border-[var(--cc-border)] px-4 py-3"
+          style={{ backgroundColor: "color-mix(in oklab, var(--cc-primary) 6%, transparent)" }}
+          {...stagger(4)}
+        >
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--cc-primary-bright)]">
+            Correct information
+          </span>
+          <p className="text-sm leading-relaxed text-[var(--cc-text)]">
+            {correctInfo.value}
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] text-[var(--cc-text-muted)]">
+            Source:{" "}
+            {safeHttpUrl(correctInfo.url) ? (
+              <a
+                href={safeHttpUrl(correctInfo.url)!}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-[var(--cc-primary-bright)] underline underline-offset-2 hover:text-[var(--cc-primary)]"
+              >
+                {correctInfo.source}
+              </a>
+            ) : (
+              <span>{correctInfo.source}</span>
+            )}
+            {correctInfo.retrieved_date && (
+              <span className="ml-2 opacity-60">· {correctInfo.retrieved_date}</span>
+            )}
+          </p>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }
 
@@ -1019,24 +1259,24 @@ function toneColor(tone: Tone): string {
 function toneTint(tone: Tone): string {
   switch (tone) {
     case "danger":
-      return "rgba(255,92,108,0.12)";
+      return "var(--cc-danger-tint)";
     case "warn":
-      return "rgba(255,184,77,0.12)";
+      return "var(--cc-warn-tint)";
     case "ok":
-      return "rgba(46,230,160,0.12)";
+      return "var(--cc-ok-tint)";
     default:
-      return "rgba(255,255,255,0.05)";
+      return "transparent";
   }
 }
 
 function toneBorder(tone: Tone): string {
   switch (tone) {
     case "danger":
-      return "rgba(255,92,108,0.35)";
+      return "var(--cc-danger-border)";
     case "warn":
-      return "rgba(255,184,77,0.35)";
+      return "var(--cc-warn-border)";
     case "ok":
-      return "rgba(46,230,160,0.35)";
+      return "var(--cc-ok-border)";
     default:
       return "var(--cc-border)";
   }

@@ -1,6 +1,8 @@
 """Tests for the MiroMind client using respx (HTTPX mock)."""
 from __future__ import annotations
 
+import json
+
 import respx
 from httpx import Response
 
@@ -40,6 +42,39 @@ async def test_stream_yields_events_and_completes() -> None:
     rid = await client.submit_background(input="hello", instructions=None)
     events = [ev async for ev in client.stream(rid, after=0)]
     assert [e.type for e in events] == ["response.created", "response.completed"]
+
+
+@respx.mock
+async def test_submit_background_sends_idempotency_key_header_and_metadata() -> None:
+    route = respx.post("https://api.miromind.ai/v1/responses").mock(
+        return_value=Response(200, json={"id": "resp_abc", "status": "in_progress"})
+    )
+
+    client = MiromindClient(Settings(miromind_api_key="sk_live_x"))
+    await client.submit_background(
+        input="hello", instructions=None, idempotency_key="abc123def456"
+    )
+
+    request = route.calls.last.request
+    # (a) standard HTTP header on the outgoing request
+    assert request.headers["Idempotency-Key"] == "abc123def456"
+    # (b) also threaded into the request body metadata
+    body = json.loads(request.content)
+    assert body["metadata"]["idempotency_key"] == "abc123def456"
+
+
+@respx.mock
+async def test_idempotency_key_does_not_pollute_shared_headers() -> None:
+    respx.post("https://api.miromind.ai/v1/responses").mock(
+        return_value=Response(200, json={"id": "resp_abc", "status": "in_progress"})
+    )
+
+    client = MiromindClient(Settings(miromind_api_key="sk_live_x"))
+    await client.submit_background(
+        input="hello", instructions=None, idempotency_key="abc123def456"
+    )
+    # The per-request header must not leak into the shared header dict.
+    assert "Idempotency-Key" not in client._headers
 
 
 @respx.mock

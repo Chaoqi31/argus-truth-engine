@@ -127,6 +127,7 @@ async def verify_claim(
     *,
     surrounding: str = "",
     domain_hint: str = "",
+    idempotency_key: str | None = None,
 ) -> AgentResult[UnifiedVerifierOutput]:
     runner = AgentRunner(
         client=client,
@@ -137,4 +138,5 @@ async def verify_claim(
     return await runner.run(
         instructions=SYSTEM_PROMPT,
         input_text=build_verifier_input(claim, surrounding, domain_hint),
+        idempotency_key=idempotency_key,
     )

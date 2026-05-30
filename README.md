@@ -28,12 +28,18 @@ opens a brief drafted by opposing counsel's chatbot. A buy-side PM gets a resear
 note from a third-party RAG system. None of them wrote the AI; all of them have
 to *trust* it before they act on it.
 
-The numbers underneath this problem are not subtle:
+The problem underneath this is real and documented:
 
-- **$67.4B** in enterprise losses to AI hallucinations in 2024
-- **1,353+** documented court cases involving AI hallucinations (and accelerating)
-- **76%** of enterprises still run human review to catch them — at ~$14K/employee/year
-- **30%** of enterprise AI projects will be abandoned by 2026 over trust issues (Gartner)
+- **1,400+** court filings have now been caught citing fabricated, AI-hallucinated
+  cases — and the [tracked count](https://www.damiencharlotin.com/hallucinations/)
+  (Damien Charlotin, HEC Paris) keeps growing by several every day.
+- Gartner predicts **30% of generative-AI projects will be abandoned after
+  proof-of-concept by the end of 2025** — citing poor data quality, weak risk
+  controls, escalating cost, and unclear business value
+  ([Gartner, 2024](https://www.gartner.com/en/newsroom/press-releases/2024-07-29-gartner-predicts-30-percent-of-generative-ai-projects-will-be-abandoned-after-proof-of-concept-by-end-of-2025)).
+
+The pattern is the same everywhere: someone acts on AI output they didn't produce
+and couldn't fully verify.
 
 The existing market (Patronus, Galileo, Vectara) sells inline scoring to the
 *producers* of AI — the teams shipping RAG pipelines and AI products. Nobody
@@ -68,8 +74,8 @@ trail is built to be filed as part of your response.
 
 **AI governance teams (regulated industries).** Your analysts paste ChatGPT
 outputs into board memos. You need a checkpoint between "the model said it" and
-"we signed off on it." 92% of Fortune 500 require systematic factuality
-verification; Argus is your audit gate.
+"we signed off on it" — a documented gate that regulated industries increasingly
+demand. Argus is that audit gate.
 
 **Investment & research analysts.** A vendor sent you a 40-page AI-generated
 research note. You can't read all of it; you can't trust all of it; manually
@@ -112,9 +118,11 @@ Step 4: Traced origin of 1.6% figure
   → Reasoning: Claim conflated Q1 and Q3 data — inaccurate, not fabricated
 ```
 
-The frontend streams every step **live** as it happens. Reviewers see not just
-the verdict, but *why* it's wrong and *what the correct answer is* — with
-clickable source URLs for independent verification.
+During a **live audit**, the frontend streams every step over WebSocket as it
+happens; in the **sample audit**, you replay the same recorded trace step by
+step. Either way, reviewers see not just the verdict, but *why* it's wrong and
+*what the correct answer is* — with clickable source URLs for independent
+verification.
 
 ## 🏗️ How it works
 

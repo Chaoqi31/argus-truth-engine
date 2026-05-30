@@ -31,6 +31,7 @@ import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
 import { FindingDrawer } from "@/components/cockpit/finding-drawer";
 import { ReasoningReplay } from "@/components/cockpit/reasoning-replay";
+import { ParallelFanout } from "@/components/cockpit/parallel-fanout";
 import { CommandPalette } from "@/components/cockpit/command-palette";
 import { EvidenceDiff } from "@/components/cockpit/evidence-diff";
 import CountUp from "@/components/react-bits/CountUp";
@@ -52,7 +53,7 @@ const PdfViewer = dynamic(
 );
 
 // Right "reasoning console": Evidence for the active finding, or the trace stream.
-type RightMode = "evidence" | "trace";
+type RightMode = "evidence" | "trace" | "parallel";
 
 /** Global ⌘K / Ctrl+K listener that toggles the command palette. */
 function useCommandPaletteHotkey() {
@@ -415,6 +416,10 @@ function AuditPageContent() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {mode === "evidence" ? (
               <EvidenceTab job={job} findingId={activeFindingId} />
+            ) : mode === "parallel" ? (
+              <div className="p-4">
+                <ParallelFanout job={job} />
+              </div>
             ) : (
               <TraceStreamView job={job} />
             )}
@@ -715,6 +720,7 @@ function ConsoleToggle({
   const opts: Array<{ key: RightMode; label: string }> = [
     { key: "evidence", label: "Evidence" },
     { key: "trace", label: "Trace" },
+    { key: "parallel", label: "Parallel" },
   ];
   return (
     <div className="flex w-full gap-1 rounded-md bg-muted p-0.5 ring-1 ring-[var(--cc-border)]">

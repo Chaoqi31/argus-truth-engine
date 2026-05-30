@@ -175,7 +175,7 @@ function StaticReplay({ job }: { job: Job | null }) {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-2">
         {shown.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            Click <strong>Replay</strong> to stream the {total} reasoning steps.
+            Click <strong>Replay</strong> to walk through the {total} reasoning steps.
           </p>
         ) : (
           <ol className="flex flex-col gap-1">
