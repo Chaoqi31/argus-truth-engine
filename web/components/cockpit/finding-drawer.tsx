@@ -7,6 +7,7 @@ import { useArgusStore } from "@/lib/store";
 import { verdictTone } from "@/lib/colors";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
+import { safeHttpUrl } from "@/lib/url";
 /**
  * Finding drawer — T2 surface.
  *
@@ -217,9 +218,9 @@ export function FindingDrawer() {
                       </p>
                       <p className="mt-1.5 flex flex-wrap items-center gap-1 font-mono text-[11px] text-[var(--cc-text-muted)]">
                         <span className="uppercase tracking-wider">Source:</span>
-                        {finding.correct_information.url ? (
+                        {safeHttpUrl(finding.correct_information.url) ? (
                           <a
-                            href={finding.correct_information.url}
+                            href={safeHttpUrl(finding.correct_information.url)!}
                             target="_blank"
                             rel="noreferrer noopener"
                             className="inline-flex items-center gap-1 text-[var(--cc-primary-bright)] underline-offset-2 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
@@ -327,10 +328,10 @@ export function FindingDrawer() {
                                   </p>
                                 )}
                               </button>
-                              {e.url && (
+                              {safeHttpUrl(e.url) && (
                                 <div className="border-t border-[var(--cc-border)] px-3 py-1.5">
                                   <a
-                                    href={e.url}
+                                    href={safeHttpUrl(e.url)!}
                                     target="_blank"
                                     rel="noreferrer noopener"
                                     className="inline-flex items-center gap-1 font-mono text-[11px] text-[var(--cc-primary-bright)] underline-offset-2 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"

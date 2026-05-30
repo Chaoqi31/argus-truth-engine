@@ -118,7 +118,10 @@ async def test_forwards_idempotency_key_to_submit() -> None:
     assert client.submit_background.await_args.kwargs["idempotency_key"] == "key_abc"
 
 
-async def test_repair_round_trip_reuses_same_idempotency_key() -> None:
+async def test_repair_round_trip_uses_distinct_idempotency_key() -> None:
+    # The repair round-trip sends a *different* payload, so it must use a
+    # distinct key — otherwise a server honoring Idempotency-Key would return
+    # the cached (malformed) response and the repair would be a silent no-op.
     client = AsyncMock()
     rids = iter(["resp_first", "resp_repair"])
     client.submit_background = AsyncMock(side_effect=lambda **kw: next(rids))
@@ -132,7 +135,7 @@ async def test_repair_round_trip_reuses_same_idempotency_key() -> None:
 
     assert client.submit_background.await_count == 2
     keys = [c.kwargs["idempotency_key"] for c in client.submit_background.await_args_list]
-    assert keys == ["key_abc", "key_abc"]
+    assert keys == ["key_abc", "key_abc:repair"]
 
 
 async def test_repairs_once_then_succeeds() -> None:

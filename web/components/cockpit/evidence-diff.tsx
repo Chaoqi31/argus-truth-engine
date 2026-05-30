@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useArgusStore } from "@/lib/store";
 import type { Claim, Evidence, Finding } from "@/lib/types";
+import { safeHttpUrl } from "@/lib/url";
 
 // ---------------------------------------------------------------------------
 // Diff helpers
@@ -156,10 +157,11 @@ function DiffPane({
 // ---------------------------------------------------------------------------
 
 function SourceChip({ evidence }: { evidence: Evidence }) {
-  if (!evidence.url) return null;
+  const safe = safeHttpUrl(evidence.url);
+  if (!safe) return null;
   return (
     <a
-      href={evidence.url}
+      href={safe}
       target="_blank"
       rel="noreferrer noopener"
       style={{

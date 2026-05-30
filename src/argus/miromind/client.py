@@ -60,8 +60,11 @@ class MiromindClient:
         Wrapped with :func:`retry_on_transient`, so 408/425/429/5xx and
         :class:`httpx.RequestError` failures are retried with exponential
         backoff per :attr:`Settings.miromind_retry_attempts`. The deterministic
-        ``idempotency_key`` is reused across retries, so a transient failure +
-        retry never produces duplicate (billed) work server-side.
+        ``idempotency_key`` is reused across those transient retries (same
+        payload), so a server that honors ``Idempotency-Key`` can de-duplicate
+        the retried request rather than billing it twice. (Soft guarantee — it
+        only helps if MiroMind honors the header; at minimum the key tags the
+        work unit deterministically via ``metadata``.)
         """
         return await self._submit_once(
             input=input,
