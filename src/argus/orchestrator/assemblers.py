@@ -22,6 +22,7 @@ from argus.models.domain import (
     ReasoningStep,
     ReasoningTrace,
     Severity,
+    Step,
 )
 from argus.orchestrator.context import _CONTEXT_WINDOW_CHARS
 from argus.pdf.parser import ParsedDoc, ParsedPage
@@ -218,6 +219,17 @@ def _contradictions_to_findings(
 def _build_trace(
     *, job_id: str, claim_id: str, agent: str, stream: StreamCollection
 ) -> ReasoningTrace:
+    # Link steps into a sequential chain so the reasoning DAG renders connected
+    # edges (the frontend only draws an edge when parent_step_id is set).
+    # Sort by sequence first — stream.steps order is not guaranteed — then point
+    # each step at its predecessor. Copy rather than mutate: the input steps may
+    # be shared elsewhere.
+    ordered = sorted(stream.steps, key=lambda s: s.sequence)
+    linked: list[Step] = []
+    for i, step in enumerate(ordered):
+        parent_id = ordered[i - 1].id if i > 0 else None
+        linked.append(step.model_copy(update={"parent_step_id": parent_id}))
+
     return ReasoningTrace(
         id=f"trace_{uuid4().hex[:12]}",
         job_id=job_id,
@@ -229,7 +241,7 @@ def _build_trace(
         total_tokens=stream.total_tokens,
         reasoning_tokens=stream.reasoning_tokens,
         num_search_queries=stream.num_search_queries,
-        steps=list(stream.steps),
+        steps=linked,
     )
 
 
