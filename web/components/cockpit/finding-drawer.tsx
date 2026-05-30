@@ -200,6 +200,45 @@ export function FindingDrawer() {
                     </p>
                   </Section>
 
+                  {/* Why it's wrong — plain-language explanation */}
+                  {finding.why_wrong && (
+                    <Section label="Why it's wrong">
+                      <p className="text-sm leading-relaxed text-[var(--cc-text)]">
+                        {finding.why_wrong}
+                      </p>
+                    </Section>
+                  )}
+
+                  {/* Correct information — the right answer with its source */}
+                  {finding.correct_information && (
+                    <Section label="Correct information">
+                      <p className="text-sm leading-relaxed text-[var(--cc-text)]">
+                        {finding.correct_information.value}
+                      </p>
+                      <p className="mt-1.5 flex flex-wrap items-center gap-1 font-mono text-[11px] text-[var(--cc-text-muted)]">
+                        <span className="uppercase tracking-wider">Source:</span>
+                        {finding.correct_information.url ? (
+                          <a
+                            href={finding.correct_information.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="inline-flex items-center gap-1 text-[var(--cc-primary-bright)] underline-offset-2 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
+                          >
+                            <ExternalIcon />
+                            <span>{finding.correct_information.source}</span>
+                          </a>
+                        ) : (
+                          <span>{finding.correct_information.source}</span>
+                        )}
+                        {finding.correct_information.retrieved_date && (
+                          <span className="text-[10px] opacity-70">
+                            · retrieved {finding.correct_information.retrieved_date}
+                          </span>
+                        )}
+                      </p>
+                    </Section>
+                  )}
+
                   {/* Reasoning chain — "why this verdict" (trace steps) */}
                   <Section label="Why this verdict">
                     {trace && trace.steps.length > 0 ? (

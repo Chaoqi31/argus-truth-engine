@@ -110,6 +110,7 @@ class StreamRouter:
             instructions: str | None = None,
             max_output_tokens: int | None = None,
             metadata: dict[str, str] | None = None,
+            idempotency_key: str | None = None,
         ) -> str:
             agent = (metadata or {}).get("agent", "unknown")
             self._calls[agent].append(
