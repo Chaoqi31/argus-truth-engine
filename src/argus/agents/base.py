@@ -88,8 +88,18 @@ class AgentRunner[T: BaseModel]:
         self._agent_name = agent_name
         self._max_tokens = max_output_tokens
 
-    async def run(self, *, instructions: str | None, input_text: str) -> AgentResult[T]:
-        first = await self._round_trip(instructions=instructions, input_text=input_text)
+    async def run(
+        self,
+        *,
+        instructions: str | None,
+        input_text: str,
+        idempotency_key: str | None = None,
+    ) -> AgentResult[T]:
+        first = await self._round_trip(
+            instructions=instructions,
+            input_text=input_text,
+            idempotency_key=idempotency_key,
+        )
         try:
             parsed = self._validate(first.final_text)
             return AgentResult(parsed=parsed, streams=[first])
@@ -110,7 +120,11 @@ class AgentRunner[T: BaseModel]:
             "Please re-emit ONLY a valid JSON object matching the required schema. "
             "Do not include any prose, code fences, or commentary."
         )
-        second = await self._round_trip(instructions=instructions, input_text=repair_input)
+        second = await self._round_trip(
+            instructions=instructions,
+            input_text=repair_input,
+            idempotency_key=idempotency_key,
+        )
         try:
             parsed = self._validate(second.final_text)
             return AgentResult(parsed=parsed, streams=[first, second])
@@ -122,7 +136,11 @@ class AgentRunner[T: BaseModel]:
             ) from ve2
 
     async def _round_trip(
-        self, *, instructions: str | None, input_text: str
+        self,
+        *,
+        instructions: str | None,
+        input_text: str,
+        idempotency_key: str | None = None,
     ) -> StreamCollection:
         # MiroMind's Responses API silently ignores `instructions` and the
         # `{role: "system"}` channel for many models — verified empirically
@@ -136,6 +154,7 @@ class AgentRunner[T: BaseModel]:
             instructions=None,
             max_output_tokens=self._max_tokens,
             metadata={"agent": self._agent_name},
+            idempotency_key=idempotency_key,
         )
         collected = StreamCollection(response_id=rid)
         thinking_buf: list[str] = []

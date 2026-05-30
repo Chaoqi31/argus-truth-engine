@@ -42,6 +42,44 @@ export function EvidenceTab({ job, findingId }: Props) {
         </ol>
       </section>
 
+      {finding.why_wrong && (
+        <section>
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Why it&apos;s wrong
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed">{finding.why_wrong}</p>
+        </section>
+      )}
+
+      {finding.correct_information && (
+        <section>
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Correct information
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed">{finding.correct_information.value}</p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-1 font-mono text-xs text-muted-foreground">
+            <span className="uppercase tracking-wider">Source:</span>
+            {finding.correct_information.url ? (
+              <a
+                href={finding.correct_information.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                {finding.correct_information.source}
+              </a>
+            ) : (
+              <span>{finding.correct_information.source}</span>
+            )}
+            {finding.correct_information.retrieved_date && (
+              <span className="text-[10px] opacity-70">
+                · retrieved {finding.correct_information.retrieved_date}
+              </span>
+            )}
+          </p>
+        </section>
+      )}
+
       {finding.confidence_breakdown && (
         <section>
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
