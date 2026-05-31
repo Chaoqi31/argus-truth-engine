@@ -8,8 +8,11 @@ from unittest.mock import AsyncMock
 from pydantic import BaseModel, Field
 
 from argus.agents.base import AgentRunner, JsonRepairFailed, _extract_json
+from argus.models.domain import StepType
 from argus.models.miromind import (
     ResponseCompletedEvent,
+    ResponseOutputItemAddedEvent,
+    ResponseOutputItemDoneEvent,
     ResponseOutputTextDeltaEvent,
     ResponseSummary,
     Usage,
@@ -168,6 +171,58 @@ async def test_raises_after_repair_fails() -> None:
         assert "JSON" in str(exc)
     else:
         raise AssertionError("expected JsonRepairFailed")
+
+
+async def test_tool_call_added_then_done_collapses_to_one_step_with_result() -> None:
+    """A tool call streams twice — `output_item.added` (in_progress, no
+    result) then `output_item.done` (completed, with the search `result`).
+    The trace must keep ONE step per call carrying the final result payload,
+    not two near-duplicates; otherwise web searches double-count and the UI
+    cannot surface the result links.
+    """
+    client = AsyncMock()
+    client.submit_background = AsyncMock(return_value="resp_x")
+
+    call_id = "fc_w_1"
+    added = ResponseOutputItemAddedEvent(
+        type="response.output_item.added",
+        sequence_number=1,
+        output_index=0,
+        item={
+            "type": "tool_call",
+            "name": "google_search",
+            "id": call_id,
+            "status": "in_progress",
+            "arguments": '{"q": "morgan stanley nvidia report"}',
+        },
+    )
+    done = ResponseOutputItemDoneEvent(
+        type="response.output_item.done",
+        sequence_number=2,
+        output_index=0,
+        item={
+            "type": "tool_call",
+            "name": "google_search",
+            "id": call_id,
+            "status": "completed",
+            "arguments": '{"q": "morgan stanley nvidia report"}',
+            "result": '{"organic":[{"title":"T","link":"https://e.com","snippet":"s"}]}',
+        },
+    )
+    valid = '{"verdict":"ok","confidence":0.9}'
+    client.stream = lambda rid, after=0: _events_seq(
+        [added, done, _msg_delta(valid), _completed()]
+    )
+
+    runner = AgentRunner(client=client, model_cls=Out, agent_name="t")
+    result = await runner.run(instructions=None, input_text="hi")
+
+    searches = [s for s in result.first.steps if s.type == StepType.WEB_SEARCH]
+    assert len(searches) == 1
+    # The surviving step carries the completed payload (with the result), not
+    # the earlier in_progress one.
+    assert searches[0].content["status"] == "completed"
+    assert "organic" in searches[0].content["result"]
 
 
 def test_extract_json_repairs_common_llm_damage() -> None:
