@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from argus.agents.base import _extract_json
 from argus.agents.unified_verifier import (
     SYSTEM_PROMPT,
     UnifiedVerifierOutput,
@@ -13,6 +14,11 @@ from argus.agents.unified_verifier import (
 )
 from argus.models.domain import FindingVerdict
 from tests._helpers.mock_miromind import StreamRouter, completed, msg
+
+
+def _parse(text: str) -> UnifiedVerifierOutput:
+    """Mirror AgentRunner._validate: extract/repair JSON then validate."""
+    return UnifiedVerifierOutput.model_validate_json(_extract_json(text))
 
 # ---------------------------------------------------------------------------
 # Prompt hygiene
@@ -133,6 +139,56 @@ def test_unified_verifier_output_ok_verdict() -> None:
     assert out.verdict == FindingVerdict.OK
     assert out.why_wrong is None
     assert out.correct_information is None
+
+
+# ---------------------------------------------------------------------------
+# MiroThinker messy-JSON robustness — the verifier MUST NOT lose a (paid)
+# verdict to formatting quirks the deep-research model actually produces.
+# ---------------------------------------------------------------------------
+
+
+def test_parses_list_wrapped_object() -> None:
+    """MiroThinker sometimes wraps the result in [ {...} ]."""
+    out = _parse('[{"verdict":"fabricated","confidence":0.8,"summary":"no such paper",'
+                 '"evidence":[],"reasoning_chain":[]}]')
+    assert out.verdict == FindingVerdict.FABRICATED
+
+
+def test_evidence_with_source_instead_of_source_type() -> None:
+    """It labels evidence with `source` (not `source_type`) and drops snippet —
+    the item must still survive so the verdict keeps its backing."""
+    out = _parse('{"verdict":"ok","confidence":0.9,"summary":"verified",'
+                 '"evidence":[{"source":"World Bank","url":"https://data.worldbank.org"},'
+                 '{"source":"Reuters","url":"https://reuters.com/x"}],'
+                 '"reasoning_chain":[]}')
+    assert out.verdict == FindingVerdict.OK
+    assert len(out.evidence) == 2  # both kept despite the wrong key
+    assert out.evidence[0].url == "https://data.worldbank.org"
+
+
+def test_reasoning_steps_missing_subfields() -> None:
+    """Steps with only `action` (no observation/reasoning) must still parse."""
+    out = _parse('{"verdict":"inaccurate","confidence":0.7,"summary":"wrong number",'
+                 '"why_wrong":"off by 2x","evidence":[],'
+                 '"reasoning_chain":[{"action":"searched FRED"},{"action":"compared values"}]}')
+    assert len(out.reasoning_chain) == 2
+    assert out.reasoning_chain[0].action == "searched FRED"
+
+
+def test_code_fence_and_trailing_comma() -> None:
+    """Fenced output with a trailing comma — json_repair should recover it."""
+    out = _parse('```json\n{"verdict":"outdated","confidence":0.6,"summary":"stale",'
+                 '"evidence":[],"reasoning_chain":[],}\n```')
+    assert out.verdict == FindingVerdict.OUTDATED
+
+
+def test_partial_output_minimal_fields_still_yields_verdict() -> None:
+    """A truncated response with only the headline fields must still produce a
+    usable verdict rather than being discarded."""
+    out = _parse('{"verdict":"fabricated","confidence":0.75,"summary":"not found anywhere"}')
+    assert out.verdict == FindingVerdict.FABRICATED
+    assert out.evidence == []
+    assert out.reasoning_chain == []
 
 
 # ---------------------------------------------------------------------------
