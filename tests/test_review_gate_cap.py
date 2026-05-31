@@ -44,6 +44,13 @@ def _claim(
     )
 
 
+def _text_claim(cid: str, text: str) -> Claim:
+    return Claim(
+        id=cid, text=text, page=1, span=(0, 10),
+        type=ClaimType.NUMERICAL_DATA, importance="high",
+    )
+
+
 def _ctx(publisher: _RecordingPublisher, *, max_claims: int) -> _Ctx:
     return _Ctx(
         client=AsyncMock(),
@@ -95,6 +102,47 @@ async def test_auto_review_caps_to_top_n_by_importance() -> None:
     capped = [p for k, p in pub.events if k == "claims_capped"]
     assert len(capped) == 1
     assert capped[0] == {"n_extracted": 6, "n_verifying": 3}
+
+
+@pytest.mark.asyncio
+async def test_dedupes_normalized_duplicate_claims() -> None:
+    """The atomizer can emit claims that duplicate earlier ones verbatim; each
+    survivor costs a MiroMind verification. review_gate must drop normalized
+    duplicates (case / whitespace / trailing punctuation) keeping the first."""
+    pub = _RecordingPublisher()
+    ctx = _ctx(pub, max_claims=25)
+
+    claims = [
+        _text_claim("a1", "Margins reached 32% in the quarter."),
+        _text_claim("a2", "The company's data-center revenue was $18.4B in Q3."),
+        _text_claim("a3", "margins reached 32% in the quarter"),       # dup of a1: case + punct
+        _text_claim("a4", "Margins  reached  32%   in the quarter."),  # dup of a1: whitespace
+    ]
+
+    node = _review_gate_node(ctx, auto_review=True)
+    result = await node({"claims": claims})
+
+    kept = result["claims"]
+    assert [c.id for c in kept] == ["a1", "a2"]  # first occurrence kept, order preserved
+    deduped = [p for k, p in pub.events if k == "claims_deduped"]
+    assert deduped == [{"n_before": 4, "n_after": 2}]
+
+
+@pytest.mark.asyncio
+async def test_distinct_claims_not_merged() -> None:
+    """A citation and the bare number it contains are different verifications;
+    they normalize differently and must both survive."""
+    pub = _RecordingPublisher()
+    ctx = _ctx(pub, max_claims=25)
+    claims = [
+        _text_claim("a1", "According to Smith et al. (2023), global GDP grew 3.2% in 2024."),
+        _text_claim("a2", "Global GDP grew 3.2% in 2024."),
+    ]
+    node = _review_gate_node(ctx, auto_review=True)
+    result = await node({"claims": claims})
+    # No dedup, no cap → pass-through ({}), both claims kept downstream.
+    assert result == {}
+    assert not [p for k, p in pub.events if k == "claims_deduped"]
 
 
 @pytest.mark.asyncio
