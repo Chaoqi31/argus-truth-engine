@@ -9,13 +9,14 @@ node is a no-op pass-through.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langgraph.types import interrupt
 
 from argus.log import log
-from argus.models.domain import ClaimType
+from argus.models.domain import Claim, ClaimType
 from argus.orchestrator.context import _Ctx, _State
 
 # Ranking priority for the cost-guard cap (ascending = kept first).
@@ -28,6 +29,36 @@ _TYPE_RANK = {
     ClaimType.QUALITATIVE.value: 4,
 }
 
+_WS_RE = re.compile(r"\s+")
+
+
+def _normalize_claim_text(text: str) -> str:
+    """Canonical form for duplicate detection — case-, whitespace-, and
+    trailing-punctuation-insensitive. Two claims that normalize to the same
+    string are the same verification and must not each cost a MiroMind call."""
+    return _WS_RE.sub(" ", text.lower()).strip().rstrip(".!?,;:")
+
+
+def _dedupe_claims(claims: list[Claim]) -> list[Claim]:
+    """Drop later claims whose normalized text repeats an earlier one.
+
+    The atomizer can split a compound claim into atoms that duplicate claims it
+    already emitted verbatim (e.g. "Margins were 32%." surfacing as both an
+    original claim and an atom), and nothing downstream dedupes — so each
+    duplicate would fire its own paid MiroMind verification. Keep first
+    occurrence; preserve order. Genuinely distinct claims (a citation vs the
+    bare number it contains) normalize differently and are both kept.
+    """
+    seen: set[str] = set()
+    out: list[Claim] = []
+    for c in claims:
+        key = _normalize_claim_text(c.text)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+    return out
+
 
 def _review_gate_node(
     ctx: _Ctx, *, auto_review: bool,
@@ -36,6 +67,20 @@ def _review_gate_node(
         if state.get("aborted"):
             return {}
         claims = state.get("claims", [])
+
+        # Dedupe before the paid verification step. The atomizer can emit atoms
+        # that duplicate existing claims verbatim and nothing downstream
+        # dedupes, so each duplicate would otherwise cost its own MiroMind call.
+        deduped = _dedupe_claims(claims)
+        dedup_applied = len(deduped) < len(claims)
+        if dedup_applied:
+            log.info("orchestrator.claims_deduped",
+                     n_before=len(claims), n_after=len(deduped))
+            await ctx.publisher.publish(
+                "claims_deduped",
+                {"n_before": len(claims), "n_after": len(deduped)},
+            )
+        claims = deduped
 
         # Cost guard: hard ceiling on claims sent to Phase B verification.
         # The atomizer can over-split a long report into 50+ atoms, each a
@@ -66,7 +111,7 @@ def _review_gate_node(
         if auto_review or not claims:
             # Pass-through. If a cap was applied we MUST return the capped list
             # — returning {} would leave the full claim list in state.
-            return {"claims": claims} if capped_applied else {}
+            return {"claims": claims} if (capped_applied or dedup_applied) else {}
 
         # LangGraph interrupt() is replay-based: when Command(resume=...)
         # arrives, this node body re-executes from the top. The original
@@ -101,5 +146,5 @@ def _review_gate_node(
                                     {"n_selected": len(claims), "auto": True})
         # No selection → keep all (already-capped) claims. Return the capped
         # list when a cap applied so the truncation survives this fallback.
-        return {"claims": claims} if capped_applied else {}
+        return {"claims": claims} if (capped_applied or dedup_applied) else {}
     return node
