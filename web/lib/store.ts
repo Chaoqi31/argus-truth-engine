@@ -10,16 +10,12 @@ import type {
   Step,
 } from "@/lib/types";
 
-export type ReplayState = "idle" | "playing" | "done";
-
 interface ArgusState {
   // existing
   job: Job | null;
   activeFindingId: string | null;
-  replayState: ReplayState;
   setJob: (job: Job) => void;
   setActiveFinding: (findingId: string | null) => void;
-  setReplayState: (state: ReplayState) => void;
   clear: () => void;
 
   // live-mode (B3-C)
@@ -78,7 +74,6 @@ const INITIAL_COCKPIT = {
 export const useArgusStore = create<ArgusState>((set) => ({
   job: null,
   activeFindingId: null,
-  replayState: "idle",
   ...INITIAL_LIVE,
   ...INITIAL_REVIEW,
   ...INITIAL_COCKPIT,
@@ -87,15 +82,12 @@ export const useArgusStore = create<ArgusState>((set) => ({
     set({
       job,
       activeFindingId: job.findings[0]?.id ?? null,
-      replayState: "idle",
     }),
   setActiveFinding: (findingId) => set({ activeFindingId: findingId }),
-  setReplayState: (state) => set({ replayState: state }),
   clear: () =>
     set({
       job: null,
       activeFindingId: null,
-      replayState: "idle",
       ...INITIAL_LIVE,
       ...INITIAL_REVIEW,
       ...INITIAL_COCKPIT,
