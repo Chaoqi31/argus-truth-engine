@@ -93,7 +93,6 @@ export function FindingCard({ finding, active, onClick }: Props) {
         <p className="mt-1 text-sm leading-snug">{finding.summary}</p>
         <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
           <ConfidenceRing pct={pct} color={TONE_RING[tone]} />
-          <span className="font-mono text-[10px] text-muted-foreground">{finding.agent}</span>
           {finding.evidence_ids.length > 0 && (
             <>
               <span aria-hidden>·</span>
