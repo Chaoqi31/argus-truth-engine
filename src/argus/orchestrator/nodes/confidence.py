@@ -12,7 +12,11 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from argus.agents.confidence_calculator import compute_confidence_breakdown
+from argus.agents.confidence_calculator import (
+    compute_confidence_breakdown,
+    count_distinct_sources,
+    evaluate_sourcing,
+)
 from argus.orchestrator.context import _Ctx, _State
 
 
@@ -35,6 +39,17 @@ def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]
         all_evidences = state.get("evidences", [])
         for f in findings:
             evs = [e for e in all_evidences if e.id in f.evidence_ids]
-            f.confidence_breakdown = compute_confidence_breakdown(f, evs)
+            source_count = count_distinct_sources(f, evs)
+            f.confidence_breakdown = compute_confidence_breakdown(
+                f, evs, source_count=source_count
+            )
+            # Soft ≥2-source enforcement: cap headline confidence + flag the
+            # finding when a verdict rests on too few independent sources.
+            cap, flag = evaluate_sourcing(f, source_count)
+            if flag:
+                if flag not in f.flags:
+                    f.flags.append(flag)
+                if cap is not None:
+                    f.confidence = min(f.confidence, cap)
         return {}
     return node

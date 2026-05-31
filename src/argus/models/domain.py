@@ -194,6 +194,9 @@ class Finding(_Base):
     related_finding_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     from_cache: bool = False
+    # User-facing caveats surfaced as badges (e.g. "single source — verify
+    # manually" when a verdict rests on fewer than 2 independent sources).
+    flags: list[str] = Field(default_factory=list)
 
 
 class ContentDomain(StrEnum):
