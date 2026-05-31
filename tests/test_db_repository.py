@@ -48,7 +48,6 @@ async def test_confidence_breakdown_round_trips(sqlite_engine: object) -> None:
         source_agreement=0.8,
         source_authority=0.6,
         evidence_freshness=0.4,
-        evidence_specificity=0.9,
         reasoning="Authoritative sources broadly agree.",
     )
     job.findings[0].confidence_breakdown = breakdown

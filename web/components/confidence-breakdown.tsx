@@ -11,7 +11,6 @@ const FACTORS: ReadonlyArray<{ key: keyof ConfidenceBreakdownData; label: string
   { key: "source_agreement", label: "Source agreement" },
   { key: "source_authority", label: "Source authority" },
   { key: "evidence_freshness", label: "Evidence freshness" },
-  { key: "evidence_specificity", label: "Evidence specificity" },
 ];
 
 function clamp01(n: number): number {
