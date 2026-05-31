@@ -167,6 +167,10 @@ async def _finalize(
     job.traces = list(final_state.get("traces", {}).values())
     job.evidences = list(final_state.get("evidences", []))
     job.audit_report_md = final_state.get("audit_report_md")
+    # Audit coverage: total claims sent to Phase B vs. how many got a verdict.
+    # On a budget abort these diverge, signalling partial coverage downstream.
+    job.claims_total = len(job.claims)
+    job.claims_audited = sum(1 for f in job.findings if f.agent == "UnifiedVerifier")
     job.cost_usd = round(budget.spent_usd, 6)
     job.total_tokens = sum(t.total_tokens for t in job.traces)
     if raised_exc is not None:

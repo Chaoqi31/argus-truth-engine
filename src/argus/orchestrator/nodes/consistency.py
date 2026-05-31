@@ -12,6 +12,7 @@ from argus.orchestrator.assemblers import (
     _build_trace,
     _contradictions_to_findings,
     _finding_payload,
+    _logical_flaws_to_findings,
     _step_payload,
 )
 from argus.orchestrator.context import _charge_result, _Ctx, _State
@@ -43,6 +44,9 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
             stream=result.final,
         )
         new_findings = _contradictions_to_findings(
+            job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
+        )
+        new_findings += _logical_flaws_to_findings(
             job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
         )
         await ctx.publisher.publish("step", _step_payload(trace))

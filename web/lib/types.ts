@@ -18,7 +18,11 @@ export type FindingVerdict =
   | "stale"
   | "superseded"
   | "contradiction"
-  | "uncertain";
+  | "inaccurate"
+  | "outdated"
+  | "uncertain"
+  | "unsupported-inference"
+  | "overreach";
 
 export type EvidenceSourceType =
   | "crossref"
@@ -151,6 +155,9 @@ export interface Job {
   completed_at: string | null;
   cost_usd: number;
   total_tokens: number;
+  /** Claims sent to Phase B verification, and how many received a verdict. */
+  claims_total?: number;
+  claims_audited?: number;
   audit_report_md: string | null;
   claims: Claim[];
   findings: Finding[];

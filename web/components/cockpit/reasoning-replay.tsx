@@ -1233,10 +1233,14 @@ function verdictTone(verdict: string): Tone {
     case "mismatch":
     case "misrepresented":
     case "contradiction":
+    case "inaccurate":
       return "danger";
     case "partial-match":
     case "stale":
     case "superseded":
+    case "outdated":
+    case "unsupported-inference":
+    case "overreach":
       return "warn";
     default:
       return "muted";

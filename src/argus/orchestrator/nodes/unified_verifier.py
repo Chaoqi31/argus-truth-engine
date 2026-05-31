@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import uuid4
 
-from argus.agents.base import AgentResult, JsonRepairFailed
+from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
 from argus.agents.domain_hints import get_domain_hint
 from argus.agents.unified_verifier import VERIFIER_VERSION, verify_claim
 from argus.cache.key import claim_cache_key
@@ -36,7 +36,12 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
 
         async def run_for_claim(
             claim: Claim,
-        ) -> tuple[Claim, AgentResult[Any] | None, Exception | None, Finding | None]:
+        ) -> tuple[
+            Claim,
+            AgentResult[Any] | None,
+            Exception | None,
+            tuple[Finding, list[Evidence]] | None,
+        ]:
             async with runner.acquire():
                 surrounding = _surrounding_text(doc, claim) if doc else ""
                 domain_hint = get_domain_hint(
@@ -50,20 +55,24 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     )
                     hit = await ctx.cache.get(key)
                     if hit is not None:
-                        # TODO: also re-emit cached evidences with rebound IDs into
-                        # this job's evidence list. Today cached findings keep their
-                        # original evidence_ids which point to the cached job's rows
-                        # — fine for verdict display, but means evidence detail
-                        # cards won't render on cache hits. Tracked as follow-up.
-                        cached_template, _cached_evs = hit
+                        cached_template, cached_evs = hit
+                        # Rebuild evidence with fresh IDs scoped to this job, then
+                        # remap the rebound finding's evidence_ids onto them — the
+                        # cached IDs point at the original job's rows and would
+                        # otherwise dangle (confidence calc would see 0 evidence).
+                        rebuilt_evs = [
+                            ev.model_copy(update={"id": f"ev_{uuid4().hex[:12]}"})
+                            for ev in cached_evs
+                        ]
                         # Re-bind to current job + claim (cached payload was from a different job)
                         rebound = cached_template.model_copy(update={
                             "id": f"fnd_{uuid4().hex[:12]}",
                             "job_id": ctx.job_id,
                             "claim_id": claim.id,
+                            "evidence_ids": [e.id for e in rebuilt_evs],
                             "from_cache": True,
                         })
-                        return claim, None, None, rebound
+                        return claim, None, None, (rebound, rebuilt_evs)
 
                 idem_key = make_idempotency_key(
                     ctx.job_id, "UnifiedVerifier", claim.id
@@ -102,14 +111,43 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
         new_traces: dict[str, ReasoningTrace] = {}
         new_evidences: list[Evidence] = []
 
-        for claim, agent_result, failure, cached_finding in results:
-            if cached_finding is not None:
-                # Cache hit path — no MiroMind cost, no fresh trace
+        for claim, agent_result, failure, cached_hit in results:
+            if cached_hit is not None:
+                # Cache hit path — no MiroMind cost, no fresh trace. The rebuilt
+                # evidence is emitted into this job so evidence_ids resolve.
+                cached_finding, cached_evs = cached_hit
                 new_findings.append(cached_finding)
+                new_evidences.extend(cached_evs)
                 await ctx.publisher.publish("finding", _finding_payload(cached_finding))
                 continue
 
             if failure is not None or agent_result is None:
+                # JSON could not be parsed (even after one repair). Don't drop
+                # the claim silently — emit an UNCERTAIN finding backed by a
+                # minimal trace so it still surfaces in results and the report.
+                trace = _build_trace(
+                    job_id=ctx.job_id, claim_id=claim.id,
+                    agent="UnifiedVerifier", stream=StreamCollection(response_id="n/a"),
+                )
+                finding = Finding(
+                    id=f"f_{uuid4().hex[:12]}",
+                    job_id=ctx.job_id,
+                    claim_id=claim.id,
+                    agent="UnifiedVerifier",
+                    verdict=FindingVerdict.UNCERTAIN,
+                    confidence=0.0,
+                    summary=(
+                        "Verification could not be completed — the verifier's "
+                        "response could not be parsed into a valid result."
+                    ),
+                    evidence_ids=[],
+                    reasoning_trace_id=trace.id,
+                    related_finding_ids=[],
+                )
+                new_traces[trace.id] = trace
+                new_findings.append(finding)
+                await ctx.publisher.publish("step", _step_payload(trace))
+                await ctx.publisher.publish("finding", _finding_payload(finding))
                 continue
             try:
                 _charge_result(ctx, agent_result)

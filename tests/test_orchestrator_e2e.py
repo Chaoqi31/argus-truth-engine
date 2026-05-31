@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from argus.config import Settings
-from argus.models.domain import ClaimType, StepType
+from argus.models.domain import ClaimType, FindingVerdict, StepType
 from argus.orchestrator import audit_pdf
 from tests._helpers.mock_miromind import StreamRouter, completed, msg, tool
 
@@ -95,6 +95,64 @@ def _reporter() -> str:
     return json.dumps(
         {"executive_summary_md": "Audit complete.", "ranked_finding_ids": []}
     )
+
+
+def _planner_single_json() -> str:
+    return json.dumps(
+        {
+            "claims": [
+                {
+                    "id": "c1",
+                    "text": "Smith (2021) showed X.",
+                    "page": 1,
+                    "span": [0, 21],
+                    "type": "citation",
+                    "importance": "high",
+                    "extracted_metadata": {"authors": ["Smith"], "year": 2021},
+                }
+            ]
+        }
+    )
+
+
+async def test_orchestrator_unparseable_verifier_yields_uncertain_finding(
+    tmp_path: Path,
+) -> None:
+    """A claim whose verifier output can't be parsed must still produce a
+    finding (UNCERTAIN), never silently vanish.
+
+    Single claim → exactly one verifier call (deterministic, no parallel
+    ordering ambiguity). Both the original and the repair round-trip return
+    un-parseable prose, forcing JsonRepairFailed.
+    """
+    router = StreamRouter()
+    router.add("planner", [msg(_planner_single_json()), completed(tokens=120)])
+    # Original call + repair call both emit prose with no JSON object.
+    router.add("unified_verifier", [msg("Sorry, I could not finish."), completed(tokens=40)])
+    router.add("unified_verifier", [msg("Still no structured answer."), completed(tokens=40)])
+    router.add("reporter", [msg(_reporter()), completed(tokens=20)])
+
+    out = tmp_path / "findings.json"
+    job = await audit_pdf(
+        pdf_path=FIXTURE_PDF,
+        output_path=out,
+        settings=Settings(miromind_api_key="x", miromind_retry_base_delay_s=0.001),
+        client=router.make_client(),
+        budget_usd=10.0,
+    )
+
+    assert len(job.claims) == 1
+    verifier_findings = [f for f in job.findings if f.agent == "UnifiedVerifier"]
+    assert len(verifier_findings) == 1, "the failed claim must not be dropped"
+    f = verifier_findings[0]
+    assert f.verdict == FindingVerdict.UNCERTAIN
+    assert f.claim_id == job.claims[0].id
+    assert f.confidence == 0.0
+    assert "could not be parsed" in f.summary
+    assert f.evidence_ids == []
+    # A trace must back the finding so the UI/report can resolve it.
+    assert f.reasoning_trace_id
+    assert any(t.id == f.reasoning_trace_id for t in job.traces)
 
 
 async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> None:
