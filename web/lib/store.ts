@@ -43,12 +43,9 @@ interface ArgusState {
 
   // cockpit surfaces (T1 contract; filled by T2–T4 surface agents)
   drawerFindingId: string | null;
-  replayOpen: boolean;
-  replayFindingId: string | null;
   paletteOpen: boolean;
   evidenceDiff: EvidenceDiffTarget | null;
   setDrawerFinding: (id: string | null) => void;
-  setReplayOpen: (open: boolean, findingId?: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   setEvidenceDiff: (target: EvidenceDiffTarget | null) => void;
 }
@@ -74,8 +71,6 @@ const INITIAL_REVIEW = {
 
 const INITIAL_COCKPIT = {
   drawerFindingId: null as string | null,
-  replayOpen: false,
-  replayFindingId: null as string | null,
   paletteOpen: false,
   evidenceDiff: null as EvidenceDiffTarget | null,
 };
@@ -136,11 +131,6 @@ export const useArgusStore = create<ArgusState>((set) => ({
 
   // cockpit surfaces
   setDrawerFinding: (id) => set({ drawerFindingId: id }),
-  setReplayOpen: (open, findingId) =>
-    set((s) => ({
-      replayOpen: open,
-      replayFindingId: open ? (findingId ?? s.replayFindingId) : null,
-    })),
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   setEvidenceDiff: (target) => set({ evidenceDiff: target }),
 }));

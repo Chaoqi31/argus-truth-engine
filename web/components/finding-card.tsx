@@ -9,8 +9,6 @@ interface Props {
   finding: Finding;
   active: boolean;
   onClick: () => void;
-  /** Open the cinematic reasoning replay for this finding (per-card entry). */
-  onReplay?: () => void;
 }
 
 const TONE_BAR: Record<"danger" | "warn" | "ok" | "muted", string> = {
@@ -42,7 +40,7 @@ const TONE_RING: Record<"danger" | "warn" | "ok" | "muted", string> = {
  * hover (SpotlightCard aesthetic, self-contained so the <button> stays the only
  * interactive element) and a small confidence ring.
  */
-export function FindingCard({ finding, active, onClick, onReplay }: Props) {
+export function FindingCard({ finding, active, onClick }: Props) {
   const tone = verdictTone[finding.verdict];
   const ref = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState<{ x: number; y: number; on: boolean }>({
@@ -104,30 +102,7 @@ export function FindingCard({ finding, active, onClick, onReplay }: Props) {
           )}
         </div>
       </button>
-
-      {/* Prominent per-card entry into the cinematic reasoning replay. */}
-      {onReplay && (
-        <div className="relative border-t border-border px-3 py-2 pl-4">
-          <button
-            type="button"
-            onClick={onReplay}
-            aria-label="Replay reasoning for this finding"
-            className="inline-flex items-center gap-1.5 rounded-[8px] bg-primary-soft px-2.5 py-1.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <PlayIcon />
-            Replay reasoning
-          </button>
-        </div>
-      )}
     </div>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="10" height="11" viewBox="0 0 11 12" fill="currentColor" aria-hidden className="shrink-0">
-      <path d="M1 1.2v9.6a.6.6 0 0 0 .92.5l7.7-4.8a.6.6 0 0 0 0-1l-7.7-4.8A.6.6 0 0 0 1 1.2Z" />
-    </svg>
   );
 }
 

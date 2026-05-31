@@ -21,7 +21,6 @@ import { safeHttpUrl } from "@/lib/url";
  *
  * Contract (kept in sync with page wiring + store):
  *   - close via `setDrawerFinding(null)` (scrim click, ✕, or Esc);
- *   - "Replay reasoning" hands off via `setReplayOpen(true, drawerFindingId)`;
  *   - clicking an evidence item opens the full-screen compare surface via
  *     `setEvidenceDiff({ findingId, evidenceId })` (rendered by <EvidenceDiff/>).
  */
@@ -48,7 +47,6 @@ const STEP_TAG: Record<StepType, string> = {
 export function FindingDrawer() {
   const drawerFindingId = useArgusStore((s) => s.drawerFindingId);
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
-  const setReplayOpen = useArgusStore((s) => s.setReplayOpen);
   const setEvidenceDiff = useArgusStore((s) => s.setEvidenceDiff);
   const job = useArgusStore((s) => s.job);
   const reduceMotion = useReducedMotion();
@@ -354,18 +352,6 @@ export function FindingDrawer() {
                 </>
               )}
             </div>
-
-            {/* Footer: hand off to the cinematic replay */}
-            <footer className="border-t border-[var(--cc-border)] px-5 py-3">
-              <button
-                type="button"
-                onClick={() => setReplayOpen(true, drawerFindingId)}
-                className="inline-flex items-center gap-2 rounded-[10px] bg-[var(--cc-primary)] px-4 py-2 text-xs font-semibold text-white shadow-[var(--cc-glow)] transition-transform hover:-translate-y-px focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary-bright)]"
-              >
-                <PlayIcon />
-                Replay reasoning
-              </button>
-            </footer>
           </motion.aside>
         </motion.div>
       )}
@@ -409,14 +395,6 @@ function CloseIcon() {
         strokeWidth="1.6"
         strokeLinecap="round"
       />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor" aria-hidden>
-      <path d="M1 1.2v9.6a.6.6 0 0 0 .92.5l7.7-4.8a.6.6 0 0 0 0-1l-7.7-4.8A.6.6 0 0 0 1 1.2Z" />
     </svg>
   );
 }

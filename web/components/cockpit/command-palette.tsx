@@ -92,12 +92,6 @@ const STATIC_ACTIONS: ActionResult[] = [
     label: "Export findings as JSON",
     meta: "Action",
   },
-  {
-    kind: "action",
-    id: "action:replay",
-    label: "Open reasoning replay",
-    meta: "Action",
-  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -111,7 +105,6 @@ const STATIC_ACTIONS: ActionResult[] = [
  *   - reads `paletteOpen` (boolean).
  *   - close by calling `setPaletteOpen(false)`.
  *   - finding → `setActiveFinding(id)` + `setDrawerFinding(id)`.
- *   - replay → `setReplayOpen(true, id)`.
  *   - ⌘K open listener lives in the audit page.
  */
 export function CommandPalette() {
@@ -119,7 +112,6 @@ export function CommandPalette() {
   const setPaletteOpen = useArgusStore((s) => s.setPaletteOpen);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
-  const setReplayOpen = useArgusStore((s) => s.setReplayOpen);
   const job = useArgusStore((s) => s.job);
 
   const [query, setQuery] = useState("");
@@ -219,10 +211,7 @@ export function CommandPalette() {
           break;
         }
         case "action": {
-          if (r.id === "action:replay") {
-            setReplayOpen(true);
-            setPaletteOpen(false);
-          } else if (r.id === "action:export") {
+          if (r.id === "action:export") {
             if (job) {
               const blob = new Blob([JSON.stringify(job.findings, null, 2)], {
                 type: "application/json",
@@ -240,7 +229,7 @@ export function CommandPalette() {
         }
       }
     },
-    [job, setActiveFinding, setDrawerFinding, setReplayOpen, setPaletteOpen]
+    [job, setActiveFinding, setDrawerFinding, setPaletteOpen]
   );
 
   // Keyboard navigation inside the palette
