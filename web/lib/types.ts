@@ -129,6 +129,8 @@ export interface Finding {
   reasoning_trace_id: string;
   related_finding_ids: string[];
   created_at: string;
+  /** User-facing caveats (e.g. "single source — verify manually"). */
+  flags?: string[];
 }
 
 export type JobStatus =

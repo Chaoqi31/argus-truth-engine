@@ -146,27 +146,81 @@ _NEGATIVE_VERDICTS = {
 }
 
 
-def _compute_agreement(finding: Finding, evidences: list[Evidence]) -> float:
-    """Compute source agreement: how many sources point the same direction.
+def _compute_agreement(finding: Finding, source_count: int) -> float:
+    """Compute source agreement: how many independent sources point the same way.
 
-    For negative verdicts (fabricated, mismatch, etc.):
-      - More evidence of absence/contradiction = higher agreement
-      - agreement = n_evidence / max(n_evidence, 3)
-
-    For positive verdicts (ok):
-      - More confirming sources = higher agreement
-      - agreement = n_evidence / max(n_evidence, 2)
+    For negative verdicts (fabricated, mismatch, etc.): want ≥3 sources →
+    agreement = n / 3. For positive verdicts (ok): ≥2 sources → agreement = n / 2.
+    ``source_count`` is the number of distinct sources (see
+    :func:`count_distinct_sources`), not just ``len(evidences)``.
     """
-    n = len(evidences)
+    n = source_count
     if n == 0:
-        return 0.3  # No evidence = low agreement
-
+        return 0.3  # No sources = low agreement
     if finding.verdict in _NEGATIVE_VERDICTS:
-        # For negative findings, we want ≥3 sources to be confident
         return min(1.0, n / 3.0)
-    else:
-        # For positive findings, ≥2 sources is sufficient
-        return min(1.0, n / 2.0)
+    return min(1.0, n / 2.0)
+
+
+# --- Independent-source counting + soft ≥2-source enforcement ----------------
+
+_URL_RE = re.compile(r"https?://[^\s)\]\"'>]+")
+
+
+def _domain(url: str | None) -> str:
+    if not url:
+        return ""
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def count_distinct_sources(finding: Finding, evidences: list[Evidence]) -> int:
+    """Count distinct independent sources backing a finding.
+
+    Counts distinct domains across the evidence URLs AND any URLs the model
+    mentioned in its reasoning_chain (MiroThinker often consults more sources
+    than it logs in ``evidence[]``), plus each evidence item that has no URL.
+    Counting only ``len(evidence)`` undercounts and would unfairly penalise or
+    (with hard enforcement) discard sound verdicts.
+    """
+    domains: set[str] = set()
+    urlless = 0
+    for ev in evidences:
+        d = _domain(ev.url)
+        if d:
+            domains.add(d)
+        else:
+            urlless += 1
+    for step in finding.reasoning_chain:
+        text = " ".join(
+            str(getattr(step, attr, "") or "")
+            for attr in ("action", "observation", "reasoning", "content", "evidence_ref")
+        )
+        for url in _URL_RE.findall(text):
+            d = _domain(url)
+            if d:
+                domains.add(d)
+    return len(domains) + urlless
+
+
+def evaluate_sourcing(finding: Finding, source_count: int) -> tuple[float | None, str | None]:
+    """Soft ≥2-source enforcement → (confidence_cap, flag).
+
+    We do NOT discard or downgrade the verdict (MiroThinker under-logs sources,
+    so hard rejection would throw away sound, paid verdicts). Instead we cap the
+    headline confidence and attach a user-facing caveat. Only applies to
+    web-verification findings; UNCERTAIN findings are already non-committal.
+    """
+    if finding.agent != "UnifiedVerifier" or finding.verdict == FindingVerdict.UNCERTAIN:
+        return None, None
+    if source_count < 2:
+        return 0.6, "single source — verify manually"
+    if finding.verdict in _NEGATIVE_VERDICTS and source_count < 3:
+        return 0.75, "under-sourced — verify manually"
+    return None, None
 
 
 # --- Main computation ---------------------------------------------------
@@ -177,6 +231,7 @@ def compute_confidence_breakdown(
     evidences: list[Evidence],
     *,
     llm_specificity: float | None = None,
+    source_count: int | None = None,
 ) -> ConfidenceBreakdown:
     """Compute confidence breakdown from data + optional LLM specificity.
 
@@ -197,8 +252,10 @@ def compute_confidence_breakdown(
         max(authority_scores) if authority_scores else _DEFAULT_AUTHORITY
     )
 
+    if source_count is None:
+        source_count = count_distinct_sources(finding, evidences)
     evidence_freshness = _compute_freshness(evidences, finding.summary)
-    source_agreement = _compute_agreement(finding, evidences)
+    source_agreement = _compute_agreement(finding, source_count)
 
     # LLM-estimated factor (default to 0.5 if not provided)
     evidence_specificity = llm_specificity if llm_specificity is not None else 0.5
@@ -224,7 +281,7 @@ def compute_confidence_breakdown(
         parts.append("dated evidence")
 
     if source_agreement >= 0.9:
-        parts.append(f"{len(evidences)} sources agree")
+        parts.append(f"{source_count} sources agree")
     elif source_agreement < 0.5:
         parts.append("limited corroboration")
 

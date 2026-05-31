@@ -91,6 +91,19 @@ export function FindingCard({ finding, active, onClick }: Props) {
           <SeverityBadge severity={finding.severity} />
         </div>
         <p className="mt-1 text-sm leading-snug">{finding.summary}</p>
+        {(finding.flags ?? []).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(finding.flags ?? []).map((fl) => (
+              <span
+                key={fl}
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium bg-[color-mix(in_oklab,var(--cc-warn,#d18700)_15%,transparent)] text-[var(--cc-warn,#d18700)]"
+              >
+                <span aria-hidden>⚠</span>
+                {fl}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
           <ConfidenceRing pct={pct} color={TONE_RING[tone]} />
           {finding.evidence_ids.length > 0 && (
