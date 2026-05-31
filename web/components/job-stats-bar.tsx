@@ -11,6 +11,7 @@ interface Stat {
   label: string;
   value: string;
   hint?: string;
+  warn?: boolean;
 }
 
 function buildStats(job: Job): Stat[] {
@@ -25,7 +26,7 @@ function buildStats(job: Job): Stat[] {
       : "—";
   const uniqueAgents = new Set(job.traces.map((t) => t.agent)).size;
 
-  return [
+  const stats: Stat[] = [
     {
       label: "claims",
       value: String(job.claims.length),
@@ -47,6 +48,23 @@ function buildStats(job: Job): Stat[] {
       hint: "Live web_search tool calls issued by agents while verifying claims.",
     },
   ];
+
+  // Audit coverage — surfaces partial runs (e.g. budget cap) instead of
+  // letting an incomplete audit look complete.
+  const total = job.claims_total ?? 0;
+  if (total > 0) {
+    const audited = job.claims_audited ?? 0;
+    stats.push({
+      label: "audited",
+      value: `${audited}/${total}`,
+      warn: audited < total,
+      hint:
+        audited < total
+          ? "Partial coverage — the audit stopped before every selected claim was verified (e.g. budget cap or an unparseable result)."
+          : "Every selected claim received a verdict.",
+    });
+  }
+  return stats;
 }
 
 function formatCompact(n: number): string {
@@ -61,7 +79,12 @@ export function JobStatsBar({ job }: Props) {
     <div className="flex w-full items-center gap-6 overflow-x-auto border-b border-border bg-muted/40 px-6 py-2.5">
       {stats.map((s, i) => (
         <div key={s.label} className="flex shrink-0 items-baseline gap-1.5">
-          <span className="font-mono text-sm font-semibold tabular-nums">{s.value}</span>
+          <span
+            className="font-mono text-sm font-semibold tabular-nums"
+            style={s.warn ? { color: "var(--color-warning-foreground)" } : undefined}
+          >
+            {s.value}
+          </span>
           <span className="text-[11px] uppercase tracking-wider text-muted-foreground" title={s.hint}>
             {s.label}
           </span>

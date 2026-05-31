@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     miromind_rps: float = 10.0
     miromind_rps_burst: int = 20
 
+    # Hard ceiling on claims sent to Phase B verification — cost guard against
+    # atomizer over-split (each verified claim = one paid MiroMind call).
+    max_claims_to_verify: int = 25
+
     # --- Result cache (Phase 4) ---
     cache_enabled: bool = True
     cache_ttl_days: int = 30

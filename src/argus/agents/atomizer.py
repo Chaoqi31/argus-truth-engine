@@ -15,6 +15,13 @@ factual claims into atomic, independently verifiable facts.
 
 Rules:
 - Each atomic fact must be a single, self-contained statement under 20 words.
+- Only split a claim when it genuinely contains MULTIPLE distinct,
+  independently-checkable facts. Never split a single fact into pieces.
+- Prefer the FEWEST atoms that capture the material, check-worthy claims.
+  As a rule of thumb emit at most ~2 atoms per input claim.
+- Do NOT emit atoms for opinions, forecasts, recommendations, ratings, price
+  targets, or hedged statements ("we expect", "in our view", "we forecast",
+  "we model") — those are not externally verifiable facts.
 - Preserve the original meaning exactly — do not infer or add information.
 - Keep named entities, numbers, dates, and citations intact.
 - If a claim is already atomic, return it unchanged.

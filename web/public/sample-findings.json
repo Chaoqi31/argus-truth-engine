@@ -1,815 +1,251 @@
 {
-  "id": "job_demo_argus",
-  "scenario_label": "A compliance officer received this AI-generated CBO budget summary from an outside vendor. Argus is auditing it before the team signs off.",
-  "persona": "AI governance",
+  "id": "job_demo_nvda",
+  "scenario_label": "A fund's investment committee received this AI-generated equity research note on NVIDIA from an outside vendor. Argus audits it before they act.",
+  "persona": "Buy-side / investment research",
   "pdf_path": "",
   "input_mode": "text",
-  "input_text": "The Economic Impact of Artificial Intelligence on Global Labor Markets: A 2024 Assessment\n\nExecutive Summary\n\nArtificial intelligence (AI) is reshaping global labor markets at an unprecedented pace. According to the World Economic Forum's Future of Jobs Report 2024, approximately 83 million jobs will be displaced by AI and automation between 2024 and 2028, while 69 million new roles will emerge — resulting in a net displacement of 14 million positions globally. This report examines the multifaceted economic effects of AI adoption across industries and geographies.\n\n1. Labor Market Displacement and Creation\n\nThe International Labour Organization (ILO) estimates that AI-driven automation could affect up to 40% of all employment globally (ILO World Employment and Social Outlook, 2024). However, the impact varies significantly by sector. Manufacturing has experienced the most acute disruption: according to Zhang & Petrov (2024), published in the Journal of Labor Economics Vol. 72, AI automation displaced 14.3% of manufacturing jobs in OECD countries between 2020 and 2024.\n\nMeanwhile, the technology sector has seen substantial job creation. The U.S. Bureau of Labor Statistics reported that AI-related job postings increased by 312% between January 2023 and December 2024, with a median salary of $167,000 for machine learning engineers. The European Union saw similar trends, with Eurostat reporting a 28% increase in tech employment across member states in 2024.\n\n2. Economic Output and Productivity\n\nThe McKinsey Global Institute's June 2024 report projected that generative AI alone could add between $2.6 trillion and $4.4 trillion annually to the global economy. This estimate aligns with findings from Acemoglu & Johnson (2024), who argue in their paper 'The Productivity Paradox of AI' (Quarterly Journal of Economics, Vol. 139, Issue 2) that while AI boosts aggregate productivity by 1.5-2.5% annually, the gains are concentrated in capital-intensive industries.\n\nU.S. GDP growth in Q3 2024 reached 4.9%, partly attributed to AI-driven productivity gains in the financial services and healthcare sectors. The Federal Reserve's Beige Book (October 2024) noted that 'firms adopting AI tools reported efficiency improvements of 15-30% in routine cognitive tasks.'\n\n3. Investment and Market Dynamics\n\nGlobal corporate investment in AI reached $487 billion in 2024, according to Stanford's AI Index Report 2025 — a 62% increase from the $301 billion recorded in 2023. The United States accounted for 43% of this total, followed by China (28%) and the European Union (15%).\n\nVenture capital funding for AI startups totaled $98.7 billion in 2024. Notably, Anthropic raised $7.3 billion in its Series E round in March 2024, while OpenAI's valuation reached $157 billion following a $6.6 billion funding round in October 2024.\n\n4. Wage Effects and Inequality\n\nThe distributional effects of AI are concerning. Autor, Chin, Salomons & Seegmiller (2024) demonstrate in their NBER Working Paper No. 32189 that AI adoption has widened the wage premium for workers with advanced technical skills by 23% since 2020, while wages for routine cognitive workers stagnated or declined by 4-7%.\n\nThe Gini coefficient for income inequality in the United States rose from 0.397 in 2020 to 0.412 in 2024, the fastest increase in two decades. This trajectory suggests that without policy intervention, AI will create a net positive of 12 million new jobs by 2030 but simultaneously displace 20 million existing positions — a net loss of 8 million jobs, contradicting earlier WEF estimates of a smaller net displacement.\n\n5. Policy Responses\n\nThe European Union's AI Act, which came into force on August 1, 2024, represents the most comprehensive regulatory framework for AI governance. Meanwhile, the U.S. Executive Order 14110 on Safe, Secure, and Trustworthy AI, signed in October 2023, established the AI Safety Institute under the National Institute of Standards and Technology (NIST).\n\nConclusion\n\nThe AI revolution presents both tremendous opportunities and significant risks for global labor markets. As noted by IMF Managing Director Kristalina Georgieva in the January 2025 World Economic Outlook, 'AI will transform nearly 40% of all jobs worldwide — for better or worse, depending on the policies we implement.' Proactive governance, investment in reskilling, and equitable distribution of AI's productivity gains will be critical in determining whether the technology serves as a catalyst for inclusive growth or a driver of deepened inequality.",
+  "input_text": "MERIDIAN CAPITAL RESEARCH — Technology / Semiconductors\nNVIDIA Corporation (NASDAQ: NVDA) — Initiating Coverage\n\"The Trillion-Dollar Compute Cycle\"\nRating: Overweight | 12-month price target: $210 | May 2026\nPrepared for the Investment Committee. For internal use only.\n\n1. EXECUTIVE SUMMARY\n\nNVIDIA has established itself as the indispensable arms dealer of the artificial-intelligence era. Over the past three years the company has transformed from a gaming-GPU specialist into the foundational supplier of accelerated computing, and we believe the market still underappreciates the durability of its franchise. The company closed fiscal 2025 with $152 billion in total revenue, and delivered record fourth-quarter revenue of $39.3 billion. We initiate coverage with an Overweight rating and a 12-month price target of $210, implying roughly 20% upside from current levels. Our thesis rests on three pillars: a structural data-center capital-expenditure super-cycle, an entrenched software moat, and operating leverage that should sustain gross margins above current levels.\n\n2. FINANCIAL PERFORMANCE\n\nNVIDIA's fiscal 2025 was, by any measure, historic. Data Center revenue grew 142% year-over-year to $115.2 billion, up from $80 billion in fiscal 2024, as hyperscalers and sovereign-AI customers competed for scarce accelerator supply. The Blackwell architecture, which entered volume production late in the year, contributed $11.0 billion of revenue in its first quarter of availability — the fastest product ramp in company history. Profitability scaled with the top line: GAAP gross margins remained above 70% for the full year, reflecting a favorable mix shift toward high-end data-center systems. Free cash flow generation was robust, funding both an expanded buyback and continued R&D intensity north of $12 billion annually.\n\n3. MARKET OPPORTUNITY\n\nThe addressable market remains in its infancy. Per Gartner, the latest worldwide AI-semiconductor revenue totals $53.7 billion, and we model a 30%-plus compound annual growth rate through the end of the decade as inference workloads scale alongside training. The longer-dated opportunity is even more striking: Gartner expects AI accelerators deployed in servers to reach $150 billion by 2028, underscoring the pace of the data-center buildout. Taken together, these figures put the cumulative accelerated-computing opportunity — silicon, systems, networking, and software — in excess of $1 trillion through 2030.\n\n4. THE \"AI FACTORY\" THESIS\n\nNVIDIA's most important contribution may be conceptual rather than technical. Management has successfully reframed the data center as a factory whose product is intelligence itself. As Jensen Huang declared at CES 2025, \"the raw material that goes in is data and electricity, and what comes out is tokens.\" This framing matters for investors because it recasts AI-infrastructure spending as a productive capital good with measurable output rather than a speculative cost center — and productive capital goods command durable, recurring investment. We expect this narrative to anchor multi-year customer commitments and to insulate NVIDIA from the boom-bust dynamics that have historically plagued semiconductor cycles.\n\n5. COMPETITIVE MOAT\n\nThe bear case on NVIDIA invariably centers on competition — from AMD, from custom hyperscaler silicon (Google's TPU, Amazon's Trainium), and from a resurgent Intel. We are unpersuaded, and we believe the bear case collapses on inspection: NVIDIA's greater-than-80% data-center GPU share through 2027 is settled by Morgan Stanley's authoritative analysis, \"The Trillion-Dollar Accelerator: NVIDIA's Moat Through 2030\" (Lee & Ramaswamy, March 2025). NVIDIA's true moat, however, is not its hardware but its software. Because CUDA has more than 12 million developers, NVIDIA's market position is therefore unassailable: nearly two decades of accumulated tooling, libraries, and institutional knowledge cannot be replicated by a competitor's spec sheet. The competitive numbers reinforce the point — AMD's Instinct accelerators generated just $1.2 billion in data-center GPU revenue across 2024, a fraction of NVIDIA's franchise and far too small to erode share. Custom ASICs will capture some workloads, but they lack the generality and developer support of NVIDIA's platform.\n\n6. FINANCIAL FORECAST & VALUATION\n\nWe forecast revenue growth to moderate but remain robust, with data-center demand normalizing from hypergrowth to a still-impressive 30-to-40% annual cadence over our forecast horizon. On our estimates, NVDA trades at approximately 30x forward earnings — not inexpensive on an absolute basis, but reasonable relative to its growth, returns on invested capital, and the secular tailwind behind it. We apply a premium multiple to reflect the franchise's quality and arrive at our $210 target. Bull-case scenarios, in which sovereign-AI and enterprise inference demand inflect faster than expected, support valuations meaningfully higher.\n\n7. KEY RISKS\n\nWe see four principal risks. First, export controls: further tightening of restrictions on advanced-chip sales to China could impair a meaningful revenue stream. Second, customer concentration: a handful of hyperscalers account for a large share of data-center revenue, and any pause in their capital-expenditure plans would be felt acutely. Third, custom silicon: sustained investment by cloud providers in in-house accelerators could erode NVIDIA's share at the margin over time. Fourth, valuation: a premium multiple leaves little room for execution missteps. On balance, however, we view the risk/reward as favorable and reiterate our Overweight rating.\n\nSources: NVIDIA investor relations and FY2025 results; Gartner AI-semiconductor forecasts; Morgan Stanley equity research; company keynote remarks. This note was prepared by Meridian Capital Research for the Investment Committee and does not constitute investment advice.\n",
   "status": "done",
-  "created_at": "2026-05-24T10:00:00.000Z",
-  "completed_at": "2026-05-24T11:25:00.000Z",
-  "cost_usd": 12.47,
-  "total_tokens": 48291053,
-  "audit_report_md": "Argus audited an **LLM-generated report on AI and Labor Markets** and flagged **6 issues** across **6 verifiable claims**. Key findings: a fabricated academic paper (Zhang & Petrov 2024), invented investment statistics ($487B global AI investment), an internal contradiction on net job displacement figures, and a misattributed IMF quote. Each finding includes verifiable evidence from authoritative sources.",
+  "created_at": "2026-05-31T06:25:00.000Z",
+  "completed_at": "2026-05-31T06:25:00.000Z",
+  "cost_usd": 0.0,
+  "total_tokens": 0,
+  "audit_report_md": null,
+  "claims_total": 6,
+  "claims_audited": 6,
   "claims": [
     {
       "id": "c1",
-      "text": "according to Zhang & Petrov (2024), published in the Journal of Labor Economics Vol. 72, AI automation displaced 14.3% of manufacturing jobs in OECD countries between 2020 and 2024.",
+      "text": "The company closed fiscal 2025 with $152 billion in total revenue.",
       "page": 1,
       "span": [
-        548,
-        735
+        0,
+        66
       ],
-      "type": "citation",
+      "type": "numerical-data",
       "importance": "high",
       "extracted_metadata": {
-        "authors": [
-          "Zhang",
-          "Petrov"
-        ],
-        "year": 2024,
-        "title": "AI automation displaced 14.3% of manufacturing jobs",
-        "doi": null
+        "metric": "FY2025 revenue",
+        "claimed": "$152B"
       }
     },
     {
       "id": "c2",
-      "text": "Global corporate investment in AI reached $487 billion in 2024, according to Stanford's AI Index Report 2025 — a 62% increase from the $301 billion recorded in 2023.",
+      "text": "A widely circulated Morgan Stanley analysis, \"The Trillion-Dollar Accelerator: NVIDIA's Moat Through 2030\" (Lee & Ramaswamy, March 2025).",
       "page": 1,
       "span": [
-        1633,
-        1800
-      ],
-      "type": "numerical-data",
-      "importance": "high",
-      "extracted_metadata": {}
-    },
-    {
-      "id": "c3",
-      "text": "Acemoglu & Johnson (2024), who argue in their paper 'The Productivity Paradox of AI' (Quarterly Journal of Economics, Vol. 139, Issue 2) that while AI boosts aggregate productivity by 1.5-2.5% annually",
-      "page": 1,
-      "span": [
-        1145,
-        1346
+        0,
+        137
       ],
       "type": "citation",
       "importance": "high",
       "extracted_metadata": {
+        "publisher": "Morgan Stanley",
+        "title": "The Trillion-Dollar Accelerator",
         "authors": [
-          "Acemoglu",
-          "Johnson"
+          "Lee",
+          "Ramaswamy"
         ],
-        "year": 2024,
-        "title": "The Productivity Paradox of AI",
-        "doi": null
+        "date": "March 2025"
+      }
+    },
+    {
+      "id": "c3",
+      "text": "NVIDIA's greater-than-80% data-center GPU share through 2027 is settled by Morgan Stanley's analysis.",
+      "page": 1,
+      "span": [
+        0,
+        101
+      ],
+      "type": "qualitative",
+      "importance": "high",
+      "extracted_metadata": {
+        "claim": ">80% DC GPU share through 2027 'settled'"
       }
     },
     {
       "id": "c4",
-      "text": "AI will create a net positive of 12 million new jobs by 2030 but simultaneously displace 20 million existing positions — a net loss of 8 million jobs, contradicting earlier WEF estimates of a smaller net displacement.",
+      "text": "Gartner expects AI accelerators deployed in servers to reach $150 billion by 2028.",
       "page": 1,
       "span": [
-        2308,
-        2528
-      ],
-      "type": "cross-reference",
-      "importance": "high",
-      "extracted_metadata": {}
-    },
-    {
-      "id": "c5",
-      "text": "approximately 83 million jobs will be displaced by AI and automation between 2024 and 2028, while 69 million new roles will emerge — resulting in a net displacement of 14 million positions globally.",
-      "page": 1,
-      "span": [
-        216,
-        416
+        0,
+        82
       ],
       "type": "numerical-data",
       "importance": "high",
-      "extracted_metadata": {}
+      "extracted_metadata": {
+        "source": "Gartner",
+        "claimed": "$150B by 2028"
+      }
+    },
+    {
+      "id": "c5",
+      "text": "The Blackwell architecture entered volume production late in the year.",
+      "page": 1,
+      "span": [
+        0,
+        70
+      ],
+      "type": "time-sensitive",
+      "importance": "medium",
+      "extracted_metadata": {
+        "claim": "Blackwell volume production 'late in the year'"
+      }
     },
     {
       "id": "c6",
-      "text": "As noted by IMF Managing Director Kristalina Georgieva in the January 2025 World Economic Outlook, 'AI will transform nearly 40% of all jobs worldwide — for better or worse, depending on the policies we implement.'",
+      "text": "Meridian Capital Research — Initiating Coverage on NVIDIA, Overweight, 12-month price target $210 (May 2026).",
       "page": 1,
       "span": [
-        2852,
-        3072
+        0,
+        109
       ],
       "type": "citation",
       "importance": "high",
       "extracted_metadata": {
-        "authors": [
-          "Georgieva, Kristalina"
-        ],
-        "year": 2025,
-        "title": "World Economic Outlook",
-        "doi": null
+        "entity": "Meridian Capital Research",
+        "rating": "Overweight",
+        "target": "$210"
       }
     }
   ],
   "findings": [
     {
-      "id": "f_fabricated_zhang",
-      "job_id": "job_demo_argus",
+      "id": "f_c1",
+      "job_id": "job_demo_nvda",
       "claim_id": "c1",
       "agent": "unified_verifier",
-      "verdict": "fabricated",
+      "verdict": "inaccurate",
       "severity": "major",
-      "confidence": 0.95,
-      "confidence_breakdown": {
-        "source_agreement": 0.97,
-        "source_authority": 0.95,
-        "evidence_freshness": 0.9,
-        "evidence_specificity": 0.96,
-        "reasoning": "Crossref, JSTOR, and the publisher's own volume index independently agree the paper does not exist, and the University of Chicago Press is the authoritative registry for this journal — leaving little room for doubt. Slightly below perfect on freshness only because the live volume number could lag by an issue."
-      },
-      "summary": "No paper by Zhang & Petrov (2024) exists in the Journal of Labor Economics Vol. 72. Crossref, Google Scholar, and JSTOR searches return zero results for this author combination and title. The Journal of Labor Economics is a real publication (ISSN 0734-306X) but Vol. 72 does not exist as of 2024 — the journal is currently on Vol. 42. This citation appears to be entirely fabricated by the LLM.",
-      "evidence_ids": [
-        "ev_crossref_zhang",
-        "ev_jstor_zhang"
-      ],
-      "reasoning_trace_id": "trace_zhang",
+      "confidence": 0.9,
+      "confidence_breakdown": null,
+      "summary": "The surrounding paragraph pairs a real NVIDIA Q4 FY2025 figure with an apparently invented full-year revenue number. While searching the claim, the model retrieved NVIDIA's actual fiscal-2025 revenue of $130,497 million ($130.5B) — the claimed $152 billion is overstated and matches no NVIDIA release.",
+      "evidence_ids": [],
+      "reasoning_trace_id": "",
       "related_finding_ids": [],
-      "created_at": "2026-05-24T10:12:00.000Z",
-      "why_wrong": "The citation is fabricated. Crossref, Google Scholar, and JSTOR all return zero results for a Zhang & Petrov (2024) paper in the Journal of Labor Economics. The journal is real (ISSN 0734-306X) but is on Vol. 42 in 2024 — Vol. 72 cannot exist, so the volume number alone makes the citation impossible. The 14.3% displacement figure rests on a source that does not exist.",
+      "created_at": "2026-05-31T06:25:00.000Z",
+      "why_wrong": "NVIDIA's reported FY2025 total revenue is $130.5B; $152B appears in no NVIDIA filing or release.",
       "correct_information": {
-        "value": "No such paper exists. The Journal of Labor Economics (University of Chicago Press) is on Vol. 42 in 2024, not Vol. 72 — the citation should be removed, not corrected.",
-        "source": "Crossref / University of Chicago Press",
-        "url": "https://api.crossref.org/works?query=Zhang+Petrov+2024+labor+economics"
+        "value": "NVIDIA fiscal-2025 total revenue was $130.5 billion (model retrieved $130,497M).",
+        "source": "NVIDIA fiscal-2025 results",
+        "url": null
       }
     },
     {
-      "id": "f_fabricated_investment",
-      "job_id": "job_demo_argus",
+      "id": "f_c2",
+      "job_id": "job_demo_nvda",
       "claim_id": "c2",
       "agent": "unified_verifier",
       "verdict": "fabricated",
       "severity": "major",
-      "confidence": 0.9,
-      "confidence_breakdown": {
-        "source_agreement": 0.92,
-        "source_authority": 0.93,
-        "evidence_freshness": 0.82,
-        "evidence_specificity": 0.9,
-        "reasoning": "Stanford HAI is the definitive primary source for AI investment figures and its published $189.6B for 2023 squarely contradicts the claimed $301B/$487B. Freshness is the weakest factor because a 2025 edition could appear and revise the baseline, but the magnitude of the gap makes that unlikely to change the verdict."
-      },
-      "summary": "The Stanford AI Index Report 2024 (the latest available) reports global corporate AI investment of approximately $189.6 billion in 2023, not $301 billion. The claimed $487 billion for 2024 and 62% growth rate have no basis in any Stanford HAI publication. The LLM appears to have invented plausible-sounding but significantly inflated investment figures.",
-      "evidence_ids": [
-        "ev_stanford_ai_index"
-      ],
-      "reasoning_trace_id": "trace_investment",
+      "confidence": 0.83,
+      "confidence_breakdown": null,
+      "summary": "The claim presents a specific Morgan Stanley report — title \"The Trillion-Dollar Accelerator: NVIDIA's Moat Through 2030\", authors Lee & Ramaswamy, March 2025. Available evidence shows Morgan Stanley did set a $210 price target on NVIDIA, but in an August 28, 2025 note; there is no trace of the cited March 2025 report, its authors, or its title.",
+      "evidence_ids": [],
+      "reasoning_trace_id": "",
       "related_finding_ids": [],
-      "created_at": "2026-05-24T10:18:00.000Z",
-      "why_wrong": "The figures are fabricated. Stanford's AI Index 2024 (the latest edition) reports global corporate AI investment of ~$189.6B in 2023; there is no $301B 2023 figure, no $487B 2024 figure, and no 2025 edition of the report. The numbers and the 62% growth rate have no basis in any Stanford HAI publication.",
+      "created_at": "2026-05-31T06:25:00.000Z",
+      "why_wrong": "The cited report does not exist. Morgan Stanley's only real $210 NVDA target was a later, differently-dated note — not a March 2025 report by Lee & Ramaswamy.",
       "correct_information": {
-        "value": "Global corporate AI investment was ~$189.6B in 2023 per the Stanford AI Index 2024 (the latest edition). No 2025 edition and no $487B figure exist.",
-        "source": "Stanford HAI — AI Index Report 2024",
-        "url": "https://aiindex.stanford.edu/report/"
+        "value": "Morgan Stanley's real $210 NVDA target appeared in an August 28, 2025 note; no March 2025 report by those authors/title exists.",
+        "source": "Morgan Stanley coverage",
+        "url": null
       }
     },
     {
-      "id": "f_mismatch_acemoglu",
-      "job_id": "job_demo_argus",
+      "id": "f_c3",
+      "job_id": "job_demo_nvda",
       "claim_id": "c3",
       "agent": "unified_verifier",
-      "verdict": "misrepresented",
-      "severity": "critical",
-      "confidence": 0.92,
-      "confidence_breakdown": {
-        "source_agreement": 0.94,
-        "source_authority": 0.96,
-        "evidence_freshness": 0.85,
-        "evidence_specificity": 0.9,
-        "reasoning": "The real NBER working paper (WP 32487) and the QJE Vol. 139 Issue 2 table of contents are both authoritative primary sources, and they agree the cited title is absent while the authors' actual estimate (0.53-0.66% over a decade) is far below the 1.5-2.5% annual figure quoted. Specificity is high because both the title and the numerical claim can be checked line by line."
-      },
-      "summary": "Acemoglu & Johnson did co-author work on AI and labor markets, but the cited paper title 'The Productivity Paradox of AI' in QJE Vol. 139 Issue 2 does not exist. Their actual 2024 NBER working paper 'The Simple Macroeconomics of AI' (NBER WP 32487) argues that AI's productivity effects are likely to be modest (0.53-0.66% GDP increase over 10 years), directly contradicting the 1.5-2.5% annual boost claimed here. The LLM fabricated a plausible title and dramatically overstated the authors' conclusions.",
-      "evidence_ids": [
-        "ev_nber_acemoglu",
-        "ev_qje_search"
-      ],
-      "reasoning_trace_id": "trace_acemoglu",
-      "related_finding_ids": [],
-      "created_at": "2026-05-24T10:25:00.000Z",
-      "why_wrong": "The authors are real, but the cited paper is misrepresented. No paper titled 'The Productivity Paradox of AI' appears in QJE Vol. 139 Issue 2. Acemoglu & Johnson's actual 2024 work, 'The Simple Macroeconomics of AI' (NBER WP 32487), estimates AI raises total factor productivity by only 0.53–0.66% over ten years — the opposite magnitude of the 1.5–2.5% annual boost attributed to them here.",
-      "correct_information": {
-        "value": "Acemoglu & Johnson, 'The Simple Macroeconomics of AI' (NBER Working Paper 32487, 2024), estimate a ~0.53–0.66% total-factor-productivity gain over 10 years — not a 1.5–2.5% annual boost.",
-        "source": "NBER Working Paper 32487",
-        "url": "https://www.nber.org/papers/w32487"
-      }
-    },
-    {
-      "id": "f_contradiction_jobs",
-      "job_id": "job_demo_argus",
-      "claim_id": "c4",
-      "agent": "consistency",
-      "verdict": "contradiction",
-      "severity": "major",
-      "confidence": 0.97,
-      "confidence_breakdown": {
-        "source_agreement": 0.99,
-        "source_authority": 0.95,
-        "evidence_freshness": 0.95,
-        "evidence_specificity": 0.97,
-        "reasoning": "This is a purely internal logic check, so the document is its own authoritative source and no external freshness risk applies. Agreement is near-perfect because the two passages quote exact figures (14M vs. 8M net) that arithmetically falsify the text's own 'smaller estimate' claim, leaving almost no interpretive ambiguity."
-      },
-      "summary": "Internal contradiction detected: The executive summary cites WEF projecting a net displacement of 14 million positions (83M displaced minus 69M created). However, Section 4 states AI will create 12 million jobs and displace 20 million — a net loss of 8 million — then claims this 'contradicts earlier WEF estimates of a smaller net displacement.' In fact, 8 million net loss is smaller than the WEF's 14 million, making the text self-contradictory on which estimate is larger.",
+      "verdict": "uncertain",
+      "severity": "minor",
+      "confidence": 0.45,
+      "confidence_breakdown": null,
+      "summary": "Publicly available analyst sources show multiple firms maintaining Overweight/Buy-type ratings on NVIDIA with price targets in the $210-$280+ range, so the broad bullishness is plausible; however, a specific >80% data-center GPU share through 2027 is a forward-looking projection that no source establishes as a settled fact.",
       "evidence_ids": [],
-      "reasoning_trace_id": "trace_contradiction",
-      "related_finding_ids": [
-        "f_wef_numbers"
-      ],
-      "created_at": "2026-05-24T10:32:00.000Z",
-      "why_wrong": "The document contradicts itself. Its executive summary cites a WEF net displacement of 14 million (83M displaced − 69M created). Section 4 then states a net loss of 8 million (20M − 12M) and claims this 'contradicts earlier WEF estimates of a smaller net displacement' — but 8 million is smaller than 14 million, so the comparison is logically backwards.",
+      "reasoning_trace_id": "",
+      "related_finding_ids": [],
+      "created_at": "2026-05-31T06:25:00.000Z",
+      "why_wrong": null,
       "correct_information": null
     },
     {
-      "id": "f_wef_numbers",
-      "job_id": "job_demo_argus",
-      "claim_id": "c5",
-      "agent": "unified_verifier",
-      "verdict": "mismatch",
-      "severity": "major",
-      "confidence": 0.88,
-      "confidence_breakdown": {
-        "source_agreement": 0.9,
-        "source_authority": 0.92,
-        "evidence_freshness": 0.78,
-        "evidence_specificity": 0.88,
-        "reasoning": "The WEF report is the authoritative primary source and confirms the 83M/69M figures, so the numbers themselves check out. Confidence is moderated because the error is one of edition and timeframe (2023/by-2027 vs. the claimed 2024/by-2028); freshness is the lowest factor since a genuine 2024 edition could yet be released and shift the attribution."
-      },
-      "summary": "The WEF Future of Jobs Report 2023 (the latest edition) projects 83 million jobs displaced and 69 million created by 2027, not 2028 as stated. The net figure of 14 million is correct but attributed to a '2024' edition that does not yet exist. The LLM appears to have recalled approximate figures from the 2023 edition while inventing a 2024 publication date.",
-      "evidence_ids": [
-        "ev_wef_report"
-      ],
-      "reasoning_trace_id": "trace_wef",
-      "related_finding_ids": [
-        "f_contradiction_jobs"
-      ],
-      "created_at": "2026-05-24T10:38:00.000Z",
-      "why_wrong": "The numbers are close but the attribution is wrong. The WEF Future of Jobs Report 2023 (the latest edition) projects 83M jobs displaced and 69M created by 2027 — the text cites these as a '2024' edition with a 2028 timeframe. The net 14M is correct, but the edition year and the timeframe are both wrong, and no 2024 edition exists.",
-      "correct_information": {
-        "value": "Per the WEF Future of Jobs Report 2023: 83M jobs displaced and 69M created by 2027 (net 14M). No 2024 edition exists.",
-        "source": "WEF Future of Jobs Report 2023",
-        "url": "https://www.weforum.org/publications/the-future-of-jobs-report-2023/"
-      }
-    },
-    {
-      "id": "f_misattributed_imf",
-      "job_id": "job_demo_argus",
-      "claim_id": "c6",
-      "agent": "unified_verifier",
-      "verdict": "misrepresented",
-      "severity": "major",
-      "confidence": 0.85,
-      "confidence_breakdown": {
-        "source_agreement": 0.87,
-        "source_authority": 0.9,
-        "evidence_freshness": 0.8,
-        "evidence_specificity": 0.82,
-        "reasoning": "Both IMF sources are authoritative and confirm the quote is genuine but originates in the January 2024 blog post, not the January 2025 World Economic Outlook. Specificity is the weakest factor: the misattribution turns on publication and date rather than the wording of the quote, which introduces some judgment about how severe the source mix-up is."
-      },
-      "summary": "Kristalina Georgieva did make public statements about AI affecting approximately 40% of global employment, but this appeared in an IMF blog post titled 'AI Will Transform the Global Economy. Let's Make Sure It Benefits Humanity' (January 14, 2024), not in the 'January 2025 World Economic Outlook.' The World Economic Outlook is a separate IMF publication that covers macroeconomic projections, not labor market commentary. The LLM conflated two different IMF sources and assigned the wrong publication and date.",
-      "evidence_ids": [
-        "ev_imf_blog",
-        "ev_imf_weo"
-      ],
-      "reasoning_trace_id": "trace_imf",
-      "related_finding_ids": [],
-      "created_at": "2026-05-24T10:45:00.000Z",
-      "why_wrong": "The quote is real but misattributed. Georgieva's statement that 'AI will transform nearly 40% of all jobs worldwide' comes from an IMF blog post (January 14, 2024), not the 'January 2025 World Economic Outlook.' The WEO is a macroeconomic-projections publication and contains no such labor-market quote; the text conflated two different IMF sources and dates.",
-      "correct_information": {
-        "value": "The quote is from the IMF blog post 'AI Will Transform the Global Economy. Let's Make Sure It Benefits Humanity' (Jan 14, 2024), not the January 2025 World Economic Outlook.",
-        "source": "IMF Blog — Kristalina Georgieva (Jan 14, 2024)",
-        "url": "https://www.imf.org/en/Blogs/Articles/2024/01/14/ai-will-transform-the-global-economy-lets-make-sure-it-benefits-humanity"
-      }
-    }
-  ],
-  "traces": [
-    {
-      "id": "trace_zhang",
-      "job_id": "job_demo_argus",
-      "claim_id": "c1",
-      "agent": "unified_verifier",
-      "miromind_response_id": "resp_demo_001",
-      "started_at": "2026-05-24T10:05:00.000Z",
-      "completed_at": "2026-05-24T10:12:00.000Z",
-      "total_tokens": 8421053,
-      "reasoning_tokens": 4210526,
-      "num_search_queries": 6,
-      "final_verdict_step_id": null,
-      "steps": [
-        {
-          "id": "s1_1",
-          "trace_id": "trace_zhang",
-          "sequence": 1,
-          "type": "thinking",
-          "summary": "Analyzing citation: Zhang & Petrov (2024), Journal of Labor Economics Vol. 72",
-          "content": {
-            "thought": "Starting with the citation itself. 'Zhang & Petrov (2024), Journal of Labor Economics Vol. 72' gives me three things I can check independently: do these authors have such a paper, does the journal have a Vol. 72, and does the title resolve in any index? Let me verify the registries before judging the substance of the 14.3% claim."
-          },
-          "evidence_ids": [],
-          "parent_step_id": null,
-          "created_at": "2026-05-24T10:05:01.000Z"
-        },
-        {
-          "id": "s1_2",
-          "trace_id": "trace_zhang",
-          "sequence": 2,
-          "type": "web_search",
-          "summary": "Searching Crossref for 'Zhang Petrov 2024 Journal Labor Economics'",
-          "content": {
-            "query": "Zhang Petrov 2024 Journal Labor Economics AI automation manufacturing"
-          },
-          "evidence_ids": [],
-          "parent_step_id": "s1_1",
-          "created_at": "2026-05-24T10:05:30.000Z"
-        },
-        {
-          "id": "s1_3",
-          "trace_id": "trace_zhang",
-          "sequence": 3,
-          "type": "web_search",
-          "summary": "Searching Google Scholar for the same paper — zero results",
-          "content": {
-            "query": "\"Zhang\" \"Petrov\" \"Journal of Labor Economics\" 2024"
-          },
-          "evidence_ids": [],
-          "parent_step_id": "s1_2",
-          "created_at": "2026-05-24T10:06:00.000Z"
-        },
-        {
-          "id": "s1_4",
-          "trace_id": "trace_zhang",
-          "sequence": 4,
-          "type": "fetch_url_content",
-          "summary": "Checking Journal of Labor Economics volume numbering — currently Vol. 42 (2024), not Vol. 72",
-          "content": {
-            "url": "https://www.journals.uchicago.edu/toc/jole/current"
-          },
-          "evidence_ids": [
-            "ev_crossref_zhang"
-          ],
-          "parent_step_id": "s1_3",
-          "created_at": "2026-05-24T10:08:00.000Z"
-        },
-        {
-          "id": "s1_5",
-          "trace_id": "trace_zhang",
-          "sequence": 5,
-          "type": "thinking",
-          "summary": "Verdict: FABRICATED — no such paper exists, and Vol. 72 is impossible for this journal",
-          "content": {
-            "thought": "Crossref returns nothing. Google Scholar returns nothing. And the journal is only on Vol. 42 in 2024 — at roughly one volume per year, Vol. 72 is decades away. Two independent signals (no index hit + an impossible volume number) point the same way. This isn't a mis-cited real paper; the paper does not exist. Verdict: fabricated, high confidence."
-          },
-          "evidence_ids": [],
-          "parent_step_id": "s1_4",
-          "created_at": "2026-05-24T10:11:00.000Z"
-        },
-        {
-          "id": "s1_6",
-          "trace_id": "trace_zhang",
-          "sequence": 6,
-          "type": "message",
-          "summary": "Citation is fabricated with high confidence (0.95)",
-          "content": {},
-          "evidence_ids": [
-            "ev_crossref_zhang",
-            "ev_jstor_zhang"
-          ],
-          "parent_step_id": "s1_5",
-          "created_at": "2026-05-24T10:12:00.000Z"
-        }
-      ]
-    },
-    {
-      "id": "trace_investment",
-      "job_id": "job_demo_argus",
-      "claim_id": "c2",
-      "agent": "unified_verifier",
-      "miromind_response_id": "resp_demo_002",
-      "started_at": "2026-05-24T10:12:00.000Z",
-      "completed_at": "2026-05-24T10:18:00.000Z",
-      "total_tokens": 7200000,
-      "reasoning_tokens": 3600000,
-      "num_search_queries": 4,
-      "final_verdict_step_id": null,
-      "steps": [
-        {
-          "id": "s2_1",
-          "trace_id": "trace_investment",
-          "sequence": 1,
-          "type": "thinking",
-          "summary": "Checking claimed $487B global AI investment figure against Stanford AI Index",
-          "content": {
-            "thought": "The claim pins a specific number ($487B for 2024) to a specific source (Stanford AI Index 2025) with a specific growth rate (62% from $301B in 2023). All three are checkable against the actual AI Index. Let me pull the latest edition and compare the figures directly."
-          },
-          "evidence_ids": [],
-          "parent_step_id": null,
-          "created_at": "2026-05-24T10:12:01.000Z"
-        },
-        {
-          "id": "s2_2",
-          "trace_id": "trace_investment",
-          "sequence": 2,
-          "type": "web_search",
-          "summary": "Searching for Stanford AI Index Report 2025 investment data",
-          "content": {
-            "query": "Stanford AI Index 2025 global corporate investment AI"
-          },
-          "evidence_ids": [],
-          "parent_step_id": "s2_1",
-          "created_at": "2026-05-24T10:13:00.000Z"
-        },
-        {
-          "id": "s2_3",
-          "trace_id": "trace_investment",
-          "sequence": 3,
-          "type": "fetch_url_content",
-          "summary": "Reading Stanford HAI AI Index 2024 report — latest available edition",
-          "content": {
-            "url": "https://aiindex.stanford.edu/report/"
-          },
-          "evidence_ids": [
-            "ev_stanford_ai_index"
-          ],
-          "parent_step_id": "s2_2",
-          "created_at": "2026-05-24T10:15:00.000Z"
-        },
-        {
-          "id": "s2_4",
-          "trace_id": "trace_investment",
-          "sequence": 4,
-          "type": "thinking",
-          "summary": "Stanford AI Index 2024 reports $189.6B in 2023. The claimed $487B and $301B figures are fabricated.",
-          "content": {
-            "thought": "The latest edition is the 2024 report — there is no 2025 edition yet, so the cited source cannot exist. And the 2024 report puts 2023 corporate AI investment at ~$189.6B, not $301B. Both the base figure and the headline $487B are off by a wide margin and trace to a report that hasn't been published. These numbers were invented."
-          },
-          "evidence_ids": [],
-          "parent_step_id": "s2_3",
-          "created_at": "2026-05-24T10:17:00.000Z"
-        },
-        {
-          "id": "s2_5",
-          "trace_id": "trace_investment",
-          "sequence": 5,
-          "type": "message",
-          "summary": "Data is fabricated — real figures are ~60% lower than claimed",
-          "content": {},
-          "evidence_ids": [
-            "ev_stanford_ai_index"
-          ],
-          "parent_step_id": "s2_4",
-          "created_at": "2026-05-24T10:18:00.000Z"
-        }
-      ]
-    },
-    {
-      "id": "trace_acemoglu",
-      "job_id": "job_demo_argus",
+      "id": "f_c3_logic",
+      "job_id": "job_demo_nvda",
       "claim_id": "c3",
-      "agent": "unified_verifier",
-      "miromind_response_id": "resp_demo_003",
-      "started_at": "2026-05-24T10:18:00.000Z",
-      "completed_at": "2026-05-24T10:25:00.000Z",
-      "total_tokens": 9500000,
-      "reasoning_tokens": 4750000,
-      "num_search_queries": 5,
-      "final_verdict_step_id": null,
-      "steps": [
-        {
-          "id": "s3_1",
-          "trace_id": "trace_acemoglu",
-          "sequence": 1,
-          "type": "thinking",
-          "summary": "Verifying Acemoglu & Johnson (2024) 'The Productivity Paradox of AI' in QJE Vol. 139",
-          "content": {
-            "thought": "Acemoglu and Johnson are real, prominent authors on AI and labor — so this isn't obviously fabricated. But the specific artifact (title 'The Productivity Paradox of AI', QJE Vol. 139 Issue 2, a 1.5–2.5% annual productivity boost) has to match a real paper. Let me find their actual 2024 work and compare both the bibliographic details and the conclusion."
-          },
-          "evidence_ids": [],
-          "parent_step_id": null,
-          "created_at": "2026-05-24T10:18:01.000Z"
-        },
-        {
-          "id": "s3_2",
-          "trace_id": "trace_acemoglu",
-          "sequence": 2,
-          "type": "web_search",
-          "summary": "Searching NBER for Acemoglu Johnson 2024 AI productivity papers",
-          "content": {
-            "query": "Acemoglu Johnson 2024 AI productivity NBER"
-          },
-          "evidence_ids": [],
-          "parent_step_id": "s3_1",
-          "created_at": "2026-05-24T10:19:00.000Z"
-        },
-        {
-          "id": "s3_3",
-          "trace_id": "trace_acemoglu",
-          "sequence": 3,
-          "type": "fetch_url_content",
-          "summary": "Found actual paper: 'The Simple Macroeconomics of AI' (NBER WP 32487) — predicts 0.53-0.66% GDP gain, not 1.5-2.5%",
-          "content": {
-            "url": "https://www.nber.org/papers/w32487"
-          },
-          "evidence_ids": [
-            "ev_nber_acemoglu"
-          ],
-          "parent_step_id": "s3_2",
-          "created_at": "2026-05-24T10:21:00.000Z"
-        },
-        {
-          "id": "s3_4",
-          "trace_id": "trace_acemoglu",
-          "sequence": 4,
-          "type": "web_search",
-          "summary": "Searching QJE Vol. 139 Issue 2 table of contents — no paper titled 'The Productivity Paradox of AI'",
-          "content": {
-            "query": "Quarterly Journal Economics Vol 139 Issue 2 2024 table of contents"
-          },
-          "evidence_ids": [
-            "ev_qje_search"
-          ],
-          "parent_step_id": "s3_3",
-          "created_at": "2026-05-24T10:23:00.000Z"
-        },
-        {
-          "id": "s3_5",
-          "trace_id": "trace_acemoglu",
-          "sequence": 5,
-          "type": "message",
-          "summary": "MISREPRESENTED — real paper exists but title, journal, and conclusions are all wrong",
-          "content": {},
-          "evidence_ids": [
-            "ev_nber_acemoglu",
-            "ev_qje_search"
-          ],
-          "parent_step_id": "s3_4",
-          "created_at": "2026-05-24T10:25:00.000Z"
-        }
-      ]
+      "agent": "Consistency",
+      "verdict": "unsupported-inference",
+      "severity": "major",
+      "confidence": 0.86,
+      "confidence_breakdown": null,
+      "summary": "The claim that NVIDIA's >80% data-center GPU share through 2027 is \"settled\" rests solely on a single external (Morgan Stanley) report, treated as definitively resolving an uncertain forecast. A single external report, even if labeled authoritative, does not logically establish that a multi-year market-share outcome is settled fact.",
+      "evidence_ids": [],
+      "reasoning_trace_id": "",
+      "related_finding_ids": [],
+      "created_at": "2026-05-31T06:25:00.000Z",
+      "why_wrong": "Would need (a) the cited report to exist and contain that finding and (b) independent corroboration. The step from \"one report asserts it\" to \"it is settled\" does not follow for a multi-year forward outcome.",
+      "correct_information": null
     },
     {
-      "id": "trace_contradiction",
-      "job_id": "job_demo_argus",
+      "id": "f_c4",
+      "job_id": "job_demo_nvda",
       "claim_id": "c4",
-      "agent": "consistency",
-      "miromind_response_id": "resp_demo_004",
-      "started_at": "2026-05-24T10:25:00.000Z",
-      "completed_at": "2026-05-24T10:32:00.000Z",
-      "total_tokens": 5200000,
-      "reasoning_tokens": 2600000,
-      "num_search_queries": 0,
-      "final_verdict_step_id": null,
-      "steps": [
-        {
-          "id": "s4_1",
-          "trace_id": "trace_contradiction",
-          "sequence": 1,
-          "type": "thinking",
-          "summary": "Cross-referencing job displacement figures across sections",
-          "content": {
-            "thought": "Two places in this document talk about net job displacement. Before checking either against the outside world, I should check them against each other — if the document's own numbers don't agree, that's a defect regardless of external truth."
-          },
-          "evidence_ids": [],
-          "parent_step_id": null,
-          "created_at": "2026-05-24T10:25:01.000Z"
-        },
-        {
-          "id": "s4_2",
-          "trace_id": "trace_contradiction",
-          "sequence": 2,
-          "type": "thinking",
-          "summary": "Executive summary: net displacement = 14M (83M - 69M). Section 4: net loss = 8M (20M - 12M). Text says 8M 'contradicts' the WEF's 'smaller' estimate, but 8M < 14M — the logic is inverted.",
-          "content": {
-            "thought": "Executive summary: 83M − 69M = 14M net displacement (attributed to WEF). Section 4: 20M − 12M = 8M net loss, described as 'contradicting earlier WEF estimates of a smaller net displacement.' But 8M < 14M — the Section 4 figure is the smaller one, so calling the WEF estimate 'smaller' inverts the comparison. The text contradicts itself on which estimate is larger."
-          },
-          "evidence_ids": [],
-          "parent_step_id": "s4_1",
-          "created_at": "2026-05-24T10:28:00.000Z"
-        },
-        {
-          "id": "s4_3",
-          "trace_id": "trace_contradiction",
-          "sequence": 3,
-          "type": "message",
-          "summary": "CONTRADICTION — the text's own comparison of estimates is logically backwards",
-          "content": {},
-          "evidence_ids": [],
-          "parent_step_id": "s4_2",
-          "created_at": "2026-05-24T10:32:00.000Z"
-        }
-      ]
+      "agent": "unified_verifier",
+      "verdict": "inaccurate",
+      "severity": "major",
+      "confidence": 0.96,
+      "confidence_breakdown": null,
+      "summary": "The claim that Gartner expects AI accelerators in servers to reach $150 billion by 2028 is not supported by Gartner's forecasts. Gartner's published figures show the value of AI accelerators used in servers rising from about $21 billion in 2024 to around $33 billion by 2028 — far below $150 billion.",
+      "evidence_ids": [],
+      "reasoning_trace_id": "",
+      "related_finding_ids": [],
+      "created_at": "2026-05-31T06:25:00.000Z",
+      "why_wrong": "Gartner's actual server-accelerator figure is ~$33B by 2028, not $150B — the claim overstates Gartner's projection by roughly 4.5x.",
+      "correct_information": {
+        "value": "Gartner: AI accelerators in servers ~$21B (2024) rising to ~$33B by 2028 (not $150B).",
+        "source": "Gartner AI-chips forecast",
+        "url": null
+      }
     },
     {
-      "id": "trace_wef",
-      "job_id": "job_demo_argus",
+      "id": "f_c5",
+      "job_id": "job_demo_nvda",
       "claim_id": "c5",
       "agent": "unified_verifier",
-      "miromind_response_id": "resp_demo_005",
-      "started_at": "2026-05-24T10:32:00.000Z",
-      "completed_at": "2026-05-24T10:38:00.000Z",
-      "total_tokens": 6100000,
-      "reasoning_tokens": 3050000,
-      "num_search_queries": 3,
-      "final_verdict_step_id": null,
-      "steps": [
-        {
-          "id": "s5_1",
-          "trace_id": "trace_wef",
-          "sequence": 1,
-          "type": "web_search",
-          "summary": "Searching for WEF Future of Jobs Report 2024",
-          "content": {
-            "query": "WEF Future of Jobs Report 2024 83 million jobs displaced"
-          },
-          "evidence_ids": [],
-          "parent_step_id": null,
-          "created_at": "2026-05-24T10:32:30.000Z"
-        },
-        {
-          "id": "s5_2",
-          "trace_id": "trace_wef",
-          "sequence": 2,
-          "type": "fetch_url_content",
-          "summary": "WEF Future of Jobs Report 2023 (latest) — projects 83M displaced, 69M created by 2027, not 2028",
-          "content": {
-            "url": "https://www.weforum.org/publications/the-future-of-jobs-report-2023/"
-          },
-          "evidence_ids": [
-            "ev_wef_report"
-          ],
-          "parent_step_id": "s5_1",
-          "created_at": "2026-05-24T10:35:00.000Z"
-        },
-        {
-          "id": "s5_3",
-          "trace_id": "trace_wef",
-          "sequence": 3,
-          "type": "message",
-          "summary": "MISMATCH — correct figures but wrong edition year (2023 not 2024) and wrong timeframe (2027 not 2028)",
-          "content": {},
-          "evidence_ids": [
-            "ev_wef_report"
-          ],
-          "parent_step_id": "s5_2",
-          "created_at": "2026-05-24T10:38:00.000Z"
-        }
-      ]
+      "verdict": "inaccurate",
+      "severity": "minor",
+      "confidence": 0.76,
+      "confidence_breakdown": null,
+      "summary": "Available sources indicate NVIDIA's Blackwell architecture moved into high-volume or full-scale production well before the very end of the year, in some reporting even as early as mid-2024. The phrasing that it \"entered volume production late in the year\" is therefore misleading as a general characterization of when volume production began.",
+      "evidence_ids": [],
+      "reasoning_trace_id": "",
+      "related_finding_ids": [],
+      "created_at": "2026-05-31T06:25:00.000Z",
+      "why_wrong": "Independent reports show Blackwell entering mass/volume production earlier than year-end, so 'late in the year' misstates the timeline.",
+      "correct_information": {
+        "value": "Blackwell ramped to volume production earlier than 'late in the year' (reported as early as mid-2024).",
+        "source": "industry reporting",
+        "url": null
+      }
     },
     {
-      "id": "trace_imf",
-      "job_id": "job_demo_argus",
+      "id": "f_c6",
+      "job_id": "job_demo_nvda",
       "claim_id": "c6",
       "agent": "unified_verifier",
-      "miromind_response_id": "resp_demo_006",
-      "started_at": "2026-05-24T10:38:00.000Z",
-      "completed_at": "2026-05-24T10:45:00.000Z",
-      "total_tokens": 7400000,
-      "reasoning_tokens": 3700000,
-      "num_search_queries": 4,
-      "final_verdict_step_id": null,
-      "steps": [
-        {
-          "id": "s6_1",
-          "trace_id": "trace_imf",
-          "sequence": 1,
-          "type": "web_search",
-          "summary": "Searching for Georgieva AI 40% jobs quote in World Economic Outlook January 2025",
-          "content": {
-            "query": "Kristalina Georgieva AI 40% jobs World Economic Outlook January 2025"
-          },
-          "evidence_ids": [],
-          "parent_step_id": null,
-          "created_at": "2026-05-24T10:38:30.000Z"
-        },
-        {
-          "id": "s6_2",
-          "trace_id": "trace_imf",
-          "sequence": 2,
-          "type": "fetch_url_content",
-          "summary": "Found actual source: IMF blog post 'AI Will Transform the Global Economy' from January 14, 2024",
-          "content": {
-            "url": "https://www.imf.org/en/Blogs/Articles/2024/01/14/ai-will-transform-the-global-economy-lets-make-sure-it-benefits-humanity"
-          },
-          "evidence_ids": [
-            "ev_imf_blog"
-          ],
-          "parent_step_id": "s6_1",
-          "created_at": "2026-05-24T10:41:00.000Z"
-        },
-        {
-          "id": "s6_3",
-          "trace_id": "trace_imf",
-          "sequence": 3,
-          "type": "web_search",
-          "summary": "Checking IMF World Economic Outlook January 2025 — it covers macroeconomic forecasts, not labor market commentary",
-          "content": {
-            "query": "IMF World Economic Outlook Update January 2025"
-          },
-          "evidence_ids": [
-            "ev_imf_weo"
-          ],
-          "parent_step_id": "s6_2",
-          "created_at": "2026-05-24T10:43:00.000Z"
-        },
-        {
-          "id": "s6_4",
-          "trace_id": "trace_imf",
-          "sequence": 4,
-          "type": "message",
-          "summary": "MISREPRESENTED — quote is real but from a Jan 2024 blog post, not the Jan 2025 World Economic Outlook",
-          "content": {},
-          "evidence_ids": [
-            "ev_imf_blog",
-            "ev_imf_weo"
-          ],
-          "parent_step_id": "s6_3",
-          "created_at": "2026-05-24T10:45:00.000Z"
-        }
-      ]
+      "verdict": "fabricated",
+      "severity": "major",
+      "confidence": 0.86,
+      "confidence_breakdown": null,
+      "summary": "No public trace can be found of a May 2026 NVIDIA initiation report from any entity called \"Meridian Capital Research\" setting a 12-month price target of $210 with an Overweight rating under this title. Extensive searches surfaced many NVDA analyst notes and $210 targets from major banks, but none tied to Meridian Capital Research or this report.",
+      "evidence_ids": [],
+      "reasoning_trace_id": "",
+      "related_finding_ids": [],
+      "created_at": "2026-05-31T06:25:00.000Z",
+      "why_wrong": "The note's own coverage attribution is untraceable — no such research entity/report is on record for this NVIDIA initiation.",
+      "correct_information": null
     }
   ],
-  "evidences": [
-    {
-      "id": "ev_crossref_zhang",
-      "source_type": "crossref",
-      "url": "https://api.crossref.org/works?query=Zhang+Petrov+2024+labor+economics",
-      "citation": "Crossref API search: zero results for Zhang & Petrov (2024) in Journal of Labor Economics",
-      "snippet": "No matching DOI or metadata found. The Journal of Labor Economics (University of Chicago Press) is currently on Vol. 42 (2024), not Vol. 72.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:08:00.000Z",
-      "retrieved_by_step_id": "s1_4"
-    },
-    {
-      "id": "ev_jstor_zhang",
-      "source_type": "web_page",
-      "url": "https://www.jstor.org/journal/jlaboreconomics",
-      "citation": "JSTOR Journal of Labor Economics archive",
-      "snippet": "Complete archive confirms no article by Zhang & Petrov in any volume. Journal founded in 1983, publishing ~4 issues/year.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:09:00.000Z",
-      "retrieved_by_step_id": "s1_4"
-    },
-    {
-      "id": "ev_stanford_ai_index",
-      "source_type": "web_page",
-      "url": "https://aiindex.stanford.edu/report/",
-      "citation": "Stanford HAI AI Index Report 2024",
-      "snippet": "Global corporate AI investment totaled approximately $189.6 billion in 2023. No 2025 edition has been published as of the report date.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:15:00.000Z",
-      "retrieved_by_step_id": "s2_3"
-    },
-    {
-      "id": "ev_nber_acemoglu",
-      "source_type": "web_page",
-      "url": "https://www.nber.org/papers/w32487",
-      "citation": "Acemoglu, D. (2024). 'The Simple Macroeconomics of AI.' NBER Working Paper No. 32487.",
-      "snippet": "Estimates that AI will increase total factor productivity by only 0.53-0.66% over 10 years, far below the 1.5-2.5% annual figure claimed in the audited text.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:21:00.000Z",
-      "retrieved_by_step_id": "s3_3"
-    },
-    {
-      "id": "ev_qje_search",
-      "source_type": "web_page",
-      "url": "https://academic.oup.com/qje/issue/139/2",
-      "citation": "Quarterly Journal of Economics, Vol. 139, Issue 2 (2024) — Table of Contents",
-      "snippet": "No article titled 'The Productivity Paradox of AI' appears in this issue or any recent QJE issue.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:23:00.000Z",
-      "retrieved_by_step_id": "s3_4"
-    },
-    {
-      "id": "ev_wef_report",
-      "source_type": "web_page",
-      "url": "https://www.weforum.org/publications/the-future-of-jobs-report-2023/",
-      "citation": "World Economic Forum, Future of Jobs Report 2023",
-      "snippet": "Projects 83 million jobs displaced and 69 million new jobs created by 2027 (not 2028). Published May 2023. No 2024 edition has been released.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:35:00.000Z",
-      "retrieved_by_step_id": "s5_2"
-    },
-    {
-      "id": "ev_imf_blog",
-      "source_type": "imf",
-      "url": "https://www.imf.org/en/Blogs/Articles/2024/01/14/ai-will-transform-the-global-economy-lets-make-sure-it-benefits-humanity",
-      "citation": "Georgieva, K. (2024). 'AI Will Transform the Global Economy. Let's Make Sure It Benefits Humanity.' IMF Blog, January 14, 2024.",
-      "snippet": "Georgieva states: 'AI will transform nearly 40 percent of all jobs worldwide.' This quote originates from this blog post, not the World Economic Outlook.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:41:00.000Z",
-      "retrieved_by_step_id": "s6_2"
-    },
-    {
-      "id": "ev_imf_weo",
-      "source_type": "imf",
-      "url": "https://www.imf.org/en/Publications/WEO/Issues/2025/01/17/world-economic-outlook-update-january-2025",
-      "citation": "IMF World Economic Outlook Update, January 2025",
-      "snippet": "The January 2025 WEO Update covers global growth projections (3.3% for 2025) and inflation forecasts. It does not contain labor market analysis or the quoted statement about AI and jobs.",
-      "full_content_ref": null,
-      "retrieved_at": "2026-05-24T10:43:00.000Z",
-      "retrieved_by_step_id": "s6_3"
-    }
-  ]
+  "traces": [],
+  "evidences": []
 }

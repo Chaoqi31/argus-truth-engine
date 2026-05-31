@@ -17,7 +17,27 @@ export const verdictTone: Record<FindingVerdict, "danger" | "warn" | "ok" | "mut
   stale: "warn",
   superseded: "warn",
   contradiction: "danger",
+  inaccurate: "danger",
+  outdated: "warn",
   uncertain: "muted",
+  "unsupported-inference": "warn",
+  overreach: "warn",
+};
+
+export const verdictLabel: Record<FindingVerdict, string> = {
+  ok: "OK",
+  fabricated: "Fabricated",
+  "partial-match": "Partial match",
+  mismatch: "Mismatch",
+  misrepresented: "Misrepresented",
+  stale: "Stale",
+  superseded: "Superseded",
+  contradiction: "Contradiction",
+  inaccurate: "Inaccurate",
+  outdated: "Outdated",
+  uncertain: "Uncertain",
+  "unsupported-inference": "Unsupported inference",
+  overreach: "Overreach",
 };
 
 export const stepIcon: Record<StepType, string> = {

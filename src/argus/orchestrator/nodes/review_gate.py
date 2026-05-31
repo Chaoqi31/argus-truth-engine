@@ -14,7 +14,19 @@ from typing import Any
 
 from langgraph.types import interrupt
 
+from argus.log import log
+from argus.models.domain import ClaimType
 from argus.orchestrator.context import _Ctx, _State
+
+# Ranking priority for the cost-guard cap (ascending = kept first).
+_IMPORTANCE_RANK = {"high": 0, "medium": 1, "low": 2}
+_TYPE_RANK = {
+    ClaimType.CITATION.value: 0,
+    ClaimType.NUMERICAL_DATA.value: 1,
+    ClaimType.TIME_SENSITIVE.value: 2,
+    ClaimType.CROSS_REFERENCE.value: 3,
+    ClaimType.QUALITATIVE.value: 4,
+}
 
 
 def _review_gate_node(
@@ -24,8 +36,37 @@ def _review_gate_node(
         if state.get("aborted"):
             return {}
         claims = state.get("claims", [])
+
+        # Cost guard: hard ceiling on claims sent to Phase B verification.
+        # The atomizer can over-split a long report into 50+ atoms, each a
+        # paid MiroMind deep-research call. Rank and keep only the top N.
+        cap = ctx.settings.max_claims_to_verify
+        n_extracted = len(claims)
+        capped_applied = n_extracted > cap
+        if capped_applied:
+            ranked = sorted(
+                enumerate(claims),
+                key=lambda ic: (
+                    _IMPORTANCE_RANK.get(ic[1].importance, 2),
+                    _TYPE_RANK.get(ic[1].type.value, 4),
+                    ic[0],
+                ),
+            )
+            claims = [c for _, c in ranked[:cap]]
+            log.info(
+                "orchestrator.claims_capped",
+                n_extracted=n_extracted,
+                n_verifying=cap,
+            )
+            await ctx.publisher.publish(
+                "claims_capped",
+                {"n_extracted": n_extracted, "n_verifying": cap},
+            )
+
         if auto_review or not claims:
-            return {}  # straight through
+            # Pass-through. If a cap was applied we MUST return the capped list
+            # — returning {} would leave the full claim list in state.
+            return {"claims": claims} if capped_applied else {}
 
         # LangGraph interrupt() is replay-based: when Command(resume=...)
         # arrives, this node body re-executes from the top. The original
@@ -58,5 +99,7 @@ def _review_gate_node(
             return {"claims": filtered}
         await ctx.publisher.publish("review_submitted",
                                     {"n_selected": len(claims), "auto": True})
-        return {}
+        # No selection → keep all (already-capped) claims. Return the capped
+        # list when a cap applied so the truncation survives this fallback.
+        return {"claims": claims} if capped_applied else {}
     return node

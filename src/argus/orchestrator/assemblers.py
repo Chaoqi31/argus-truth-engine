@@ -158,16 +158,36 @@ def _make_unified_finding(
             retrieved_date=ci.retrieved_date,
         )
 
+    verdict = parsed.verdict
+    confidence = parsed.confidence
+    summary = parsed.summary
+    why_wrong = parsed.why_wrong
+
+    # Cross-verification floor: a substantive verdict (anything other than
+    # "uncertain") must rest on >=2 independent sources. With fewer, we cannot
+    # claim to have cross-verified — downgrade to uncertain and drop any
+    # asserted "correct answer". Already-uncertain verdicts are left as-is.
+    if verdict != FindingVerdict.UNCERTAIN and len(evidence_records) < 2:
+        verdict = FindingVerdict.UNCERTAIN
+        confidence = min(confidence, 0.5)
+        corrected = None
+        why_wrong = None
+        summary = (
+            summary
+            + "  [Downgraded to uncertain: fewer than 2 independent sources "
+            "were available to cross-verify.]"
+        )
+
     finding = Finding(
         id=f"f_{uuid4().hex[:12]}",
         job_id=job_id,
         claim_id=claim.id,
         agent="UnifiedVerifier",
-        verdict=parsed.verdict,
-        severity=_UNIFIED_SEVERITY.get(parsed.verdict, Severity.MINOR),
-        confidence=parsed.confidence,
-        summary=parsed.summary,
-        why_wrong=parsed.why_wrong,
+        verdict=verdict,
+        severity=_UNIFIED_SEVERITY.get(verdict, Severity.MINOR),
+        confidence=confidence,
+        summary=summary,
+        why_wrong=why_wrong,
         correct_information=corrected,
         reasoning_chain=reasoning_chain,
         evidence_ids=evidence_ids,
@@ -211,6 +231,42 @@ def _contradictions_to_findings(
                 evidence_ids=[],
                 reasoning_trace_id=trace_id,
                 related_finding_ids=[a_id],
+            )
+        )
+    return out
+
+
+_LOGICAL_FLAW_VERDICT: dict[str, FindingVerdict] = {
+    "unsupported_inference": FindingVerdict.UNSUPPORTED_INFERENCE,
+    "overreach": FindingVerdict.OVERREACH,
+}
+
+
+def _logical_flaws_to_findings(
+    *, job_id: str, parsed: ConsistencyOutput, trace_id: str
+) -> list[Finding]:
+    """Turn each document-internal LogicalFlaw into a single Finding.
+
+    `flaw.missing` (what the document needs for the claim to hold) is surfaced
+    through ``why_wrong`` so the report/UI shows the gap. These findings carry
+    no evidence and no confidence_breakdown — same shape as contradictions.
+    """
+    out: list[Finding] = []
+    for flaw in parsed.logical_flaws:
+        out.append(
+            Finding(
+                id=f"f_{uuid4().hex[:12]}",
+                job_id=job_id,
+                claim_id=flaw.claim_id,
+                agent="Consistency",
+                verdict=_LOGICAL_FLAW_VERDICT[flaw.type],
+                severity=flaw.severity,
+                confidence=flaw.confidence,
+                summary=flaw.summary,
+                why_wrong=flaw.missing,
+                evidence_ids=[],
+                reasoning_trace_id=trace_id,
+                related_finding_ids=[],
             )
         )
     return out

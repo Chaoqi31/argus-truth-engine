@@ -75,23 +75,29 @@ OUTPUT ONLY THE JSON OBJECT.
 """
 
 
+# NOTE: the nested fields below are intentionally lenient (optional with
+# defaults). MiroThinker's real deep-research output is high-quality but does
+# not always populate every sub-field (e.g. it omits a step's `observation`,
+# labels evidence with `source` instead of `source_type`, etc.). A strict
+# schema would reject those whole responses and lose the (paid) verdict. We
+# accept partial structures and let the verdict/summary/evidence carry through.
 class EvidenceOut(BaseModel):
-    source_type: str  # free-form; MiroMind picks the best label
+    source_type: str = "web_page"  # free-form; MiroMind picks the best label
     url: str | None = None
     snippet: str = ""
 
 
 class CorrectedInfoOut(BaseModel):
-    value: str
-    source: str
+    value: str = ""
+    source: str = ""
     url: str | None = None
     retrieved_date: str | None = None
 
 
 class VerificationStepOut(BaseModel):
-    action: str
-    observation: str
-    reasoning: str
+    action: str = ""
+    observation: str = ""
+    reasoning: str = ""
 
 
 class UnifiedVerifierOutput(BaseModel):

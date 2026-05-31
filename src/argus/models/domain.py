@@ -41,6 +41,8 @@ class FindingVerdict(StrEnum):
     INACCURATE = "inaccurate"
     OUTDATED = "outdated"
     UNCERTAIN = "uncertain"
+    UNSUPPORTED_INFERENCE = "unsupported-inference"
+    OVERREACH = "overreach"
 
 
 class EvidenceSource(StrEnum):
@@ -226,6 +228,13 @@ class Job(_Base):
     cost_usd: float = 0.0
     total_tokens: int = 0
     audit_report_md: str | None = None
+
+    # Audit coverage — guards against partial results masquerading as complete.
+    # claims_total: claims that entered Phase B verification.
+    # claims_audited: claims that received a UnifiedVerifier verdict (incl.
+    # downgraded/failed uncertains). audited < total ⇒ partial coverage.
+    claims_total: int = 0
+    claims_audited: int = 0
 
     claims: list[Claim] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
