@@ -33,7 +33,7 @@ const minimalJob: Job = {
 };
 
 beforeEach(() => {
-  useArgusStore.setState({ job: null, activeFindingId: null, replayState: "idle" });
+  useArgusStore.setState({ job: null, activeFindingId: null });
 });
 
 describe("argus store", () => {

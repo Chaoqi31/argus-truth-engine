@@ -98,7 +98,7 @@ def _score_domain(url: str | None) -> float:
 _YEAR_PATTERN = re.compile(r"20[12]\d")
 
 
-def _compute_freshness(evidences: list[Evidence], finding_summary: str) -> float:
+def _compute_freshness(evidences: list[Evidence]) -> float:
     """Compute evidence freshness based on retrieval recency.
 
     Fresher evidence = higher score. Evidence from today = 1.0,
@@ -246,7 +246,7 @@ def compute_confidence_breakdown(
 
     if source_count is None:
         source_count = count_distinct_sources(finding, evidences)
-    evidence_freshness = _compute_freshness(evidences, finding.summary)
+    evidence_freshness = _compute_freshness(evidences)
     source_agreement = _compute_agreement(finding, source_count)
 
     # Human-readable summary of the MEASURED factor profile. It describes the

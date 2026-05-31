@@ -36,8 +36,3 @@ export async function loadSampleJob(): Promise<Job> {
   const text = await resp.text();
   return loadJobFromJsonString(text);
 }
-
-export async function loadJobFromFile(file: File): Promise<Job> {
-  const text = await file.text();
-  return loadJobFromJsonString(text);
-}
