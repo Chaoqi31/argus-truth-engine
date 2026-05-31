@@ -6,7 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from argus.agents.base import AgentResult, AgentRunner
+from argus.agents.base import AgentResult, complete_routed
+from argus.llm.cheap_client import CheapLLMClient
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Claim, Severity
 
@@ -17,13 +18,13 @@ single report along two dimensions:
   (2) LOGICAL FLAWS — single claims that are presented as established but
       whose stated/cited support does not actually carry them.
 
-You MAY use these built-in tools: thinking, execute_python.
-You MUST NOT use web_search or fetch_url_content. Everything you assess is
-INTERNAL to the document — never judge whether a claim is true in the world,
-only whether the document's own reasoning holds together.
+Work only from the claims provided — do NOT use web search or any external
+tool. Everything you assess is INTERNAL to the document — never judge whether
+a claim is true in the world, only whether the document's own reasoning holds
+together.
 
 HARD CONSTRAINTS
-  - Use execute_python to build a fact table (indicator/entity -> value list
+  - Build a fact table in your reasoning (indicator/entity -> value list
     with claim ids) and compare numerical or temporal mismatches.
   - Final output MUST be a single JSON object matching this schema:
     {
@@ -127,7 +128,7 @@ def build_consistency_input(claims: list[Claim]) -> str:
     ]
     return (
         "Scan these claims for internal contradictions. Build a fact table "
-        "with execute_python and compare numerical / temporal values that "
+        "and compare numerical / temporal values that "
         "should agree but don't. Skip purely qualitative restatements.\n"
         "Also flag logical flaws WITHIN a single claim: conclusions that don't "
         "follow from their stated/cited premises (unsupported_inference) or "
@@ -137,19 +138,20 @@ def build_consistency_input(claims: list[Claim]) -> str:
     )
 
 
-def consistency_runner(client: MiromindClient) -> AgentRunner[ConsistencyOutput]:
-    return AgentRunner(
-        client=client,
-        model_cls=ConsistencyOutput,
-        agent_name="consistency",
-        max_output_tokens=6000,
-    )
-
-
 async def check_consistency(
-    client: MiromindClient, claims: list[Claim]
+    claims: list[Claim],
+    *,
+    cheap_client: CheapLLMClient | None,
+    miromind_client: MiromindClient,
 ) -> AgentResult[ConsistencyOutput]:
-    runner = consistency_runner(client)
-    return await runner.run(
-        instructions=SYSTEM_PROMPT, input_text=build_consistency_input(claims)
+    # Internal-coherence checking uses no web search, so it runs on the cheap
+    # LLM when configured (MiroMind fallback otherwise) — see complete_routed.
+    return await complete_routed(
+        cheap_client=cheap_client,
+        miromind_client=miromind_client,
+        system_prompt=SYSTEM_PROMPT,
+        input_text=build_consistency_input(claims),
+        model_cls=ConsistencyOutput,
+        max_output_tokens=6000,
+        agent_name="consistency",
     )

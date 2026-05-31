@@ -18,6 +18,7 @@ from uuid import uuid4
 import json_repair
 from pydantic import BaseModel, ValidationError
 
+from argus.llm.cheap_client import CheapLLMClient
 from argus.log import log
 from argus.miromind.client import MiromindClient
 from argus.models.domain import Step, StepType
@@ -246,6 +247,50 @@ class AgentRunner[T: BaseModel]:
 
     def _validate(self, text: str) -> T:
         return self._model_cls.model_validate_json(_extract_json(text))
+
+
+async def complete_routed[T: BaseModel](
+    *,
+    cheap_client: CheapLLMClient | None,
+    miromind_client: MiromindClient,
+    system_prompt: str,
+    input_text: str,
+    model_cls: type[T],
+    max_output_tokens: int,
+    agent_name: str,
+) -> AgentResult[T]:
+    """Route a non-web JSON task to the cheap LLM (DeepSeek) when configured,
+    else fall back to MiroMind.
+
+    Claim extraction, consistency checking, and report synthesis need no web
+    search — only the per-claim verifier does. Sending them to DeepSeek keeps
+    MiroMind's scarce quota for the verification step. The result is wrapped in
+    an :class:`AgentResult` so callers stay identical across both paths; the
+    cheap path carries a single empty :class:`StreamCollection` (no trace, no
+    billable tokens — it is not a MiroMind call).
+    """
+    if cheap_client is not None:
+        try:
+            parsed = await cheap_client.complete(
+                system_prompt, input_text, model_cls, max_tokens=max_output_tokens
+            )
+        except (ValidationError, json.JSONDecodeError) as exc:
+            # Surface as JsonRepairFailed so node-level handling is uniform
+            # across the cheap and MiroMind paths.
+            raise JsonRepairFailed(
+                f"agent={agent_name}: cheap LLM JSON invalid after repair: {exc}"
+            ) from exc
+        return AgentResult(
+            parsed=parsed,
+            streams=[StreamCollection(response_id=f"deepseek:{agent_name}")],
+        )
+    runner = AgentRunner(
+        client=miromind_client,
+        model_cls=model_cls,
+        agent_name=agent_name,
+        max_output_tokens=max_output_tokens,
+    )
+    return await runner.run(instructions=system_prompt, input_text=input_text)
 
 
 # Maps MiroMind/MiroThinker native tool names to our step types. The deep-

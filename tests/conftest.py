@@ -10,10 +10,27 @@ from collections.abc import AsyncIterator
 if sys.platform == "darwin":
     os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
 
+import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from argus.db.models import Base
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests must never use real API keys or make network calls.
+
+    A developer's shell or local .env may set ARGUS_MIROMIND_API_KEY /
+    ARGUS_CHEAP_LLM_API_KEY (so the live app works locally). If those leak into
+    Settings() during tests, the orchestrator builds real clients and the
+    cheap-LLM nodes (planner, atomizer, checkworthiness, consistency, reporter)
+    make real DeepSeek calls — non-deterministic and slow. Force them empty so
+    Settings() resolves to "" (an env var overrides the .env file); tests that
+    need a client pass one explicitly (init kwargs override env).
+    """
+    monkeypatch.setenv("ARGUS_MIROMIND_API_KEY", "")
+    monkeypatch.setenv("ARGUS_CHEAP_LLM_API_KEY", "")
 
 
 @pytest_asyncio.fixture

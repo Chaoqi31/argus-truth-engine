@@ -19,7 +19,10 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             return {}
         try:
             result = await run_reporter(
-                ctx.client, state.get("claims", []), findings
+                state.get("claims", []),
+                findings,
+                cheap_client=ctx.cheap_client,
+                miromind_client=ctx.client,
             )
         except JsonRepairFailed as exc:
             log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
