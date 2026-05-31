@@ -281,12 +281,16 @@ function AuditPageContent() {
       .sort((a, b) => a.sequence - b.sequence);
     const findings = demoJob.findings;
 
-    // Reveal finding k once we've streamed past its threshold, so verdicts land
-    // spaced across the run rather than all at the end.
-    const thresholds = findings.map((_, k) =>
-      Math.floor(((k + 1) / (findings.length + 1)) * steps.length),
-    );
-    let revealed = 0;
+    // A verdict only appears AFTER its claim's reasoning has fully streamed —
+    // reveal finding k once the last step of its trace has been shown.
+    const revealAt = findings.map((f) => {
+      let last = 0;
+      steps.forEach((s, i) => {
+        if (s.trace_id === f.reasoning_trace_id) last = i + 1;
+      });
+      return last || steps.length;
+    });
+    const revealed = new Set<number>();
     let shown = 0;
 
     void replayTrace(
@@ -294,18 +298,20 @@ function AuditPageContent() {
       (step) => {
         appendLiveStep(step);
         shown += 1;
-        while (revealed < findings.length && shown >= thresholds[revealed]) {
-          appendLiveFinding(toLiveFinding(findings[revealed]));
-          revealed += 1;
-        }
+        findings.forEach((f, k) => {
+          if (!revealed.has(k) && shown >= revealAt[k]) {
+            appendLiveFinding(toLiveFinding(f));
+            revealed.add(k);
+          }
+        });
       },
       { signal },
     ).then(() => {
       if (signal.aborted) return;
       // Flush any findings not yet surfaced, then hand off to the cockpit.
-      for (let k = revealed; k < findings.length; k++) {
-        appendLiveFinding(toLiveFinding(findings[k]));
-      }
+      findings.forEach((f, k) => {
+        if (!revealed.has(k)) appendLiveFinding(toLiveFinding(f));
+      });
       setJob(demoJob);
       setRunStatus("done");
       setMode("evidence");
@@ -745,7 +751,7 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
       return next;
     });
   return (
-    <ul className="flex flex-col gap-2 overflow-y-auto p-3">
+    <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
       {findings.map((f) => {
         const isOpen = expanded.has(f.id);
         return (
@@ -759,9 +765,9 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
               aria-expanded={isOpen}
               className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <span className="font-medium text-[var(--cc-text)]">{f.agent}</span>
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--cc-text)]">{f.verdict}</span>
               <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] text-muted-foreground">
-                {f.severity} · {f.verdict}
+                {f.severity}
                 <span aria-hidden className="text-foreground/60">
                   {isOpen ? "▾" : "▸"}
                 </span>
