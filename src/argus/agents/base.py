@@ -164,9 +164,13 @@ class AgentRunner[T: BaseModel]:
         collected = StreamCollection(response_id=rid)
         thinking_buf: list[str] = []
         text_buf: list[str] = []
+        # Tracks the Step created for each tool-call item id, so the later
+        # `item.done` event (which carries the tool `result`) updates that
+        # same Step instead of appending a duplicate.
+        tool_steps: dict[str, Step] = {}
 
         async for ev in self._client.stream(rid, after=0):
-            self._record_step(collected, ev, thinking_buf, text_buf)
+            self._record_step(collected, ev, thinking_buf, text_buf, tool_steps)
             if isinstance(ev, ResponseCompletedEvent):
                 usage = ev.response.usage
                 collected.total_tokens = usage.total_tokens
@@ -192,6 +196,7 @@ class AgentRunner[T: BaseModel]:
         ev: ResponseEvent,
         thinking_buf: list[str],
         text_buf: list[str],
+        tool_steps: dict[str, Step],
     ) -> None:
         if isinstance(ev, ResponseReasoningTextDeltaEvent):
             thinking_buf.append(ev.delta)
@@ -204,16 +209,28 @@ class AgentRunner[T: BaseModel]:
                 tool_name = item.get("name", "")
                 step_type = _TOOL_NAME_TO_STEP.get(tool_name, StepType.TOOL_CALL)
                 summary = _tool_call_summary(tool_name, item)
-                collected.steps.append(
-                    Step(
-                        id=f"step_{uuid4().hex[:12]}",
-                        trace_id=collected.response_id,
-                        sequence=ev.sequence_number,
-                        type=step_type,
-                        summary=summary,
-                        content=item,
-                    )
+                # A tool call surfaces twice: `output_item.added` (status
+                # in_progress, no result) then `output_item.done` (status
+                # completed, with the search `result`). Update the existing
+                # Step in place so the trace keeps one entry per call that
+                # carries the final result payload — not two near-duplicates.
+                item_id = item.get("id")
+                existing = tool_steps.get(item_id) if item_id else None
+                if existing is not None:
+                    existing.content = item
+                    existing.summary = summary
+                    return
+                step = Step(
+                    id=f"step_{uuid4().hex[:12]}",
+                    trace_id=collected.response_id,
+                    sequence=ev.sequence_number,
+                    type=step_type,
+                    summary=summary,
+                    content=item,
                 )
+                collected.steps.append(step)
+                if item_id:
+                    tool_steps[item_id] = step
             elif kind == "reasoning" and thinking_buf:
                 collected.steps.append(
                     Step(
