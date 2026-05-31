@@ -231,10 +231,24 @@ class AgentRunner[T: BaseModel]:
         return self._model_cls.model_validate_json(_extract_json(text))
 
 
+# Maps MiroMind/MiroThinker native tool names to our step types. The deep-
+# research model emits provider-specific names (e.g. `google_search`), so we
+# alias the known variants; unknown names fall back to a generic tool_call.
 _TOOL_NAME_TO_STEP: dict[str, StepType] = {
     "web_search": StepType.WEB_SEARCH,
+    "google_search": StepType.WEB_SEARCH,
+    "search": StepType.WEB_SEARCH,
     "fetch_url_content": StepType.FETCH_URL_CONTENT,
+    "fetch_url": StepType.FETCH_URL_CONTENT,
+    "open_url": StepType.FETCH_URL_CONTENT,
+    "open_page": StepType.FETCH_URL_CONTENT,
+    "visit_page": StepType.FETCH_URL_CONTENT,
+    "browse": StepType.FETCH_URL_CONTENT,
+    "web_fetch": StepType.FETCH_URL_CONTENT,
     "execute_python": StepType.EXECUTE_PYTHON,
+    "run_python": StepType.EXECUTE_PYTHON,
+    "python": StepType.EXECUTE_PYTHON,
+    "code_interpreter": StepType.EXECUTE_PYTHON,
     "execute_command": StepType.EXECUTE_COMMAND,
 }
 

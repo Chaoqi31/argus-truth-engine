@@ -1,7 +1,6 @@
 "use client";
 
 import type { Job } from "@/lib/types";
-import { CostChip } from "@/components/cost-chip";
 
 interface Props {
   job: Job;
@@ -15,17 +14,7 @@ interface Stat {
 }
 
 function buildStats(job: Job): Stat[] {
-  const totalSteps = job.traces.reduce((n, t) => n + t.steps.length, 0);
   const totalSearches = job.traces.reduce((n, t) => n + t.num_search_queries, 0);
-  const tokenStr = formatCompact(job.total_tokens);
-  const cost =
-    typeof job.cost_usd === "number"
-      ? job.cost_usd < 1
-        ? `$${job.cost_usd.toFixed(3)}`
-        : `$${job.cost_usd.toFixed(2)}`
-      : "—";
-  const uniqueAgents = new Set(job.traces.map((t) => t.agent)).size;
-
   const stats: Stat[] = [
     {
       label: "claims",
@@ -36,11 +25,6 @@ function buildStats(job: Job): Stat[] {
       label: "findings",
       value: String(job.findings.length),
       hint: "Verdicts from the autonomous verifier (one per checked claim) plus the consistency checker's cross-claim contradictions.",
-    },
-    {
-      label: "agents",
-      value: String(uniqueAgents || 1),
-      hint: "Distinct agents that ran on this audit — the per-claim verifier and the cross-claim consistency checker.",
     },
     {
       label: "web searches",
@@ -64,13 +48,8 @@ function buildStats(job: Job): Stat[] {
           : "Every selected claim received a verdict.",
     });
   }
-  return stats;
-}
 
-function formatCompact(n: number): string {
-  if (n < 1_000) return String(n);
-  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
+  return stats;
 }
 
 export function JobStatsBar({ job }: Props) {
@@ -91,8 +70,6 @@ export function JobStatsBar({ job }: Props) {
           {i < stats.length - 1 && <span aria-hidden className="ml-5 text-border">·</span>}
         </div>
       ))}
-      {stats.length > 0 && <span aria-hidden className="text-border">·</span>}
-      <CostChip costUsd={job?.cost_usd ?? null} />
     </div>
   );
 }

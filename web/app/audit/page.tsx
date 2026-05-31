@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -26,12 +26,11 @@ import {
   type ContentDomain,
 } from "@/lib/api";
 import { loadSampleJob } from "@/lib/load-job";
-import type { FilteredClaim, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
+import { replayTrace } from "@/lib/trace-replayer";
+import type { FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
 import { FindingDrawer } from "@/components/cockpit/finding-drawer";
-import { ReasoningReplay } from "@/components/cockpit/reasoning-replay";
-import { ParallelFanout } from "@/components/cockpit/parallel-fanout";
 import { CommandPalette } from "@/components/cockpit/command-palette";
 import { EvidenceDiff } from "@/components/cockpit/evidence-diff";
 import CountUp from "@/components/react-bits/CountUp";
@@ -53,7 +52,7 @@ const PdfViewer = dynamic(
 );
 
 // Right "reasoning console": Evidence for the active finding, or the trace stream.
-type RightMode = "evidence" | "trace" | "parallel";
+type RightMode = "evidence" | "trace";
 
 /** Global ⌘K / Ctrl+K listener that toggles the command palette. */
 function useCommandPaletteHotkey() {
@@ -116,7 +115,6 @@ function AuditPageContent() {
   const activeFindingId = useArgusStore((s) => s.activeFindingId);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
-  const setReplayOpen = useArgusStore((s) => s.setReplayOpen);
   const liveSteps = useArgusStore((s) => s.liveSteps);
   const liveFindings = useArgusStore((s) => s.liveFindings);
   const runStatus = useArgusStore((s) => s.runStatus);
@@ -130,6 +128,13 @@ function AuditPageContent() {
 
   const [mode, setMode] = useState<RightMode>("evidence");
   const [hintOpen, setHintOpen] = useState(false);
+
+  // Demo playback: the fixture is loaded but HELD (not pushed to the store) so
+  // we can show an idle "input + Run" screen first, then stream it through the
+  // live UI on click. `demoRunning` flips on once playback starts.
+  const [demoJob, setDemoJob] = useState<Job | null>(null);
+  const [demoRunning, setDemoRunning] = useState(false);
+  const demoAbortRef = useRef<AbortController | null>(null);
 
   useFindingKeyboardNav(() => setHintOpen((v) => !v));
   useCommandPaletteHotkey();
@@ -229,36 +234,97 @@ function AuditPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId]);
 
-  // PM-fix #1: when /audit?demo=1 is hit directly (URL share, refresh, or
-  // judge typing it in), bootstrap the sample job ourselves instead of
-  // bouncing home — the prior behaviour rendered a blank page because the
-  // sample was only loaded by the landing-page button. Without this, the
-  // most common demo URL broke on refresh.
+  // Demo mode (/audit?demo=1): load the bundled fixture but HOLD it in local
+  // state instead of pushing it straight to the store. This lets us render an
+  // idle "report + Run" screen first; clicking Run replays the fixture through
+  // the live UI (see runDemo). Hitting the URL directly (share/refresh) still
+  // works — it just lands on the idle screen rather than a blank page.
   useEffect(() => {
     if (liveId) return; // live mode owns the page
-    if (job) return; // already loaded (e.g. via landing button)
-    if (demo) {
-      let cancelled = false;
-      loadSampleJob()
-        .then((sample) => {
-          if (!cancelled) setJob(sample);
-        })
-        .catch((err: unknown) => {
-          // eslint-disable-next-line no-console
-          console.error("loadSampleJob failed", err);
-          if (!cancelled) router.replace("/");
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    // No redirect — show the input UI instead (see AuditInputPage below)
-  }, [liveId, demo, job, router, setJob]);
+    if (job) return; // already running/finished
+    if (!demo) return; // no demo → input UI (see AuditInputPage below)
+    if (demoJob) return; // already loaded
+    let cancelled = false;
+    loadSampleJob()
+      .then((sample) => {
+        if (!cancelled) setDemoJob(sample);
+      })
+      .catch((err: unknown) => {
+        console.error("loadSampleJob failed", err);
+        if (!cancelled) router.replace("/");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [liveId, demo, job, demoJob, router]);
+
+  // Abort any in-flight demo playback if the page unmounts mid-stream.
+  useEffect(() => () => demoAbortRef.current?.abort(), []);
+
+  // Drive the live store from the held fixture so the demo *feels* like a
+  // real-time audit: reset live state, stream the merged trace steps with the
+  // shared replayer's timed reveal, surface findings progressively as steps
+  // appear, then commit the finished job → full cockpit. No network call.
+  const runDemo = () => {
+    if (!demoJob || demoRunning) return;
+    demoAbortRef.current?.abort();
+    const controller = new AbortController();
+    demoAbortRef.current = controller;
+    const { signal } = controller;
+
+    resetLive();
+    setRunStatus("running");
+    setDemoRunning(true);
+
+    const steps = demoJob.traces
+      .flatMap((t) => t.steps)
+      .sort((a, b) => a.sequence - b.sequence);
+    const findings = demoJob.findings;
+
+    // Reveal finding k once we've streamed past its threshold, so verdicts land
+    // spaced across the run rather than all at the end.
+    const thresholds = findings.map((_, k) =>
+      Math.floor(((k + 1) / (findings.length + 1)) * steps.length),
+    );
+    let revealed = 0;
+    let shown = 0;
+
+    void replayTrace(
+      steps,
+      (step) => {
+        appendLiveStep(step);
+        shown += 1;
+        while (revealed < findings.length && shown >= thresholds[revealed]) {
+          appendLiveFinding(toLiveFinding(findings[revealed]));
+          revealed += 1;
+        }
+      },
+      { signal },
+    ).then(() => {
+      if (signal.aborted) return;
+      // Flush any findings not yet surfaced, then hand off to the cockpit.
+      for (let k = revealed; k < findings.length; k++) {
+        appendLiveFinding(toLiveFinding(findings[k]));
+      }
+      setJob(demoJob);
+      setRunStatus("done");
+      setMode("evidence");
+      setDemoRunning(false);
+    });
+  };
 
   const isTextMode = params.get("mode") === "text" || job?.input_mode === "text";
 
-  // Live, pre-finished view: show banner + PDF/text + live trace + live findings preview.
-  if (liveId && !job) {
+  // Demo idle screen: fixture loaded but not yet running — show the source
+  // report + a single Run button. Clicking Run streams it through the live UI.
+  if (demo && demoJob && !job && !demoRunning && runStatus === "idle") {
+    return <DemoIdleScreen job={demoJob} onRun={runDemo} />;
+  }
+
+  // Live / demo-running view: banner + document + live trace + findings preview.
+  // Real audits enter here via `liveId`; the demo enters via `demoRunning`
+  // (no liveId, text-mode fixture → report text instead of the PDF viewer).
+  if ((liveId || demoRunning) && !job) {
     const lastStep = liveSteps[liveSteps.length - 1] ?? null;
     const lastAgent =
       lastStep?.content && typeof lastStep.content === "object" && lastStep.content !== null
@@ -271,7 +337,12 @@ function AuditPageContent() {
           : 0;
       return sum + (Number.isFinite(t) ? t : 0);
     }, 0);
-    const livePdfUrl = `/api/argus/jobs/${encodeURIComponent(liveId)}/pdf`;
+    // Demo is a text-mode fixture with no backend PDF; real text audits also
+    // collapse the document column. Only PDF live audits show the viewer.
+    const showPdf = !!liveId && !isTextMode;
+    const showReport = demoRunning && !!demoJob;
+    const livePdfUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(liveId)}/pdf` : "";
+    const splitGrid = showPdf || showReport;
     return (
       <div className="cockpit cc-backdrop min-h-screen">
         <ArgusHeader
@@ -290,8 +361,8 @@ function AuditPageContent() {
           activeAgent={lastAgent}
           tokens={tokensSoFar}
         />
-        <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${isTextMode ? "" : "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]"}`}>
-          {!isTextMode && (
+        <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : ""}`}>
+          {showPdf ? (
             <div className="hidden md:block">
               <PdfViewer
                 fileUrl={livePdfUrl}
@@ -301,9 +372,19 @@ function AuditPageContent() {
                 onClaimClick={() => {}}
               />
             </div>
-          )}
+          ) : showReport ? (
+            <div className="hidden min-h-0 md:block">
+              <TextViewer
+                text={demoJob.input_text ?? ""}
+                claims={[]}
+                findings={[]}
+                activeFindingId={null}
+                onClaimClick={() => {}}
+              />
+            </div>
+          ) : null}
           <aside className="flex flex-col border-l border-[var(--cc-border)]">
-            {runStatus === "reviewing" ? (
+            {runStatus === "reviewing" && liveId ? (
               <ClaimReviewPanel jobId={liveId} />
             ) : (
               <>
@@ -345,12 +426,6 @@ function AuditPageContent() {
   const onClaimClick = (claimId: string) => {
     const f = job.findings.find((f) => f.claim_id === claimId);
     if (f) selectFinding(f.id);
-  };
-
-  // Open the cinematic reasoning replay directly for a finding (per-card entry).
-  const replayFinding = (id: string) => {
-    setActiveFinding(id);
-    setReplayOpen(true, id);
   };
 
   const fileUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(job.id)}/pdf` : "/sample-report.pdf";
@@ -404,7 +479,7 @@ function AuditPageContent() {
             </span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={selectFinding} onReplay={replayFinding} />
+            <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={selectFinding} />
           </div>
         </section>
 
@@ -416,10 +491,6 @@ function AuditPageContent() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {mode === "evidence" ? (
               <EvidenceTab job={job} findingId={activeFindingId} />
-            ) : mode === "parallel" ? (
-              <div className="p-4">
-                <ParallelFanout job={job} />
-              </div>
             ) : (
               <TraceStreamView job={job} />
             )}
@@ -428,10 +499,9 @@ function AuditPageContent() {
       </main>
       <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
 
-      {/* Cockpit surfaces (T1 stubs; filled by T2–T4). Each reads its own store
-          slot, so rendering them unconditionally is safe (they no-op closed). */}
+      {/* Cockpit surfaces. Each reads its own store slot, so rendering them
+          unconditionally is safe (they no-op when closed). */}
       <FindingDrawer />
-      <ReasoningReplay />
       <CommandPalette />
       <EvidenceDiff />
     </div>
@@ -720,7 +790,6 @@ function ConsoleToggle({
   const opts: Array<{ key: RightMode; label: string }> = [
     { key: "evidence", label: "Evidence" },
     { key: "trace", label: "Trace" },
-    { key: "parallel", label: "Parallel" },
   ];
   return (
     <div className="flex w-full gap-1 rounded-md bg-muted p-0.5 ring-1 ring-[var(--cc-border)]">
@@ -781,13 +850,93 @@ function findingFromPayload(payload: Record<string, unknown>): LiveFinding | nul
   };
 }
 
+/** Project a finished Finding down to the live-preview shape (demo playback). */
+function toLiveFinding(f: Finding): LiveFinding {
+  return {
+    id: f.id,
+    claim_id: f.claim_id,
+    agent: f.agent,
+    verdict: f.verdict,
+    severity: f.severity,
+    summary: f.summary,
+  };
+}
+
+/* ====================================================================== */
+/*  DEMO IDLE SCREEN — report + Run button shown before demo playback     */
+/* ====================================================================== */
+// Shown at /audit?demo=1 before the user clicks Run. Presents the bundled
+// note read-only with a single primary action that replays the completed
+// audit through the live UI. No network call — honest, neutral copy.
+function DemoIdleScreen({ job, onRun }: { job: Job; onRun: () => void }) {
+  return (
+    <div className="cockpit cc-backdrop min-h-screen">
+      <ArgusHeader />
+      {job.scenario_label && job.persona && (
+        <ScenarioBanner label={job.scenario_label} persona={job.persona} />
+      )}
+      <main className="grid h-[calc(100vh-3.5rem)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]">
+        {/* Report — read-only, prominent */}
+        <div className="hidden min-h-0 overflow-hidden p-4 lg:block">
+          <TextViewer
+            text={job.input_text ?? ""}
+            claims={[]}
+            findings={[]}
+            activeFindingId={null}
+            onClaimClick={() => {}}
+          />
+        </div>
+
+        {/* Action rail */}
+        <aside className="flex flex-col justify-center gap-6 border-t border-[var(--cc-border)] px-8 py-12 lg:border-l lg:border-t-0">
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
+              Sample audit
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--cc-text)]">
+              Audit this note
+            </h1>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Replays a completed audit of this note, step by step — every reasoning
+              step, web search, and verdict, just as it streamed live.
+            </p>
+          </div>
+
+          {/* Show the report inline on small screens (the left column is hidden). */}
+          <div className="lg:hidden">
+            <p className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-[var(--radius-card)] border border-border bg-background p-4 text-xs leading-6 text-foreground">
+              {job.input_text ?? ""}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onRun}
+            className="inline-flex items-center justify-center gap-2 rounded-[12px] bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[var(--cc-glow)] transition-colors hover:bg-[#5741d8] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <RunIcon />
+            Run audit
+          </button>
+        </aside>
+      </main>
+    </div>
+  );
+}
+
+function RunIcon() {
+  return (
+    <svg width="13" height="14" viewBox="0 0 11 12" fill="currentColor" aria-hidden className="shrink-0">
+      <path d="M1 1.2v9.6a.6.6 0 0 0 .92.5l7.7-4.8a.6.6 0 0 0 0-1l-7.7-4.8A.6.6 0 0 0 1 1.2Z" />
+    </svg>
+  );
+}
+
 /* ====================================================================== */
 /*  AUDIT INPUT PAGE — clean form shown at /audit (no job id)             */
 /* ====================================================================== */
 function AuditInputPage() {
   const router = useRouter();
   const resetLive = useArgusStore((s) => s.resetLive);
-  const setJob = useArgusStore((s) => s.setJob);
   const [apiKey, setApiKey] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "pdf">("text");
   const [textInput, setTextInput] = useState("");
@@ -795,18 +944,13 @@ function AuditInputPage() {
   const [loading, setLoading] = useState<"upload" | "sample" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const trySample = async () => {
+  // Hand off to the demo page, which loads the fixture and shows the idle
+  // "report + Run" screen (playback starts on the Run click, not here).
+  const trySample = () => {
     setLoading("sample");
     setError(null);
-    try {
-      const job = await loadSampleJob();
-      resetLive();
-      setJob(job);
-      router.push("/audit?demo=1");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setLoading(null);
-    }
+    resetLive();
+    router.push("/audit?demo=1");
   };
 
   const onSubmitText = async () => {
