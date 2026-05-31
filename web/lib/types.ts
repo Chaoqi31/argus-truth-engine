@@ -99,7 +99,6 @@ export interface ConfidenceBreakdownData {
   source_agreement: number;
   source_authority: number;
   evidence_freshness: number;
-  evidence_specificity: number;
   reasoning: string;
 }
 

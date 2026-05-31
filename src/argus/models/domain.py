@@ -164,8 +164,7 @@ class ConfidenceBreakdown(_Base):
     source_agreement: float = Field(default=0.0, ge=0.0, le=1.0)  # do sources agree?
     source_authority: float = Field(default=0.0, ge=0.0, le=1.0)  # how authoritative?
     evidence_freshness: float = Field(default=0.0, ge=0.0, le=1.0)  # how recent?
-    evidence_specificity: float = Field(default=0.0, ge=0.0, le=1.0)  # how directly relevant?
-    reasoning: str = ""  # 1-sentence explanation of the composite score
+    reasoning: str = ""  # 1-sentence description of the measured factors
 
 
 class SearchStrategy(_Base):

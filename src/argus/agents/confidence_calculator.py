@@ -1,12 +1,9 @@
 """Algorithmic confidence decomposition.
 
-Computes 3 of 4 confidence factors from DATA, not LLM estimation:
+Computes 3 confidence factors from DATA, not LLM estimation:
   - source_authority: domain reputation scoring (rule-based)
   - evidence_freshness: temporal decay from claim date to now
   - source_agreement: ratio of corroborating vs contradicting sources
-
-Only `evidence_specificity` requires LLM understanding (how precisely does
-the evidence address the claim?) — this remains LLM-estimated.
 
 This is a key technical differentiator: most systems use a single LLM-estimated
 confidence number. We decompose it into measurable, auditable factors.
@@ -230,21 +227,16 @@ def compute_confidence_breakdown(
     finding: Finding,
     evidences: list[Evidence],
     *,
-    llm_specificity: float | None = None,
     source_count: int | None = None,
 ) -> ConfidenceBreakdown:
-    """Compute confidence breakdown from data + optional LLM specificity.
-
-    Three factors are computed algorithmically:
+    """Compute the confidence breakdown from data — three measured factors:
       - source_authority: from URL domain reputation
       - evidence_freshness: from temporal recency
-      - source_agreement: from evidence count and consistency
+      - source_agreement: from distinct-source count and verdict polarity
 
-    One factor is LLM-estimated (passed in):
-      - evidence_specificity: how precisely evidence addresses the claim
-        (NOTE: callers do not currently pass this, so it defaults to 0.5 —
-        see audit finding; the breakdown explains the factor bars, it does
-        not re-derive the headline confidence).
+    The breakdown explains the factor bars shown in the UI; it does not
+    re-derive the headline confidence (that is the verifier's own score,
+    capped by source sufficiency in the confidence node).
     """
     # Algorithmic factors
     authority_scores = [_score_domain(ev.url) for ev in evidences]
@@ -256,9 +248,6 @@ def compute_confidence_breakdown(
         source_count = count_distinct_sources(finding, evidences)
     evidence_freshness = _compute_freshness(evidences, finding.summary)
     source_agreement = _compute_agreement(finding, source_count)
-
-    # LLM-estimated factor (default to 0.5 if not provided)
-    evidence_specificity = llm_specificity if llm_specificity is not None else 0.5
 
     # Human-readable summary of the MEASURED factor profile. It describes the
     # bars below — it must NOT assert a composite confidence %: the headline
@@ -286,6 +275,5 @@ def compute_confidence_breakdown(
         source_agreement=round(source_agreement, 3),
         source_authority=round(source_authority, 3),
         evidence_freshness=round(evidence_freshness, 3),
-        evidence_specificity=round(evidence_specificity, 3),
         reasoning=reasoning,
     )

@@ -36,13 +36,14 @@ def _finding(fid: str, claim_id: str, severity: Severity, confidence: float) -> 
 
 
 def test_reporter_output_validates() -> None:
+    # Extra keys (e.g. a stray ranked_finding_ids the model may still emit) are
+    # ignored — the reporter only produces the executive summary now.
     out = ReporterOutput.model_validate(
         {
             "executive_summary_md": "**3 issues** found.\n\n- f1: critical\n- f2: major",
             "ranked_finding_ids": ["f1", "f2"],
         }
     )
-    assert out.ranked_finding_ids == ["f1", "f2"]
     assert out.executive_summary_md.startswith("**3 issues**")
 
 

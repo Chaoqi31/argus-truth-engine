@@ -359,7 +359,6 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
             "source_agreement": cb.source_agreement,
             "source_authority": cb.source_authority,
             "evidence_freshness": cb.evidence_freshness,
-            "evidence_specificity": cb.evidence_specificity,
             "reasoning": cb.reasoning,
         }
     return payload

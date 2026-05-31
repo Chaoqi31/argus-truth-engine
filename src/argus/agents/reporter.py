@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from argus.agents.base import AgentResult, complete_routed
 from argus.llm.cheap_client import CheapLLMClient
@@ -25,8 +25,6 @@ You MUST NOT call web_search, fetch_url_content, or execute_python. Your
 input already contains everything you need.
 
 HARD CONSTRAINTS
-  - Rank findings first by severity (critical > major > minor), then by
-    confidence (highest first).
   - The executive summary MUST:
       * be 3-6 sentences,
       * lead with the headline risk if there is one (any critical finding,
@@ -38,11 +36,8 @@ HARD CONSTRAINTS
       * NEVER invent findings or evidence that are not in the input.
   - Final output MUST be a single JSON object matching this schema:
     {
-      "executive_summary_md": string,
-      "ranked_finding_ids": [string, ...]
+      "executive_summary_md": string
     }
-  - The ranked_finding_ids array MUST be a permutation of the input
-    findings' IDs (no additions, no omissions).
 
 OUTPUT ONLY THE JSON OBJECT.
 """
@@ -50,7 +45,6 @@ OUTPUT ONLY THE JSON OBJECT.
 
 class ReporterOutput(BaseModel):
     executive_summary_md: str
-    ranked_finding_ids: list[str] = Field(default_factory=list)
 
 
 def build_reporter_input(claims: list[Claim], findings: list[Finding]) -> str:
