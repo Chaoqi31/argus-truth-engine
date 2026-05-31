@@ -242,9 +242,9 @@ def compute_confidence_breakdown(
 
     One factor is LLM-estimated (passed in):
       - evidence_specificity: how precisely evidence addresses the claim
-
-    The composite confidence is a weighted average:
-      authority(25%) + freshness(20%) + agreement(30%) + specificity(25%)
+        (NOTE: callers do not currently pass this, so it defaults to 0.5 —
+        see audit finding; the breakdown explains the factor bars, it does
+        not re-derive the headline confidence).
     """
     # Algorithmic factors
     authority_scores = [_score_domain(ev.url) for ev in evidences]
@@ -260,15 +260,10 @@ def compute_confidence_breakdown(
     # LLM-estimated factor (default to 0.5 if not provided)
     evidence_specificity = llm_specificity if llm_specificity is not None else 0.5
 
-    # Weighted composite
-    composite = (
-        source_authority * 0.25
-        + evidence_freshness * 0.20
-        + source_agreement * 0.30
-        + evidence_specificity * 0.25
-    )
-
-    # Generate human-readable reasoning
+    # Human-readable summary of the MEASURED factor profile. It describes the
+    # bars below — it must NOT assert a composite confidence %: the headline
+    # confidence is the verifier's own score (capped by source sufficiency),
+    # not a re-derived number, and showing a second, different % is confusing.
     parts: list[str] = []
     if source_authority >= 0.9:
         parts.append("high-authority sources")
@@ -285,11 +280,7 @@ def compute_confidence_breakdown(
     elif source_agreement < 0.5:
         parts.append("limited corroboration")
 
-    reasoning = (
-        f"Confidence {composite:.0%}: "
-        + (", ".join(parts) if parts else "moderate evidence quality")
-        + "."
-    )
+    reasoning = (", ".join(parts) if parts else "moderate evidence quality").capitalize() + "."
 
     return ConfidenceBreakdown(
         source_agreement=round(source_agreement, 3),
