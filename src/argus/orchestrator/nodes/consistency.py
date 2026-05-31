@@ -26,7 +26,9 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
         if len(claims) < 2:
             return {}
         try:
-            result = await check_consistency(ctx.client, claims)
+            result = await check_consistency(
+                claims, cheap_client=ctx.cheap_client, miromind_client=ctx.client
+            )
         except JsonRepairFailed as exc:
             log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
             return {}

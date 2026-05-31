@@ -206,27 +206,20 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
 
     # Mock the MiroMind client to return different responses per agent
     mock_client = MagicMock()
-    planner_stream = MockMiromindStream(MOCK_PLANNER_JSON)
     verifier_stream = MockMiromindStream(MOCK_VERIFIER_JSON)
-    consistency_stream = MockMiromindStream(MOCK_CONSISTENCY_JSON)
-    reporter_stream = MockMiromindStream(MOCK_REPORTER_JSON)
 
     submit_count = {"n": 0}
-    # unified_verifier handles all claims (citation + numerical-data)
-    responses = [planner_stream, verifier_stream, verifier_stream,
-                 consistency_stream, reporter_stream]
 
     async def mock_submit(**kwargs):
-        idx = min(submit_count["n"], len(responses) - 1)
         submit_count["n"] += 1
         agent = kwargs.get("metadata", {}).get("agent", "unknown")
         call_sequence.append(agent)
-        return f"resp_{idx}"
+        return "resp_verifier"
 
+    # Only the unified_verifier still uses MiroMind; planner / consistency /
+    # reporter now run on the cheap LLM (mock_cheap below).
     async def mock_stream(rid, after=0):
-        idx = int(rid.split("_")[1]) if "_" in rid else 0
-        idx = min(idx, len(responses) - 1)
-        async for ev in responses[idx].stream(rid, after):
+        async for ev in verifier_stream.stream(rid, after):
             yield ev
 
     mock_client.submit_background = mock_submit
@@ -237,22 +230,31 @@ async def test_full_pipeline_dryrun(settings, tmp_path):
 
     from argus.agents.atomizer import AtomOutput
     from argus.agents.checkworthiness import CheckworthinessResult
+    from argus.agents.consistency import ConsistencyOutput
+    from argus.agents.planner import PlannerOutput
+    from argus.agents.reporter import ReporterOutput
 
-    async def mock_cheap_complete(system_prompt, user_input, model_cls):
-        """Return appropriate mock based on model_cls."""
-        if model_cls == AtomOutput:
-            return AtomOutput.model_validate_json(MOCK_ATOMIZER_JSON)
-        elif model_cls == CheckworthinessResult:
-            return CheckworthinessResult.model_validate_json(MOCK_CHECKWORTHINESS_JSON)
-        return AtomOutput.model_validate_json(MOCK_ATOMIZER_JSON)
+    async def mock_cheap_complete(system_prompt, user_input, model_cls, *, max_tokens=4000):
+        """Return appropriate mock based on model_cls. Planner, consistency and
+        reporter now run on the cheap LLM too — only the verifier uses MiroMind."""
+        payloads = {
+            AtomOutput: MOCK_ATOMIZER_JSON,
+            CheckworthinessResult: MOCK_CHECKWORTHINESS_JSON,
+            PlannerOutput: MOCK_PLANNER_JSON,
+            ConsistencyOutput: MOCK_CONSISTENCY_JSON,
+            ReporterOutput: MOCK_REPORTER_JSON,
+        }
+        return model_cls.model_validate_json(payloads.get(model_cls, MOCK_ATOMIZER_JSON))
 
     mock_cheap.complete = mock_cheap_complete
     mock_cheap.close = AsyncMock()
 
     output_path = tmp_path / "result.json"
 
-    with patch("argus.orchestrator.MiromindClient", return_value=mock_client), \
-         patch("argus.orchestrator.CheapLLMClient", return_value=mock_cheap):
+    # Patch CheapLLMClient where it is actually constructed (_build_ctx in
+    # pipeline.py imports it from argus.llm.cheap_client). The MiroMind client
+    # is injected directly via the `client=` argument below.
+    with patch("argus.orchestrator.pipeline.CheapLLMClient", return_value=mock_cheap):
 
         job = await audit_text(
             text="According to Smith et al. (2023), global GDP grew 3.2% in 2024. "

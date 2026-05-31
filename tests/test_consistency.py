@@ -98,4 +98,4 @@ def test_consistency_input_enumerates_claims() -> None:
     text = build_consistency_input(claims)
     assert "c1" in text and "c2" in text
     assert "32" in text and "28" in text
-    assert "execute_python" in text or "Python" in text
+    assert "fact table" in text

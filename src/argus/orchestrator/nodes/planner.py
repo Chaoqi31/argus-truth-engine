@@ -21,7 +21,12 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             return {"aborted": True, "abort_reason": "no parsed document"}
         input_mode = state.get("input_mode", "pdf")
         try:
-            result = await run_planner(ctx.client, doc, input_mode=input_mode)
+            result = await run_planner(
+                doc,
+                cheap_client=ctx.cheap_client,
+                miromind_client=ctx.client,
+                input_mode=input_mode,
+            )
         except JsonRepairFailed as exc:
             log.error("orchestrator.planner_failed", error=str(exc)[:500])
             return {"aborted": True, "abort_reason": f"planner: {exc}"}
