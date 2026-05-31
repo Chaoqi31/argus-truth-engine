@@ -21,7 +21,7 @@ import httpx
 from argus.config import Settings
 from argus.engineering import retry_on_transient
 from argus.log import log
-from argus.miromind.sse import sse_iter_events
+from argus.miromind.sse import SSEDecoder
 from argus.models.miromind import ResponseEvent
 
 
@@ -165,9 +165,16 @@ class MiromindClient:
             http.stream("GET", url, headers=self._headers, params=params) as resp,
         ):
             resp.raise_for_status()
+            # ONE decoder across the whole stream: SSE events routinely straddle
+            # TCP/HTTP chunk boundaries, so a fresh per-chunk parser would drop
+            # any event split across two chunks (dropped chars → corrupted JSON
+            # and URLs downstream). The decoder buffers across feeds.
+            decoder = SSEDecoder()
             async for chunk in resp.aiter_raw():
-                for ev in sse_iter_events(iter([chunk])):
+                for ev in decoder.feed(chunk):
                     yield ev
+            for ev in decoder.flush():
+                yield ev
 
     async def cancel(self, response_id: str) -> None:
         """POST /v1/responses/{id}/cancel — idempotent."""
