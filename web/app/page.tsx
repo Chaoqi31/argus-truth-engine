@@ -219,6 +219,8 @@ export default function HomePage() {
             <span className="text-xl font-bold tracking-tight">Argus</span>
           </Link>
           <div className="flex items-center gap-5 text-sm">
+            <Link href="/incidents" className="text-muted-foreground transition-colors hover:text-foreground">Incidents</Link>
+            <Link href="/miromind" className="text-muted-foreground transition-colors hover:text-foreground">Powered by MiroMind</Link>
             <Link href="/for-teams" className="text-muted-foreground transition-colors hover:text-foreground">For teams</Link>
             <Link
               href="/audit"
@@ -329,59 +331,19 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* REAL INCIDENTS                                               */}
         {/* ============================================================ */}
-        <RevealSection className="border-y border-border bg-muted py-24">
-          <div className="mx-auto max-w-5xl px-6">
-            <div className="text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">It is already happening</p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-                Real reports. Real fabrications. Real money.
-              </h2>
-              <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-                Top consultancies and law firms have already shipped AI-generated
-                documents with invented citations — and paid for it.
-              </p>
-            </div>
-            <div className="mt-12 grid gap-5 md:grid-cols-3">
-              {[
-                {
-                  outlet: "Fortune · Oct 2025",
-                  figure: "$290K",
-                  title: "Deloitte Australia",
-                  body: "Refunded a government report after a researcher found AI-fabricated citations and an invented quote from a Federal Court judgment.",
-                  url: "https://fortune.com/2025/10/07/deloitte-ai-australia-government-report-hallucinations-technology-290000-refund/",
-                },
-                {
-                  outlet: "Fortune · Nov 2025",
-                  figure: "$1M+",
-                  title: "Deloitte Canada",
-                  body: "A million-dollar report for a provincial government was found citing AI-generated research that does not exist.",
-                  url: "https://fortune.com/2025/11/25/deloitte-caught-fabricated-ai-generated-research-million-dollar-report-canada-government/",
-                },
-                {
-                  outlet: "Chicago Sun-Times · Dec 2025",
-                  figure: "$49,500",
-                  title: "Goldberg Segalla",
-                  body: "A law firm was sanctioned after a lawyer filed ChatGPT-fabricated citations in a lead-paint case and failed to check the work.",
-                  url: "https://chicago.suntimes.com/the-watchdogs/2025/12/09/goldberg-segalla-law-firm-cha-sanctioned-60-000-ai-chatgpt-lead-paint-court-case",
-                },
-              ].map((it) => (
-                <a
-                  key={it.title}
-                  href={it.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group flex flex-col rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-200 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{it.outlet}</span>
-                    <span className="font-mono text-base font-bold text-primary">{it.figure}</span>
-                  </div>
-                  <h3 className="mt-3 text-base font-semibold">{it.title}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{it.body}</p>
-                  <span className="mt-4 text-xs font-medium text-primary group-hover:underline">Read the report →</span>
-                </a>
-              ))}
-            </div>
+        <RevealSection className="border-y border-border bg-muted py-16">
+          <div className="mx-auto max-w-3xl px-6 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">It is already happening</p>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight md:text-3xl">
+              Top firms have shipped AI fabrications — in public.
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+              Deloitte refunded a government report. EY pulled a study. Law firms were
+              sanctioned. All for AI-invented citations.
+            </p>
+            <Link href="/incidents" className="mt-6 inline-block text-sm font-semibold text-primary hover:underline">
+              See the incidents →
+            </Link>
           </div>
         </RevealSection>
 
@@ -436,34 +398,19 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* POWERED BY MIROMIND                                          */}
         {/* ============================================================ */}
-        <RevealSection className="mx-auto max-w-5xl px-6 py-28">
-          <div className="text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Powered by MiroMind</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-              Deep research, only where it counts.
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-              The verification step runs on MiroMind&apos;s{" "}
-              <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground">mirothinker-1-7-deepresearch</span>{" "}
-              — the one part of the pipeline that touches the open web.
-            </p>
-          </div>
-          <div className="mt-14 grid gap-5 sm:grid-cols-2">
-            {[
-              { title: "Autonomous research agent", body: "Per claim, the model picks its own tools — native thinking, web search, page fetch, and Python execution. No fixed search script." },
-              { title: "Live, resumable trace", body: "Calls run in background mode; every reasoning event is captured and streamed live, and the stream survives mid-flight reconnects gap-free." },
-              { title: "Parallel per claim", body: "Each claim gets its own deep-research run, fanned out concurrently with deterministic idempotency keys and a hard budget guard." },
-              { title: "Web only where it counts", body: "Claim extraction, consistency, and reporting run on a cheaper model — so MiroMind's deep research is reserved for the verdicts." },
-            ].map((f) => (
-              <div
-                key={f.title}
-                className="rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)]"
-              >
-                <h3 className="text-base font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-              </div>
-            ))}
-          </div>
+        <RevealSection className="mx-auto max-w-3xl px-6 py-20 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Powered by MiroMind</p>
+          <h2 className="mt-3 text-2xl font-bold tracking-tight md:text-3xl">
+            Deep research, only where it counts.
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+            The verifier runs on MiroMind&apos;s{" "}
+            <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground">mirothinker-1-7-deepresearch</span>{" "}
+            — an autonomous agent that picks its own tools and searches the live web.
+          </p>
+          <Link href="/miromind" className="mt-6 inline-block text-sm font-semibold text-primary hover:underline">
+            How Argus uses MiroMind →
+          </Link>
         </RevealSection>
 
         {/* ============================================================ */}
