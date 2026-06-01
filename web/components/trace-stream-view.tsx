@@ -67,7 +67,27 @@ interface ClaimGroup {
   steps: Step[];
 }
 
+// Which engine runs each pipeline stage. Only Verify touches MiroMind; the
+// rest run on the cheap LLM or are deterministic. Badge tints follow the same
+// /15-surface pattern as verdicts.
+const ENGINE_BADGE: Record<string, { label: string; cls: string }> = {
+  miromind: { label: "★ MiroMind", cls: "bg-primary/15 text-primary" },
+  deepseek: { label: "DeepSeek", cls: "bg-muted text-muted-foreground" },
+  rules: { label: "deterministic", cls: "bg-muted text-muted-foreground" },
+  hitl: { label: "human gate", cls: "bg-warning/15 text-warning-foreground" },
+};
+
+interface Stage {
+  name: string;
+  engine: keyof typeof ENGINE_BADGE;
+  outcome: string;
+}
+
 function StaticReplay({ job }: { job: Job | null }) {
+  // Verify holds the deep MiroMind trace; collapsed by default so the whole
+  // pipeline reads as a compact overview first (progressive disclosure).
+  const [verifyOpen, setVerifyOpen] = useState(false);
+
   if (!job) {
     return (
       <div className="flex h-full items-center justify-center px-3 text-xs text-muted-foreground">
@@ -76,10 +96,7 @@ function StaticReplay({ job }: { job: Job | null }) {
     );
   }
 
-  // Group the trace by claim: one collapsible block per verifier finding,
-  // showing a compact summary by default (verdict + step/search counts) and
-  // expanding to its full reasoning stream. Progressive disclosure — the key
-  // numbers up front, the firehose only on request.
+  // The per-claim MiroMind traces that nest under the Verify stage.
   const claimText = new Map(job.claims.map((c) => [c.id, c.text]));
   const traceById = new Map(job.traces.map((t) => [t.id, t]));
   const groups: ClaimGroup[] = job.findings
@@ -112,24 +129,85 @@ function StaticReplay({ job }: { job: Job | null }) {
     );
   }
 
+  const nClaims = job.claims.length || groups.length;
+  const nConsistency = job.findings.filter((f) => f.agent === "Consistency").length;
+
+  // Phase A (extract claims) + Phase B post-verify stages. The Verify stage is
+  // rendered between `pre` and `post` so its deep trace can expand inline.
+  const pre: Stage[] = [
+    { name: "Parse", engine: "rules", outcome: "Document → text + character offsets" },
+    { name: "Planner", engine: "deepseek", outcome: "Audit strategy & domain hints" },
+    { name: "Atomizer", engine: "deepseek", outcome: `Split into ${nClaims} atomic claims` },
+    { name: "Check-worthiness", engine: "deepseek", outcome: "Opinions & trivia filtered out" },
+    { name: "Review gate", engine: "hitl", outcome: `${nClaims} claims selected to verify` },
+  ];
+  const post: Stage[] = [
+    { name: "Consistency", engine: "deepseek", outcome: nConsistency ? `${nConsistency} cross-claim finding${nConsistency > 1 ? "s" : ""}` : "No contradictions found" },
+    { name: "Confidence", engine: "rules", outcome: "Scored on 3 measured factors" },
+    { name: "Reporter", engine: "deepseek", outcome: job.audit_report_md ? "Executive summary generated" : "—" },
+  ];
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Reasoning trace
+          Audit pipeline
         </span>
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {totalSteps} steps · {totalSearches} searches · {groups.length} claims
+          {pre.length + 1 + post.length} stages · {totalSearches} web searches
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">
-        <ul className="flex flex-col">
-          {groups.map((g) => (
-            <ClaimTraceGroup key={g.finding.id} group={g} />
+        <ol className="flex flex-col">
+          {pre.map((s, i) => (
+            <StageRow key={s.name} index={i + 1} stage={s} />
           ))}
-        </ul>
+
+          {/* Verify — the one MiroMind deep-research stage, expandable */}
+          <li className="border-b border-border">
+            <button
+              type="button"
+              onClick={() => setVerifyOpen((o) => !o)}
+              aria-expanded={verifyOpen}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span className="w-4 shrink-0 text-center font-mono text-[10px] text-muted-foreground">{pre.length + 1}</span>
+              <span aria-hidden className="shrink-0 font-mono text-[10px] text-primary">{verifyOpen ? "▾" : "▸"}</span>
+              <span className="shrink-0 text-xs font-semibold text-foreground">Verify</span>
+              <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${ENGINE_BADGE.miromind.cls}`}>
+                {ENGINE_BADGE.miromind.label}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+                {nClaims} claims · {totalSteps} steps · {totalSearches} searches
+              </span>
+            </button>
+            {verifyOpen && (
+              <ul className="flex flex-col border-t border-border bg-muted/20">
+                {groups.map((g) => (
+                  <ClaimTraceGroup key={g.finding.id} group={g} />
+                ))}
+              </ul>
+            )}
+          </li>
+
+          {post.map((s, i) => (
+            <StageRow key={s.name} index={pre.length + 2 + i} stage={s} />
+          ))}
+        </ol>
       </div>
     </div>
+  );
+}
+
+function StageRow({ index, stage }: { index: number; stage: Stage }) {
+  const badge = ENGINE_BADGE[stage.engine];
+  return (
+    <li className="flex items-center gap-2.5 border-b border-border px-3 py-2.5 last:border-b-0">
+      <span className="w-4 shrink-0 text-center font-mono text-[10px] text-muted-foreground">{index}</span>
+      <span className="shrink-0 text-xs font-semibold text-foreground">{stage.name}</span>
+      <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${badge.cls}`}>{badge.label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">{stage.outcome}</span>
+    </li>
   );
 }
 
