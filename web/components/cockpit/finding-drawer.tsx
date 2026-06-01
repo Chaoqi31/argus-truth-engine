@@ -149,18 +149,6 @@ export function FindingDrawer() {
                 <>
                   {/* Verdict · severity · confidence summary line */}
                   <section className="relative flex flex-wrap items-center gap-2.5">
-                    {/* Verdict neon bloom — oversized blurred radial behind the
-                        verdict pill, tinted by tone. Resting/static (no flicker);
-                        sits below content (-z-0) so it never blocks clicks. */}
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute -inset-x-8 -inset-y-10 -z-0 rounded-full"
-                      style={{
-                        background: `radial-gradient(60% 70% at 18% 50%, color-mix(in oklab, ${toneColor} 40%, transparent) 0%, color-mix(in oklab, ${toneColor} 14%, transparent) 38%, transparent 72%)`,
-                        filter: "blur(26px)",
-                        opacity: reduceMotion ? 0.45 : 0.6,
-                      }}
-                    />
                     <span
                       className="relative inline-flex items-center rounded-full px-2.5 py-1 font-mono text-xs font-semibold ring-1 ring-inset"
                       style={{

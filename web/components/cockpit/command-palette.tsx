@@ -121,13 +121,17 @@ export function CommandPalette() {
   const listRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
-  // Reset query + selection each open
-  useEffect(() => {
+  // Reset query + selection each time the palette opens. Adjusting state
+  // during render on a tracked value change (instead of in an effect) avoids
+  // a wasted commit + the set-state-in-effect cascade.
+  const [wasOpen, setWasOpen] = useState(paletteOpen);
+  if (paletteOpen !== wasOpen) {
+    setWasOpen(paletteOpen);
     if (paletteOpen) {
       setQuery("");
       setActiveIndex(0);
     }
-  }, [paletteOpen]);
+  }
 
   // Esc closes (the ⌘K open toggle lives in the page-level listener).
   useEffect(() => {
@@ -186,10 +190,10 @@ export function CommandPalette() {
     return out;
   })();
 
-  // Keep activeIndex in range when results change
-  useEffect(() => {
-    setActiveIndex((i) => Math.min(i, Math.max(results.length - 1, 0)));
-  }, [results.length]);
+  // Keep the selection in range when the result set shrinks. Derived during
+  // render so there's no effect-driven re-render; the raw `activeIndex` state
+  // is still the source of truth for keyboard navigation.
+  const safeActiveIndex = Math.min(activeIndex, Math.max(results.length - 1, 0));
 
   const execute = useCallback(
     (r: Result) => {
@@ -242,7 +246,7 @@ export function CommandPalette() {
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const r = results[activeIndex];
+      const r = results[safeActiveIndex];
       if (r) execute(r);
     }
   };
@@ -251,7 +255,7 @@ export function CommandPalette() {
   useEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>("[data-active='true']");
     el?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex]);
+  }, [safeActiveIndex]);
 
   // Motion config: skip scale/translate when reduced-motion is preferred
   const dialogVariants = prefersReducedMotion
@@ -382,7 +386,7 @@ export function CommandPalette() {
                   }
 
                   const { result: r, idx } = item;
-                  const isActive = idx === activeIndex;
+                  const isActive = idx === safeActiveIndex;
 
                   return (
                     <button

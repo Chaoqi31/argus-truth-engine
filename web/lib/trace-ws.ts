@@ -79,7 +79,7 @@ export function subscribeTrace(
     };
 
     ws.onerror = () => {
-      callbacks.onError?.(new Error("websocket error"));
+      callbacks.onError?.(new Error("connection lost"));
     };
 
     ws.onclose = () => {

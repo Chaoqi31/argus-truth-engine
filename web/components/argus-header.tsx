@@ -9,7 +9,7 @@ interface Props {
 
 export function ArgusHeader({ rightSlot }: Props) {
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-md">
+    <header className="flex h-14 items-center justify-between border-b border-border bg-background px-6">
       <div className="flex items-center">
         <Link href="/" className="group flex items-center gap-2.5">
           <ArgusMark className="text-primary transition-transform group-hover:rotate-[8deg]" />

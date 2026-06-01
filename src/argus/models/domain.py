@@ -30,6 +30,33 @@ class Severity(StrEnum):
 
 
 class FindingVerdict(StrEnum):
+    """The verdict a verifier assigns to a single claim.
+
+    The distinctions matter — they drive severity and the report copy:
+
+    - OK: the claim checks out against the evidence.
+    - FABRICATED: the cited source/reference does not exist (or the event never
+      happened) — nothing real to point at.
+    - INACCURATE: the source exists but the claim states it wrong (factual error).
+    - MISMATCH / MISREPRESENTED: the claim contradicts or misstates what the
+      cited source actually says (the source exists and was consulted).
+    - STALE: the claim was true but has simply aged out / gone out of date.
+    - SUPERSEDED: the claim has been explicitly replaced by a newer fact.
+    - OUTDATED: newer data exists than the figure the claim cites.
+    - CONTRADICTION: the document contradicts *itself* (two claims can't both
+      hold) — a document-internal flaw, not an external-evidence mismatch.
+    - UNSUPPORTED_INFERENCE / OVERREACH: the stated conclusion is not supported
+      by the document's own premises (a logical leap), again document-internal.
+    - PARTIAL_MATCH: the claim is only partially supported by the evidence.
+    - UNCERTAIN: the verifier could not determine the truth of the claim.
+
+    Note: the UnifiedVerifier prompt currently emits only OK / FABRICATED /
+    INACCURATE / OUTDATED / MISREPRESENTED / UNCERTAIN; CONTRADICTION,
+    UNSUPPORTED_INFERENCE and OVERREACH come from the consistency checker.
+    PARTIAL_MATCH, MISMATCH, STALE and SUPERSEDED are defined here but are not
+    currently produced by any prompt.
+    """
+
     OK = "ok"
     FABRICATED = "fabricated"
     PARTIAL_MATCH = "partial-match"
