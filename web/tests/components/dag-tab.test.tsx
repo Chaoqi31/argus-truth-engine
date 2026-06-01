@@ -36,6 +36,6 @@ describe("DagTab", () => {
 
   it("empty state when no trace given", () => {
     render(<DagTab trace={null} />);
-    expect(screen.getByText(/no reasoning chain/i)).toBeInTheDocument();
+    expect(screen.getByText(/select a finding to see its reasoning graph/i)).toBeInTheDocument();
   });
 });

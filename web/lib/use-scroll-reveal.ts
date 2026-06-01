@@ -18,6 +18,10 @@ export function useScrollReveal(threshold = 0.15) {
     // Respect prefers-reduced-motion
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq.matches) {
+      // Reduced motion: reveal immediately, skip the observer. Synchronous
+      // setState here is gated on an external read (matchMedia), so the
+      // cascading-render concern doesn't apply.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsVisible(true);
       return;
     }

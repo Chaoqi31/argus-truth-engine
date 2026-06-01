@@ -65,9 +65,9 @@ const FEATURES = [
 ];
 
 export default function ForTeamsPage() {
-  const heroReveal = useScrollReveal(0.05);
-  const personasReveal = useScrollReveal(0.1);
-  const featuresReveal = useScrollReveal(0.1);
+  const { ref: heroRef, isVisible: heroVisible } = useScrollReveal(0.05);
+  const { ref: personasRef, isVisible: personasVisible } = useScrollReveal(0.1);
+  const { ref: featuresRef, isVisible: featuresVisible } = useScrollReveal(0.1);
 
   return (
     <>
@@ -75,8 +75,8 @@ export default function ForTeamsPage() {
       <main className="mx-auto flex max-w-5xl flex-col gap-0 px-6">
         {/* Hero */}
         <header
-          ref={heroReveal.ref}
-          className={`py-20 text-center transition-all duration-700 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+          ref={heroRef}
+          className={`py-20 text-center transition-all duration-700 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
         >
           <p className="text-xs font-semibold uppercase tracking-widest text-primary">For teams</p>
           <h1 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">
@@ -88,15 +88,15 @@ export default function ForTeamsPage() {
         </header>
 
         {/* Personas */}
-        <section ref={personasReveal.ref} className="pb-20">
-          <p className={`mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-all duration-700 ${personasReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+        <section ref={personasRef} className="pb-20">
+          <p className={`mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-all duration-700 ${personasVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
             Who uses Argus
           </p>
           <div className="grid gap-4 md:grid-cols-3">
             {PERSONAS.map((p, i) => (
               <div
                 key={p.title}
-                className={`group rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 ${personasReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+                className={`group rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 ${personasVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
                 style={{ transitionDelay: `${i * 120}ms` }}
               >
                 <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110">
@@ -119,15 +119,15 @@ export default function ForTeamsPage() {
         </section>
 
         {/* Features */}
-        <section ref={featuresReveal.ref} className="pb-24">
-          <p className={`mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-all duration-700 ${featuresReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+        <section ref={featuresRef} className="pb-24">
+          <p className={`mb-6 text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground transition-all duration-700 ${featuresVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
             What it does
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             {FEATURES.map((f, i) => (
               <div
                 key={f.title}
-                className={`rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 ${featuresReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+                className={`rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 ${featuresVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
                 style={{ transitionDelay: `${i * 100}ms` }}
               >
                 <h3 className="font-semibold">{f.title}</h3>

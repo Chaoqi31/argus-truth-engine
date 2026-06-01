@@ -17,7 +17,7 @@ export function FindingsTab({ job, activeFindingId, onSelect }: Props) {
 
   if (ranked.length === 0) {
     return (
-      <p className="p-6 text-sm text-muted-foreground">No findings yet — drop a job JSON.</p>
+      <p className="p-6 text-sm text-muted-foreground">No findings to show.</p>
     );
   }
 

@@ -129,6 +129,16 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     job_id=ctx.job_id, claim_id=claim.id,
                     agent="UnifiedVerifier", stream=StreamCollection(response_id="n/a"),
                 )
+                summary = (
+                    "Verification could not be completed — the verifier's "
+                    "response could not be parsed into a valid result."
+                )
+                # Surface WHY it failed (truncated) so the user isn't left
+                # guessing. Keep it short — don't leak the full payload.
+                if failure is not None:
+                    detail = str(failure).strip()
+                    if detail:
+                        summary += f" (parser error: {detail[:120]})"
                 finding = Finding(
                     id=f"f_{uuid4().hex[:12]}",
                     job_id=ctx.job_id,
@@ -136,13 +146,11 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     agent="UnifiedVerifier",
                     verdict=FindingVerdict.UNCERTAIN,
                     confidence=0.0,
-                    summary=(
-                        "Verification could not be completed — the verifier's "
-                        "response could not be parsed into a valid result."
-                    ),
+                    summary=summary,
                     evidence_ids=[],
                     reasoning_trace_id=trace.id,
                     related_finding_ids=[],
+                    flags=["unparseable verifier response"],
                 )
                 new_traces[trace.id] = trace
                 new_findings.append(finding)

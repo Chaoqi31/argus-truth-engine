@@ -234,9 +234,11 @@ def compute_confidence_breakdown(
       - evidence_freshness: from temporal recency
       - source_agreement: from distinct-source count and verdict polarity
 
-    The breakdown explains the factor bars shown in the UI; it does not
-    re-derive the headline confidence (that is the verifier's own score,
-    capped by source sufficiency in the confidence node).
+    This breakdown DESCRIBES the measured factors (source agreement / authority
+    / freshness); it is NOT a re-derived composite. The headline confidence is
+    the verifier's OWN score, capped by source sufficiency in the confidence
+    node — these three factors explain the bars shown in the UI but are never
+    combined back into a second, contradicting confidence number.
     """
     # Algorithmic factors
     authority_scores = [_score_domain(ev.url) for ev in evidences]

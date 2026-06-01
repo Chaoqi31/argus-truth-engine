@@ -38,6 +38,12 @@ _UNIFIED_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.MISMATCH: Severity.MAJOR,
     FindingVerdict.OK: Severity.MINOR,
     FindingVerdict.UNCERTAIN: Severity.MINOR,
+    # Document-internal flaws: a self-contradiction or an unsupported leap is a
+    # substantive defect, not a "minor" nit. Without these entries they fell
+    # through to the Severity.MINOR default below, understating the issue.
+    FindingVerdict.CONTRADICTION: Severity.MAJOR,
+    FindingVerdict.UNSUPPORTED_INFERENCE: Severity.MAJOR,
+    FindingVerdict.OVERREACH: Severity.MAJOR,
 }
 
 

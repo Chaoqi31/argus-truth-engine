@@ -12,7 +12,7 @@
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
-[![Tests](https://img.shields.io/badge/tests-122_passing-success)](#testing)
+[![Tests](https://img.shields.io/badge/tests-passing-success)](#testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[English](README.md)** · **[简体中文](README.zh.md)**
@@ -44,12 +44,18 @@
 
 | 问题类型 | 它能抓到什么 | 如何验证 |
 |---|---|---|
-| 🪤 **虚构引用** | 根本不存在的论文、案例、备案文件 | Crossref / arXiv / SSRN / 公开注册库 |
-| 🪞 **错位引述** | 释义 ≠ 原文 | 抓取被引 URL，逐段对比 |
-| 📉 **过时数据** | 已被更新数据取代的数字 | FRED / 世界银行 / SEC EDGAR / IMF |
+| 🪤 **虚构引用** | 根本不存在的论文、案例、备案文件 | 在学术与公开注册库中自主深度检索 |
+| ❌ **不准确声明** | 数字、姓名、日期上的事实错误 | 与 ≥2 个独立权威来源交叉验证 |
+| 🪞 **错位引述** | 释义 ≠ 原文 | 抓取被引 URL，与原文对比 |
+| 📉 **过时数据** | 已被更新数据取代的数字 | 核对一手来源的最新官方数据 |
 | 🧩 **内部矛盾** | 文档自相矛盾 | 两两声明一致性检查 |
 
-每条发现都附带：判决、严重程度、置信度、证据链（可点击的来源 URL + 原文片段），以及完整推理记录 —— agent 执行的每次网页搜索、每个抓取的页面、每一步思维链。
+每条发现都附带：
+- **判决** + 严重程度 + 置信度
+- **错在哪里** —— 对错误的清晰解释
+- **正确信息** —— 正确答案是什么，附带权威来源 URL
+- **推理链** —— 逐步的 行动/观察/推理 记录
+- **证据链** —— 可点击的来源 URL + 原文片段
 
 ## 👥 谁会用 Argus
 
@@ -73,26 +79,39 @@
 
 ## ✨ 推理透明度
 
-在**实时审查**中，前端通过 WebSocket 在每一步发生的当下流式渲染；在**示例审查**中，你可以逐步回放同一段已记录的推理过程：
+每条发现都包含一段结构化的**推理链** —— 不是模型的原始思维，而是经过整理的
+行动/观察/推理 三元组序列，清晰展示判决是如何得出的：
 
 ```
-seq=  3  🔍 web_search       CitationVerifier  ⟶  "Smith 2021 widget resilience SSRN"
-seq=  4  🌐 fetch_url_content CitationVerifier ⟶  https://api.crossref.org/works/...
-seq=  5  💭 thinking          CitationVerifier ⟶  "Crossref returned 404. Checking arXiv..."
-seq=  6  ✅ finding emitted    CitationVerifier ⟶  fabricated · major · 0.91 confidence
+Step 1: 核对 BEA 2024 Q3 预估值（Advance Estimate）
+  → 发现：GDP 增长 2.8%，与声称的 1.6% 矛盾
+  → 推理：首个官方数字就已与声明不符
+
+Step 2: 核对 BEA 2024 Q3 二次预估值（Second Estimate）
+  → 发现：仍为 2.8%
+  → 推理：两次预估一致，1.6% 可确定为错误
+
+Step 3: 核对 BEA 2024 Q3 第三次（终值）预估（Third/Final Estimate）
+  → 发现：修订为 3.1%
+  → 推理：最新官方数字确认该错误
+
+Step 4: 追溯 1.6% 这个数字的来源
+  → 发现：它属于 2024 Q1，而非 Q3
+  → 推理：声明混淆了 Q1 与 Q3 的数据 —— 属于不准确，而非虚构
 ```
 
-验证完成后，**对抗性辩论协议**（攻击方 / 防御方 / 法官 —— 每轮使用 DeepSeek，花费约 $0.001）对每一条高风险发现进行压力测试。辩论记录随审计报告一并交付。审阅者看到的不仅是判决，还有对判决最强有力的反驳意见 —— 以及它为何输了。
+在**实时审查**中，前端通过 WebSocket 在每一步发生的当下流式渲染；在**示例审查**中，你可以逐步回放同一段已记录的推理过程。无论哪种方式，审阅者看到的不只是判决，还有它*为何*出错、*正确答案是什么* —— 并附带可点击的来源 URL 供独立核实。
 
 ## 🏗️ 工作原理
 
-一个 LangGraph 状态机将 10+ 个专业 agent 展开，覆盖文档中的所有声明：
+一个 LangGraph 状态机分两个阶段编排整条流水线：
 
 ```
                       ┌─────────────────────────────┐
                       │   📄 Ingest (PDF or text)     │
                       └──────────────┬──────────────┘
                                      ▼
+                 阶段 A —— 预处理（DeepSeek，成本低）
                       ┌─────────────────────────────┐
                       │  🧠 Planner → Atomizer        │
                       │  → typed atomic claims        │
@@ -102,18 +121,20 @@ seq=  6  ✅ finding emitted    CitationVerifier ⟶  fabricated · major · 0.9
                       │  🎯 CheckWorthiness gate      │
                       │  → drops trivial claims       │
                       └──────────────┬──────────────┘
-                                     │  fan-out (per claim type)
-            ┌──────────────┬─────────┼─────────┬──────────────┐
-            ▼              ▼         ▼         ▼              ▼
-       ┌────────┐   ┌──────────┐  ┌──────┐  ┌────────────┐  ┌────────────┐
-       │Citation│   │ Citation │  │Data  │  │Consistency │  │ Evidence   │
-       │Verifier│   │Alignment │  │Fresh.│  │  Checker   │  │  Hunter    │
-       └───┬────┘   └────┬─────┘  └──┬───┘  └────┬───────┘  └────┬───────┘
-           └─────────────┴──────┬────┴───────────┴───────────────┘
-                                ▼
+                                     │
+                 阶段 B —— 验证（MiroMind，深度研究）
+                                     │  fan-out（全部声明）
+                      ┌──────────────┴──────────────┐
+                      ▼                             ▼
+               ┌─────────────┐             ┌────────────┐
+               │  Unified    │             │Consistency │
+               │  Verifier   │             │  Checker   │
+               │ (per claim) │             │ (pairwise) │
+               └──────┬──────┘             └─────┬──────┘
+                      └──────────┬───────────────┘
+                                 ▼
                       ┌─────────────────────────────┐
-                      │  ⚔️ Challenger (debate)      │
-                      │  Attacker / Defender / Judge  │
+                      │  📊 Confidence Calculator     │
                       └──────────────┬──────────────┘
                                      ▼
                       ┌─────────────────────────────┐
@@ -122,7 +143,12 @@ seq=  6  ✅ finding emitted    CitationVerifier ⟶  fabricated · major · 0.9
                       └─────────────────────────────┘
 ```
 
-Atomizer / CheckWorthiness / Challenger 运行在 DeepSeek 上（成本低），MiroMind 的费用集中用在真正重要的验证器上。典型的单文档审计模型调用成本约 ~$3 —— 相比之下，它所替代的人工分析师审查成本约 ~$70。
+**UnifiedVerifier** 对自己的验证策略拥有完全自主权 —— 由它决定核查哪些来源、
+调用哪些 API、走多少步。我们只约束*输出格式*（verdict + why_wrong +
+correct_information + reasoning_chain），以保证透明度。非强制性的**领域提示**
+（domain hints）会根据声明类型和内容领域建议相关的权威来源，但不会强制固定的检索顺序。
+
+Atomizer / CheckWorthiness 运行在 DeepSeek 上（成本低），让 MiroMind 的费用集中花在真正重要的验证器上。单条声明的冒烟测试模型调用成本约 ~$0.16。
 
 ### 工程化控制
 
@@ -130,7 +156,7 @@ Atomizer / CheckWorthiness / Challenger 运行在 DeepSeek 上（成本低），
 - **`BudgetTracker`** — 硬性 USD 上限，超支前中途中止，防止失控烧钱
 - **`retry_on_transient`** — 针对上游 `429` / `5xx` 的指数退避重试
 - **`make_idempotency_key`** — 确定性的 job-keyed 幂等键
-- **`json-repair`** — LLM JSON 输出的启发式修复
+- **`json-repair`** — LLM JSON 输出的启发式修复 + 针对 MiroMind 怪异返回的数组解包
 
 ### 存储与实时事件流
 
@@ -179,7 +205,7 @@ uv run argus audit examples/sample-report.pdf \
 
 | 层 | 选型 |
 |---|---|
-| **模型** | MiroMind `mirothinker-1-7-deepresearch`（验证器）+ DeepSeek（atomizer/challenger） |
+| **模型** | MiroMind `mirothinker-1-7-deepresearch`（验证器 / 一致性 / 报告）+ DeepSeek（atomizer / checkworthiness） |
 | **编排** | LangGraph 1.x StateGraph，并行 fan-out + reducer fan-in |
 | **后端** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + 原生 SSE |
 | **持久化** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
@@ -190,7 +216,7 @@ uv run argus audit examples/sample-report.pdf \
 ## 🧪 测试
 
 ```bash
-uv run pytest -q          # 122 collected
+uv run pytest -q          # 171 passing
 uv run mypy src/argus     # strict
 uv run ruff check .       # lint
 cd web && pnpm test       # vitest

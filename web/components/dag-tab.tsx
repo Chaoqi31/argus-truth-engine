@@ -144,7 +144,7 @@ export function DagTab({ trace }: Props) {
 
   if (!trace || !base) {
     return (
-      <p className="p-6 text-sm text-muted-foreground">No reasoning chain available.</p>
+      <p className="p-6 text-sm text-muted-foreground">Select a finding to see its reasoning graph.</p>
     );
   }
 
@@ -210,7 +210,7 @@ export function DagTab({ trace }: Props) {
         />
       )}
 
-      <p className="pointer-events-none absolute left-3 top-3 rounded-full bg-background/80 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground shadow-sm backdrop-blur">
+      <p className="pointer-events-none absolute left-3 top-3 rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground shadow-[var(--shadow-card)]">
         Click any node to inspect raw thinking
       </p>
     </div>
