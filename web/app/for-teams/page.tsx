@@ -56,7 +56,7 @@ const FEATURES = [
   },
   {
     title: "Decomposed confidence score",
-    body: "Every verdict's confidence breaks down into four auditable factors — source agreement, source authority, evidence freshness, and evidence specificity — so reviewers can see why a finding is trusted, not just how much.",
+    body: "Every verdict's confidence breaks down into three auditable factors — source authority, evidence freshness, and source agreement — so reviewers can see why a finding is trusted, not just how much.",
   },
   {
     title: "Exportable audit report",

@@ -272,12 +272,22 @@ export default function HomePage() {
             <div
               className={`mt-12 flex items-center gap-6 md:gap-12 transition-[transform,opacity,filter] duration-[640ms] delay-[160ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
-              <StatPoint prefix="$" value={674} suffix="B" label="enterprise losses" trigger={heroVisible} delay={220} />
+              <StatPoint value={1353} suffix="+" label="AI-hallucination court cases" trigger={heroVisible} delay={220} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={1353} suffix="+" label="court cases" trigger={heroVisible} delay={300} />
+              <StatPoint value={95} suffix="%" label="GenAI pilots, no return" trigger={heroVisible} delay={300} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={76} suffix="%" label="manual review" trigger={heroVisible} delay={380} />
+              <StatPoint value={30} suffix="%" label="GenAI projects abandoned" trigger={heroVisible} delay={380} />
             </div>
+
+            {/* Stat sources — we cite our own claims */}
+            <p
+              className={`mt-4 text-xs text-muted-foreground/70 transition-[opacity,filter] duration-[640ms] delay-[440ms] ease-enter ${heroVisible ? "opacity-100 blur-0" : "opacity-0 blur-[4px]"}`}
+            >
+              Sources:{" "}
+              <a href="https://www.damiencharlotin.com/hallucinations/" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">Charlotin / HEC Paris</a>{" · "}
+              <a href="https://fortune.com/2025/08/18/mit-report-95-percent-generative-ai-pilots-at-companies-failing-cfo/" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">MIT NANDA</a>{" · "}
+              <a href="https://www.gartner.com/en/newsroom/press-releases/2024-07-29-gartner-predicts-30-percent-of-generative-ai-projects-will-be-abandoned-after-proof-of-concept-by-end-of-2025" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">Gartner</a>
+            </p>
 
             {/* CTAs */}
             <div
@@ -317,6 +327,65 @@ export default function HomePage() {
         </section>
 
         {/* ============================================================ */}
+        {/* REAL INCIDENTS                                               */}
+        {/* ============================================================ */}
+        <RevealSection className="border-y border-border bg-muted py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">It is already happening</p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+                Real reports. Real fabrications. Real money.
+              </h2>
+              <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
+                Top consultancies and law firms have already shipped AI-generated
+                documents with invented citations — and paid for it.
+              </p>
+            </div>
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
+              {[
+                {
+                  outlet: "Fortune · Oct 2025",
+                  figure: "$290K",
+                  title: "Deloitte Australia",
+                  body: "Refunded a government report after a researcher found AI-fabricated citations and an invented quote from a Federal Court judgment.",
+                  url: "https://fortune.com/2025/10/07/deloitte-ai-australia-government-report-hallucinations-technology-290000-refund/",
+                },
+                {
+                  outlet: "Fortune · Nov 2025",
+                  figure: "$1M+",
+                  title: "Deloitte Canada",
+                  body: "A million-dollar report for a provincial government was found citing AI-generated research that does not exist.",
+                  url: "https://fortune.com/2025/11/25/deloitte-caught-fabricated-ai-generated-research-million-dollar-report-canada-government/",
+                },
+                {
+                  outlet: "Chicago Sun-Times · Dec 2025",
+                  figure: "$49,500",
+                  title: "Goldberg Segalla",
+                  body: "A law firm was sanctioned after a lawyer filed ChatGPT-fabricated citations in a lead-paint case and failed to check the work.",
+                  url: "https://chicago.suntimes.com/the-watchdogs/2025/12/09/goldberg-segalla-law-firm-cha-sanctioned-60-000-ai-chatgpt-lead-paint-court-case",
+                },
+              ].map((it) => (
+                <a
+                  key={it.title}
+                  href={it.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group flex flex-col rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-200 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{it.outlet}</span>
+                    <span className="font-mono text-base font-bold text-primary">{it.figure}</span>
+                  </div>
+                  <h3 className="mt-3 text-base font-semibold">{it.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{it.body}</p>
+                  <span className="mt-4 text-xs font-medium text-primary group-hover:underline">Read the report →</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </RevealSection>
+
+        {/* ============================================================ */}
         {/* WHAT IT CATCHES                                              */}
         {/* ============================================================ */}
         <section ref={featuresRef} className="relative mx-auto max-w-5xl px-6 py-28">
@@ -336,7 +405,7 @@ export default function HomePage() {
             <FeatureCard
               icon={BookIcon}
               title="Fabricated references"
-              body="Cross-checks citations against Crossref, arXiv, SSRN, and public registries. Papers, cases, or filings that don't exist get flagged."
+              body="Searches academic and public registries — such as Crossref, arXiv, and SSRN — to confirm a cited work actually exists. Papers, cases, or filings that don't get flagged."
               trigger={featuresVisible}
               delay={0}
             />
@@ -350,7 +419,7 @@ export default function HomePage() {
             <FeatureCard
               icon={ChartIcon}
               title="Outdated data"
-              body="Verifies statistics, figures, and dates against live authoritative sources — FRED, World Bank, SEC EDGAR, IMF."
+              body="Checks figures and dates against authoritative primary sources on the live web — such as SEC filings, FRED, the World Bank, and IMF."
               trigger={featuresVisible}
               delay={240}
             />
@@ -363,6 +432,39 @@ export default function HomePage() {
             />
           </div>
         </section>
+
+        {/* ============================================================ */}
+        {/* POWERED BY MIROMIND                                          */}
+        {/* ============================================================ */}
+        <RevealSection className="mx-auto max-w-5xl px-6 py-28">
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Powered by MiroMind</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+              Deep research, only where it counts.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+              The verification step runs on MiroMind&apos;s{" "}
+              <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground">mirothinker-1-7-deepresearch</span>{" "}
+              — the one part of the pipeline that touches the open web.
+            </p>
+          </div>
+          <div className="mt-14 grid gap-5 sm:grid-cols-2">
+            {[
+              { title: "Autonomous research agent", body: "Per claim, the model picks its own tools — native thinking, web search, page fetch, and Python execution. No fixed search script." },
+              { title: "Live, resumable trace", body: "Calls run in background mode; every reasoning event is captured and streamed live, and the stream survives mid-flight reconnects gap-free." },
+              { title: "Parallel per claim", body: "Each claim gets its own deep-research run, fanned out concurrently with deterministic idempotency keys and a hard budget guard." },
+              { title: "Web only where it counts", body: "Claim extraction, consistency, and reporting run on a cheaper model — so MiroMind's deep research is reserved for the verdicts." },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)]"
+              >
+                <h3 className="text-base font-semibold">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </RevealSection>
 
         {/* ============================================================ */}
         {/* HOW IT WORKS                                                 */}
@@ -383,7 +485,7 @@ export default function HomePage() {
             <div className="mt-16">
               <PipelineStep step={1} title="Parse & atomize" body="PDF or text is parsed, then broken into atomic, independently verifiable claims. A checkworthiness gate filters trivial statements." trigger={pipelineVisible} delay={0} />
               <PipelineStep step={2} title="Autonomous verification" body="A self-directed verifier investigates each claim in parallel — choosing its own tools and sources, constrained only by the output schema. A consistency checker runs alongside it to catch claims that contradict each other." trigger={pipelineVisible} delay={200} />
-              <PipelineStep step={3} title="Confidence & cross-verification" body="Each verdict is corroborated against multiple independent, authoritative sources. Confidence is then decomposed into four auditable factors — source agreement, source authority, evidence freshness, and evidence specificity." trigger={pipelineVisible} delay={400} />
+              <PipelineStep step={3} title="Confidence & cross-verification" body="Each verdict is corroborated against multiple independent, authoritative sources. Confidence is then decomposed into three auditable factors — source authority, evidence freshness, and source agreement." trigger={pipelineVisible} delay={400} />
               <PipelineStep step={4} title="Audit report" body="Findings are ranked by severity and confidence. An exportable PDF audit report is generated — ready to file, attach, or cite." trigger={pipelineVisible} delay={600} isLast />
             </div>
           </div>
@@ -409,7 +511,7 @@ export default function HomePage() {
                   "Watch the verifier think in real-time via WebSocket",
                   "Every source URL is clickable and verifiable",
                   "Every verdict ships why it's wrong and the correct answer",
-                  "Confidence decomposed into 4 auditable factors",
+                  "Confidence decomposed into 3 auditable factors",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5">
                     {CheckIcon}
@@ -498,8 +600,8 @@ export default function HomePage() {
               Ready to audit?
             </h2>
             <p className="mt-4 text-muted-foreground">
-              See Argus in action on a real CBO budget report with deliberately
-              planted errors — no API key needed.
+              See Argus in action on an AI-generated NVIDIA equity-research note
+              with deliberately planted errors — no API key needed.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
               <Link href="/audit" className={PRIMARY_BTN}>
