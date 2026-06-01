@@ -293,7 +293,7 @@ function decorateNode(
   }
   if (isHighlighted) {
     style.border = "2px solid var(--cc-primary)";
-    style.boxShadow = "var(--cc-glow-hover)";
+    style.boxShadow = "0 0 0 2px var(--cc-primary)";
   }
   return { ...current, data: { ...current.data, label }, style };
 }
@@ -350,7 +350,7 @@ function StepDetail({
     <div
       role="dialog"
       aria-label="Step detail"
-      className="absolute bottom-4 right-4 z-10 max-h-[60%] w-[420px] overflow-y-auto rounded-[var(--radius-card)] border border-border bg-background p-4 shadow-[var(--shadow-card-hover)]"
+      className="absolute bottom-3 left-3 right-3 z-10 max-h-[60%] overflow-y-auto rounded-[var(--radius-card)] border border-border bg-background p-4 shadow-[var(--shadow-card-hover)]"
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -426,7 +426,7 @@ function StepDetail({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm font-medium">{e.citation}</p>
+                  <p className="mt-1 text-sm font-medium break-words">{e.citation}</p>
                 </button>
               </li>
             ))}

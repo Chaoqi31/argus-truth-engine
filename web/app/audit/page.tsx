@@ -442,7 +442,7 @@ function AuditPageContent() {
   const activeTrace = job.traces.find((t) => t.id === activeFinding?.reasoning_trace_id) ?? null;
 
   return (
-    <div className="cockpit cc-backdrop min-h-screen">
+    <div className="cockpit cc-backdrop flex h-screen flex-col">
       <ArgusHeader
         rightSlot={
           <div className="flex items-center gap-2">
@@ -456,7 +456,7 @@ function AuditPageContent() {
       )}
       <VerdictHero job={job} />
       <JobStatsBar job={job} />
-      <main className="grid h-[calc(100vh-3.5rem-2.75rem-7rem)] grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_400px]">
+      <main className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_400px]">
         {/* Zone 1 — document frame */}
         <div className="hidden h-full overflow-hidden lg:block">
           {jobIsText ? (
@@ -586,7 +586,7 @@ function VerdictHero({ job }: { job: Job }) {
   return (
     <section
       role="status"
-      className="relative flex h-28 items-center gap-5 overflow-hidden border-b border-[var(--cc-border)] px-6"
+      className="relative flex h-16 items-center gap-4 overflow-hidden border-b border-[var(--cc-border)] px-6"
     >
       {/* Verdict neon bloom behind the headline — synced to BlurText reveal.
           Large, heavily blurred radial gradient tinted by verdict tone. */}
@@ -620,7 +620,7 @@ function VerdictHero({ job }: { job: Job }) {
         <BlurText
           key={headline}
           text={headline}
-          className="text-xl font-bold tracking-tight text-[var(--cc-text)] md:text-2xl"
+          className="text-base font-bold tracking-tight text-[var(--cc-text)] md:text-lg"
           animateBy="words"
           delay={60}
           onAnimationComplete={() => setRevealed(true)}
@@ -639,7 +639,7 @@ function VerdictHero({ job }: { job: Job }) {
               <CountUp
                 to={c.n}
                 duration={1.1}
-                className="block font-mono text-2xl font-bold tabular-nums"
+                className="block font-mono text-xl font-bold tabular-nums"
               />
               <span
                 className="text-[10px] uppercase tracking-wider"
@@ -650,7 +650,7 @@ function VerdictHero({ job }: { job: Job }) {
             </div>
           ))}
           <div className="text-right">
-            <span className="block font-mono text-2xl font-bold tabular-nums text-muted-foreground">
+            <span className="block font-mono text-xl font-bold tabular-nums text-muted-foreground">
               {job.claims.length}
             </span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
