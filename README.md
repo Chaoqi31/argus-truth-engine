@@ -30,7 +30,7 @@ to *trust* it before they act on it.
 
 The problem underneath this is real and documented:
 
-- **1,400+** court filings have now been caught citing fabricated, AI-hallucinated
+- **1,353+** court filings have now been caught citing fabricated, AI-hallucinated
   cases — and the [tracked count](https://www.damiencharlotin.com/hallucinations/)
   (Damien Charlotin, HEC Paris) keeps growing by several every day.
 - Gartner predicts **30% of generative-AI projects will be abandoned after
