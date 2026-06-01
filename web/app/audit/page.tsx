@@ -4,12 +4,13 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, useReducedMotion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useArgusStore } from "@/lib/store";
+import { useArgusStore, type ConsoleMode } from "@/lib/store";
 import { ArgusHeader } from "@/components/argus-header";
 import { JobStatsBar } from "@/components/job-stats-bar";
 import { FindingsTab } from "@/components/findings-tab";
 import { EvidenceTab } from "@/components/evidence-tab";
 import { TraceStreamView } from "@/components/trace-stream-view";
+import { DagTab } from "@/components/dag-tab";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
 import { ScenarioBanner } from "@/components/scenario-banner";
 import { ExportMenu, type ExportFormat } from "@/components/export-menu";
@@ -50,9 +51,6 @@ const PdfViewer = dynamic(
     ),
   },
 );
-
-// Right "reasoning console": Evidence for the active finding, or the trace stream.
-type RightMode = "evidence" | "trace";
 
 /** Global ⌘K / Ctrl+K listener that toggles the command palette. */
 function useCommandPaletteHotkey() {
@@ -126,7 +124,8 @@ function AuditPageContent() {
   const resetLive = useArgusStore((s) => s.resetLive);
   const setReviewReady = useArgusStore((s) => s.setReviewReady);
 
-  const [mode, setMode] = useState<RightMode>("evidence");
+  const consoleMode = useArgusStore((s) => s.consoleMode);
+  const setConsoleMode = useArgusStore((s) => s.setConsoleMode);
   const [hintOpen, setHintOpen] = useState(false);
 
   // Demo playback: the fixture is loaded but HELD (not pushed to the store) so
@@ -205,7 +204,7 @@ function AuditPageContent() {
             .then((full) => {
               setJob(full);
               setRunStatus("done");
-              setMode("evidence");
+              setConsoleMode("evidence");
             })
             .catch((err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
@@ -314,7 +313,7 @@ function AuditPageContent() {
       });
       setJob(demoJob);
       setRunStatus("done");
-      setMode("evidence");
+      setConsoleMode("evidence");
       setDemoRunning(false);
     });
   };
@@ -426,7 +425,7 @@ function AuditPageContent() {
   const selectFinding = (id: string) => {
     setActiveFinding(id);
     setDrawerFinding(id);
-    setMode("evidence");
+    setConsoleMode("evidence");
   };
 
   const onClaimClick = (claimId: string) => {
@@ -436,6 +435,11 @@ function AuditPageContent() {
 
   const fileUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(job.id)}/pdf` : "/sample-report.pdf";
   const jobIsText = job.input_mode === "text";
+
+  // Reasoning DAG (Zone-3 "Graph") follows the active finding. Switching findings
+  // re-derives this from activeFindingId, so the graph stays in sync.
+  const activeFinding = job.findings.find((f) => f.id === activeFindingId);
+  const activeTrace = job.traces.find((t) => t.id === activeFinding?.reasoning_trace_id) ?? null;
 
   return (
     <div className="cockpit cc-backdrop min-h-screen">
@@ -489,16 +493,18 @@ function AuditPageContent() {
           </div>
         </section>
 
-        {/* Zone 3 — reasoning console (evidence / live trace) */}
+        {/* Zone 3 — reasoning console (evidence / live trace / graph) */}
         <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
           <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
-            <ConsoleToggle current={mode} onChange={setMode} />
+            <ConsoleToggle current={consoleMode} onChange={setConsoleMode} />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {mode === "evidence" ? (
+            {consoleMode === "evidence" ? (
               <EvidenceTab job={job} findingId={activeFindingId} />
-            ) : (
+            ) : consoleMode === "trace" ? (
               <TraceStreamView job={job} />
+            ) : (
+              <DagTab trace={activeTrace} />
             )}
           </div>
         </aside>
@@ -790,12 +796,13 @@ function ConsoleToggle({
   current,
   onChange,
 }: {
-  current: RightMode;
-  onChange: (m: RightMode) => void;
+  current: ConsoleMode;
+  onChange: (m: ConsoleMode) => void;
 }) {
-  const opts: Array<{ key: RightMode; label: string }> = [
+  const opts: Array<{ key: ConsoleMode; label: string }> = [
     { key: "evidence", label: "Evidence" },
     { key: "trace", label: "Trace" },
+    { key: "graph", label: "Graph" },
   ];
   return (
     <div className="flex w-full gap-1 rounded-md bg-muted p-0.5 ring-1 ring-[var(--cc-border)]">
@@ -875,6 +882,7 @@ function toLiveFinding(f: Finding): LiveFinding {
 // note read-only with a single primary action that replays the completed
 // audit through the live UI. No network call — honest, neutral copy.
 function DemoIdleScreen({ job, onRun }: { job: Job; onRun: () => void }) {
+  const [starting, setStarting] = useState(false);
   return (
     <div className="cockpit cc-backdrop min-h-screen">
       <ArgusHeader />
@@ -915,14 +923,30 @@ function DemoIdleScreen({ job, onRun }: { job: Job; onRun: () => void }) {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onRun}
-            className="inline-flex items-center justify-center gap-2 rounded-[12px] bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[var(--cc-glow)] transition-colors hover:bg-[#5741d8] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <RunIcon />
-            Run audit
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setStarting(true);
+                onRun();
+              }}
+              disabled={starting}
+              aria-busy={starting}
+              className="inline-flex items-center justify-center gap-2 rounded-[12px] bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[var(--cc-glow)] transition-colors hover:bg-[#5741d8] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+            >
+              {starting ? (
+                "Starting…"
+              ) : (
+                <>
+                  <RunIcon />
+                  Run audit
+                </>
+              )}
+            </button>
+            <p className="text-[11px] text-[var(--cc-text-muted)]">
+              No API key needed — replays a completed audit.
+            </p>
+          </div>
         </aside>
       </main>
     </div>

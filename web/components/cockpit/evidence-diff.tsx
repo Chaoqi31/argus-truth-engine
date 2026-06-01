@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useArgusStore } from "@/lib/store";
 import type { Claim, Evidence, Finding } from "@/lib/types";
@@ -114,7 +115,7 @@ function DiffPane({
               <mark
                 key={idx}
                 style={{
-                  background: "rgba(255,92,108,0.18)",
+                  background: "var(--cc-danger-tint)",
                   color: "var(--cc-danger)",
                   borderRadius: "3px",
                   padding: "0 2px",
@@ -130,7 +131,7 @@ function DiffPane({
               <mark
                 key={idx}
                 style={{
-                  background: "rgba(46,230,160,0.13)",
+                  background: "var(--cc-ok-tint)",
                   color: "var(--cc-ok)",
                   borderRadius: "3px",
                   padding: "0 2px",
@@ -174,23 +175,25 @@ function SourceChip({ evidence }: { evidence: Evidence }) {
         border: "1px solid var(--cc-border)",
         borderRadius: "6px",
         padding: "4px 10px",
-        background: "rgba(113,50,245,0.06)",
+        background: "color-mix(in oklab, var(--cc-primary) 6%, transparent)",
         textDecoration: "none",
         transition: "background 0.15s, border-color 0.15s",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--cc-border-glow)";
-        (e.currentTarget as HTMLAnchorElement).style.background = "rgba(113,50,245,0.14)";
+        (e.currentTarget as HTMLAnchorElement).style.background =
+          "color-mix(in oklab, var(--cc-primary) 14%, transparent)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--cc-border)";
-        (e.currentTarget as HTMLAnchorElement).style.background = "rgba(113,50,245,0.06)";
+        (e.currentTarget as HTMLAnchorElement).style.background =
+          "color-mix(in oklab, var(--cc-primary) 6%, transparent)";
       }}
     >
       <span aria-hidden style={{ opacity: 0.7 }}>&#8599;</span>
       <span
         style={{
-          maxWidth: "42ch",
+          maxWidth: "44ch",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -244,13 +247,14 @@ function VerdictBadge({ verdict }: { verdict: string }) {
 // ---------------------------------------------------------------------------
 
 /**
- * EvidenceDiff — fullscreen dark modal.
+ * EvidenceDiff — light, solid right-side panel (mirrors FindingDrawer).
  *
- * Reads `evidenceDiff` from the store.  When non-null, renders a side-by-side
- * diff of the claim text (left) and the source snippet (right), with
+ * Reads `evidenceDiff` from the store.  When non-null, slides a light `.cc-glass`
+ * panel in from the right (the DAG/console stays visible beside it) and renders a
+ * side-by-side diff of the claim text (left) and the source snippet (right), with
  * word-level highlighting of differences.  The source URL is clickable.
  *
- * Close: Escape key or click the backdrop / Close button.
+ * Close: Escape key or click the scrim / Close button (`setEvidenceDiff(null)`).
  */
 export function EvidenceDiff() {
   const evidenceDiff = useArgusStore((s) => s.evidenceDiff);
@@ -268,56 +272,54 @@ export function EvidenceDiff() {
 
   const open = evidenceDiff !== null;
 
+  // Close on Esc (scrim click + ✕ are wired on their elements).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setEvidenceDiff(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, setEvidenceDiff]);
+
   // Compute diff tokens when both sides are available
   const diff =
     claim && evidence
       ? diffTokens(tokenise(claim.text), tokenise(evidence.snippet))
       : null;
 
-  const motionProps = shouldReduceMotion
-    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
-    : {
-        initial: { opacity: 0, scale: 0.98, y: 8 },
-        animate: { opacity: 1, scale: 1, y: 0 },
-        exit: { opacity: 0, scale: 0.98, y: 8 },
-      };
-
   return (
     <AnimatePresence>
       {open && (
-        <>
-          {/* Backdrop — click to close */}
-          <motion.div
-            key="evidence-diff-backdrop"
-            aria-hidden="true"
-            className="fixed inset-0 z-50"
-            style={{ background: "rgba(16,17,20,0.40)" }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.16 }}
+        <motion.div
+          className="fixed inset-0 z-50 flex justify-end"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          {/* Scrim — dims the cockpit canvas; click to close. */}
+          <button
+            type="button"
+            aria-label="Close evidence comparison"
             onClick={() => setEvidenceDiff(null)}
+            className="absolute inset-0 bg-[#101114]/40"
           />
 
           {/* Panel */}
-          <motion.div
-            key="evidence-diff-panel"
+          <motion.aside
             role="dialog"
             aria-modal="true"
             aria-label="Evidence comparison"
-            className="fixed inset-4 z-50 flex flex-col focus:outline-none sm:inset-8"
-            style={{
-              background: "var(--cc-surface)",
-              border: "1px solid var(--cc-border)",
-              borderRadius: "16px",
-              boxShadow: "var(--shadow-card-hover)",
-            }}
-            {...motionProps}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setEvidenceDiff(null);
-            }}
-            tabIndex={-1}
+            className="cc-glass relative flex h-full w-full max-w-[540px] flex-col border-l border-[var(--cc-border)] shadow-[var(--cc-glow)]"
+            initial={shouldReduceMotion ? { x: 0 } : { x: "100%" }}
+            animate={{ x: 0 }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { x: "100%" }}
+            transition={
+              shouldReduceMotion
+                ? { duration: 0.12 }
+                : { type: "spring", stiffness: 320, damping: 34 }
+            }
           >
             {/* ── Header ── */}
             <header
@@ -345,7 +347,7 @@ export function EvidenceDiff() {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
-                      maxWidth: "56ch",
+                      maxWidth: "38ch",
                     }}
                   >
                     {finding ? finding.summary : "Claim vs source"}
@@ -354,36 +356,25 @@ export function EvidenceDiff() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-3">
-                {evidence && <SourceChip evidence={evidence} />}
-                <button
-                  type="button"
-                  onClick={() => setEvidenceDiff(null)}
-                  aria-label="Close evidence comparison"
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "12px",
-                    color: "var(--cc-text-muted)",
-                    border: "1px solid var(--cc-border)",
-                    borderRadius: "6px",
-                    padding: "5px 12px",
-                    background: "transparent",
-                    cursor: "pointer",
-                    transition: "background 0.12s, color 0.12s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--cc-bg)";
-                    (e.currentTarget as HTMLButtonElement).style.color = "var(--cc-text)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                    (e.currentTarget as HTMLButtonElement).style.color = "var(--cc-text-muted)";
-                  }}
-                >
-                  Esc / Close
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setEvidenceDiff(null)}
+                aria-label="Close evidence comparison"
+                className="shrink-0 rounded-md p-1.5 text-[var(--cc-text-muted)] transition-colors hover:bg-[var(--cc-bg)] hover:text-[var(--cc-text)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
+              >
+                <CloseIcon />
+              </button>
             </header>
+
+            {/* ── Source chip — clickable link to the cited source ── */}
+            {evidence && (
+              <div
+                style={{ borderBottom: "1px solid var(--cc-border)" }}
+                className="flex shrink-0 items-center px-6 py-2.5"
+              >
+                <SourceChip evidence={evidence} />
+              </div>
+            )}
 
             {/* ── Legend ── */}
             <div
@@ -486,8 +477,8 @@ export function EvidenceDiff() {
                 )}
               </footer>
             )}
-          </motion.div>
-        </>
+          </motion.aside>
+        </motion.div>
       )}
     </AnimatePresence>
   );
@@ -562,4 +553,17 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M3 3l8 8M11 3l-8 8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
