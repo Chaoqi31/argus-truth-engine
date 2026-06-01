@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Job, Step } from "@/lib/types";
-import { stepIcon } from "@/lib/colors";
+import type { Finding, Job, Step } from "@/lib/types";
+import { stepIcon, verdictTone } from "@/lib/colors";
+
+// Verdict badge tints — keyed by the tone from `verdictTone`. Mirror the
+// severity-tint pattern (text-foreground on a /15 surface) so contrast holds.
+const TONE_BADGE: Record<string, string> = {
+  ok: "bg-success/15 text-success",
+  danger: "bg-destructive/15 text-destructive-foreground",
+  warn: "bg-warning/15 text-warning-foreground",
+  muted: "bg-muted text-muted-foreground",
+};
 
 interface Props {
   job: Job | null;
@@ -52,12 +61,13 @@ function LiveTrace({ steps }: { steps: Step[] }) {
   );
 }
 
-function StaticReplay({ job }: { job: Job | null }) {
-  const total = job ? job.traces.reduce((n, t) => n + t.steps.length, 0) : 0;
-  const merged: Step[] = job
-    ? job.traces.flatMap((t) => t.steps).sort((a, b) => a.sequence - b.sequence)
-    : [];
+interface ClaimGroup {
+  finding: Finding;
+  claimText: string;
+  steps: Step[];
+}
 
+function StaticReplay({ job }: { job: Job | null }) {
   if (!job) {
     return (
       <div className="flex h-full items-center justify-center px-3 text-xs text-muted-foreground">
@@ -66,7 +76,30 @@ function StaticReplay({ job }: { job: Job | null }) {
     );
   }
 
-  if (total === 0) {
+  // Group the trace by claim: one collapsible block per verifier finding,
+  // showing a compact summary by default (verdict + step/search counts) and
+  // expanding to its full reasoning stream. Progressive disclosure — the key
+  // numbers up front, the firehose only on request.
+  const claimText = new Map(job.claims.map((c) => [c.id, c.text]));
+  const traceById = new Map(job.traces.map((t) => [t.id, t]));
+  const groups: ClaimGroup[] = job.findings
+    .filter((f) => f.agent === "UnifiedVerifier")
+    .map((f) => {
+      const trace = traceById.get(f.reasoning_trace_id);
+      const steps = trace
+        ? [...trace.steps].sort((a, b) => a.sequence - b.sequence)
+        : [];
+      return { finding: f, claimText: claimText.get(f.claim_id) ?? f.summary, steps };
+    })
+    .filter((g) => g.steps.length > 0);
+
+  const totalSteps = groups.reduce((n, g) => n + g.steps.length, 0);
+  const totalSearches = groups.reduce(
+    (n, g) => n + g.steps.filter((s) => s.type === "web_search").length,
+    0,
+  );
+
+  if (groups.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
         <span aria-hidden className="text-2xl">🔍</span>
@@ -79,7 +112,6 @@ function StaticReplay({ job }: { job: Job | null }) {
     );
   }
 
-  // Static list of every reasoning step (no replay controls).
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
@@ -87,17 +119,59 @@ function StaticReplay({ job }: { job: Job | null }) {
           Reasoning trace
         </span>
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {total} steps
+          {totalSteps} steps · {totalSearches} searches · {groups.length} claims
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto px-3 py-2">
-        <ol className="flex flex-col gap-1">
-          {merged.map((s) => (
+      <div className="flex-1 overflow-y-auto">
+        <ul className="flex flex-col">
+          {groups.map((g) => (
+            <ClaimTraceGroup key={g.finding.id} group={g} />
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function ClaimTraceGroup({ group }: { group: ClaimGroup }) {
+  const { finding, claimText, steps } = group;
+  const [open, setOpen] = useState(false);
+
+  const nThink = steps.filter((s) => s.type === "thinking").length;
+  const nSearch = steps.filter((s) => s.type === "web_search").length;
+  const nFetch = steps.filter((s) => s.type === "fetch_url_content").length;
+  const tone = verdictTone[finding.verdict] ?? "muted";
+
+  return (
+    <li className="border-b border-border last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <span aria-hidden className="shrink-0 font-mono text-[10px] text-muted-foreground">
+          {open ? "▾" : "▸"}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-foreground">{claimText}</span>
+        <span
+          className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}
+        >
+          {finding.verdict}
+        </span>
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          💭{nThink} · 🔍{nSearch}
+          {nFetch > 0 ? ` · 📄${nFetch}` : ""}
+        </span>
+      </button>
+      {open && (
+        <ol className="flex flex-col gap-1 bg-muted/30 px-3 py-2 pl-7">
+          {steps.map((s) => (
             <StepItem key={s.id} step={s} />
           ))}
         </ol>
-      </div>
-    </div>
+      )}
+    </li>
   );
 }
 
