@@ -2,12 +2,14 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { FindingVerdict, StepType } from "@/lib/types";
+import type { StepType } from "@/lib/types";
 import { useArgusStore } from "@/lib/store";
-import { verdictTone } from "@/lib/colors";
+import { verdictColorVar } from "@/lib/colors";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
+import { CloseIcon } from "@/components/icons";
 import { safeHttpUrl } from "@/lib/url";
+import { stepOrdinals } from "@/lib/steps";
 /**
  * Finding drawer — T2 surface.
  *
@@ -25,14 +27,6 @@ import { safeHttpUrl } from "@/lib/url";
  *     `setEvidenceDiff({ findingId, evidenceId })` (rendered by <EvidenceDiff/>).
  */
 
-/** Verdict tone → cockpit colour token (fallbacks keep it sane in light mode). */
-const TONE_COLOR: Record<"danger" | "warn" | "ok" | "muted", string> = {
-  danger: "var(--cc-danger, #d92d20)",
-  warn: "var(--cc-warn, #d18700)",
-  ok: "var(--cc-ok, #149e61)",
-  muted: "var(--cc-text-muted, #9497a9)",
-};
-
 /** Short typographic tags for trace step types (no emoji, terminal aesthetic). */
 const STEP_TAG: Record<StepType, string> = {
   thinking: "think",
@@ -48,11 +42,21 @@ export function FindingDrawer() {
   const drawerFindingId = useArgusStore((s) => s.drawerFindingId);
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
   const setEvidenceDiff = useArgusStore((s) => s.setEvidenceDiff);
+  const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
+  const storeJumpToStep = useArgusStore((s) => s.jumpToStep);
   const job = useArgusStore((s) => s.job);
   const reduceMotion = useReducedMotion();
 
   const finding = job?.findings.find((f) => f.id === drawerFindingId) ?? null;
   const open = drawerFindingId !== null;
+
+  // Cross-link a step to the Zone-3 DAG: point it at this finding's trace,
+  // focus the producing node in graph mode, and close the drawer to reveal it.
+  const jumpToStep = (stepId: string) => {
+    if (finding) setActiveFinding(finding.id);
+    storeJumpToStep(stepId);
+    setDrawerFinding(null);
+  };
 
   // Close on Esc (scrim click + ✕ are wired on their elements).
   useEffect(() => {
@@ -71,11 +75,10 @@ export function FindingDrawer() {
     job && finding
       ? job.evidences.filter((e) => finding.evidence_ids.includes(e.id))
       : [];
+  // Small 1-based step labels ("step 3") in place of the large raw `sequence`.
+  const ordinals = trace ? stepOrdinals(trace.steps) : new Map<string, number>();
 
-  const tone: "danger" | "warn" | "ok" | "muted" = finding
-    ? verdictTone[finding.verdict as FindingVerdict]
-    : "muted";
-  const toneColor = TONE_COLOR[tone];
+  const toneColor = finding ? verdictColorVar(finding.verdict) : "var(--cc-text-muted, #9497a9)";
   const confidencePct = finding ? Math.round(finding.confidence * 100) : 0;
 
   return (
@@ -245,7 +248,7 @@ export function FindingDrawer() {
                         {trace.steps.map((s, i) => (
                           <li
                             key={s.id}
-                            className="relative flex gap-3 pb-3 pl-1 last:pb-0"
+                            className="relative pb-3 pl-1 last:pb-0"
                           >
                             {/* connecting rail */}
                             {i < trace.steps.length - 1 && (
@@ -254,26 +257,33 @@ export function FindingDrawer() {
                                 className="absolute left-[7px] top-4 bottom-0 w-px bg-[var(--cc-border)]"
                               />
                             )}
-                            <span
-                              aria-hidden
-                              className="relative mt-1 size-[14px] shrink-0 rounded-full border border-[var(--cc-border)] bg-[var(--cc-bg)]"
+                            <button
+                              type="button"
+                              onClick={() => jumpToStep(s.id)}
+                              aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the reasoning graph`}
+                              className="flex w-full gap-3 rounded-md text-left transition-colors hover:text-[var(--cc-primary-bright)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
                             >
                               <span
-                                className="absolute inset-[3px] rounded-full"
-                                style={{
-                                  backgroundColor:
-                                    "color-mix(in oklab, var(--cc-primary, #7132f5) 70%, transparent)",
-                                }}
-                              />
-                            </span>
-                            <div className="min-w-0">
-                              <span className="mr-2 font-mono text-[9px] uppercase tracking-wider text-[var(--cc-primary-bright)]">
-                                {STEP_TAG[s.type]}
+                                aria-hidden
+                                className="relative mt-1 size-[14px] shrink-0 rounded-full border border-[var(--cc-border)] bg-[var(--cc-bg)]"
+                              >
+                                <span
+                                  className="absolute inset-[3px] rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      "color-mix(in oklab, var(--cc-primary, #7132f5) 70%, transparent)",
+                                  }}
+                                />
                               </span>
-                              <span className="text-sm leading-snug text-[var(--cc-text)]">
-                                {s.summary}
-                              </span>
-                            </div>
+                              <div className="min-w-0">
+                                <span className="mr-2 font-mono text-[9px] uppercase tracking-wider text-[var(--cc-primary-bright)]">
+                                  {STEP_TAG[s.type]}
+                                </span>
+                                <span className="text-sm leading-snug text-[var(--cc-text)]">
+                                  {s.summary}
+                                </span>
+                              </div>
+                            </button>
                           </li>
                         ))}
                       </ol>
@@ -295,53 +305,73 @@ export function FindingDrawer() {
                   <Section label={`Evidence (${evidences.length})`}>
                     {evidences.length > 0 ? (
                       <ul className="space-y-2">
-                        {evidences.map((e) => (
-                          <li key={e.id}>
-                            <div className="group rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] transition-colors hover:border-[var(--cc-primary)]">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setEvidenceDiff({
-                                    findingId: finding.id,
-                                    evidenceId: e.id,
-                                  })
-                                }
-                                aria-label={`Compare claim against ${e.citation}`}
-                                className="w-full rounded-[10px] px-3 py-2.5 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--cc-text-muted)]">
-                                    {e.source_type}
-                                  </span>
-                                  <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--cc-primary-bright)] opacity-0 transition-opacity group-hover:opacity-100">
-                                    compare
-                                  </span>
-                                </div>
-                                <p className="mt-1 text-sm font-medium text-[var(--cc-text)]">
-                                  {e.citation}
-                                </p>
-                                {e.snippet && (
-                                  <p className="mt-1 line-clamp-3 text-xs leading-snug text-[var(--cc-text-muted)]">
-                                    {e.snippet}
+                        {evidences.map((e) => {
+                          const producingStep = trace?.steps.find(
+                            (s) => s.id === e.retrieved_by_step_id,
+                          );
+                          const evidenceUrl = safeHttpUrl(e.url);
+                          return (
+                            <li key={e.id}>
+                              <div className="group rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] transition-colors hover:border-[var(--cc-primary)]">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEvidenceDiff({
+                                      findingId: finding.id,
+                                      evidenceId: e.id,
+                                    })
+                                  }
+                                  aria-label={`Compare claim against ${e.citation}`}
+                                  className="w-full rounded-[10px] px-3 py-2.5 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--cc-text-muted)]">
+                                      {e.source_type}
+                                    </span>
+                                    <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--cc-primary-bright)] opacity-0 transition-opacity group-hover:opacity-100">
+                                      compare
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm font-medium text-[var(--cc-text)]">
+                                    {e.citation}
                                   </p>
+                                  {e.snippet && (
+                                    <p className="mt-1 line-clamp-3 text-xs leading-snug text-[var(--cc-text-muted)]">
+                                      {e.snippet}
+                                    </p>
+                                  )}
+                                </button>
+                                {(evidenceUrl || producingStep) && (
+                                  <div className="flex items-center justify-between gap-2 border-t border-[var(--cc-border)] px-3 py-1.5">
+                                    {evidenceUrl ? (
+                                      <a
+                                        href={evidenceUrl}
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        className="inline-flex min-w-0 items-center gap-1 font-mono text-[11px] text-[var(--cc-primary-bright)] underline-offset-2 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
+                                      >
+                                        <ExternalIcon />
+                                        <span className="truncate">{e.url}</span>
+                                      </a>
+                                    ) : (
+                                      <span />
+                                    )}
+                                    {producingStep && (
+                                      <button
+                                        type="button"
+                                        onClick={() => jumpToStep(e.retrieved_by_step_id)}
+                                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the reasoning graph`}
+                                        className="shrink-0 rounded border border-[var(--cc-border)] px-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--cc-text-muted)] transition-colors hover:border-[var(--cc-primary)] hover:text-[var(--cc-primary-bright)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
+                                      >
+                                        step {ordinals.get(producingStep.id) ?? 0}
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
-                              </button>
-                              {safeHttpUrl(e.url) && (
-                                <div className="border-t border-[var(--cc-border)] px-3 py-1.5">
-                                  <a
-                                    href={safeHttpUrl(e.url)!}
-                                    target="_blank"
-                                    rel="noreferrer noopener"
-                                    className="inline-flex items-center gap-1 font-mono text-[11px] text-[var(--cc-primary-bright)] underline-offset-2 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
-                                  >
-                                    <ExternalIcon />
-                                    <span className="truncate">{e.url}</span>
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ul>
                     ) : (
                       <p className="text-sm text-[var(--cc-text-muted)]">
@@ -383,19 +413,6 @@ function ConfidenceRing({ pct, color }: { pct: number; color: string }) {
         mask: "radial-gradient(circle 5px, transparent 62%, black 64%)",
       }}
     />
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path
-        d="M3 3l8 8M11 3l-8 8"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 

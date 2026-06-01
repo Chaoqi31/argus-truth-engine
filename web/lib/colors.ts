@@ -24,6 +24,17 @@ export const verdictTone: Record<FindingVerdict, "danger" | "warn" | "ok" | "mut
   overreach: "warn",
 };
 
+const TONE_COLOR_VAR: Record<"danger" | "warn" | "ok" | "muted", string> = {
+  danger: "var(--cc-danger, #d92d20)",
+  warn: "var(--cc-warn, #d18700)",
+  ok: "var(--cc-ok, #149e61)",
+  muted: "var(--cc-text-muted, #9497a9)",
+};
+
+export function verdictColorVar(verdict: FindingVerdict): string {
+  return TONE_COLOR_VAR[verdictTone[verdict]];
+}
+
 export const stepIcon: Record<StepType, string> = {
   thinking: "💭",
   web_search: "🔍",

@@ -41,10 +41,17 @@ interface ArgusState {
   drawerFindingId: string | null;
   paletteOpen: boolean;
   evidenceDiff: EvidenceDiffTarget | null;
+  highlightedStepId: string | null;
+  consoleMode: ConsoleMode;
   setDrawerFinding: (id: string | null) => void;
   setPaletteOpen: (open: boolean) => void;
   setEvidenceDiff: (target: EvidenceDiffTarget | null) => void;
+  setHighlightedStep: (id: string | null) => void;
+  setConsoleMode: (mode: ConsoleMode) => void;
+  jumpToStep: (stepId: string) => void;
 }
+
+export type ConsoleMode = "evidence" | "trace" | "graph";
 
 /** Identifies which finding+evidence pair the evidence-diff modal compares. */
 export interface EvidenceDiffTarget {
@@ -69,6 +76,8 @@ const INITIAL_COCKPIT = {
   drawerFindingId: null as string | null,
   paletteOpen: false,
   evidenceDiff: null as EvidenceDiffTarget | null,
+  highlightedStepId: null as string | null,
+  consoleMode: "evidence" as ConsoleMode,
 };
 
 export const useArgusStore = create<ArgusState>((set) => ({
@@ -125,4 +134,7 @@ export const useArgusStore = create<ArgusState>((set) => ({
   setDrawerFinding: (id) => set({ drawerFindingId: id }),
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   setEvidenceDiff: (target) => set({ evidenceDiff: target }),
+  setHighlightedStep: (id) => set({ highlightedStepId: id }),
+  setConsoleMode: (mode) => set({ consoleMode: mode }),
+  jumpToStep: (stepId) => set({ highlightedStepId: stepId, consoleMode: "graph" }),
 }));
