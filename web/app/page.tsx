@@ -57,7 +57,7 @@ function StatPoint({
   const count = useCountUp(value, 1800, trigger);
   return (
     <div
-      className={`text-center transition-all duration-700 ${trigger ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}
+      className={`text-center transition-[transform,opacity,filter] duration-[600ms] ease-enter ${trigger ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
       <p className="text-3xl font-bold tabular-nums md:text-4xl">
@@ -86,7 +86,7 @@ function FeatureCard({
 }) {
   return (
     <div
-      className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${trigger ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+      className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,opacity,filter,border-color,box-shadow] duration-500 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${trigger ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
       <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary">
@@ -120,20 +120,20 @@ function PipelineStep({
     <div className="flex gap-5">
       <div className="flex flex-col items-center">
         <div
-          className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white transition-all duration-500 ${trigger ? "scale-100 opacity-100" : "scale-75 opacity-0"}`}
+          className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white transition-[transform,opacity] duration-500 ease-enter ${trigger ? "scale-100 opacity-100" : "scale-90 opacity-0"}`}
           style={{ transitionDelay: `${delay}ms` }}
         >
           {step}
         </div>
         {!isLast && (
           <div
-            className={`w-px flex-1 bg-border transition-all duration-700 origin-top ${trigger ? "scale-y-100" : "scale-y-0"}`}
+            className={`w-px flex-1 bg-border transition-transform duration-700 ease-enter origin-top ${trigger ? "scale-y-100" : "scale-y-0"}`}
             style={{ transitionDelay: `${delay + 200}ms` }}
           />
         )}
       </div>
       <div
-        className={`pb-10 transition-all duration-500 ${trigger ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"}`}
+        className={`pb-10 transition-[transform,opacity,filter] duration-500 ease-enter ${trigger ? "translate-x-0 opacity-100 blur-0" : "translate-x-2 opacity-0 blur-[6px]"}`}
         style={{ transitionDelay: `${delay + 100}ms` }}
       >
         <h3 className="text-base font-semibold">{title}</h3>
@@ -178,7 +178,7 @@ const CheckIcon = (
 const PRIMARY_BTN =
   "cursor-pointer rounded-[12px] bg-primary px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#5741d8] disabled:opacity-50";
 const WHITE_BTN =
-  "cursor-pointer rounded-[12px] border border-border bg-background px-8 py-3.5 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-all hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] disabled:opacity-50";
+  "cursor-pointer rounded-[12px] border border-border bg-background px-8 py-3.5 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-200 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] disabled:opacity-50";
 
 /* ================================================================== */
 /*  LANDING PAGE                                                      */
@@ -254,7 +254,7 @@ export default function HomePage() {
           <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
             {/* Headline */}
             <h1
-              className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-7xl transition-all duration-700 delay-100 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-7xl transition-[transform,opacity,filter] duration-[640ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
               The audit layer for{" "}
               <span className="text-primary">AI-generated content</span>
@@ -262,7 +262,7 @@ export default function HomePage() {
 
             {/* Subtitle */}
             <p
-              className={`mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground transition-all duration-700 delay-200 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground transition-[transform,opacity,filter] duration-[640ms] delay-[80ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
               Upload any AI-generated report. Get back every factual claim,
               every verdict, and the full reasoning chain behind it.
@@ -270,18 +270,18 @@ export default function HomePage() {
 
             {/* Data points */}
             <div
-              className={`mt-12 flex items-center gap-6 md:gap-12 transition-all duration-700 delay-300 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`mt-12 flex items-center gap-6 md:gap-12 transition-[transform,opacity,filter] duration-[640ms] delay-[160ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
-              <StatPoint prefix="$" value={674} suffix="B" label="enterprise losses" trigger={heroVisible} delay={400} />
+              <StatPoint prefix="$" value={674} suffix="B" label="enterprise losses" trigger={heroVisible} delay={220} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={1353} suffix="+" label="court cases" trigger={heroVisible} delay={550} />
+              <StatPoint value={1353} suffix="+" label="court cases" trigger={heroVisible} delay={300} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={76} suffix="%" label="manual review" trigger={heroVisible} delay={700} />
+              <StatPoint value={76} suffix="%" label="manual review" trigger={heroVisible} delay={380} />
             </div>
 
             {/* CTAs */}
             <div
-              className={`mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 transition-all duration-700 delay-500 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 transition-[transform,opacity,filter] duration-[640ms] delay-[260ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
               <Link href="/audit" className={PRIMARY_BTN}>
                 Start auditing
@@ -300,13 +300,13 @@ export default function HomePage() {
 
           {/* Product mock */}
           <div
-            className={`relative z-10 mt-20 w-full max-w-4xl transition-all duration-1000 delay-700 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"}`}
+            className={`relative z-10 mt-20 w-full max-w-4xl transition-[transform,opacity,filter] duration-[760ms] delay-[360ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
           >
             <HeroProductMock />
           </div>
 
           {/* Scroll indicator */}
-          <div className={`mt-12 pb-8 transition-all duration-700 delay-1000 ${heroVisible ? "opacity-100" : "opacity-0"}`}>
+          <div className={`mt-12 pb-8 transition-opacity duration-700 delay-[460ms] ease-enter ${heroVisible ? "opacity-100" : "opacity-0"}`}>
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <span className="text-[10px] uppercase tracking-widest">Scroll to explore</span>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden>
@@ -320,7 +320,7 @@ export default function HomePage() {
         {/* WHAT IT CATCHES                                              */}
         {/* ============================================================ */}
         <section ref={featuresRef} className="relative mx-auto max-w-5xl px-6 py-28">
-          <div className={`text-center transition-all duration-700 ${featuresVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+          <div className={`text-center transition-[transform,opacity,filter] duration-[640ms] ease-enter ${featuresVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">What it catches</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
               Four types of AI content failure.
@@ -369,7 +369,7 @@ export default function HomePage() {
         {/* ============================================================ */}
         <section ref={pipelineRef} className="relative bg-muted py-28">
           <div className="mx-auto max-w-3xl px-6">
-            <div className={`text-center transition-all duration-700 ${pipelineVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+            <div className={`text-center transition-[transform,opacity,filter] duration-[640ms] ease-enter ${pipelineVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">How it works</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
                 Two phases. One audit.
@@ -394,7 +394,7 @@ export default function HomePage() {
         {/* ============================================================ */}
         <section ref={transparencyRef} className="mx-auto max-w-5xl px-6 py-28">
           <div className="grid items-center gap-14 md:grid-cols-2">
-            <div className={`transition-all duration-700 ${transparencyVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+            <div className={`transition-[transform,opacity,filter] duration-[640ms] ease-enter ${transparencyVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Core differentiator</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
                 Reasoning you can read.
@@ -421,7 +421,7 @@ export default function HomePage() {
 
             {/* Mini trace demo — dark code surface */}
             <div
-              className={`overflow-hidden rounded-[var(--radius-card)] border border-border bg-[#101114] p-5 shadow-[var(--shadow-card-hover)] transition-all duration-700 delay-200 ${transparencyVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+              className={`overflow-hidden rounded-[var(--radius-card)] border border-border bg-[#101114] p-5 shadow-[var(--shadow-card-hover)] transition-[transform,opacity,filter] duration-[760ms] delay-[140ms] ease-enter ${transparencyVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
             >
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/30">
                 Live reasoning trace
@@ -436,7 +436,7 @@ export default function HomePage() {
         {/* ============================================================ */}
         <section ref={personaRef} className="relative bg-muted py-28">
           <div className="mx-auto max-w-5xl px-6">
-            <div className={`text-center transition-all duration-700 ${personaVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+            <div className={`text-center transition-[transform,opacity,filter] duration-[640ms] ease-enter ${personaVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Who uses Argus</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
                 Built for teams that receive AI output.
@@ -475,7 +475,7 @@ export default function HomePage() {
               ].map((p, i) => (
                 <div
                   key={p.title}
-                  className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${personaVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+                  className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,opacity,filter,border-color,box-shadow] duration-500 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${personaVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
                   style={{ transitionDelay: `${i * 120}ms` }}
                 >
                   <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary">
