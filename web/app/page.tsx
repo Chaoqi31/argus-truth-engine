@@ -289,9 +289,10 @@ export default function HomePage() {
                 type="button"
                 onClick={trySample}
                 disabled={loading}
+                aria-busy={loading}
                 className={WHITE_BTN}
               >
-                {loading ? "Loading…" : "See a sample audit"}
+                {loading ? "Loading sample…" : "See a sample audit"}
               </button>
             </div>
           </div>
@@ -324,8 +325,9 @@ export default function HomePage() {
               Four types of AI content failure.
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
-              Each issue type has a specialized verification agent that runs
-              independently, so nothing gets missed.
+              One autonomous verifier investigates every claim — choosing its own
+              sources and strategy — while a consistency checker scans for claims
+              that contradict each other. Nothing gets missed.
             </p>
           </div>
 
@@ -506,9 +508,10 @@ export default function HomePage() {
                 type="button"
                 onClick={trySample}
                 disabled={loading}
+                aria-busy={loading}
                 className={WHITE_BTN}
               >
-                {loading ? "Loading…" : "See a sample audit"}
+                {loading ? "Loading sample…" : "See a sample audit"}
               </button>
             </div>
           </div>

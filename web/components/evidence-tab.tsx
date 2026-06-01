@@ -2,6 +2,8 @@ import type { Job } from "@/lib/types";
 import { stepIcon } from "@/lib/colors";
 import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
 import { safeHttpUrl } from "@/lib/url";
+import { useArgusStore } from "@/lib/store";
+import { stepOrdinals } from "@/lib/steps";
 
 interface Props {
   job: Job;
@@ -9,6 +11,9 @@ interface Props {
 }
 
 export function EvidenceTab({ job, findingId }: Props) {
+  // Jump the Zone-3 console to the DAG and focus the producing step.
+  const jumpToStep = useArgusStore((s) => s.jumpToStep);
+
   if (findingId === null) {
     return <Empty />;
   }
@@ -18,6 +23,8 @@ export function EvidenceTab({ job, findingId }: Props) {
   const claim = job.claims.find((c) => c.id === finding.claim_id);
   const trace = job.traces.find((t) => t.id === finding.reasoning_trace_id);
   const evidences = job.evidences.filter((e) => finding.evidence_ids.includes(e.id));
+  // Small 1-based step labels ("step 3") in place of the large raw `sequence`.
+  const ordinals = trace ? stepOrdinals(trace.steps) : new Map<string, number>();
 
   return (
     <div className="space-y-6 p-4">
@@ -35,9 +42,16 @@ export function EvidenceTab({ job, findingId }: Props) {
         </h2>
         <ol className="mt-2 space-y-1 text-sm">
           {trace?.steps.map((s) => (
-            <li key={s.id} className="flex gap-2">
-              <span aria-hidden>{stepIcon[s.type]}</span>
-              <span>{s.summary}</span>
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => jumpToStep(s.id)}
+                aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the reasoning graph`}
+                className="flex w-full gap-2 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span aria-hidden>{stepIcon[s.type]}</span>
+                <span>{s.summary}</span>
+              </button>
             </li>
           ))}
         </ol>
@@ -97,28 +111,43 @@ export function EvidenceTab({ job, findingId }: Props) {
           Evidence ({evidences.length})
         </h2>
         <ul className="mt-2 space-y-2 text-sm">
-          {evidences.map((e) => (
-            <li key={e.id} className="rounded-md border border-border p-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-xs text-muted-foreground">{e.source_type}</span>
-                {safeHttpUrl(e.url) ? (
-                  <a
-                    href={safeHttpUrl(e.url)!}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-xs text-primary underline-offset-2 hover:underline"
-                  >
-                    {e.citation}
-                  </a>
-                ) : e.citation ? (
-                  <span className="text-xs text-muted-foreground">{e.citation}</span>
-                ) : null}
-              </div>
-              {e.snippet && (
-                <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{e.snippet}</p>
-              )}
-            </li>
-          ))}
+          {evidences.map((e) => {
+            const producingStep = trace?.steps.find((s) => s.id === e.retrieved_by_step_id);
+            return (
+              <li key={e.id} className="rounded-md border border-border p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-mono text-xs text-muted-foreground">{e.source_type}</span>
+                    {producingStep && (
+                      <button
+                        type="button"
+                        onClick={() => jumpToStep(e.retrieved_by_step_id)}
+                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the reasoning graph`}
+                        className="rounded border border-border px-1 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        step {ordinals.get(producingStep.id) ?? 0}
+                      </button>
+                    )}
+                  </span>
+                  {safeHttpUrl(e.url) ? (
+                    <a
+                      href={safeHttpUrl(e.url)!}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-xs text-primary underline-offset-2 hover:underline"
+                    >
+                      {e.citation}
+                    </a>
+                  ) : e.citation ? (
+                    <span className="text-xs text-muted-foreground">{e.citation}</span>
+                  ) : null}
+                </div>
+                {e.snippet && (
+                  <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{e.snippet}</p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>
