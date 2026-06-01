@@ -14,6 +14,9 @@ export function useCountUp(target: number, duration = 1800, trigger = false) {
 
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq.matches) {
+      // Reduced motion: jump to the final value, skip the animation. The
+      // synchronous setState is gated on an external read (matchMedia).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCount(target);
       return;
     }

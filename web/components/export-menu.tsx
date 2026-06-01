@@ -26,7 +26,7 @@ export function ExportMenu({ onSelect, disabled }: Props) {
         Export ▾
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 mt-1 w-36 rounded-md border border-border bg-background py-1 text-xs shadow-lg">
+        <div role="menu" className="absolute right-0 mt-1 w-36 rounded-md border border-border bg-background py-1 text-xs shadow-[var(--shadow-card)]">
           <button role="menuitem" onClick={() => choose("pdf")} className="block w-full px-3 py-1.5 text-left hover:bg-muted">PDF audit report</button>
           <button role="menuitem" onClick={() => choose("json")} className="block w-full px-3 py-1.5 text-left hover:bg-muted">JSON findings</button>
           <button role="menuitem" onClick={() => choose("markdown")} className="block w-full px-3 py-1.5 text-left hover:bg-muted">Markdown summary</button>

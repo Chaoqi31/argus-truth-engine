@@ -12,7 +12,7 @@
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
-[![Tests](https://img.shields.io/badge/tests-124_passing-success)](#testing)
+[![Tests](https://img.shields.io/badge/tests-passing-success)](#testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[English](README.md)** · **[简体中文](README.zh.md)**
@@ -245,7 +245,7 @@ uv run argus audit examples/sample-report.pdf \
 ## 🧪 Testing
 
 ```bash
-uv run pytest -q          # 124 passing
+uv run pytest -q          # 171 passing
 uv run mypy src/argus     # strict
 uv run ruff check .       # lint
 cd web && pnpm test       # vitest

@@ -56,7 +56,7 @@ function GrowBar({ pct, delay }: { pct: number; delay: number }) {
               width: 20,
               height: 20,
               background:
-                "radial-gradient(circle, rgba(113,50,245,0.72) 0%, transparent 65%)",
+                "radial-gradient(circle, color-mix(in oklab, var(--cc-primary) 72%, transparent) 0%, transparent 65%)",
             }}
             initial={{ scale: 0.2, opacity: 0 }}
             animate={{ scale: [0.2, 2.8, 0.2], opacity: [0, 0.62, 0] }}
@@ -70,7 +70,7 @@ function GrowBar({ pct, delay }: { pct: number; delay: number }) {
               left: `${pct}%`,
               width: 6,
               height: 6,
-              border: "1.5px solid rgba(113,50,245,0.55)",
+              border: "1.5px solid color-mix(in oklab, var(--cc-primary) 55%, transparent)",
             }}
             initial={{ scale: 0.5, opacity: 0.6 }}
             animate={{ scale: 4.2, opacity: 0 }}

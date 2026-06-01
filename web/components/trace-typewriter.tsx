@@ -10,8 +10,8 @@ const LINES = [
   { seq: 6, icon: "finding", agent: "UnifiedVerifier", text: "fabricated · major · 0.91" },
   { seq: 8, icon: "search", agent: "UnifiedVerifier", text: '"US GDP growth rate 2024 FRED"' },
   { seq: 9, icon: "finding", agent: "UnifiedVerifier", text: "stale · critical · 0.96" },
-  { seq: 11, icon: "think", agent: "Consistency", text: '"Claim 7 says 12%, claim 19 says 8%"' },
-  { seq: 12, icon: "finding", agent: "Consistency", text: "contradiction · major · 0.88" },
+  { seq: 11, icon: "think", agent: "ConsistencyChecker", text: '"Claim 7 says 12%, claim 19 says 8%"' },
+  { seq: 12, icon: "finding", agent: "ConsistencyChecker", text: "contradiction · major · 0.88" },
 ];
 
 const ICON_MAP: Record<string, string> = {
@@ -36,6 +36,9 @@ export function TraceTypewriter() {
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq.matches) {
+      // Reduced motion: show the full trace at once, skip the typewriter.
+      // Synchronous setState is gated on an external read (matchMedia).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisibleLines(LINES.length);
       return;
     }

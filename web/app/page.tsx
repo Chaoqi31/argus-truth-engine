@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useScrollReveal } from "@/lib/use-scroll-reveal";
 import { useCountUp } from "@/lib/use-count-up";
 import { HeroProductMock } from "@/components/hero-product-mock";
+import { TraceTypewriter } from "@/components/trace-typewriter";
 import Link from "next/link";
 import Image from "next/image";
 import { ArgusMark } from "@/components/argus-mark";
@@ -188,11 +189,11 @@ export default function HomePage() {
   const resetLive = useArgusStore((s) => s.resetLive);
   const [loading, setLoading] = useState(false);
 
-  const heroReveal = useScrollReveal(0.05);
-  const featuresReveal = useScrollReveal(0.1);
-  const pipelineReveal = useScrollReveal(0.1);
-  const transparencyReveal = useScrollReveal(0.1);
-  const personaReveal = useScrollReveal(0.1);
+  const { ref: heroRef, isVisible: heroVisible } = useScrollReveal(0.05);
+  const { ref: featuresRef, isVisible: featuresVisible } = useScrollReveal(0.1);
+  const { ref: pipelineRef, isVisible: pipelineVisible } = useScrollReveal(0.1);
+  const { ref: transparencyRef, isVisible: transparencyVisible } = useScrollReveal(0.1);
+  const { ref: personaRef, isVisible: personaVisible } = useScrollReveal(0.1);
 
   const trySample = async () => {
     setLoading(true);
@@ -234,7 +235,7 @@ export default function HomePage() {
         {/* HERO                                                         */}
         {/* ============================================================ */}
         <section
-          ref={heroReveal.ref}
+          ref={heroRef}
           className="relative flex min-h-[calc(100vh-56px)] flex-col items-center justify-center px-6 pt-16"
         >
           {/* Background glow */}
@@ -253,7 +254,7 @@ export default function HomePage() {
           <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
             {/* Headline */}
             <h1
-              className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-7xl transition-all duration-700 delay-100 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-7xl transition-all duration-700 delay-100 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
             >
               The audit layer for{" "}
               <span className="text-primary">AI-generated content</span>
@@ -261,7 +262,7 @@ export default function HomePage() {
 
             {/* Subtitle */}
             <p
-              className={`mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground transition-all duration-700 delay-200 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground transition-all duration-700 delay-200 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
             >
               Upload any AI-generated report. Get back every factual claim,
               every verdict, and the full reasoning chain behind it.
@@ -269,18 +270,18 @@ export default function HomePage() {
 
             {/* Data points */}
             <div
-              className={`mt-12 flex items-center gap-6 md:gap-12 transition-all duration-700 delay-300 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`mt-12 flex items-center gap-6 md:gap-12 transition-all duration-700 delay-300 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
             >
-              <StatPoint prefix="$" value={674} suffix="B" label="enterprise losses" trigger={heroReveal.isVisible} delay={400} />
+              <StatPoint prefix="$" value={674} suffix="B" label="enterprise losses" trigger={heroVisible} delay={400} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={1353} suffix="+" label="court cases" trigger={heroReveal.isVisible} delay={550} />
+              <StatPoint value={1353} suffix="+" label="court cases" trigger={heroVisible} delay={550} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={76} suffix="%" label="manual review" trigger={heroReveal.isVisible} delay={700} />
+              <StatPoint value={76} suffix="%" label="manual review" trigger={heroVisible} delay={700} />
             </div>
 
             {/* CTAs */}
             <div
-              className={`mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 transition-all duration-700 delay-500 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
+              className={`mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 transition-all duration-700 delay-500 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
             >
               <Link href="/audit" className={PRIMARY_BTN}>
                 Start auditing
@@ -299,13 +300,13 @@ export default function HomePage() {
 
           {/* Product mock */}
           <div
-            className={`relative z-10 mt-20 w-full max-w-4xl transition-all duration-1000 delay-700 ${heroReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"}`}
+            className={`relative z-10 mt-20 w-full max-w-4xl transition-all duration-1000 delay-700 ${heroVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"}`}
           >
             <HeroProductMock />
           </div>
 
           {/* Scroll indicator */}
-          <div className={`mt-12 pb-8 transition-all duration-700 delay-1000 ${heroReveal.isVisible ? "opacity-100" : "opacity-0"}`}>
+          <div className={`mt-12 pb-8 transition-all duration-700 delay-1000 ${heroVisible ? "opacity-100" : "opacity-0"}`}>
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <span className="text-[10px] uppercase tracking-widest">Scroll to explore</span>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden>
@@ -318,8 +319,8 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* WHAT IT CATCHES                                              */}
         {/* ============================================================ */}
-        <section ref={featuresReveal.ref} className="relative mx-auto max-w-5xl px-6 py-28">
-          <div className={`text-center transition-all duration-700 ${featuresReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+        <section ref={featuresRef} className="relative mx-auto max-w-5xl px-6 py-28">
+          <div className={`text-center transition-all duration-700 ${featuresVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">What it catches</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
               Four types of AI content failure.
@@ -336,28 +337,28 @@ export default function HomePage() {
               icon={BookIcon}
               title="Fabricated references"
               body="Cross-checks citations against Crossref, arXiv, SSRN, and public registries. Papers, cases, or filings that don't exist get flagged."
-              trigger={featuresReveal.isVisible}
+              trigger={featuresVisible}
               delay={0}
             />
             <FeatureCard
               icon={QuoteIcon}
               title="Misrepresented sources"
               body="Fetches the original source and compares paragraph-by-paragraph. What was claimed vs. what was actually said."
-              trigger={featuresReveal.isVisible}
+              trigger={featuresVisible}
               delay={120}
             />
             <FeatureCard
               icon={ChartIcon}
               title="Outdated data"
               body="Verifies statistics, figures, and dates against live authoritative sources — FRED, World Bank, SEC EDGAR, IMF."
-              trigger={featuresReveal.isVisible}
+              trigger={featuresVisible}
               delay={240}
             />
             <FeatureCard
               icon={AlertIcon}
               title="Internal contradictions"
               body="Pairwise consistency check across claims within the same document. Page 3 says X, page 12 says not-X."
-              trigger={featuresReveal.isVisible}
+              trigger={featuresVisible}
               delay={360}
             />
           </div>
@@ -366,9 +367,9 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* HOW IT WORKS                                                 */}
         {/* ============================================================ */}
-        <section ref={pipelineReveal.ref} className="relative bg-muted py-28">
+        <section ref={pipelineRef} className="relative bg-muted py-28">
           <div className="mx-auto max-w-3xl px-6">
-            <div className={`text-center transition-all duration-700 ${pipelineReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+            <div className={`text-center transition-all duration-700 ${pipelineVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">How it works</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
                 Two phases. One audit.
@@ -380,10 +381,10 @@ export default function HomePage() {
             </div>
 
             <div className="mt-16">
-              <PipelineStep step={1} title="Parse & atomize" body="PDF or text is parsed, then broken into atomic, independently verifiable claims. A checkworthiness gate filters trivial statements." trigger={pipelineReveal.isVisible} delay={0} />
-              <PipelineStep step={2} title="Autonomous verification" body="A self-directed verifier investigates each claim in parallel — choosing its own tools and sources, constrained only by the output schema. A consistency checker runs alongside it to catch claims that contradict each other." trigger={pipelineReveal.isVisible} delay={200} />
-              <PipelineStep step={3} title="Confidence & cross-verification" body="Each verdict is corroborated against multiple independent, authoritative sources. Confidence is then decomposed into four auditable factors — source agreement, source authority, evidence freshness, and evidence specificity." trigger={pipelineReveal.isVisible} delay={400} />
-              <PipelineStep step={4} title="Audit report" body="Findings are ranked by severity and confidence. An exportable PDF audit report is generated — ready to file, attach, or cite." trigger={pipelineReveal.isVisible} delay={600} isLast />
+              <PipelineStep step={1} title="Parse & atomize" body="PDF or text is parsed, then broken into atomic, independently verifiable claims. A checkworthiness gate filters trivial statements." trigger={pipelineVisible} delay={0} />
+              <PipelineStep step={2} title="Autonomous verification" body="A self-directed verifier investigates each claim in parallel — choosing its own tools and sources, constrained only by the output schema. A consistency checker runs alongside it to catch claims that contradict each other." trigger={pipelineVisible} delay={200} />
+              <PipelineStep step={3} title="Confidence & cross-verification" body="Each verdict is corroborated against multiple independent, authoritative sources. Confidence is then decomposed into four auditable factors — source agreement, source authority, evidence freshness, and evidence specificity." trigger={pipelineVisible} delay={400} />
+              <PipelineStep step={4} title="Audit report" body="Findings are ranked by severity and confidence. An exportable PDF audit report is generated — ready to file, attach, or cite." trigger={pipelineVisible} delay={600} isLast />
             </div>
           </div>
         </section>
@@ -391,9 +392,9 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* REASONING TRANSPARENCY                                       */}
         {/* ============================================================ */}
-        <section ref={transparencyReveal.ref} className="mx-auto max-w-5xl px-6 py-28">
+        <section ref={transparencyRef} className="mx-auto max-w-5xl px-6 py-28">
           <div className="grid items-center gap-14 md:grid-cols-2">
-            <div className={`transition-all duration-700 ${transparencyReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+            <div className={`transition-all duration-700 ${transparencyVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Core differentiator</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
                 Reasoning you can read.
@@ -420,12 +421,12 @@ export default function HomePage() {
 
             {/* Mini trace demo — dark code surface */}
             <div
-              className={`overflow-hidden rounded-[var(--radius-card)] border border-border bg-[#101114] p-5 shadow-[var(--shadow-card-hover)] transition-all duration-700 delay-200 ${transparencyReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+              className={`overflow-hidden rounded-[var(--radius-card)] border border-border bg-[#101114] p-5 shadow-[var(--shadow-card-hover)] transition-all duration-700 delay-200 ${transparencyVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
             >
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/30">
                 Live reasoning trace
               </p>
-              <TraceTypewriterInline />
+              <TraceTypewriter />
             </div>
           </div>
         </section>
@@ -433,9 +434,9 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* WHO USES ARGUS                                               */}
         {/* ============================================================ */}
-        <section ref={personaReveal.ref} className="relative bg-muted py-28">
+        <section ref={personaRef} className="relative bg-muted py-28">
           <div className="mx-auto max-w-5xl px-6">
-            <div className={`text-center transition-all duration-700 ${personaReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+            <div className={`text-center transition-all duration-700 ${personaVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Who uses Argus</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
                 Built for teams that receive AI output.
@@ -474,7 +475,7 @@ export default function HomePage() {
               ].map((p, i) => (
                 <div
                   key={p.title}
-                  className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${personaReveal.isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
+                  className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-all duration-500 hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${personaVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}
                   style={{ transitionDelay: `${i * 120}ms` }}
                 >
                   <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary">
@@ -532,12 +533,4 @@ export default function HomePage() {
       </main>
     </>
   );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Inline trace typewriter for the transparency section              */
-/* ------------------------------------------------------------------ */
-function TraceTypewriterInline() {
-  const { TraceTypewriter } = require("@/components/trace-typewriter");
-  return <TraceTypewriter />;
 }

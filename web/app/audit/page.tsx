@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { motion, useReducedMotion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useArgusStore, type ConsoleMode } from "@/lib/store";
 import { ArgusHeader } from "@/components/argus-header";
@@ -528,12 +527,6 @@ function AuditPageContent() {
 // CountUp. Honors prefers-reduced-motion (BlurText/CountUp degrade gracefully
 // when not in view / reduced motion via their own guards).
 function VerdictHero({ job }: { job: Job }) {
-  const reduceMotion = useReducedMotion();
-  // Verdict bloom: fires when BlurText finishes resolving (blur→sharp). Flares
-  // to 0.8 then decays like an afterglow to a resting 0.2 over ~1.5s. Under
-  // reduced motion it just sits at a low constant tint (no flash).
-  const [revealed, setRevealed] = useState(false);
-
   const sev = { critical: 0, major: 0, minor: 0 };
   for (const f of job.findings) {
     if (f.severity === "critical") sev.critical++;
@@ -571,46 +564,16 @@ function VerdictHero({ job }: { job: Job }) {
     headline = "Argus found issues worth reviewing.";
   }
 
-  // Re-arm the bloom whenever the headline (and thus BlurText) remounts.
-  useEffect(() => {
-    setRevealed(false);
-  }, [headline]);
-
   const counts: Array<{ n: number; label: string; color: string }> = [];
   if (sev.critical) counts.push({ n: sev.critical, label: "critical", color: "var(--cc-danger)" });
   if (sev.major) counts.push({ n: sev.major, label: "major", color: "var(--cc-warn)" });
   if (sev.minor) counts.push({ n: sev.minor, label: "minor", color: "var(--cc-text-muted)" });
-
-  const glowColor = toneColor[tone];
 
   return (
     <section
       role="status"
       className="relative flex h-16 items-center gap-4 overflow-hidden border-b border-[var(--cc-border)] px-6"
     >
-      {/* Verdict neon bloom behind the headline — synced to BlurText reveal.
-          Large, heavily blurred radial gradient tinted by verdict tone. */}
-      <motion.span
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-1/2 -z-0 h-[200%] w-[60%] -translate-y-1/2 rounded-full"
-        style={{
-          background: `radial-gradient(50% 60% at 28% 50%, color-mix(in oklab, ${glowColor} 55%, transparent) 0%, color-mix(in oklab, ${glowColor} 20%, transparent) 40%, transparent 72%)`,
-          filter: "blur(40px)",
-        }}
-        initial={{ opacity: reduceMotion ? 0.2 : 0 }}
-        animate={
-          reduceMotion
-            ? { opacity: 0.2 }
-            : revealed
-              ? { opacity: [0, 0.8, 0.2] }
-              : { opacity: 0 }
-        }
-        transition={
-          reduceMotion
-            ? { duration: 0 }
-            : { duration: 1.6, times: [0, 0.18, 1], ease: "easeOut" }
-        }
-      />
       <span
         aria-hidden
         className="cc-status-dot relative size-3 shrink-0 rounded-full"
@@ -623,7 +586,6 @@ function VerdictHero({ job }: { job: Job }) {
           className="text-base font-bold tracking-tight text-[var(--cc-text)] md:text-lg"
           animateBy="words"
           delay={60}
-          onAnimationComplete={() => setRevealed(true)}
         />
         <p className="mt-1 text-xs text-muted-foreground">
           {issues === 0
