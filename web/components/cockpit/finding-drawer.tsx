@@ -332,7 +332,7 @@ export function FindingDrawer() {
                                       compare
                                     </span>
                                   </div>
-                                  <p className="mt-1 text-sm font-medium text-[var(--cc-text)]">
+                                  <p className="mt-1 text-sm font-medium text-[var(--cc-text)] break-words">
                                     {e.citation}
                                   </p>
                                   {e.snippet && (

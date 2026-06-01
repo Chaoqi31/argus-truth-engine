@@ -134,12 +134,12 @@ export function EvidenceTab({ job, findingId }: Props) {
                       href={safeHttpUrl(e.url)!}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="text-xs text-primary underline-offset-2 hover:underline"
+                      className="min-w-0 break-all text-right text-xs text-primary underline-offset-2 hover:underline"
                     >
                       {e.citation}
                     </a>
                   ) : e.citation ? (
-                    <span className="text-xs text-muted-foreground">{e.citation}</span>
+                    <span className="min-w-0 break-all text-xs text-muted-foreground">{e.citation}</span>
                   ) : null}
                 </div>
                 {e.snippet && (

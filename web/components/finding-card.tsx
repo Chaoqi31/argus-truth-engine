@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef, useState } from "react";
 import type { Finding } from "@/lib/types";
 import { SeverityBadge } from "@/components/severity-badge";
 import { verdictTone } from "@/lib/colors";
@@ -33,46 +32,22 @@ const TONE_RING: Record<"danger" | "warn" | "ok" | "muted", string> = {
 };
 
 /**
- * Premium finding card — dark cockpit treatment.
+ * Finding card — light cockpit treatment.
  *
  * Keeps the existing button semantics + onClick contract (FindingsTab passes
- * `onClick` to select the finding). Adds a pointer-following spotlight glow on
- * hover (SpotlightCard aesthetic, self-contained so the <button> stays the only
- * interactive element) and a small confidence ring.
+ * `onClick` to select the finding). Subtle border/shadow hover lift and a small
+ * confidence ring — no neon glow.
  */
 export function FindingCard({ finding, active, onClick }: Props) {
   const tone = verdictTone[finding.verdict];
-  const ref = useRef<HTMLDivElement>(null);
-  const [spot, setSpot] = useState<{ x: number; y: number; on: boolean }>({
-    x: 0,
-    y: 0,
-    on: false,
-  });
   const pct = Math.round(finding.confidence * 100);
 
   return (
     <div
-      ref={ref}
-      onMouseMove={(e) => {
-        const r = ref.current?.getBoundingClientRect();
-        if (!r) return;
-        setSpot({ x: e.clientX - r.left, y: e.clientY - r.top, on: true });
-      }}
-      onMouseLeave={() => setSpot((s) => ({ ...s, on: false }))}
-      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--cc-glow-hover)] ${
+      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] ${
         active ? "border-primary" : "border-border hover:border-border-strong"
       }`}
     >
-      {/* Pointer-following spotlight glow (subtle on the light theme). */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          opacity: spot.on ? undefined : 0,
-          background: `radial-gradient(220px circle at ${spot.x}px ${spot.y}px, var(--cc-border-glow, transparent), transparent 70%)`,
-        }}
-      />
-
       {/* Vertical accent bar coloured by verdict tone */}
       <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${TONE_BAR[tone]}`} />
 
