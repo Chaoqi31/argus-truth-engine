@@ -16,6 +16,8 @@ export function ArgusHeader({ rightSlot }: Props) {
           <span className="text-xl font-bold tracking-tight">Argus</span>
         </Link>
         <nav className="ml-6 flex items-center gap-4 text-sm text-muted-foreground">
+          <Link href="/incidents" className="hover:text-foreground">Incidents</Link>
+          <Link href="/miromind" className="hover:text-foreground">Powered by MiroMind</Link>
           <Link href="/for-teams" className="hover:text-foreground">For teams</Link>
         </nav>
       </div>
