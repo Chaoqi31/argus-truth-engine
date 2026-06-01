@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from "react";
 
+// Real lines from the bundled NVIDIA sample audit — agents, queries, and
+// verdicts all match the fixture. No fabricated trace data.
 const LINES = [
-  { seq: 1, icon: "plan", agent: "Atomizer", text: "Extracted 24 claims from document" },
-  { seq: 3, icon: "search", agent: "UnifiedVerifier", text: '"Smith 2021 widget resilience SSRN"' },
-  { seq: 4, icon: "fetch", agent: "UnifiedVerifier", text: "https://api.crossref.org/works/…" },
-  { seq: 5, icon: "think", agent: "UnifiedVerifier", text: '"Crossref 404, no DOI on arXiv either"' },
-  { seq: 6, icon: "finding", agent: "UnifiedVerifier", text: "fabricated · major · 0.91" },
-  { seq: 8, icon: "search", agent: "UnifiedVerifier", text: '"US GDP growth rate 2024 FRED"' },
-  { seq: 9, icon: "finding", agent: "UnifiedVerifier", text: "stale · critical · 0.96" },
-  { seq: 11, icon: "think", agent: "ConsistencyChecker", text: '"Claim 7 says 12%, claim 19 says 8%"' },
-  { seq: 12, icon: "finding", agent: "ConsistencyChecker", text: "contradiction · major · 0.88" },
+  { seq: 1, icon: "plan", agent: "Atomizer", text: "Split into 7 atomic claims" },
+  { seq: 2, icon: "search", agent: "UnifiedVerifier", text: '"Silicon Supercycle" Goldman Sachs' },
+  { seq: 3, icon: "search", agent: "UnifiedVerifier", text: 'site:goldmansachs.com "Silicon Supercycle"' },
+  { seq: 4, icon: "think", agent: "UnifiedVerifier", text: "No record across 77 search variants" },
+  { seq: 5, icon: "finding", agent: "UnifiedVerifier", text: "fabricated · major · 0.93" },
+  { seq: 6, icon: "search", agent: "UnifiedVerifier", text: '"NVIDIA data-center revenue FY2025"' },
+  { seq: 7, icon: "finding", agent: "UnifiedVerifier", text: "inaccurate · major · 0.99" },
+  { seq: 8, icon: "think", agent: "ConsistencyChecker", text: '"$148B data-center > $130.5B total"' },
+  { seq: 9, icon: "finding", agent: "ConsistencyChecker", text: "contradiction · critical · 1.00" },
 ];
 
 const ICON_MAP: Record<string, string> = {
