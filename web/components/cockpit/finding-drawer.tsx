@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { FindingVerdict, StepType } from "@/lib/types";
+import type { StepType } from "@/lib/types";
 import { useArgusStore } from "@/lib/store";
-import { verdictTone } from "@/lib/colors";
+import { verdictColorVar } from "@/lib/colors";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
+import { CloseIcon } from "@/components/icons";
 import { safeHttpUrl } from "@/lib/url";
 import { stepOrdinals } from "@/lib/steps";
 /**
@@ -26,14 +27,6 @@ import { stepOrdinals } from "@/lib/steps";
  *     `setEvidenceDiff({ findingId, evidenceId })` (rendered by <EvidenceDiff/>).
  */
 
-/** Verdict tone → cockpit colour token (fallbacks keep it sane in light mode). */
-const TONE_COLOR: Record<"danger" | "warn" | "ok" | "muted", string> = {
-  danger: "var(--cc-danger, #d92d20)",
-  warn: "var(--cc-warn, #d18700)",
-  ok: "var(--cc-ok, #149e61)",
-  muted: "var(--cc-text-muted, #9497a9)",
-};
-
 /** Short typographic tags for trace step types (no emoji, terminal aesthetic). */
 const STEP_TAG: Record<StepType, string> = {
   thinking: "think",
@@ -50,8 +43,7 @@ export function FindingDrawer() {
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
   const setEvidenceDiff = useArgusStore((s) => s.setEvidenceDiff);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
-  const setHighlightedStep = useArgusStore((s) => s.setHighlightedStep);
-  const setConsoleMode = useArgusStore((s) => s.setConsoleMode);
+  const storeJumpToStep = useArgusStore((s) => s.jumpToStep);
   const job = useArgusStore((s) => s.job);
   const reduceMotion = useReducedMotion();
 
@@ -62,8 +54,7 @@ export function FindingDrawer() {
   // focus the producing node in graph mode, and close the drawer to reveal it.
   const jumpToStep = (stepId: string) => {
     if (finding) setActiveFinding(finding.id);
-    setHighlightedStep(stepId);
-    setConsoleMode("graph");
+    storeJumpToStep(stepId);
     setDrawerFinding(null);
   };
 
@@ -87,10 +78,7 @@ export function FindingDrawer() {
   // Small 1-based step labels ("step 3") in place of the large raw `sequence`.
   const ordinals = trace ? stepOrdinals(trace.steps) : new Map<string, number>();
 
-  const tone: "danger" | "warn" | "ok" | "muted" = finding
-    ? verdictTone[finding.verdict as FindingVerdict]
-    : "muted";
-  const toneColor = TONE_COLOR[tone];
+  const toneColor = finding ? verdictColorVar(finding.verdict) : "var(--cc-text-muted, #9497a9)";
   const confidencePct = finding ? Math.round(finding.confidence * 100) : 0;
 
   return (
@@ -425,19 +413,6 @@ function ConfidenceRing({ pct, color }: { pct: number; color: string }) {
         mask: "radial-gradient(circle 5px, transparent 62%, black 64%)",
       }}
     />
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path
-        d="M3 3l8 8M11 3l-8 8"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 

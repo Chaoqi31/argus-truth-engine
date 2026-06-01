@@ -18,7 +18,7 @@ import "@xyflow/react/dist/style.css";
 import { useArgusStore } from "@/lib/store";
 import type { Evidence, ReasoningTrace, Step, StepType } from "@/lib/types";
 import { stepIcon } from "@/lib/colors";
-import { stepOrdinals } from "@/lib/steps";
+import { sortStepsBySequence, stepOrdinals } from "@/lib/steps";
 
 // Step-type colours come from CSS custom properties so they adapt to dark
 // mode. See `--vis-*` tokens in globals.css.
@@ -48,7 +48,7 @@ const NODE_WIDTH = 280;
 const NODE_HEIGHT = 72;
 
 export function _buildGraph(trace: ReasoningTrace): { nodes: Node[]; edges: Edge[] } {
-  const sorted = [...trace.steps].sort((a, b) => a.sequence - b.sequence);
+  const sorted = sortStepsBySequence(trace.steps);
   const nodes: Node[] = sorted.map((s: Step, i: number) => ({
     id: s.id,
     position: { x: 240, y: i * 110 },
@@ -88,7 +88,7 @@ function truncate(s: string, n: number): string {
  * `message` step by sequence, else the highest-sequence step overall.
  */
 function verdictStepId(trace: ReasoningTrace): string | null {
-  const sorted = [...trace.steps].sort((a, b) => a.sequence - b.sequence);
+  const sorted = sortStepsBySequence(trace.steps);
   if (sorted.length === 0) return null;
   const messages = sorted.filter((s) => s.type === "message");
   return (messages.at(-1) ?? sorted.at(-1))!.id;

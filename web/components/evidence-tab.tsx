@@ -11,14 +11,8 @@ interface Props {
 }
 
 export function EvidenceTab({ job, findingId }: Props) {
-  const setHighlightedStep = useArgusStore((s) => s.setHighlightedStep);
-  const setConsoleMode = useArgusStore((s) => s.setConsoleMode);
-
   // Jump the Zone-3 console to the DAG and focus the producing step.
-  const jumpToStep = (stepId: string) => {
-    setHighlightedStep(stepId);
-    setConsoleMode("graph");
-  };
+  const jumpToStep = useArgusStore((s) => s.jumpToStep);
 
   if (findingId === null) {
     return <Empty />;

@@ -3,8 +3,10 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useArgusStore } from "@/lib/store";
-import type { Claim, Evidence, Finding } from "@/lib/types";
+import type { Claim, Evidence, Finding, FindingVerdict } from "@/lib/types";
 import { safeHttpUrl } from "@/lib/url";
+import { verdictColorVar } from "@/lib/colors";
+import { CloseIcon } from "@/components/icons";
 
 // ---------------------------------------------------------------------------
 // Diff helpers
@@ -209,20 +211,8 @@ function SourceChip({ evidence }: { evidence: Evidence }) {
 // Verdict badge
 // ---------------------------------------------------------------------------
 
-const VERDICT_COLORS: Record<string, string> = {
-  fabricated: "var(--cc-danger)",
-  misrepresented: "var(--cc-warn)",
-  mismatch: "var(--cc-warn)",
-  "partial-match": "var(--cc-warn)",
-  stale: "var(--cc-text-muted)",
-  superseded: "var(--cc-text-muted)",
-  contradiction: "var(--cc-danger)",
-  ok: "var(--cc-ok)",
-  uncertain: "var(--cc-text-muted)",
-};
-
 function VerdictBadge({ verdict }: { verdict: string }) {
-  const color = VERDICT_COLORS[verdict] ?? "var(--cc-text-muted)";
+  const color = verdictColorVar(verdict as FindingVerdict);
   return (
     <span
       style={{
@@ -553,17 +543,4 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <path
-        d="M3 3l8 8M11 3l-8 8"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
 }

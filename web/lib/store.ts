@@ -48,6 +48,7 @@ interface ArgusState {
   setEvidenceDiff: (target: EvidenceDiffTarget | null) => void;
   setHighlightedStep: (id: string | null) => void;
   setConsoleMode: (mode: ConsoleMode) => void;
+  jumpToStep: (stepId: string) => void;
 }
 
 export type ConsoleMode = "evidence" | "trace" | "graph";
@@ -135,4 +136,5 @@ export const useArgusStore = create<ArgusState>((set) => ({
   setEvidenceDiff: (target) => set({ evidenceDiff: target }),
   setHighlightedStep: (id) => set({ highlightedStepId: id }),
   setConsoleMode: (mode) => set({ consoleMode: mode }),
+  jumpToStep: (stepId) => set({ highlightedStepId: stepId, consoleMode: "graph" }),
 }));
