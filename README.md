@@ -96,85 +96,88 @@ human can read what we did and trust the verdict.**
 
 ## ✨ Reasoning transparency
 
-Every finding includes a structured **reasoning chain** — not raw model
-thinking, but a curated sequence of action/observation/reasoning triples
-that show exactly how the verdict was reached:
+Every finding ships with both a curated **reasoning chain** (action / observation
+/ reasoning triples) and the **full step trace** — every thought, web search, and
+page fetch the verifier actually made. From the bundled sample audit, the verifier
+catching a fabricated citation:
 
 ```
-Step 1: Checked BEA's Q3 2024 Advance Estimate
-  → Found: GDP growth 2.8%, contradicts claimed 1.6%
-  → Reasoning: Initial official figure already differs from claim
+Claim: "a February 2026 Goldman Sachs report titled
+        'Silicon Supercycle: The $5 Trillion AI Buildout'…"
 
-Step 2: Checked BEA's Q3 2024 Second Estimate
-  → Found: Still 2.8%
-  → Reasoning: Two estimates agree, 1.6% is definitively wrong
+  🔍 77 distinct searches — exact title, site:goldmansachs.com, filetype:pdf,
+     paraphrases, Scholar / ResearchGate / LinkedIn, negations …
+  → no record of any such report, in any form
+  → closest real GS piece: "Tracking Trillions: The Assumptions Shaping the
+     Scale of the AI Build-Out" (~$7.6T capex, 2026–2031) — different title,
+     different numbers
 
-Step 3: Checked BEA's Q3 2024 Third (Final) Estimate
-  → Found: Revised to 3.1%
-  → Reasoning: Most current official figure confirms the error
-
-Step 4: Traced origin of 1.6% figure
-  → Found: Belongs to Q1 2024, not Q3
-  → Reasoning: Claim conflated Q1 and Q3 data — inaccurate, not fabricated
+  Verdict: fabricated (0.93) — the citation invents both the report title and
+  its attribution to Goldman Sachs.
 ```
 
-During a **live audit**, the frontend streams every step over WebSocket as it
-happens; in the **sample audit**, you replay the same recorded trace step by
-step. Either way, reviewers see not just the verdict, but *why* it's wrong and
-*what the correct answer is* — with clickable source URLs for independent
-verification.
+The trace panel uses **progressive disclosure**: each claim is one collapsed
+row showing its verdict and step/search counts; expand a claim to read its
+reasoning stream, expand a search to open its result links. Key numbers first,
+the full firehose only on request. During a **live audit** the frontend streams
+every step over WebSocket as it happens; the sample audit replays the same
+recorded trace. Either way reviewers see not just the verdict, but *why* it's
+wrong, *what the correct answer is*, and clickable source URLs to check it.
 
 ## 🏗️ How it works
 
-A LangGraph state machine orchestrates the pipeline in two phases:
+A LangGraph state machine orchestrates the pipeline in two phases, split by a
+human-in-the-loop review gate:
 
 ```
                       ┌─────────────────────────────┐
                       │   📄 Ingest (PDF or text)     │
                       └──────────────┬──────────────┘
                                      ▼
-                 Phase A — Preprocessing (DeepSeek, cheap)
-                      ┌─────────────────────────────┐
-                      │  🧠 Planner → Atomizer        │
-                      │  → typed atomic claims        │
-                      └──────────────┬──────────────┘
+        Phase A — claim extraction (DeepSeek + deterministic, no web)
+        ┌────────────────────────────────────────────────────────────┐
+        │  parse → 🧠 planner → atomizer → 🎯 checkworthiness           │
+        │  → typed atomic claims; opinions / trivia dropped            │
+        └──────────────────────────┬─────────────────────────────────┘
                                      ▼
                       ┌─────────────────────────────┐
-                      │  🎯 CheckWorthiness gate      │
-                      │  → drops trivial claims       │
+                      │  🚦 Review gate (HITL pause)  │  human picks which
+                      │  dedupe + cost cap + select   │  claims to verify
                       └──────────────┬──────────────┘
-                                     │
-                 Phase B — Verification (MiroMind, deep research)
-                                     │  fan-out (all claims)
+                                     │  fan-out — selected claims, in parallel
+        Phase B — verification       │
                       ┌──────────────┴──────────────┐
                       ▼                             ▼
-               ┌─────────────┐             ┌────────────┐
-               │  Unified    │             │Consistency │
-               │  Verifier   │             │  Checker   │
-               │ (per claim) │             │ (pairwise) │
-               └──────┬──────┘             └─────┬──────┘
-                      └──────────┬───────────────┘
+            ┌────────────────────┐        ┌─────────────────────┐
+            │ 🔬 UnifiedVerifier   │        │ 🧩 Consistency       │
+            │  ★ MiroMind ★       │        │    Checker           │
+            │  live web research  │        │  (DeepSeek, no web)  │
+            │  one call / claim   │        │  cross-claim         │
+            └─────────┬──────────┘        └─────────┬───────────┘
+                      └──────────┬─────────────────┘
                                  ▼
                       ┌─────────────────────────────┐
-                      │  📊 Confidence Calculator     │
+                      │ 📊 Confidence (deterministic) │  3 measured factors
+                      │                               │  + soft ≥2-source flag
                       └──────────────┬──────────────┘
                                      ▼
                       ┌─────────────────────────────┐
-                      │  📋 Reporter → audit report   │
+                      │  📋 Reporter (DeepSeek)       │
                       │  → executive summary + PDF    │
                       └─────────────────────────────┘
 ```
 
-The **UnifiedVerifier** has full autonomy over its verification strategy —
-it chooses which sources to check, which APIs to query, and how many steps
-to take. We constrain only the *output format* (verdict + why_wrong +
-correct_information + reasoning_chain) to guarantee transparency.
-Non-prescriptive **domain hints** suggest relevant authoritative sources
-based on claim type and content domain, without forcing a fixed search order.
+**Only the per-claim UnifiedVerifier calls MiroMind.** It has full autonomy
+over its verification strategy — which sources to check, which tools to use
+(web search, fetch, code), and how many steps to take. We constrain only the
+*output format* (verdict + why_wrong + correct_information + reasoning_chain)
+to guarantee transparency. Non-prescriptive **domain hints** suggest relevant
+authoritative sources by claim type without forcing a fixed search order.
 
-Atomizer / CheckWorthiness run on DeepSeek (cheap) so MiroMind spend stays
-in the verifier where it matters. A single-claim smoke test costs ~$0.16 in
-model calls.
+Everything else runs off the critical path: planner, atomizer, checkworthiness,
+the consistency checker, and the reporter all run on **DeepSeek** (cheap, no
+web); parse, the review gate, and confidence are **deterministic**. That keeps
+MiroMind's deep-research budget on the one step that actually needs the open web.
 
 ### Engineering controls
 
@@ -183,6 +186,8 @@ model calls.
 - **`retry_on_transient`** — exponential backoff for `429` / `5xx` from upstream
 - **`make_idempotency_key`** — deterministic job-keyed idempotency
 - **`json-repair`** — heuristic LLM JSON recovery + array-unwrap for MiroMind quirks
+- **`SSEDecoder`** — stateful stream parser that buffers across network chunk boundaries, so an SSE event split across two TCP/HTTP chunks is reassembled, never dropped — faithful trace text and intact evidence URLs
+- **soft ≥2-source rule** — verdicts resting on too few independent sources are confidence-capped and flagged for manual review, not silently discarded
 
 ### Storage & live bus
 
@@ -205,7 +210,7 @@ uv run argus serve --host 127.0.0.1 --port 8080
 cd web && pnpm install && pnpm dev
 
 # 3. Open http://localhost:3000
-#    Click "…or try the sample audit" to see a curated audit without an API key.
+#    Click "See a sample audit" to replay a real recorded audit — no API key needed.
 ```
 
 ### Option B — CLI
@@ -234,7 +239,7 @@ uv run argus audit examples/sample-report.pdf \
 
 | Layer | Choice |
 |---|---|
-| **Models** | MiroMind `mirothinker-1-7-deepresearch` (verifier/consistency/reporter) + DeepSeek (atomizer/checkworthiness) |
+| **Models** | MiroMind `mirothinker-1-7-deepresearch` (per-claim verifier — the only step that touches the live web) + DeepSeek `deepseek-chat` (planner / atomizer / checkworthiness / consistency / reporter) |
 | **Orchestration** | LangGraph 1.x StateGraph with parallel fan-out + reducer fan-in |
 | **Backend** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + raw SSE |
 | **Persistence** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
