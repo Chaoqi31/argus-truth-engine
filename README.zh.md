@@ -27,7 +27,7 @@
 
 这个问题背后有真实且可查证的数据：
 
-- 已有 **1,400+** 份法庭文件被发现引用了 AI 编造（幻觉）的虚假判例 ——
+- 已有 **1,353+** 份法庭文件被发现引用了 AI 编造（幻觉）的虚假判例 ——
   [追踪统计](https://www.damiencharlotin.com/hallucinations/)（Damien Charlotin，HEC Paris）
   仍在以每天数例的速度增长。
 - Gartner 预测 **30% 的生成式 AI 项目将在 2025 年底前、于 PoC 阶段后被放弃** ——
@@ -108,38 +108,39 @@ Step 4: 追溯 1.6% 这个数字的来源
 
 ```
                       ┌─────────────────────────────┐
-                      │   📄 Ingest (PDF or text)     │
+                      │   📄 输入（PDF 或文本）        │
                       └──────────────┬──────────────┘
                                      ▼
-                 阶段 A —— 预处理（DeepSeek，成本低）
-                      ┌─────────────────────────────┐
-                      │  🧠 Planner → Atomizer        │
-                      │  → typed atomic claims        │
-                      └──────────────┬──────────────┘
+        阶段 A —— 抽取声明（DeepSeek + 确定性，不联网）
+        ┌────────────────────────────────────────────────────────────┐
+        │  parse → 🧠 planner → atomizer → 🎯 checkworthiness          │
+        │  → 类型化的原子声明；观点 / 琐碎信息被丢弃                      │
+        └──────────────────────────┬─────────────────────────────────┘
                                      ▼
                       ┌─────────────────────────────┐
-                      │  🎯 CheckWorthiness gate      │
-                      │  → drops trivial claims       │
+                      │  🚦 审核闸门（HITL 暂停）      │  人工挑选要
+                      │  去重 + 成本上限 + 选择        │  验证哪些声明
                       └──────────────┬──────────────┘
-                                     │
-                 阶段 B —— 验证（MiroMind，深度研究）
-                                     │  fan-out（全部声明）
+                                     │  fan-out —— 选中的声明，并行
+        阶段 B —— 验证                │
                       ┌──────────────┴──────────────┐
                       ▼                             ▼
-               ┌─────────────┐             ┌────────────┐
-               │  Unified    │             │Consistency │
-               │  Verifier   │             │  Checker   │
-               │ (per claim) │             │ (pairwise) │
-               └──────┬──────┘             └─────┬──────┘
-                      └──────────┬───────────────┘
+            ┌────────────────────┐        ┌─────────────────────┐
+            │ 🔬 UnifiedVerifier   │        │ 🧩 一致性检查器       │
+            │  ★ MiroMind ★       │        │  （DeepSeek，不联网） │
+            │  实时联网深度研究     │        │  跨声明矛盾检测       │
+            │  每条声明一次调用     │        │                     │
+            └─────────┬──────────┘        └─────────┬───────────┘
+                      └──────────┬─────────────────┘
                                  ▼
                       ┌─────────────────────────────┐
-                      │  📊 Confidence Calculator     │
+                      │ 📊 置信度（确定性）           │  3 个度量因子
+                      │                               │  + 软 ≥2 来源标记
                       └──────────────┬──────────────┘
                                      ▼
                       ┌─────────────────────────────┐
-                      │  📋 Reporter → audit report   │
-                      │  → executive summary + PDF    │
+                      │  📋 Reporter（DeepSeek）      │
+                      │  → 执行摘要 + PDF             │
                       └─────────────────────────────┘
 ```
 
@@ -148,7 +149,7 @@ Step 4: 追溯 1.6% 这个数字的来源
 correct_information + reasoning_chain），以保证透明度。非强制性的**领域提示**
 （domain hints）会根据声明类型和内容领域建议相关的权威来源，但不会强制固定的检索顺序。
 
-Atomizer / CheckWorthiness 运行在 DeepSeek 上（成本低），让 MiroMind 的费用集中花在真正重要的验证器上。单条声明的冒烟测试模型调用成本约 ~$0.16。
+**只有 per-claim 的 UnifiedVerifier 调用 MiroMind。** 其余环节都不在关键联网路径上：planner、atomizer、checkworthiness、一致性检查器、reporter 全部运行在 **DeepSeek**（成本低、不联网）；parse、审核闸门、置信度为**确定性**。这样把 MiroMind 的深度研究预算只花在真正需要开放网络的那一步 —— 验证。
 
 ### 工程化控制
 
@@ -157,6 +158,8 @@ Atomizer / CheckWorthiness 运行在 DeepSeek 上（成本低），让 MiroMind 
 - **`retry_on_transient`** — 针对上游 `429` / `5xx` 的指数退避重试
 - **`make_idempotency_key`** — 确定性的 job-keyed 幂等键
 - **`json-repair`** — LLM JSON 输出的启发式修复 + 针对 MiroMind 怪异返回的数组解包
+- **`SSEDecoder`** — 跨网络分块缓冲的有状态流解析器：一个被 TCP/HTTP 分块切断的 SSE 事件会被重新拼接、绝不丢失 —— 保证 trace 文本忠实、证据 URL 完整
+- **软性 ≥2 来源规则** — 仅靠过少独立来源支撑的判定会被**封顶置信度并标记需人工复核**，而非悄悄丢弃
 
 ### 存储与实时事件流
 
@@ -205,7 +208,7 @@ uv run argus audit examples/sample-report.pdf \
 
 | 层 | 选型 |
 |---|---|
-| **模型** | MiroMind `mirothinker-1-7-deepresearch`（验证器 / 一致性 / 报告）+ DeepSeek（atomizer / checkworthiness） |
+| **模型** | MiroMind `mirothinker-1-7-deepresearch`（仅 per-claim 验证器，联网深度研究）+ DeepSeek（planner / atomizer / checkworthiness / 一致性 / reporter） |
 | **编排** | LangGraph 1.x StateGraph，并行 fan-out + reducer fan-in |
 | **后端** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + 原生 SSE |
 | **持久化** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
