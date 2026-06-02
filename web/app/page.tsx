@@ -7,7 +7,6 @@ import { useState } from "react";
 import { useScrollReveal } from "@/lib/use-scroll-reveal";
 import { useCountUp } from "@/lib/use-count-up";
 import { HeroProductMock } from "@/components/hero-product-mock";
-import { TraceTypewriter } from "@/components/trace-typewriter";
 import Link from "next/link";
 import Image from "next/image";
 import { ArgusMark } from "@/components/argus-mark";
@@ -468,14 +467,39 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* Mini trace demo — dark code surface */}
+            {/* Mini trace — light, mirrors the cockpit drill-down */}
             <div
-              className={`overflow-hidden rounded-[var(--radius-card)] border border-border bg-[#101114] p-5 shadow-[var(--shadow-card-hover)] transition-[transform,opacity,filter] duration-[760ms] delay-[140ms] ease-enter ${transparencyVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
+              className={`overflow-hidden rounded-[14px] border border-border bg-background shadow-[var(--shadow-card-hover)] transition-[transform,opacity,filter] duration-[760ms] delay-[140ms] ease-enter ${transparencyVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
             >
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/30">
-                Live reasoning trace
-              </p>
-              <TraceTypewriter />
+              <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Reasoning trace</span>
+                <span className="font-mono text-[10px] text-muted-foreground">1 of 7 claims</span>
+              </div>
+              <div className="p-4">
+                <div className="flex items-center gap-2 text-[13px]">
+                  <span aria-hidden className="font-mono text-[9px] text-muted-foreground">▾</span>
+                  <span className="flex-1 truncate font-medium text-foreground">Goldman “Silicon Supercycle” report</span>
+                  <span className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider bg-[color-mix(in_oklab,var(--cc-danger,#d92d20)_15%,transparent)] text-[var(--cc-danger,#d92d20)]">
+                    fabricated
+                  </span>
+                </div>
+                <span className="ml-4 mt-1 block font-mono text-[11px] text-muted-foreground">💭 91 reasoning · 🔍 77 searches</span>
+                <ol className="mt-3 space-y-2 border-l border-border pl-3 font-mono text-[11px]">
+                  <li className="flex items-center justify-between gap-2 text-foreground">
+                    <span className="truncate"><span className="text-muted-foreground">🔍 </span>site:goldmansachs.com &quot;Silicon Supercycle&quot;</span>
+                    <span className="shrink-0 text-muted-foreground">0 hits</span>
+                  </li>
+                  <li className="flex items-center justify-between gap-2 text-foreground">
+                    <span className="truncate"><span className="text-muted-foreground">🔍 </span>&quot;Silicon Supercycle&quot; filetype:pdf</span>
+                    <span className="shrink-0 text-muted-foreground">0 hits</span>
+                  </li>
+                  <li className="text-muted-foreground">💭 No record across 77 search variants</li>
+                  <li className="flex items-center gap-1.5 text-[var(--cc-danger,#d92d20)]">
+                    <span aria-hidden>●</span>
+                    <span>fabricated · 0.93</span>
+                  </li>
+                </ol>
+              </div>
             </div>
           </div>
         </section>
