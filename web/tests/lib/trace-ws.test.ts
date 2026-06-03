@@ -5,6 +5,9 @@ import type { TraceEvent } from "@/lib/trace-ws";
 // Minimal in-memory WebSocket stand-in.
 class FakeSocket {
   static instances: FakeSocket[] = [];
+  // When > 0, the next N constructed sockets fail to connect: they fire
+  // onerror then a non-clean onclose (1006) WITHOUT ever firing onopen.
+  static failConnect = 0;
   readyState = 0;
   url: string;
   onopen: ((ev: Event) => void) | null = null;
@@ -15,7 +18,15 @@ class FakeSocket {
   constructor(url: string) {
     this.url = url;
     FakeSocket.instances.push(this);
+    const failing = FakeSocket.failConnect > 0;
+    if (failing) FakeSocket.failConnect--;
     queueMicrotask(() => {
+      if (failing) {
+        this.readyState = 3;
+        this.onerror?.(new Event("error"));
+        this.onclose?.(new CloseEvent("close", { code: 1006, reason: "abnormal" }));
+        return;
+      }
       this.readyState = 1;
       this.onopen?.(new Event("open"));
     });
@@ -38,6 +49,7 @@ class FakeSocket {
 
 beforeEach(() => {
   FakeSocket.instances = [];
+  FakeSocket.failConnect = 0;
   (globalThis as unknown as { WebSocket: typeof FakeSocket }).WebSocket = FakeSocket;
 });
 
@@ -143,5 +155,78 @@ describe("subscribeTrace", () => {
     FakeSocket.instances[0].serverDrop();
     await new Promise((r) => setTimeout(r, 20));
     expect(FakeSocket.instances).toHaveLength(1);
+  });
+
+  it("fires onConnected on open and resets the reconnect budget", async () => {
+    let connectedCount = 0;
+    let gaveUp = false;
+    subscribeTrace(
+      "job_c",
+      {
+        onEvent: () => {},
+        onConnected: () => connectedCount++,
+        onGiveUp: () => {
+          gaveUp = true;
+        },
+      },
+      { wsHost: "h:1", reconnectDelayMs: 5, maxReconnectAttempts: 1 },
+    );
+
+    await flush();
+    expect(connectedCount).toBe(1);
+
+    // A mid-stream drop after a good open should reconnect (budget was reset),
+    // not give up, even though maxReconnectAttempts is 1.
+    FakeSocket.instances[0].serverDrop();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(connectedCount).toBe(2);
+    expect(gaveUp).toBe(false);
+  });
+
+  it("retries transient failed connects without giving up while under budget", async () => {
+    let gaveUp = false;
+    let errorCount = 0;
+    FakeSocket.failConnect = 2; // first two sockets fail, third succeeds
+    subscribeTrace(
+      "job_t",
+      {
+        onEvent: () => {},
+        onError: () => errorCount++,
+        onGiveUp: () => {
+          gaveUp = true;
+        },
+      },
+      { wsHost: "h:1", reconnectDelayMs: 5, maxReconnectAttempts: 5 },
+    );
+
+    await new Promise((r) => setTimeout(r, 40));
+    // 2 failed + 1 successful = 3 sockets created.
+    expect(FakeSocket.instances).toHaveLength(3);
+    expect(errorCount).toBe(2);
+    expect(gaveUp).toBe(false);
+  });
+
+  it("calls onGiveUp exactly once after maxReconnectAttempts failed connects", async () => {
+    let giveUpCount = 0;
+    FakeSocket.failConnect = 50; // every socket fails to connect
+    subscribeTrace(
+      "job_g",
+      {
+        onEvent: () => {},
+        onGiveUp: () => giveUpCount++,
+      },
+      { wsHost: "h:1", reconnectDelayMs: 5, maxReconnectAttempts: 3 },
+    );
+
+    await new Promise((r) => setTimeout(r, 60));
+    // initial + 3 reconnects = 4 sockets, then give up (no further sockets).
+    expect(FakeSocket.instances).toHaveLength(4);
+    expect(giveUpCount).toBe(1);
+
+    // No further sockets after give-up.
+    await new Promise((r) => setTimeout(r, 30));
+    expect(FakeSocket.instances).toHaveLength(4);
+    expect(giveUpCount).toBe(1);
   });
 });
