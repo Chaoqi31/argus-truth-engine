@@ -4,6 +4,7 @@ import {
   JobNotFoundError,
   UnsupportedMediaTypeError,
   getJob,
+  submitClaimSelection,
   uploadPdf,
 } from "@/lib/api";
 
@@ -61,6 +62,58 @@ describe("uploadPdf", () => {
     );
     const file = new File(["x"], "x.pdf", { type: "application/pdf" });
     await expect(uploadPdf(file)).rejects.toBeInstanceOf(ArgusApiError);
+  });
+});
+
+describe("submitClaimSelection", () => {
+  it("posts selected claim ids and resolves on 200", async () => {
+    const captured: { url?: string; init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (url, init) => {
+      captured.url = String(url);
+      captured.init = init;
+      return new Response(null, { status: 200 });
+    });
+
+    await submitClaimSelection("job_abc", ["c1", "c2"]);
+
+    expect(captured.url).toBe("/api/argus/jobs/job_abc/claims/select");
+    expect(captured.init?.method).toBe("POST");
+    expect(JSON.parse(captured.init?.body as string)).toEqual({
+      selected_claim_ids: ["c1", "c2"],
+    });
+  });
+
+  it("includes X-Miromind-Key header when apiKey is provided", async () => {
+    const captured: { init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (_, init) => {
+      captured.init = init;
+      return new Response(null, { status: 200 });
+    });
+
+    await submitClaimSelection("job_abc", ["c1"], "my-test-key");
+
+    expect((captured.init?.headers as Record<string, string>)["X-Miromind-Key"]).toBe(
+      "my-test-key",
+    );
+  });
+
+  it("omits X-Miromind-Key header when apiKey is null", async () => {
+    const captured: { init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (_, init) => {
+      captured.init = init;
+      return new Response(null, { status: 200 });
+    });
+
+    await submitClaimSelection("job_abc", ["c1"], null);
+
+    expect(
+      (captured.init?.headers as Record<string, string>)["X-Miromind-Key"],
+    ).toBeUndefined();
+  });
+
+  it("throws ArgusApiError on non-2xx", async () => {
+    globalThis.fetch = vi.fn(async () => new Response("err", { status: 500 }));
+    await expect(submitClaimSelection("job_abc", [])).rejects.toBeInstanceOf(ArgusApiError);
   });
 });
 

@@ -27,13 +27,21 @@ RUN uv sync --frozen --no-dev
 # -------- runtime ----------------------------------------------------------
 FROM python:3.12-slim-bookworm AS runtime
 
-# pdfplumber/pymupdf need a few shared libs.
+# pdfplumber/pymupdf need a few shared libs; WeasyPrint (PDF audit report)
+# needs the pango/cairo/gdk-pixbuf stack — libpango pulls glib (gobject-2.0),
+# harfbuzz, fontconfig, freetype. Without these, importing argus.reporting.pdf
+# at startup crashes: OSError cannot load library 'gobject-2.0-0'.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libstdc++6 \
         libgomp1 \
         ca-certificates \
         curl \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libgdk-pixbuf-2.0-0 \
+        libffi8 \
+        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \

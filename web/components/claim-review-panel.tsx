@@ -40,8 +40,13 @@ export function ClaimReviewPanel({ jobId }: Props) {
 
   async function handleSubmit() {
     const ids = Array.from(selectedClaimIds);
+    // BYOK: re-send the key on resume — the backend never persists it.
+    const apiKey =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("argus-miromind-key")
+        : null;
     try {
-      await submitClaimSelection(jobId, ids);
+      await submitClaimSelection(jobId, ids, apiKey);
       setRunStatus("verifying");
     } catch {
       /* backend will timeout and proceed anyway */

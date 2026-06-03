@@ -172,7 +172,7 @@ export function isCitationClaim(c: Claim): boolean {
 
 // --- Live-mode (B3-C) -------------------------------------------------------
 
-export type RunStatus = "idle" | "running" | "reviewing" | "verifying" | "done" | "failed";
+export type RunStatus = "idle" | "connecting" | "running" | "reviewing" | "verifying" | "done" | "failed";
 
 /**
  * Preview shape for findings streamed over the WebSocket before the final

@@ -132,6 +132,16 @@ async def _run_pipeline(
         return await _finalize(job, final_state, budget, publisher, output_path,
                                repo, raised_exc, cheap_client)
 
+    if checkpointer is not None and "__interrupt__" in final_state:
+        # The review_gate called interrupt() — graph paused for human review.
+        # Persist as interrupted (NOT done) and return without running phase_b;
+        # runner.resume picks it up later via Command(resume=selected_ids).
+        # Only a checkpointer makes the pause resumable; without one (CLI/offline)
+        # interrupt() still surfaces __interrupt__ but there's no state to resume
+        # from, so we fall through to phase_b on the full claim list as before.
+        return await _persist_interrupted(job, final_state, output_path, repo,
+                                          cheap_client)
+
     await publisher.publish("resumed", {})
 
     # ── Phase B: specialists → reporter ──
@@ -207,6 +217,38 @@ async def _finalize(
     if job.status == "failed":
         terminal_payload["reason"] = abort_reason
     await publisher.publish(terminal_kind, terminal_payload)
+    return job
+
+
+async def _persist_interrupted(
+    job: Job,
+    final_state: _State,
+    output_path: Path,
+    repo: JobRepository | None,
+    cheap_client: CheapLLMClient | None,
+) -> Job:
+    """Persist a job paused at the HITL review gate (NOT a terminal state).
+
+    The gate already published "review_ready" into the bus; reconnecting
+    clients replay it, so we publish no terminal event here. completed_at stays
+    None — the job is not finished. runner.resume checks status == "interrupted".
+    """
+    if cheap_client:
+        await cheap_client.close()
+
+    job.claims = list(final_state.get("claims", []))
+    job.claims_total = len(job.claims)
+    job.status = "interrupted"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(job.model_dump_json(indent=2))
+    log.info("orchestrator.interrupted", job_id=job.id, n_claims=len(job.claims))
+    if repo is not None:
+        try:
+            await repo.save_job(job)
+            log.info("orchestrator.persisted", job_id=job.id)
+        except Exception as exc:
+            log.error("orchestrator.persist_failed", error=str(exc)[:300])
     return job
 
 
