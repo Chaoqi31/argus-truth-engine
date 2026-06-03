@@ -49,20 +49,20 @@ const job: Job = {
 
 describe("FindingsTab", () => {
   it("renders each finding's summary", () => {
-    render(<FindingsTab job={job} activeFindingId={null} onSelect={() => undefined} />);
+    render(<FindingsTab job={job} activeFindingId={null} onSelect={() => undefined} onOpenDrawer={() => undefined} />);
     expect(screen.getByText(/No record in Crossref/)).toBeInTheDocument();
     expect(screen.getByText(/Citation matches Crossref/)).toBeInTheDocument();
   });
 
   it("calls onSelect when a card is clicked", () => {
     const handler = vi.fn();
-    render(<FindingsTab job={job} activeFindingId={null} onSelect={handler} />);
+    render(<FindingsTab job={job} activeFindingId={null} onSelect={handler} onOpenDrawer={() => undefined} />);
     fireEvent.click(screen.getByText(/No record in Crossref/));
     expect(handler).toHaveBeenCalledWith("f1");
   });
 
   it("sorts severity major before minor", () => {
-    render(<FindingsTab job={job} activeFindingId={null} onSelect={() => undefined} />);
+    render(<FindingsTab job={job} activeFindingId={null} onSelect={() => undefined} onOpenDrawer={() => undefined} />);
     const items = screen.getAllByRole("button");
     expect(items[0]?.textContent).toMatch(/No record in Crossref/);
   });

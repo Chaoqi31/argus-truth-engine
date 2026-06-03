@@ -8,6 +8,7 @@ interface Props {
   finding: Finding;
   active: boolean;
   onClick: () => void;
+  onOpenDrawer: () => void;
 }
 
 const TONE_BAR: Record<"danger" | "warn" | "ok" | "muted", string> = {
@@ -38,7 +39,7 @@ const TONE_RING: Record<"danger" | "warn" | "ok" | "muted", string> = {
  * `onClick` to select the finding). Subtle border/shadow hover lift and a small
  * confidence ring — no neon glow.
  */
-export function FindingCard({ finding, active, onClick }: Props) {
+export function FindingCard({ finding, active, onClick, onOpenDrawer }: Props) {
   const tone = verdictTone[finding.verdict];
   const pct = Math.round(finding.confidence * 100);
 
@@ -88,6 +89,19 @@ export function FindingCard({ finding, active, onClick }: Props) {
             </>
           )}
         </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={onOpenDrawer}
+        aria-label="Open finding details"
+        title="Open details"
+        className="absolute bottom-2 right-2 z-10 grid size-6 place-items-center rounded-md border border-transparent text-muted-foreground/70 transition-all hover:border-border hover:bg-background hover:text-foreground hover:shadow-[var(--shadow-card)] focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <rect x="1.6" y="2.6" width="10.8" height="8.8" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M9 2.6v8.8" stroke="currentColor" strokeWidth="1.4" />
+        </svg>
       </button>
     </div>
   );
