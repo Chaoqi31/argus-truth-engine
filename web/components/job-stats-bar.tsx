@@ -16,7 +16,6 @@ interface Stat {
 function buildStats(job: Job): Stat[] {
   const totalSearches = job.traces.reduce((n, t) => n + t.steps.filter((s) => s.type === "web_search").length, 0);
   const totalSteps = job.traces.reduce((n, t) => n + t.steps.length, 0);
-  const tokensDisplay = job.total_tokens >= 1000 ? `${(job.total_tokens / 1000).toFixed(0)}k` : String(job.total_tokens);
 
   const stats: Stat[] = [
     {
@@ -62,16 +61,6 @@ function buildStats(job: Job): Stat[] {
       label: "evidence",
       value: String(job.evidences.length),
       hint: "Independent sources fetched and cited across all findings.",
-    },
-    {
-      label: "tokens",
-      value: tokensDisplay,
-      hint: "Total model tokens consumed across all reasoning traces.",
-    },
-    {
-      label: "spend",
-      value: `$${job.cost_usd.toFixed(2)}`,
-      hint: "Total MiroMind + DeepSeek model spend for this audit (USD). A hard budget cap aborts the run before overspend.",
     },
   );
 

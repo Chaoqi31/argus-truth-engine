@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { type CSSProperties, Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useArgusStore, type ConsoleMode } from "@/lib/store";
@@ -95,6 +95,16 @@ function SearchIcon() {
   );
 }
 
+// Cockpit column sizing (lg only). Document + console are px-resizable; the
+// middle findings column flexes. Hard min/max clamps keep every zone usable.
+const COCKPIT_DOC_MIN = 300;
+const COCKPIT_DOC_MAX = 560;
+const COCKPIT_DOC_DEFAULT = 520;
+const COCKPIT_CONSOLE_MIN = 340;
+const COCKPIT_CONSOLE_MAX = 760;
+const COCKPIT_CONSOLE_DEFAULT = 400;
+const clampPx = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
 export default function AuditPage() {
   return (
     <Suspense fallback={null}>
@@ -127,6 +137,8 @@ function AuditPageContent() {
   const consoleMode = useArgusStore((s) => s.consoleMode);
   const setConsoleMode = useArgusStore((s) => s.setConsoleMode);
   const [hintOpen, setHintOpen] = useState(false);
+  const [docW, setDocW] = useState(COCKPIT_DOC_DEFAULT);
+  const [consoleW, setConsoleW] = useState(COCKPIT_CONSOLE_DEFAULT);
 
   // Demo playback: the fixture is loaded but HELD (not pushed to the store) so
   // we can show an idle "input + Run" screen first, then stream it through the
@@ -387,13 +399,6 @@ function AuditPageContent() {
       lastStep?.content && typeof lastStep.content === "object" && lastStep.content !== null
         ? String((lastStep.content as Record<string, unknown>).agent ?? "")
         : "";
-    const tokensSoFar = liveSteps.reduce((sum, s) => {
-      const t =
-        s.content && typeof s.content === "object" && s.content !== null
-          ? Number((s.content as Record<string, unknown>).total_tokens ?? 0)
-          : 0;
-      return sum + (Number.isFinite(t) ? t : 0);
-    }, 0);
     // Demo is a text-mode fixture with no backend PDF; real text audits also
     // collapse the document column. Only PDF live audits show the viewer.
     const showPdf = !!liveId && !isTextMode;
@@ -416,7 +421,6 @@ function AuditPageContent() {
           findings={liveFindings.length}
           reason={runError}
           activeAgent={lastAgent}
-          tokens={tokensSoFar}
         />
         <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : ""}`}>
           {showPdf ? (
@@ -471,13 +475,17 @@ function AuditPageContent() {
 
   if (!job) return null;
 
-  // Clicking a finding (card or document span): select it, open the detail
-  // drawer, and surface its evidence in the right console (preserves PM-fix #4:
-  // a click must visibly surface the receipts, not just thicken a border).
+  // Clicking a finding (card or document span): select it, and surface its
+  // evidence in the right console (preserves PM-fix #4: a click must visibly
+  // surface the receipts, not just thicken a border).
   const selectFinding = (id: string) => {
     setActiveFinding(id);
-    setDrawerFinding(id);
     setConsoleMode("evidence");
+  };
+
+  const openFindingDrawer = (id: string) => {
+    setActiveFinding(id);
+    setDrawerFinding(id);
   };
 
   const onClaimClick = (claimId: string) => {
@@ -508,7 +516,10 @@ function AuditPageContent() {
       )}
       <VerdictHero job={job} />
       <JobStatsBar job={job} />
-      <main className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_400px]">
+      <main
+        className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px] lg:[grid-template-columns:var(--cc-doc-w)_minmax(0,1fr)_var(--cc-console-w)]"
+        style={{ "--cc-doc-w": `${docW}px`, "--cc-console-w": `${consoleW}px` } as CSSProperties}
+      >
         {/* Zone 1 — document frame */}
         <div className="hidden h-full overflow-hidden lg:block">
           {jobIsText ? (
@@ -530,6 +541,14 @@ function AuditPageContent() {
           )}
         </div>
 
+        <ColumnResizeHandle
+          anchor="left"
+          position="var(--cc-doc-w)"
+          ariaLabel="Resize document column"
+          onDelta={(dx) => setDocW((w) => clampPx(w + dx, COCKPIT_DOC_MIN, COCKPIT_DOC_MAX))}
+          onKeyStep={(dir) => setDocW((w) => clampPx(w + dir * 24, COCKPIT_DOC_MIN, COCKPIT_DOC_MAX))}
+        />
+
         {/* Zone 2 — findings as premium cards */}
         <section className="flex min-h-0 flex-col border-[var(--cc-border)] lg:border-l">
           <div className="flex items-center gap-2 border-b border-[var(--cc-border)] bg-muted px-4 py-2.5">
@@ -541,9 +560,17 @@ function AuditPageContent() {
             </span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={selectFinding} />
+            <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={selectFinding} onOpenDrawer={openFindingDrawer} />
           </div>
         </section>
+
+        <ColumnResizeHandle
+          anchor="right"
+          position="var(--cc-console-w)"
+          ariaLabel="Resize reasoning console column"
+          onDelta={(dx) => setConsoleW((w) => clampPx(w - dx, COCKPIT_CONSOLE_MIN, COCKPIT_CONSOLE_MAX))}
+          onKeyStep={(dir) => setConsoleW((w) => clampPx(w - dir * 24, COCKPIT_CONSOLE_MIN, COCKPIT_CONSOLE_MAX))}
+        />
 
         {/* Zone 3 — reasoning console (evidence / live trace / graph) */}
         <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
@@ -684,14 +711,12 @@ function RunBanner({
   findings,
   reason,
   activeAgent,
-  tokens,
 }: {
   runStatus: RunStatus;
   steps: number;
   findings: number;
   reason: string | null;
   activeAgent?: string;
-  tokens?: number;
 }) {
   if (runStatus === "reviewing") {
     return (
@@ -730,9 +755,6 @@ function RunBanner({
       </div>
     );
   }
-  // Blended estimate using mini's input/output mix (~$2.50 per M tokens).
-  // True billing arrives with the finished Job; this is just a live cue.
-  const estCost = tokens && tokens > 0 ? (tokens * 2.5) / 1_000_000 : 0;
   return (
     <div
       role="status"
@@ -749,14 +771,6 @@ function RunBanner({
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-[var(--cc-text)]">
             {activeAgent}
           </code>
-        </span>
-      )}
-      {tokens !== undefined && tokens > 0 && (
-        <span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
-          <span className="text-muted-foreground">tokens</span>
-          <span className="font-mono tabular-nums text-[var(--cc-text)]">{tokens.toLocaleString()}</span>
-          <span className="text-muted-foreground">· est</span>
-          <span className="font-mono tabular-nums text-[var(--cc-text)]">${estCost.toFixed(2)}</span>
         </span>
       )}
     </div>
@@ -987,6 +1001,73 @@ function RunIcon() {
     <svg width="13" height="14" viewBox="0 0 11 12" fill="currentColor" aria-hidden className="shrink-0">
       <path d="M1 1.2v9.6a.6.6 0 0 0 .92.5l7.7-4.8a.6.6 0 0 0 0-1l-7.7-4.8A.6.6 0 0 0 1 1.2Z" />
     </svg>
+  );
+}
+
+function ColumnResizeHandle({
+  anchor,
+  position,
+  ariaLabel,
+  onDelta,
+  onKeyStep,
+}: {
+  anchor: "left" | "right";
+  position: string;
+  ariaLabel: string;
+  onDelta: (dx: number) => void;
+  onKeyStep: (dir: 1 | -1) => void;
+}) {
+  const dragging = useRef(false);
+  const lastX = useRef(0);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragging.current = true;
+    lastX.current = e.clientX;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - lastX.current;
+    lastX.current = e.clientX;
+    if (dx !== 0) onDelta(dx);
+  };
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowLeft") { e.preventDefault(); onKeyStep(-1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); onKeyStep(1); }
+  };
+
+  // The 8px-wide hit area is centred on the column boundary; the 1px visible
+  // rule sits at its centre and brightens to the brand purple on hover/drag.
+  const centring = anchor === "left" ? "-translate-x-1/2" : "translate-x-1/2";
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={ariaLabel}
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onKeyDown={onKeyDown}
+      style={{ [anchor]: position, touchAction: "none" } as CSSProperties}
+      className={`group absolute inset-y-0 z-20 hidden w-2 ${centring} cursor-col-resize lg:block focus-visible:outline-hidden`}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[var(--cc-border)] transition-colors group-hover:bg-primary group-focus-visible:bg-primary"
+      />
+    </div>
   );
 }
 

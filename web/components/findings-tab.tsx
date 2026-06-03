@@ -7,9 +7,10 @@ interface Props {
   job: Job;
   activeFindingId: string | null;
   onSelect: (findingId: string) => void;
+  onOpenDrawer: (findingId: string) => void;
 }
 
-export function FindingsTab({ job, activeFindingId, onSelect }: Props) {
+export function FindingsTab({ job, activeFindingId, onSelect, onOpenDrawer }: Props) {
   const ranked = [...job.findings].sort((a, b) => {
     const r = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
     return r !== 0 ? r : b.confidence - a.confidence;
@@ -29,6 +30,7 @@ export function FindingsTab({ job, activeFindingId, onSelect }: Props) {
           finding={f}
           active={f.id === activeFindingId}
           onClick={() => onSelect(f.id)}
+          onOpenDrawer={() => onOpenDrawer(f.id)}
         />
       ))}
     </div>

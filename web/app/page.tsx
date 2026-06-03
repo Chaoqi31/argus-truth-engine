@@ -185,8 +185,7 @@ const WHITE_BTN =
 /* ================================================================== */
 export default function HomePage() {
   const router = useRouter();
-  const setJob = useArgusStore((s) => s.setJob);
-  const resetLive = useArgusStore((s) => s.resetLive);
+  const clearStore = useArgusStore((s) => s.clear);
   const [loading, setLoading] = useState(false);
 
   const { ref: heroRef, isVisible: heroVisible } = useScrollReveal(0.05);
@@ -198,9 +197,13 @@ export default function HomePage() {
   const trySample = async () => {
     setLoading(true);
     try {
-      const job = await loadSampleJob();
-      resetLive();
-      setJob(job);
+      // Validate the fixture loads before navigating, but don't pre-set the
+      // store job — that would skip the idle "report + Run" replay screen.
+      // Fully clear the store (not just live state) so a stale job from a
+      // previous demo run can't bypass the idle screen on a repeat visit.
+      // The audit page loads the fixture itself and shows the streaming replay.
+      await loadSampleJob();
+      clearStore();
       router.push("/audit?demo=1");
     } catch {
       setLoading(false);
