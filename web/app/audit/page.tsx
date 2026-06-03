@@ -23,6 +23,7 @@ import {
   submitText,
   UnsupportedMediaTypeError,
   ArgusApiError,
+  JobNotFoundError,
   type ContentDomain,
 } from "@/lib/api";
 import { loadSampleJob } from "@/lib/load-job";
@@ -133,6 +134,9 @@ function AuditPageContent() {
   const [demoJob, setDemoJob] = useState<Job | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
   const demoAbortRef = useRef<AbortController | null>(null);
+  // Guards the one-time terminal transition (done/failed) for the live run so
+  // the WS `finished` path and the polling fallback can't double-load or race.
+  const settledRef = useRef(false);
 
   useFindingKeyboardNav(() => setHintOpen((v) => !v));
   useCommandPaletteHotkey();
@@ -167,30 +171,48 @@ function AuditPageContent() {
     }
   };
 
-  // Live mode: open WS, accumulate, GET on finished.
+  // Live mode: open WS, accumulate, GET on finished. Hardened for Fly cold
+  // start — a transient WS error never fails the run; a polling fallback loads
+  // the finished job even if the WS never connects.
   useEffect(() => {
     if (!liveId) return;
     resetLive();
-    setRunStatus("running");
+    setRunStatus("connecting");
 
-    // PM-fix #2: detect bogus job_ids quickly. Without this, hitting
-    // /audit/abc-fake-id (or refreshing after the in-memory state was
-    // cleared) shows "Audit running… 0 steps · 0 findings" forever with no
-    // way out. A 404 from GET /jobs/<id> means the job genuinely isn't
-    // tracked — flip to failed with a clear reason.
     let cancelled = false;
-    getJob(liveId).catch((err: unknown) => {
-      if (cancelled) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/\b404\b|not found/i.test(msg)) {
-        setRunStatus(
-          "failed",
-          `No audit with id "${liveId}" — it may have expired, or the URL is wrong.`,
-        );
-      }
-    });
+    settledRef.current = false;
+    let disconnect: () => void = () => {};
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-    const disconnect = subscribeTrace(liveId, {
+    // Single terminal transition. Both the WS `finished` path and the poll
+    // funnel through here so there's no double-load / race; cleans up after.
+    const settle = (status: RunStatus, reason?: string) => {
+      if (cancelled || settledRef.current) return;
+      settledRef.current = true;
+      setRunStatus(status, status === "failed" ? (reason ?? "unknown") : null);
+      disconnect();
+      if (pollTimer !== null) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+
+    // Shared done path: stage the full job, then settle to done.
+    const settleDone = (full: Job) => {
+      if (cancelled || settledRef.current) return;
+      setJob(full);
+      setConsoleMode("evidence");
+      settle("done");
+    };
+
+    disconnect = subscribeTrace(liveId, {
+      onConnected: () => {
+        // Upgrade only connecting → running; never downgrade verifying/reviewing
+        // on a mid-stream reconnect.
+        if (useArgusStore.getState().runStatus === "connecting") {
+          setRunStatus("running");
+        }
+      },
       onEvent: (ev) => {
         if (ev.kind === "step") {
           const step = stepFromPayload(ev.payload);
@@ -200,14 +222,10 @@ function AuditPageContent() {
           if (f) appendLiveFinding(f);
         } else if (ev.kind === "finished") {
           getJob(liveId)
-            .then((full) => {
-              setJob(full);
-              setRunStatus("done");
-              setConsoleMode("evidence");
-            })
+            .then((full) => settleDone(full))
             .catch((err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
-              setRunStatus("failed", `Could not load final job: ${msg}`);
+              settle("failed", `Could not load final job: ${msg}`);
             });
         } else if (ev.kind === "review_ready") {
           const claims = (ev.payload.claims ?? []) as ReviewClaim[];
@@ -218,16 +236,51 @@ function AuditPageContent() {
         } else if (ev.kind === "failed") {
           const reason =
             typeof ev.payload.reason === "string" ? ev.payload.reason : "unknown";
-          setRunStatus("failed", reason);
+          settle("failed", reason);
         }
       },
-      onError: (err) => {
-        setRunStatus("failed", err.message);
+      // Advisory only — a transient connection error must NOT fail the run.
+      onError: () => {},
+      onGiveUp: () => {
+        settle(
+          "failed",
+          "Lost connection to the live trace. The audit may still be running — refresh to check.",
+        );
       },
     });
+
+    // Polling fallback. One immediate call gives a fast 404; the interval keeps
+    // checking so a finished job still loads even if the WS never connects, and
+    // a cold-start network error never fails the run.
+    const poll = () => {
+      getJob(liveId)
+        .then((full) => {
+          if (cancelled || settledRef.current) return;
+          if (full.status === "done") {
+            settleDone(full);
+          } else if (full.status === "failed") {
+            settle("failed", "The audit failed on the server.");
+          }
+          // in progress → keep polling
+        })
+        .catch((err: unknown) => {
+          if (cancelled || settledRef.current) return;
+          if (err instanceof JobNotFoundError) {
+            settle(
+              "failed",
+              `No audit with id "${liveId}" — it may have expired, or the URL is wrong.`,
+            );
+          }
+          // other (cold-start) network errors → ignore, keep polling
+        });
+    };
+    poll();
+    pollTimer = setInterval(poll, 4000);
+
     return () => {
       cancelled = true;
       disconnect();
+      if (pollTimer !== null) clearInterval(pollTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId]);
@@ -660,6 +713,20 @@ function RunBanner({
         className="flex h-12 items-center gap-3 border-b border-[var(--cc-danger)]/40 bg-[var(--cc-danger)]/10 px-4 text-xs text-[var(--cc-danger)]"
       >
         Audit failed — {reason ?? "unknown"}
+      </div>
+    );
+  }
+  if (runStatus === "connecting") {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex h-12 items-center gap-3 border-b border-[var(--cc-border)] bg-muted px-4 text-xs"
+      >
+        <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-muted-foreground" />
+        <span className="text-[var(--cc-text)]">
+          Waking the audit backend… connecting to the live trace.
+        </span>
       </div>
     );
   }

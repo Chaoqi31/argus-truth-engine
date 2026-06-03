@@ -12,12 +12,18 @@ export interface TraceEvent {
 export interface TraceSubscribeCallbacks {
   onEvent: (ev: TraceEvent) => void;
   onClose?: (clean: boolean) => void;
+  /** Fired on every successful open. */
+  onConnected?: () => void;
+  /** Advisory only — transient, never terminal. The following onclose drives reconnect/give-up. */
   onError?: (err: Error) => void;
+  /** Fired once when the reconnect budget is exhausted (terminal, no more retries). */
+  onGiveUp?: () => void;
 }
 
 export interface TraceSubscribeOptions {
   wsHost?: string;
   reconnectDelayMs?: number;
+  maxReconnectAttempts?: number;
 }
 
 const TERMINAL_KINDS: ReadonlySet<TraceEventKind> = new Set(["finished", "failed"]);
@@ -40,10 +46,12 @@ export function subscribeTrace(
 ): () => void {
   const host = resolveHost(opts.wsHost);
   const reconnectDelayMs = opts.reconnectDelayMs ?? 1500;
+  const maxReconnectAttempts = opts.maxReconnectAttempts ?? 20;
 
   let lastSeq = 0;
   let terminated = false;
   let disposed = false;
+  let attempts = 0;
   let socket: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -54,6 +62,11 @@ export function subscribeTrace(
     const url = `${protocol}://${host}/ws/jobs/${encodeURIComponent(jobId)}/trace?after=${lastSeq}`;
     const ws = new WebSocket(url);
     socket = ws;
+
+    ws.onopen = () => {
+      attempts = 0;
+      callbacks.onConnected?.();
+    };
 
     ws.onmessage = (msg) => {
       let parsed: TraceEvent;
@@ -87,7 +100,12 @@ export function subscribeTrace(
       const clean = terminated || disposed;
       callbacks.onClose?.(clean);
       if (clean) return;
-      reconnectTimer = setTimeout(connect, reconnectDelayMs);
+      if (attempts < maxReconnectAttempts) {
+        attempts++;
+        reconnectTimer = setTimeout(connect, reconnectDelayMs);
+      } else {
+        callbacks.onGiveUp?.();
+      }
     };
   };
 

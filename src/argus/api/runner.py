@@ -138,6 +138,7 @@ class JobRunner:
         *,
         job_id: str,
         selected_claim_ids: list[str] | None,
+        api_key_override: str | None = None,
     ) -> str | None:
         """Resume an interrupted job. Returns job_id on success, None if not found."""
         repo = self.state.repo
@@ -158,9 +159,14 @@ class JobRunner:
             self.state.storage.path_for(record.pdf_key or f"{job_id}/input.txt")
         ).with_suffix(".findings.json")
 
-        # BYOK note: the original job already captured Phase A with the
-        # per-job client; resume uses the server-level settings/client.
+        # BYOK: prefer the caller's key (Phase B verification burns the most
+        # credits) so prod — which has no server MiroMind key — can resume.
+        # Falls back to the server key for local/CLI resume.
         per_job_settings = self.state.settings
+        if api_key_override:
+            per_job_settings = self.state.settings.model_copy(
+                update={"miromind_api_key": api_key_override}
+            )
         per_job_client = MiromindClient(per_job_settings)
 
         async def _run() -> None:

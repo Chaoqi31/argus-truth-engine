@@ -104,12 +104,17 @@ export async function submitText(
 export async function submitClaimSelection(
   jobId: string,
   selectedClaimIds: string[],
+  apiKey?: string | null,
 ): Promise<void> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (apiKey?.trim()) {
+    headers["X-Miromind-Key"] = apiKey.trim();
+  }
   const resp = await fetch(
     `${API_BASE}/jobs/${encodeURIComponent(jobId)}/claims/select`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ selected_claim_ids: selectedClaimIds }),
     },
   );

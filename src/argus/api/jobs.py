@@ -121,9 +121,14 @@ async def select_claims(
     job_id: str,
     body: ClaimSelection,
 ) -> dict[str, Any]:
+    # BYOK: thread the caller's key through so Phase B resume uses their
+    # credits, not the operator's. No hard 400 — resume may legitimately fall
+    # back to a server key (CLI/local).
+    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
     runner = _runner(request)
     resumed = await runner.resume(
         job_id=job_id, selected_claim_ids=body.selected_claim_ids,
+        api_key_override=api_key_header or None,
     )
     if resumed is None:
         raise HTTPException(
@@ -144,8 +149,12 @@ async def resume_job(
     HITL timeout left the job paused without a claim selection.
     """
     _require_token(request)
+    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
     runner = _runner(request)
-    resumed = await runner.resume(job_id=job_id, selected_claim_ids=None)
+    resumed = await runner.resume(
+        job_id=job_id, selected_claim_ids=None,
+        api_key_override=api_key_header or None,
+    )
     if resumed is None:
         raise HTTPException(
             status_code=_HTTP_NOT_FOUND,
