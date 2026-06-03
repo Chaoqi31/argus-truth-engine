@@ -49,7 +49,7 @@ const PERSONAS = [
 const FEATURES = [
   {
     title: "4 types of error detection",
-    body: "Fabricated references, misrepresented sources, outdated data, and internal contradictions — caught by one autonomous verifier that picks its own sources and tools per claim.",
+    body: "Fabricated references, misrepresented sources, and outdated data — caught by an autonomous verifier that picks its own sources and tools per claim — plus internal contradictions flagged by a separate cross-claim consistency check.",
   },
   {
     title: "Full reasoning transparency",
