@@ -441,8 +441,8 @@ export default function HomePage() {
         {/* ============================================================ */}
         {/* REASONING TRANSPARENCY                                       */}
         {/* ============================================================ */}
-        <section ref={transparencyRef} className="mx-auto max-w-5xl px-6 py-28">
-          <div className="grid items-center gap-14 md:grid-cols-2">
+        <section ref={transparencyRef} className="mx-auto max-w-6xl px-6 py-28">
+          <div className="grid items-center gap-12 md:grid-cols-[1fr_1.25fr] lg:gap-16">
             <div className={`transition-[transform,opacity,filter] duration-[640ms] ease-enter ${transparencyVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Core differentiator</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
