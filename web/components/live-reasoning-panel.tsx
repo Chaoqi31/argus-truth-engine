@@ -1,73 +1,66 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Light "live reasoning" panel for the homepage transparency section — mirrors
- * the cockpit's streaming live trace: real thinking / search / fetch / verdict
- * steps from the NVIDIA sample audit stream in line by line, the panel
- * auto-scrolls, the step counter climbs, then it loops. Respects
- * prefers-reduced-motion (renders the full trace, no loop).
+ * the cockpit's expanded-claim drill-down. One real claim from the NVIDIA sample
+ * audit (the fabricated Goldman citation): its reasoning steps stream in line by
+ * line and the search counter races 0 → 77, then it loops. Everything fits in
+ * view — no internal scroll. Respects prefers-reduced-motion (renders complete).
  */
 
-type Step = { icon: string; text: string; meta?: string; tone?: "ok" | "danger" };
+type Step = { icon: string; text: string; meta?: string; tone?: "danger" };
 
 const STEPS: Step[] = [
-  { icon: "💭", text: 'Verify claim: "NVIDIA was founded in 1993"' },
-  { icon: "🔍", text: "google_search: NVIDIA founded year", meta: "10 results" },
-  { icon: "💭", text: "Confirmed — founded April 5, 1993 (primary sources)" },
-  { icon: "●", text: "ok · 0.98", tone: "ok" },
-  { icon: "💭", text: "Verify: data-center revenue $148B in FY2025" },
-  { icon: "🔍", text: "google_search: NVIDIA data-center revenue FY2025", meta: "8 results" },
-  { icon: "📄", text: "fetch: investor.nvidia.com — FY2025 results" },
-  { icon: "💭", text: "Segment was ~$115B — and $148B exceeds $130.5B total" },
-  { icon: "●", text: "inaccurate · 0.99", tone: "danger" },
-  { icon: "💭", text: 'Verify citation: Goldman "Silicon Supercycle" report' },
   { icon: "🔍", text: 'google_search: "Silicon Supercycle" Goldman Sachs', meta: "0 results" },
   { icon: "🔍", text: 'site:goldmansachs.com "Silicon Supercycle"', meta: "0 results" },
   { icon: "🔍", text: '"Silicon Supercycle" filetype:pdf', meta: "0 results" },
-  { icon: "💭", text: "No record across 77 search variants — invented" },
+  { icon: "📄", text: "fetch: goldmansachs.com/insights", meta: "no match" },
+  { icon: "💭", text: "No record across 77 search variants" },
   { icon: "●", text: "fabricated · 0.93", tone: "danger" },
 ];
 
-const STEP_MS = 430;
-const HOLD_MS = 2800;
-const TONE: Record<string, string> = {
-  ok: "text-[var(--cc-ok,#149e61)]",
-  danger: "text-[var(--cc-danger,#d92d20)]",
-};
+const TARGET_SEARCHES = 77;
+const STEP_MS = 600;
+const START_MS = 700;
+const HOLD_MS = 3000;
 
 export function LiveReasoningPanel() {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [shown, setShown] = useState(0);
+  const [searches, setSearches] = useState(0);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setShown(STEPS.length);
+      setSearches(TARGET_SEARCHES);
       return;
     }
     const timers: ReturnType<typeof setTimeout>[] = [];
+    let counter: ReturnType<typeof setInterval> | null = null;
+
     const cycle = () => {
       setShown(0);
+      setSearches(0);
+      if (counter) clearInterval(counter);
+      let c = 0;
+      counter = setInterval(() => {
+        c = Math.min(TARGET_SEARCHES, c + 4);
+        setSearches(c);
+        if (c >= TARGET_SEARCHES && counter) clearInterval(counter);
+      }, 45);
       for (let i = 1; i <= STEPS.length; i++) {
-        timers.push(setTimeout(() => setShown(i), i * STEP_MS));
+        timers.push(setTimeout(() => setShown(i), START_MS + (i - 1) * STEP_MS));
       }
-      timers.push(setTimeout(cycle, STEPS.length * STEP_MS + HOLD_MS));
+      timers.push(setTimeout(cycle, START_MS + STEPS.length * STEP_MS + HOLD_MS));
     };
     const kickoff = setTimeout(cycle, 500);
     return () => {
       clearTimeout(kickoff);
       timers.forEach(clearTimeout);
+      if (counter) clearInterval(counter);
     };
   }, []);
-
-  // Auto-scroll to the newest step as the firehose grows.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [shown]);
-
-  const streaming = shown < STEPS.length;
 
   return (
     <div className="overflow-hidden rounded-[14px] border border-border bg-background shadow-[var(--shadow-card-hover)]">
@@ -76,22 +69,30 @@ export function LiveReasoningPanel() {
           <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-success" />
           Live reasoning trace
         </span>
-        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {shown} {shown === 1 ? "step" : "steps"}
-        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">1 of 7 claims</span>
       </div>
-      <div ref={scrollRef} className="h-[360px] overflow-y-auto px-4 py-3">
-        <ol className="flex flex-col gap-2.5 font-mono text-[12px] leading-snug">
+      <div className="px-5 py-4">
+        <div className="flex items-center gap-2 text-[14px]">
+          <span aria-hidden className="font-mono text-[10px] text-muted-foreground">▾</span>
+          <span className="flex-1 truncate font-medium text-foreground">Goldman “Silicon Supercycle” report</span>
+          <span className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider bg-[color-mix(in_oklab,var(--cc-danger,#d92d20)_15%,transparent)] text-[var(--cc-danger,#d92d20)]">
+            fabricated
+          </span>
+        </div>
+        <span className="ml-5 mt-1.5 block font-mono text-[12px] tabular-nums text-muted-foreground">
+          💭 91 reasoning · 🔍 {searches} searches
+        </span>
+        <ol className="mt-4 flex min-h-[176px] flex-col gap-3 border-l border-border pl-4 font-mono text-[12.5px] leading-snug">
           {STEPS.slice(0, shown).map((s, i) => (
             <li key={i} className="animate-row-in flex items-start gap-2.5">
-              <span aria-hidden className={`mt-px shrink-0 ${s.tone ? TONE[s.tone] : ""}`}>{s.icon}</span>
-              <span className={`min-w-0 flex-1 ${s.tone ? `font-semibold ${TONE[s.tone]}` : "text-foreground"}`}>
+              <span aria-hidden className={`mt-px shrink-0 ${s.tone ? "text-[var(--cc-danger,#d92d20)]" : ""}`}>{s.icon}</span>
+              <span className={`min-w-0 flex-1 ${s.tone ? "font-semibold text-[var(--cc-danger,#d92d20)]" : "text-foreground"}`}>
                 {s.text}
               </span>
               {s.meta && <span className="shrink-0 text-muted-foreground">{s.meta}</span>}
             </li>
           ))}
-          {streaming && (
+          {shown < STEPS.length && (
             <li aria-hidden className="text-muted-foreground">
               <span className="animate-pulse">▍</span>
             </li>
