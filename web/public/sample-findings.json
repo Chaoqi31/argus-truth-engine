@@ -131,32 +131,8 @@
       "reasoning_chain": [],
       "evidence_ids": [],
       "reasoning_trace_id": "trace_06786c247632",
-      "related_finding_ids": [
-        "f_2f8061f8806d"
-      ],
+      "related_finding_ids": [],
       "created_at": "2026-06-01T10:23:42.284760",
-      "from_cache": false,
-      "flags": []
-    },
-    {
-      "id": "f_2f8061f8806d",
-      "job_id": "job_254632172ea2",
-      "claim_id": "a_5",
-      "agent": "Consistency",
-      "verdict": "contradiction",
-      "severity": "critical",
-      "confidence": 1.0,
-      "confidence_breakdown": null,
-      "summary": "Claim a_3 states total revenue for fiscal year 2025 is $130.5 billion, but claim a_5 states data-center segment alone generated $148 billion over the same fiscal year. Since data-center revenue cannot exceed total revenue, these figures are contradictory.",
-      "why_wrong": null,
-      "correct_information": null,
-      "reasoning_chain": [],
-      "evidence_ids": [],
-      "reasoning_trace_id": "trace_06786c247632",
-      "related_finding_ids": [
-        "f_a1bdf208937a"
-      ],
-      "created_at": "2026-06-01T10:23:42.284768",
       "from_cache": false,
       "flags": []
     },
@@ -5652,9 +5628,9 @@
       "key": "consistency",
       "name": "Consistency",
       "engine": "deepseek",
-      "summary": "3 cross-claim issue(s) found",
+      "summary": "2 cross-claim issue(s) found",
       "metrics": {
-        "n_findings": 3
+        "n_findings": 2
       },
       "strategy": null,
       "filtered_claims": null
@@ -5663,9 +5639,9 @@
       "key": "confidence",
       "name": "Confidence",
       "engine": "deterministic",
-      "summary": "Scored 10 finding(s) on 3 factors (authority · freshness · agreement)",
+      "summary": "Scored 9 finding(s) on 3 factors (authority · freshness · agreement)",
       "metrics": {
-        "n_scored": 10
+        "n_scored": 9
       },
       "strategy": null,
       "filtered_claims": null

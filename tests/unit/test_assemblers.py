@@ -175,8 +175,8 @@ def test_logical_flaws_to_findings_empty_returns_no_findings():
     ) == []
 
 
-def test_contradictions_to_findings_unchanged():
-    """Regression: contradiction pairs still produce two cross-linked findings."""
+def test_contradiction_pair_makes_one_finding():
+    """A contradiction pair collapses to a single finding keyed to claim_a."""
     parsed = ConsistencyOutput(
         contradictions=[
             ContradictionPair(
@@ -191,15 +191,13 @@ def test_contradictions_to_findings_unchanged():
     findings = _contradictions_to_findings(
         job_id="job_x", parsed=parsed, trace_id="trace_c"
     )
-    assert len(findings) == 2
-    a, b = findings
+    assert len(findings) == 1
+    (a,) = findings
     assert a.verdict == FindingVerdict.CONTRADICTION
-    assert b.verdict == FindingVerdict.CONTRADICTION
-    assert a.claim_id == "c1" and b.claim_id == "c2"
+    assert a.claim_id == "c1"
     assert a.severity == Severity.CRITICAL
-    assert a.related_finding_ids == [b.id]
-    assert b.related_finding_ids == [a.id]
-    assert a.evidence_ids == [] and b.evidence_ids == []
+    assert a.related_finding_ids == []
+    assert a.evidence_ids == []
     assert a.reasoning_trace_id == "trace_c"
 
 
