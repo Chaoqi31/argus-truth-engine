@@ -31,5 +31,13 @@ def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, A
             "n_checkworthy": len(checkworthy),
             "n_filtered": len(filtered),
         })
-        return {"claims": checkworthy, "filtered_claims": filtered_data}
+        return {
+            "claims": checkworthy,
+            "filtered_claims": filtered_data,
+            "stage_summaries": {
+                "checkworthiness": {
+                    "n_checkworthy": len(checkworthy), "n_filtered": len(filtered),
+                }
+            },
+        }
     return node

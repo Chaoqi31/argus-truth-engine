@@ -140,8 +140,10 @@ async def test_distinct_claims_not_merged() -> None:
     ]
     node = _review_gate_node(ctx, auto_review=True)
     result = await node({"claims": claims})
-    # No dedup, no cap → pass-through ({}), both claims kept downstream.
-    assert result == {}
+    # No dedup, no cap → pass-through: no "claims" key, full list kept
+    # downstream. Only the per-stage summary is returned.
+    assert "claims" not in result
+    assert result["stage_summaries"]["review_gate"]["n_verifying"] == 2
     assert not [p for k, p in pub.events if k == "claims_deduped"]
 
 
@@ -158,6 +160,8 @@ async def test_under_cap_unchanged_no_event() -> None:
     node = _review_gate_node(ctx, auto_review=True)
     result = await node({"claims": claims})
 
-    # No cap applied → auto_review pass-through returns {} (full list kept).
-    assert result == {}
+    # No cap applied → auto_review pass-through returns no "claims" key (full
+    # list kept). Only the per-stage summary is returned.
+    assert "claims" not in result
+    assert result["stage_summaries"]["review_gate"]["n_verifying"] == 2
     assert not [p for k, p in pub.events if k == "claims_capped"]
