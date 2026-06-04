@@ -1,6 +1,6 @@
 {
   "id": "job_254632172ea2",
-  "scenario_label": "Real MiroMind deep-research run — auditing an AI-generated NVIDIA equity-research note (7 claims: 4 verified, 2 inaccurate, 1 fabricated, plus an internal contradiction and an overreach).",
+  "scenario_label": "Real MiroMind audit of an AI-generated NVIDIA equity note — 4 verified, 2 inaccurate, 1 fabricated, plus a contradiction and an overreach.",
   "persona": "Buy-side / investment research",
   "pdf_path": "",
   "input_text": "NVIDIA Corporation (NVDA) — AI-generated equity research summary.\n\nOverview. NVIDIA remains the defining franchise of the accelerated-computing era, and in our view its competitive moat is widening rather than narrowing. We believe the market still underappreciates the durability of its data-center demand.\n\nNVIDIA was founded in 1993, and its CUDA software platform was first released in 2007 — together giving the company a developer ecosystem we consider its single greatest asset.\n\nNVIDIA reported $130.5 billion in total revenue for fiscal year 2025, up 114% year over year. Its data-center segment alone generated $148 billion in revenue over the same fiscal year.\n\nNVIDIA's most advanced GPU architecture currently in production is Hopper.\n\nAccording to a February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout,\" cumulative global spending on AI infrastructure will exceed $5 trillion by 2030. We view this as ambitious but directionally sound.\n",
