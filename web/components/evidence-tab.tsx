@@ -46,7 +46,7 @@ export function EvidenceTab({ job, findingId }: Props) {
               <button
                 type="button"
                 onClick={() => jumpToStep(s.id)}
-                aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the reasoning graph`}
+                aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the trace`}
                 className="flex w-full gap-2 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span aria-hidden>{stepIcon[s.type]}</span>
@@ -122,7 +122,7 @@ export function EvidenceTab({ job, findingId }: Props) {
                       <button
                         type="button"
                         onClick={() => jumpToStep(e.retrieved_by_step_id)}
-                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the reasoning graph`}
+                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the trace`}
                         className="rounded border border-border px-1 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         step {ordinals.get(producingStep.id) ?? 0}
