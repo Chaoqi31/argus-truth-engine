@@ -17,6 +17,8 @@ from argus.models.domain import (
     Job,
     ReasoningTrace,
     Severity,
+    Stage,
+    StageFilteredClaim,
     Step,
     StepType,
 )
@@ -58,6 +60,41 @@ async def test_confidence_breakdown_round_trips(sqlite_engine: object) -> None:
     assert loaded is not None
     restored = loaded.findings[0].confidence_breakdown
     assert restored == breakdown
+
+
+async def test_stages_round_trip(sqlite_engine: object) -> None:
+    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
+    repo = JobRepository(smaker)
+
+    job = _sample_job()
+    job.stages = [
+        Stage(
+            key="filtering",
+            name="Triage",
+            engine="deepseek",
+            summary="Dropped 2 non-checkable claims.",
+            metrics={"in": 5, "out": 3},
+            strategy="keep numeric + citation claims",
+            filtered_claims=[
+                StageFilteredClaim(
+                    claim_id="c9", text="Opinion sentence.", reason="not checkable"
+                ),
+            ],
+        ),
+    ]
+
+    await repo.save_job(job)
+    loaded = await repo.get_job(job.id)
+
+    assert loaded is not None
+    assert len(loaded.stages) == 1
+    stage = loaded.stages[0]
+    assert stage.key == "filtering"
+    assert stage.engine == "deepseek"
+    assert stage.metrics == {"in": 5, "out": 3}
+    assert stage.filtered_claims is not None
+    assert stage.filtered_claims[0].claim_id == "c9"
+    assert stage.filtered_claims[0].reason == "not checkable"
 
 
 async def test_get_missing_returns_none(sqlite_engine: object) -> None:

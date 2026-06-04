@@ -24,6 +24,7 @@ from argus.models.domain import (
     Job,
     ReasoningTrace,
     Severity,
+    Stage,
     Step,
     StepType,
 )
@@ -47,6 +48,7 @@ class JobRow(Base):
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     audit_report_md: Mapped[str | None] = mapped_column(String, nullable=True)
+    stages: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
 
     claims: Mapped[list[ClaimRow]] = relationship(
         back_populates="job",
@@ -80,6 +82,7 @@ class JobRow(Base):
             cost_usd=m.cost_usd,
             total_tokens=m.total_tokens,
             audit_report_md=m.audit_report_md,
+            stages=[s.model_dump() for s in m.stages],
             claims=[ClaimRow.from_domain(c, job_id=m.id) for c in m.claims],
             findings=[FindingRow.from_domain(f) for f in m.findings],
             traces=[ReasoningTraceRow.from_domain(t) for t in m.traces],
@@ -96,6 +99,7 @@ class JobRow(Base):
             cost_usd=self.cost_usd,
             total_tokens=self.total_tokens,
             audit_report_md=self.audit_report_md,
+            stages=[Stage.model_validate(s) for s in (self.stages or [])],
             claims=[c.to_domain() for c in self.claims],
             findings=[f.to_domain() for f in self.findings],
             traces=[t.to_domain() for t in self.traces],
