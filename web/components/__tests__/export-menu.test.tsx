@@ -7,12 +7,28 @@ describe("ExportMenu", () => {
     const onSelect = vi.fn();
     render(<ExportMenu onSelect={onSelect} disabled={false} />);
     fireEvent.click(screen.getByRole("button", { name: /export/i }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /pdf/i }));
-    expect(onSelect).toHaveBeenCalledWith("pdf");
+    fireEvent.click(screen.getByRole("menuitem", { name: /audit pack/i }));
+    expect(onSelect).toHaveBeenCalledWith("audit_pack");
   });
 
   it("disables the trigger when disabled is true", () => {
     render(<ExportMenu onSelect={() => {}} disabled={true} />);
     expect(screen.getByRole("button", { name: /export/i })).toBeDisabled();
+  });
+
+  it("announces expanded state and closes the menu on Escape", () => {
+    render(<ExportMenu onSelect={() => {}} disabled={false} />);
+
+    const trigger = screen.getByRole("button", { name: /export/i });
+    expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });

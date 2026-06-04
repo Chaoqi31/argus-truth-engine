@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     # --- Concurrency & rate limits (Phase 3 of arch improvements) ---
     # Per-agent in-flight claim cap during Phase B verification.
     unified_verifier_concurrency: int = 5
+    skeptic_concurrency: int = 2
     consistency_concurrency: int = 2
     # Process-wide MiroMind request rate ceiling. Shared across all jobs +
     # all agents. Default 10 req/s gives headroom under MiroMind's

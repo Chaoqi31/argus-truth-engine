@@ -28,6 +28,7 @@ from argus.orchestrator.nodes.consistency import _consistency_node
 from argus.orchestrator.nodes.parse import _parse_node
 from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.reporter import _reporter_node
+from argus.orchestrator.nodes.skeptic import _skeptic_node
 from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
 from argus.trace_bus.base import TraceBus
 
@@ -46,6 +47,9 @@ def _build_ctx(
     runners = {
         "unified_verifier": BoundedRunner(
             max_concurrent=settings.unified_verifier_concurrency,
+        ),
+        "skeptic": BoundedRunner(
+            max_concurrent=settings.skeptic_concurrency,
         ),
         "consistency": BoundedRunner(
             max_concurrent=settings.consistency_concurrency,
@@ -83,6 +87,50 @@ def _build_ctx(
         content_domain=job.content_domain.value,
         cache=cache,
         is_resuming=is_resuming,
+    )
+
+
+def _build_skeptic_stage(job: Job) -> Stage:
+    """Summarize the independent challenge pass over high-risk findings."""
+    skeptic_reviews = [
+        f for f in job.findings
+        if f.agent == "UnifiedVerifier" and f.skeptic_review is not None
+    ]
+    n_reviewed = len(skeptic_reviews)
+    n_counterevidence = sum(
+        1 for f in skeptic_reviews
+        if f.skeptic_review and f.skeptic_review.status == "counterevidence_found"
+    )
+    n_cleared = sum(
+        1 for f in skeptic_reviews
+        if f.skeptic_review and f.skeptic_review.status == "no_counterevidence"
+    )
+    n_inconclusive = sum(
+        1 for f in skeptic_reviews
+        if f.skeptic_review and f.skeptic_review.status == "inconclusive"
+    )
+    if n_reviewed == 0:
+        summary = "No high-risk verifier findings required independent challenge"
+    else:
+        parts = [
+            f"Challenged {n_reviewed} high-risk finding(s)",
+            f"{n_counterevidence} counterevidence found",
+        ]
+        if n_cleared:
+            parts.append(f"{n_cleared} cleared")
+        if n_inconclusive:
+            parts.append(f"{n_inconclusive} inconclusive")
+        summary = " · ".join(parts)
+
+    return Stage(
+        key="skeptic", name="Skeptic challenge", engine="miromind",
+        summary=summary,
+        metrics={
+            "n_reviewed": n_reviewed,
+            "n_cleared": n_cleared,
+            "n_counterevidence_found": n_counterevidence,
+            "n_inconclusive": n_inconclusive,
+        },
     )
 
 
@@ -268,7 +316,10 @@ def _build_stages(final_state: _State, job: Job) -> list[Stage]:
         },
     ))
 
-    # 7. consistency
+    # 7. skeptic challenge
+    stages.append(_build_skeptic_stage(job))
+
+    # 8. consistency
     n_cons = sum(1 for f in job.findings if f.agent == "Consistency")
     stages.append(Stage(
         key="consistency", name="Consistency", engine="deepseek",
@@ -276,7 +327,7 @@ def _build_stages(final_state: _State, job: Job) -> list[Stage]:
         metrics={"n_findings": n_cons},
     ))
 
-    # 8. confidence
+    # 9. confidence
     n_scored = sum(
         1 for f in job.findings if getattr(f, "confidence", None) is not None
     )
@@ -289,7 +340,7 @@ def _build_stages(final_state: _State, job: Job) -> list[Stage]:
         metrics={"n_scored": n_scored},
     ))
 
-    # 9. reporter
+    # 10. reporter
     stages.append(Stage(
         key="reporter", name="Reporter", engine="deepseek",
         summary=(
@@ -417,16 +468,18 @@ def _build_phase_a(ctx: _Ctx, checkpointer: Any = None, *, auto_review: bool = F
 
 
 def _build_phase_b(ctx: _Ctx, checkpointer: Any = None) -> Any:
-    """Phase B: unified_verifier + consistency (parallel) → confidence → reporter."""
+    """Phase B: verifier → skeptic + consistency (parallel) → confidence → reporter."""
     graph: Any = StateGraph(_State)
     graph.add_node("unified_verifier", _unified_verifier_node(ctx))
+    graph.add_node("skeptic", _skeptic_node(ctx))
     graph.add_node("consistency", _consistency_node(ctx))
     graph.add_node("confidence", _confidence_node(ctx))
     graph.add_node("reporter", _reporter_node(ctx))
 
-    for n in ("unified_verifier", "consistency"):
-        graph.add_edge(START, n)
-        graph.add_edge(n, "confidence")
+    graph.add_edge(START, "unified_verifier")
+    graph.add_edge("unified_verifier", "skeptic")
+    graph.add_edge(START, "consistency")
+    graph.add_edge(["skeptic", "consistency"], "confidence")
     graph.add_edge("confidence", "reporter")
     graph.add_edge("reporter", END)
     return graph.compile(checkpointer=checkpointer)

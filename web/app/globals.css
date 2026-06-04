@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-sans), "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Monaco, monospace;
+  --font-sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Monaco, monospace;
 
   /* --- Kraken-inspired palette (light only) --- */
   --color-background: #ffffff;          /* primary surface */

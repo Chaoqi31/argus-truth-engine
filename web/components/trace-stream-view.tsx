@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Finding, Job, Stage, Step } from "@/lib/types";
+import type { Finding, FindingReasoningStep, Job, Stage, Step } from "@/lib/types";
 import { stepIcon, verdictTone } from "@/lib/colors";
 import { useArgusStore } from "@/lib/store";
+import { sortFindingsForReview } from "@/lib/findings";
 
 // Verdict badge tints — keyed by the tone from `verdictTone`. Mirror the
 // severity-tint pattern (text-foreground on a /15 surface) so contrast holds.
@@ -27,12 +28,29 @@ export function TraceStreamView({ job, liveMode = false, liveSteps = [] }: Props
 
 function LiveTrace({ steps }: { steps: Step[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
   }, [steps.length]);
+  useEffect(() => {
+    if (steps.length === 0) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [steps.length]);
+
+  const groups = groupLiveSteps(steps);
+  const currentClaim = [...groups].reverse().find((g) => g.type === "claim") ?? null;
+  const totalSearches = steps.filter((s) => s.type === "web_search").length;
+  const totalFetches = steps.filter((s) => s.type === "fetch_url_content").length;
+  const sourceCount = steps.filter((s) => {
+    const result = s.content?.result;
+    return s.type === "web_search" && typeof result === "string" && result.includes("organic");
+  }).length;
+  const firstAt = Date.parse(steps[0]?.created_at ?? "");
+  const elapsed = Number.isFinite(firstAt) ? formatElapsed(now - firstAt) : "0s";
 
   return (
     <div className="flex h-full flex-col">
@@ -46,19 +64,167 @@ function LiveTrace({ steps }: { steps: Step[] }) {
             {steps.length} steps
           </span>
         </div>
+        <div className="flex flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <LiveChip label="searches" value={totalSearches} />
+          <LiveChip label="fetches" value={totalFetches} />
+          <LiveChip label="source sets" value={sourceCount} />
+          <LiveChip label="elapsed" value={elapsed} />
+        </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-2">
+      {currentClaim && (
+        <div className="border-b border-border bg-background/95 px-3 py-2">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-primary">
+            Verifying {currentClaim.ordinal ? `claim ${currentClaim.ordinal}` : "claim"}
+          </p>
+          <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-foreground">
+            {currentClaim.label}
+          </p>
+        </div>
+      )}
+      <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2">
         {steps.length === 0 ? (
           <p className="text-xs text-muted-foreground">Waiting for first step…</p>
         ) : (
-          <ol className="flex flex-col gap-1">
-            {steps.map((s) => (
-              <StepItem key={s.id} step={s} />
+          <ol className="flex flex-col gap-2">
+            {groups.map((g) => (
+              <LiveGroupItem key={g.key} group={g} />
             ))}
           </ol>
         )}
       </div>
     </div>
+  );
+}
+
+function LiveChip({ label, value }: { label: string; value: string | number }) {
+  return (
+    <span className="rounded border border-border bg-background px-1.5 py-0.5">
+      <span className="text-foreground">{value}</span> {label}
+    </span>
+  );
+}
+
+interface LiveStepGroup {
+  key: string;
+  type: "stage" | "claim" | "system";
+  label: string;
+  meta?: string;
+  ordinal?: string;
+  steps: Step[];
+}
+
+function groupLiveSteps(steps: Step[]): LiveStepGroup[] {
+  const groups: LiveStepGroup[] = [];
+  let currentClaimKey: string | null = null;
+
+  const pushClaim = (key: string, label: string, meta?: string, ordinal?: string) => {
+    currentClaimKey = key;
+    let group = groups.find((g) => g.key === key) ?? null;
+    if (!group) {
+      group = { key, type: "claim", label, meta, ordinal, steps: [] };
+      groups.push(group);
+    }
+    return group;
+  };
+
+  for (const step of steps) {
+    const content = step.content as Record<string, unknown>;
+    const stage = content.__stage as
+      | { name?: string; engine?: string; summary?: string }
+      | undefined;
+    if (stage) {
+      currentClaimKey = null;
+      groups.push({
+        key: `stage-${step.id}`,
+        type: "stage",
+        label: stage.name ?? step.summary,
+        meta: stage.summary ?? step.summary,
+        steps: [step],
+      });
+      continue;
+    }
+
+    const claim = content.__claim as
+      | { index?: number; total?: number; text?: string }
+      | undefined;
+    if (claim) {
+      const ordinal =
+        typeof claim.index === "number" && typeof claim.total === "number"
+          ? `${claim.index}/${claim.total}`
+          : undefined;
+      pushClaim(
+        `claim-marker-${step.id}`,
+        claim.text ?? step.summary,
+        "MiroMind deep research",
+        ordinal,
+      );
+      continue;
+    }
+
+    const claimId = typeof content.claim_id === "string" ? content.claim_id : null;
+    if (claimId) {
+      const group = pushClaim(
+        `claim-${claimId}`,
+        claimId,
+        typeof content.agent === "string" ? content.agent : "MiroMind deep research",
+      );
+      group.steps.push(step);
+      continue;
+    }
+
+    const activeClaim = currentClaimKey
+      ? groups.find((g) => g.key === currentClaimKey)
+      : null;
+    if (activeClaim) {
+      activeClaim.steps.push(step);
+    } else {
+      let system = groups.find((g) => g.key === "system");
+      if (!system) {
+        system = { key: "system", type: "system", label: "Pipeline activity", steps: [] };
+        groups.push(system);
+      }
+      system.steps.push(step);
+    }
+  }
+
+  return groups.filter((g) => g.type !== "claim" || g.steps.length > 0 || g.label);
+}
+
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+function LiveGroupItem({ group }: { group: LiveStepGroup }) {
+  if (group.type === "stage") {
+    return (
+      <li className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-primary">{group.label}</p>
+        {group.meta && <p className="mt-0.5 text-xs text-muted-foreground">{group.meta}</p>}
+      </li>
+    );
+  }
+
+  return (
+    <li className="rounded-md border border-border bg-background">
+      <div className="border-b border-border px-2.5 py-2">
+        <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+          <span>{group.type === "claim" ? "Claim" : "Pipeline"}</span>
+          {group.ordinal && <span className="rounded bg-primary/10 px-1.5 py-0.5">{group.ordinal}</span>}
+          {group.meta && <span className="text-muted-foreground">{group.meta}</span>}
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-foreground">{group.label}</p>
+      </div>
+      {group.steps.length > 0 && (
+        <ol className="flex flex-col gap-1 px-2.5 py-2">
+          {group.steps.map((s) => (
+            <StepItem key={s.id} step={s} />
+          ))}
+        </ol>
+      )}
+    </li>
   );
 }
 
@@ -85,6 +251,8 @@ const METRIC_LABEL: Record<string, string> = {
   n_before: "before", n_after: "after", n_verifying: "to verify",
   n_steps: "steps", n_searches: "web searches",
   n_findings: "findings", n_scored: "scored",
+  n_reviewed: "reviewed", n_cleared: "cleared",
+  n_counterevidence_found: "counterevidence", n_inconclusive: "inconclusive",
 };
 
 // One-line "what this step does" shown at the top of each expanded stage.
@@ -95,21 +263,15 @@ const STAGE_BLURB: Record<string, string> = {
   checkworthiness: "Drops opinions, forecasts and trivia — keeps only checkable factual claims.",
   review_gate: "De-duplicates the claims and caps how many go to paid verification.",
   verify: "Runs each claim through MiroMind deep research — web searches, fetches, reasoning.",
+  skeptic: "Independently challenges high-risk MiroMind verdicts by searching for counterevidence before confidence scoring.",
   consistency: "Checks the claims against each other for contradictions and unsupported leaps.",
   confidence: "Scores each verdict on source authority, evidence freshness and source agreement.",
   reporter: "Writes the executive summary of the audit.",
 };
 
 function StaticReplay({ job }: { job: Job | null }) {
-  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+  const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set(["verify"]));
   const highlightedStepId = useArgusStore((s) => s.highlightedStepId);
-
-  // A cross-link from the evidence / finding panels ("show step in the trace")
-  // sets highlightedStepId — open the Verify stage so that step is reachable.
-  useEffect(() => {
-    if (!highlightedStepId) return;
-    setOpenKeys((prev) => (prev.has("verify") ? prev : new Set(prev).add("verify")));
-  }, [highlightedStepId]);
 
   if (!job) {
     return (
@@ -122,8 +284,9 @@ function StaticReplay({ job }: { job: Job | null }) {
   // The per-claim MiroMind traces that nest under the Verify stage.
   const claimText = new Map(job.claims.map((c) => [c.id, c.text]));
   const traceById = new Map(job.traces.map((t) => [t.id, t]));
-  const groups: ClaimGroup[] = job.findings
-    .filter((f) => f.agent === "UnifiedVerifier")
+  const groups: ClaimGroup[] = sortFindingsForReview(
+    job.findings.filter((f) => f.agent === "UnifiedVerifier"),
+  )
     .map((f) => {
       const trace = traceById.get(f.reasoning_trace_id);
       const steps = trace
@@ -141,6 +304,8 @@ function StaticReplay({ job }: { job: Job | null }) {
   // Persisted per-stage summary when present; otherwise derive a thinner view
   // from the job so older fixtures/jobs still render every stage.
   const stages: Stage[] = job.stages?.length ? job.stages : deriveStages(job, groups);
+  const effectiveOpenKeys =
+    highlightedStepId !== null ? new Set([...openKeys, "verify"]) : openKeys;
 
   if (stages.length === 0 && groups.length === 0) {
     return (
@@ -173,14 +338,14 @@ function StaticReplay({ job }: { job: Job | null }) {
           {stages.length} stages · {totalSearches} web searches
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         <ol className="flex flex-col">
           {stages.map((s, i) => (
             <StageItem
               key={s.key}
               index={i + 1}
               stage={s}
-              open={openKeys.has(s.key)}
+              open={effectiveOpenKeys.has(s.key)}
               onToggle={() => toggle(s.key)}
               groups={groups}
               job={job}
@@ -234,8 +399,13 @@ function StageItem({
         (isVerify ? (
           groups.length > 0 ? (
             <ul className="flex flex-col border-t border-border bg-muted/20">
-              {groups.map((g) => (
-                <ClaimTraceGroup key={g.finding.id} group={g} highlightedStepId={highlightedStepId} />
+              {groups.map((g, groupIndex) => (
+                <ClaimTraceGroup
+                  key={g.finding.id}
+                  group={g}
+                  highlightedStepId={highlightedStepId}
+                  initiallyOpen={groupIndex === 0}
+                />
               ))}
             </ul>
           ) : (
@@ -255,6 +425,10 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
   const consistencyFindings =
     stage.key === "consistency"
       ? job.findings.filter((f) => f.agent === "Consistency")
+      : [];
+  const skepticFindings =
+    stage.key === "skeptic"
+      ? job.findings.filter((f) => f.agent === "UnifiedVerifier" && f.skeptic_review)
       : [];
   return (
     <div className="flex flex-col gap-2.5 border-t border-border bg-muted/20 px-3 py-3 pl-9">
@@ -322,7 +496,50 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
               </li>
             ))}
           </ul>
-        )}
+      )}
+
+      {stage.key === "skeptic" && (
+        skepticFindings.length > 0 ? (
+          <ul className="flex flex-col gap-1.5">
+            {skepticFindings.map((f) => {
+              const review = f.skeptic_review;
+              if (!review) return null;
+              return (
+                <li
+                  key={f.id}
+                  className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px]"
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-foreground">
+                      {review.status.replaceAll("_", " ")}
+                    </span>
+                    {review.recommended_verdict && (
+                      <span className="text-muted-foreground">
+                        Recommended verdict: {review.recommended_verdict}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-foreground">{review.summary}</p>
+                  {review.counterevidence.length > 0 && (
+                    <ul className="mt-1 flex flex-col gap-1 text-muted-foreground">
+                      {review.counterevidence.map((item, i) => (
+                        <li key={`${f.id}-counter-${i}`}>
+                          <span className="font-medium text-foreground">{item.source}</span>
+                          {item.url ? ` (${item.url})` : ""}: {item.relevance || item.snippet}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            No findings required independent challenge.
+          </p>
+        )
+      )}
 
       {stage.key === "consistency" && consistencyFindings.length > 0 && (
         <ul className="flex flex-col gap-1.5">
@@ -383,23 +600,23 @@ function deriveStages(job: Job, groups: ClaimGroup[]): Stage[] {
 function ClaimTraceGroup({
   group,
   highlightedStepId,
+  initiallyOpen = false,
 }: {
   group: ClaimGroup;
   highlightedStepId: string | null;
+  initiallyOpen?: boolean;
 }) {
   const { finding, claimText, steps } = group;
   const containsHighlight =
     highlightedStepId != null && steps.some((s) => s.id === highlightedStepId);
-  const [open, setOpen] = useState(false);
-
-  // Auto-open when a contained step is cross-linked; the user can still close it.
-  useEffect(() => {
-    if (containsHighlight) setOpen(true);
-  }, [containsHighlight]);
+  const [open, setOpen] = useState(initiallyOpen);
+  const isOpen = open || containsHighlight;
 
   const nThink = steps.filter((s) => s.type === "thinking").length;
   const nSearch = steps.filter((s) => s.type === "web_search").length;
   const nFetch = steps.filter((s) => s.type === "fetch_url_content").length;
+  const nSources = finding.evidence_ids.length;
+  const nReasoning = finding.reasoning_chain?.length ?? nThink;
   const tone = verdictTone[finding.verdict] ?? "muted";
 
   return (
@@ -407,32 +624,115 @@ function ClaimTraceGroup({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+        aria-expanded={isOpen}
+        className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
       >
         <span aria-hidden className="shrink-0 font-mono text-[10px] text-muted-foreground">
-          {open ? "▾" : "▸"}
+          {isOpen ? "▾" : "▸"}
         </span>
-        <span className="min-w-0 flex-1 truncate text-xs text-foreground">{claimText}</span>
+        <span className="min-w-0 truncate text-xs font-medium text-foreground">{claimText}</span>
         <span
           className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}
         >
           {finding.verdict}
         </span>
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-          💭{nThink} · 🔍{nSearch}
-          {nFetch > 0 ? ` · 📄${nFetch}` : ""}
+        <span className="col-start-2 col-end-4 flex min-w-0 flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <TraceMetric value={nSources} label="source" />
+          <TraceMetric value={nReasoning} label="reasoning step" />
+          <TraceMetric value={nSearch} label="search" />
+          {nFetch > 0 && <TraceMetric value={nFetch} label="fetch" />}
         </span>
       </button>
-      {open && (
-        <ol className="flex flex-col gap-1 bg-muted/30 px-3 py-2 pl-7">
-          {steps.map((s) => (
-            <StepItem key={s.id} step={s} highlighted={s.id === highlightedStepId} />
-          ))}
-        </ol>
+      {isOpen && (
+        <div className="bg-muted/30">
+          <VerdictBrief finding={finding} />
+          <ol className="flex flex-col gap-1 px-3 py-2 pl-7">
+            {steps.map((s) => (
+              <StepItem key={s.id} step={s} highlighted={s.id === highlightedStepId} />
+            ))}
+          </ol>
+        </div>
       )}
     </li>
   );
+}
+
+function VerdictBrief({ finding }: { finding: Finding }) {
+  const reasoning = (finding.reasoning_chain ?? [])
+    .map((step) => reasoningBriefText(step))
+    .filter(Boolean)
+    .slice(0, 3);
+  const hasBrief =
+    Boolean(finding.summary) ||
+    Boolean(finding.why_wrong) ||
+    Boolean(finding.correct_information) ||
+    reasoning.length > 0;
+
+  if (!hasBrief) return null;
+
+  return (
+    <div className="border-t border-border/60 px-3 pb-1.5 pl-7 pt-2">
+      <div className="min-w-0 rounded-md border border-border bg-background px-2.5 py-2 text-[11px] shadow-sm">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-primary">
+          Verdict brief
+        </p>
+        {finding.summary && (
+          <p className="mt-1.5 line-clamp-3 leading-relaxed text-foreground">
+            {finding.summary}
+          </p>
+        )}
+        {finding.why_wrong && (
+          <p className="mt-1.5 line-clamp-3 leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Why wrong: </span>
+            {finding.why_wrong}
+          </p>
+        )}
+        {finding.correct_information && (
+          <p className="mt-1.5 line-clamp-3 leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Correct: </span>
+            {finding.correct_information.value}
+            {finding.correct_information.source && (
+              <span className="text-foreground/80"> — {finding.correct_information.source}</span>
+            )}
+          </p>
+        )}
+        {reasoning.length > 0 && (
+          <ol className="mt-2 flex flex-col gap-1 border-t border-border pt-2">
+            {reasoning.map((text, index) => (
+              <li key={`${index}-${text}`} className="flex gap-1.5 leading-snug text-muted-foreground">
+                <span className="mt-0.5 shrink-0 font-mono text-[10px] text-primary">
+                  {index + 1}
+                </span>
+                <span className="line-clamp-2 min-w-0">{text}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function reasoningBriefText(step: FindingReasoningStep): string {
+  if ("reasoning" in step && step.reasoning) return step.reasoning;
+  if ("content" in step && step.content) return step.content;
+  if ("observation" in step && step.observation) return step.observation;
+  return "";
+}
+
+function TraceMetric({ value, label }: { value: number; label: string }) {
+  const displayLabel = pluralizeTraceMetric(label, value);
+  return (
+    <span className="rounded border border-border bg-background px-1.5 py-0.5">
+      <span className="text-foreground">{value}</span> {displayLabel}
+    </span>
+  );
+}
+
+function pluralizeTraceMetric(label: string, value: number): string {
+  if (value === 1) return label;
+  if (label.endsWith("ch")) return `${label}es`;
+  return `${label}s`;
 }
 
 interface SearchHit {

@@ -30,9 +30,10 @@ to *trust* it before they act on it.
 
 The problem underneath this is real and documented:
 
-- **1,353+** court filings have now been caught citing fabricated, AI-hallucinated
-  cases — and the [tracked count](https://www.damiencharlotin.com/hallucinations/)
-  (Damien Charlotin, HEC Paris) keeps growing by several every day.
+- **1,536** legal cases have now been identified where courts or tribunals
+  addressed AI-hallucinated content — and the
+  [tracked count](https://www.damiencharlotin.com/hallucinations/)
+  (Damien Charlotin, HEC Paris; last updated 4 June 2026) keeps growing.
 - Gartner predicts **30% of generative-AI projects will be abandoned after
   proof-of-concept by the end of 2025** — citing poor data quality, weak risk
   controls, escalating cost, and unclear business value
@@ -209,8 +210,15 @@ uv run argus serve --host 127.0.0.1 --port 8080
 # 2. Frontend
 cd web && pnpm install && pnpm dev
 
-# 3. Open http://localhost:3000
+# 3. Open http://127.0.0.1:3000
 #    Click "See a sample audit" to replay a real recorded audit — no API key needed.
+```
+
+On macOS, WeasyPrint may need Homebrew's Pango/Cairo libraries on the dynamic
+loader path before the PDF report endpoint is used:
+
+```bash
+DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve --host 127.0.0.1 --port 8080
 ```
 
 ### Option B — CLI
@@ -250,10 +258,10 @@ uv run argus audit examples/sample-report.pdf \
 ## 🧪 Testing
 
 ```bash
-uv run pytest -q          # 171 passing
+uv run pytest -q          # backend tests
 uv run mypy src/argus     # strict
 uv run ruff check .       # lint
-cd web && pnpm test       # vitest
+cd web && pnpm test       # frontend tests
 ```
 
 ## 📜 License

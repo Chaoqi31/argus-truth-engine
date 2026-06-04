@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-// BYOK input. The visitor pastes their own MiroMind API key; we persist it
-// in localStorage so they don't have to re-enter on every reload, but the
-// key never leaves the browser except on the audit POST (header) which goes
-// straight to the Argus backend over HTTPS.
+// BYOK input. The visitor pastes their own MiroMind API key; by default it
+// stays only in component state for the current run. If they explicitly opt in
+// to remembering it, we store it in localStorage for the review-resume path.
 
 const STORAGE_KEY = "argus-miromind-key";
 
@@ -16,13 +15,25 @@ interface Props {
 
 export function ApiKeyInput({ value, onChange }: Props) {
   const [visible, setVisible] = useState(false);
+  const [remember, setRemember] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return Boolean(window.localStorage.getItem(STORAGE_KEY));
+    } catch {
+      return false;
+    }
+  });
 
   // Hydrate from localStorage on mount (parent owns the value).
   useEffect(() => {
     if (value) return;
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) onChange(stored);
+      const sessionValue = window.sessionStorage.getItem(STORAGE_KEY);
+      const localValue = window.localStorage.getItem(STORAGE_KEY);
+      const stored = sessionValue ?? localValue;
+      if (stored) {
+        onChange(stored);
+      }
     } catch {
       /* private-mode browsers may throw — ignore */
     }
@@ -32,7 +43,19 @@ export function ApiKeyInput({ value, onChange }: Props) {
   const handleChange = (next: string) => {
     onChange(next);
     try {
-      if (next) window.localStorage.setItem(STORAGE_KEY, next);
+      if (next) window.sessionStorage.setItem(STORAGE_KEY, next);
+      else window.sessionStorage.removeItem(STORAGE_KEY);
+      if (remember && next) window.localStorage.setItem(STORAGE_KEY, next);
+      else window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleRememberChange = (next: boolean) => {
+    setRemember(next);
+    try {
+      if (next && value) window.localStorage.setItem(STORAGE_KEY, value);
       else window.localStorage.removeItem(STORAGE_KEY);
     } catch {
       /* ignore */
@@ -78,10 +101,19 @@ export function ApiKeyInput({ value, onChange }: Props) {
           {visible ? "Hide" : "Show"}
         </button>
       </div>
+      <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => handleRememberChange(e.target.checked)}
+          className="size-3.5 rounded border-border"
+        />
+        <span>Remember key on this device for claim-review resume</span>
+      </label>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Stored locally in your browser only. Sent to the Argus backend on each
-        audit as <code className="font-mono">X-Miromind-Key</code>. The
-        operator of this demo never sees it.
+        Not stored unless you choose to remember it. Sent to the Argus backend
+        on each audit as <code className="font-mono">X-Miromind-Key</code>.
+        Not persisted by Argus or written to app logs.
       </p>
     </div>
   );

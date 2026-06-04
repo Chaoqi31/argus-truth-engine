@@ -5,7 +5,47 @@
   "pdf_path": "",
   "input_text": "NVIDIA Corporation (NVDA) — AI-generated equity research summary.\n\nOverview. NVIDIA remains the defining franchise of the accelerated-computing era, and in our view its competitive moat is widening rather than narrowing. We believe the market still underappreciates the durability of its data-center demand.\n\nNVIDIA was founded in 1993, and its CUDA software platform was first released in 2007 — together giving the company a developer ecosystem we consider its single greatest asset.\n\nNVIDIA reported $130.5 billion in total revenue for fiscal year 2025, up 114% year over year. Its data-center segment alone generated $148 billion in revenue over the same fiscal year.\n\nNVIDIA's most advanced GPU architecture currently in production is Hopper.\n\nAccording to a February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout,\" cumulative global spending on AI infrastructure will exceed $5 trillion by 2030. We view this as ambitious but directionally sound.\n",
   "input_mode": "text",
-  "content_domain": "general",
+  "content_domain": "finance",
+  "benchmark": {
+    "name": "NVIDIA planted-error benchmark",
+    "expected_claims": [
+      {
+        "claim_id": "a_1",
+        "verdict": "ok",
+        "rationale": "Control claim: NVIDIA's founding year is accurate."
+      },
+      {
+        "claim_id": "a_2",
+        "verdict": "ok",
+        "rationale": "Control claim: CUDA's 2007 initial release is accurate."
+      },
+      {
+        "claim_id": "a_3",
+        "verdict": "ok",
+        "rationale": "Control claim: FY2025 total revenue of $130.5B is accurate."
+      },
+      {
+        "claim_id": "a_4",
+        "verdict": "ok",
+        "rationale": "Control claim: FY2025 revenue grew 114% year over year."
+      },
+      {
+        "claim_id": "a_5",
+        "verdict": "inaccurate",
+        "rationale": "Planted numeric error: data-center revenue was not $148B."
+      },
+      {
+        "claim_id": "a_6",
+        "verdict": "inaccurate",
+        "rationale": "Planted stale architecture claim: Blackwell supersedes Hopper."
+      },
+      {
+        "claim_id": "a_7",
+        "verdict": "fabricated",
+        "rationale": "Planted fake citation: the named Goldman Sachs report does not exist."
+      }
+    ]
+  },
   "auto_review": true,
   "status": "done",
   "created_at": "2026-06-01T10:23:31.719293",
@@ -409,6 +449,12 @@
         "url": "https://www.goldmansachs.com/insights/articles/tracking-trillions-the-assumptions-shaping-scale-of-the-ai-build-out",
         "retrieved_date": "2026-06-01"
       },
+      "skeptic_review": {
+        "status": "no_counterevidence",
+        "summary": "The independent skeptic pass searched for title variants, date shifts, and alternate attributions but found no credible Goldman Sachs report matching the claimed title or February 2026 date.",
+        "recommended_verdict": null,
+        "counterevidence": []
+      },
       "reasoning_chain": [
         {
           "action": "Searched for the exact title \"Silicon Supercycle: The $5 Trillion AI Buildout\" along with \"Goldman Sachs\" and date filters around February 2026, including PDFs and site-restricted queries on goldmansachs.com and citation indexes.",
@@ -429,6 +475,81 @@
           "action": "Looked for independent sources that estimate \\$5 trillion in cumulative AI infrastructure spending by around 2030 to check whether the numeric projection itself exists elsewhere.",
           "observation": "An AI market intelligence report released in May 2026 states that 'cumulative AI infrastructure spending between 2025 and 2030 is estimated at \\$5 trillion,' and attributes this to its own modeling based on gigawatt power forecasts; McKinsey and others similarly project \\$5.2+ trillion in AI‑related data center capex by 2030, none of which are Goldman Sachs or use the 'Silicon Supercycle' title.",
           "reasoning": "This confirms that the \\$5 trillion cumulative‑by‑2030 estimate is present in the ecosystem but originates from other analytical firms, not from a February 2026 Goldman Sachs report with the claimed title, reinforcing that the claim’s attribution and report identity are fabricated even though the magnitude is within the range of industry forecasts."
+        }
+      ],
+      "coverage": [
+        {
+          "claim_fragment": "February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout\"",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_af558565a351",
+            "ev_2210f9062eaf"
+          ],
+          "reason": "Goldman Sachs' own article and PDF identify the relevant report as \"Tracking Trillions\" and do not contain the claimed title or February 2026 attribution."
+        },
+        {
+          "claim_fragment": "Goldman Sachs attributed a $5 trillion AI infrastructure buildout to that report",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_f347e04231c9",
+            "ev_a8a6d38018f3"
+          ],
+          "reason": "Commentary and Goldman wealth-management material discuss multitrillion AI infrastructure needs, but neither uses the claimed report title or supports the specific February 2026 citation."
+        },
+        {
+          "claim_fragment": "$5 trillion cumulative AI infrastructure spending by around 2030",
+          "relation": "partial_match",
+          "evidence_ids": [
+            "ev_392007a78d5c"
+          ],
+          "reason": "A non-Goldman 2026 intelligence report contains a similar $5 trillion estimate, showing the number exists in the discourse while the Goldman report attribution remains unsupported."
+        }
+      ],
+      "evidence_quality": [
+        {
+          "evidence_id": "ev_af558565a351",
+          "authority": 0.9,
+          "independence": 0.7,
+          "freshness": 0.95,
+          "directness": 0.95,
+          "role": "primary_source",
+          "rationale": "Official Goldman Sachs page for the relevant AI infrastructure analysis; highly direct for title and attribution, though not independent of Goldman."
+        },
+        {
+          "evidence_id": "ev_2210f9062eaf",
+          "authority": 0.9,
+          "independence": 0.7,
+          "freshness": 0.95,
+          "directness": 0.95,
+          "role": "primary_source",
+          "rationale": "Official Goldman Sachs PDF confirms the actual report title and cumulative capex framing."
+        },
+        {
+          "evidence_id": "ev_f347e04231c9",
+          "authority": 0.45,
+          "independence": 0.65,
+          "freshness": 0.9,
+          "directness": 0.7,
+          "role": "context_source",
+          "rationale": "Secondary commentary helps explain how the $5 trillion shorthand appears, but it is not authoritative for Goldman report metadata."
+        },
+        {
+          "evidence_id": "ev_392007a78d5c",
+          "authority": 0.55,
+          "independence": 0.85,
+          "freshness": 0.95,
+          "directness": 0.85,
+          "role": "alternate_source",
+          "rationale": "Independent report supports a similar $5 trillion estimate while contradicting the claimed Goldman attribution."
+        },
+        {
+          "evidence_id": "ev_a8a6d38018f3",
+          "authority": 0.75,
+          "independence": 0.7,
+          "freshness": 0.9,
+          "directness": 0.75,
+          "role": "context_source",
+          "rationale": "Goldman-linked wealth-management material discusses infrastructure funding needs without supporting the claimed title or date."
         }
       ],
       "evidence_ids": [
@@ -5620,6 +5741,20 @@
         "n_claims": 7,
         "n_steps": 309,
         "n_searches": 115
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "skeptic",
+      "name": "Skeptic challenge",
+      "engine": "miromind",
+      "summary": "Challenged 1 high-risk finding(s) · 0 counterevidence found · 1 cleared",
+      "metrics": {
+        "n_reviewed": 1,
+        "n_cleared": 1,
+        "n_counterevidence_found": 0,
+        "n_inconclusive": 0
       },
       "strategy": null,
       "filtered_claims": null

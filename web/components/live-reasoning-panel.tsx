@@ -26,16 +26,20 @@ const STEP_MS = 600;
 const START_MS = 700;
 const HOLD_MS = 3000;
 
+function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 export function LiveReasoningPanel() {
-  const [shown, setShown] = useState(0);
-  const [searches, setSearches] = useState(0);
+  const [reducedMotion] = useState(prefersReducedMotion);
+  const [shown, setShown] = useState(() => (reducedMotion ? STEPS.length : 0));
+  const [searches, setSearches] = useState(() => (reducedMotion ? TARGET_SEARCHES : 0));
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setShown(STEPS.length);
-      setSearches(TARGET_SEARCHES);
-      return;
-    }
+    if (reducedMotion) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     let counter: ReturnType<typeof setInterval> | null = null;
 
@@ -60,7 +64,7 @@ export function LiveReasoningPanel() {
       timers.forEach(clearTimeout);
       if (counter) clearInterval(counter);
     };
-  }, []);
+  }, [reducedMotion]);
 
   return (
     <div className="overflow-hidden rounded-[14px] border border-border bg-background shadow-[var(--shadow-card-hover)]">

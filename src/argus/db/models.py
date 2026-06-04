@@ -14,16 +14,20 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from argus.models.domain import (
     Claim,
+    ClaimCoverage,
     ClaimType,
+    ComputationCheck,
     ConfidenceBreakdown,
     CorrectedInfo,
     Evidence,
+    EvidenceQuality,
     EvidenceSource,
     Finding,
     FindingVerdict,
     Job,
     ReasoningTrace,
     Severity,
+    SkepticReview,
     Stage,
     Step,
     StepType,
@@ -174,6 +178,10 @@ class FindingRow(Base):
     correct_info_source: Mapped[str | None] = mapped_column(String, nullable=True)
     correct_info_url: Mapped[str | None] = mapped_column(String, nullable=True)
     correct_info_retrieved_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    evidence_quality: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    coverage: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    skeptic_review: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    computation_check: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     job: Mapped[JobRow] = relationship(back_populates="findings")
 
@@ -201,6 +209,14 @@ class FindingRow(Base):
             correct_info_url=m.correct_information.url if m.correct_information else None,
             correct_info_retrieved_date=(
                 m.correct_information.retrieved_date if m.correct_information else None
+            ),
+            evidence_quality=[q.model_dump() for q in m.evidence_quality],
+            coverage=[c.model_dump() for c in m.coverage],
+            skeptic_review=(
+                m.skeptic_review.model_dump() if m.skeptic_review else None
+            ),
+            computation_check=(
+                m.computation_check.model_dump() if m.computation_check else None
             ),
         )
 
@@ -233,6 +249,22 @@ class FindingRow(Base):
             created_at=self.created_at,
             why_wrong=self.why_wrong,
             correct_information=corrected,
+            evidence_quality=[
+                EvidenceQuality.model_validate(q) for q in (self.evidence_quality or [])
+            ],
+            coverage=[
+                ClaimCoverage.model_validate(c) for c in (self.coverage or [])
+            ],
+            skeptic_review=(
+                SkepticReview.model_validate(self.skeptic_review)
+                if self.skeptic_review
+                else None
+            ),
+            computation_check=(
+                ComputationCheck.model_validate(self.computation_check)
+                if self.computation_check
+                else None
+            ),
         )
 
 

@@ -4,12 +4,11 @@ from __future__ import annotations
 from pathlib import PurePath
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from argus.api.runner import JobRunner
-from argus.reporting.pdf import render_job_pdf
 
 
 class TextSubmission(BaseModel):
@@ -57,6 +56,7 @@ def _safe_filename(filename: str | None) -> str:
 async def submit_job(
     request: Request,
     pdf: UploadFile = File(..., description="PDF to audit"),  # noqa: B008
+    content_domain: str = Form("general"),
 ) -> dict[str, str]:
     _require_token(request)
     if (pdf.content_type or "").lower() != "application/pdf":
@@ -85,6 +85,7 @@ async def submit_job(
         blob,
         _safe_filename(pdf.filename),
         api_key_override=api_key_header or None,
+        content_domain=content_domain,
     )
     return {"job_id": job_id, "status": "running"}
 
@@ -183,6 +184,8 @@ async def get_job_report_pdf(request: Request, job_id: str) -> Response:
     record = runner.get(job_id)
     if record is None or record.result is None:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not ready")
+    from argus.reporting.pdf import render_job_pdf
+
     pdf_bytes = render_job_pdf(record.result)
     return Response(
         content=pdf_bytes,

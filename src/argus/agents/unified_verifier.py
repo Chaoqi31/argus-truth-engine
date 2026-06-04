@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from argus.agents.base import AgentResult, AgentRunner
+from argus.agents.base import AgentResult, AgentRunner, StepCallback
 from argus.miromind.client import MiromindClient
 from argus.models.domain import FindingVerdict
 
@@ -59,6 +59,42 @@ REQUIRED OUTPUT FORMAT
         "snippet": "brief quote or description from the source"
       }
     ],
+    "evidence_quality": [
+      {
+        "evidence_index": 0-based index into evidence[],
+        "authority": float in [0.0, 1.0],
+        "independence": float in [0.0, 1.0],
+        "freshness": float in [0.0, 1.0],
+        "directness": float in [0.0, 1.0],
+        "role": "primary_source"|"secondary_source"|"search_absence"|"computed_value"|"other",
+        "rationale": "why this evidence is or is not strong"
+      }
+    ],
+    "coverage": [
+      {
+        "claim_fragment": "one atomic fragment of the claim",
+        "relation": "supports"|"refutes"|"unsupported"|"outdated"|"misrepresented"|"uncertain",
+        "evidence_indices": [0-based indices into evidence[]],
+        "reason": "how the cited evidence affects this fragment"
+      }
+    ],
+    "computation_check": {
+      "kind": "numeric"|"date",
+      "claimed_value": "value/date/status stated by the claim",
+      "extracted_values": [
+        {
+          "label": "what this value is",
+          "value": "extracted value as text",
+          "unit": "unit or empty string",
+          "source_evidence_index": 0-based index into evidence[] or null
+        }
+      ],
+      "formula": "calculation or comparison performed, empty if none",
+      "computed_value": "computed result",
+      "tolerance": "rounding/date validity threshold",
+      "judgment": "matches"|"refutes"|"uncertain",
+      "rationale": "why the calculation/date check matters"
+    } | null,
     "reasoning_chain": [
       {
         "action": "what you did (e.g. searched for X, fetched URL Y)",
@@ -69,6 +105,10 @@ REQUIRED OUTPUT FORMAT
   }
   - The evidence array MUST contain at least 2 items.
   - The reasoning_chain MUST contain at least 2 steps.
+  - coverage MUST decompose the claim into the smallest useful factual fragments.
+  - evidence_quality MUST explain source authority, independence, freshness, and directness.
+  - If the claim involves numbers, percentages, growth rates, dates, or "as of" validity,
+    use execute_python when useful and populate computation_check. Otherwise set it to null.
   - correct_information MUST be non-null whenever verdict is inaccurate or outdated.
   - why_wrong MUST be non-null for any verdict other than ok or uncertain.
 OUTPUT ONLY THE JSON OBJECT.
@@ -100,6 +140,41 @@ class VerificationStepOut(BaseModel):
     reasoning: str = ""
 
 
+class EvidenceQualityOut(BaseModel):
+    evidence_index: int = Field(default=0, ge=0)
+    authority: float = Field(default=0.0, ge=0.0, le=1.0)
+    independence: float = Field(default=0.0, ge=0.0, le=1.0)
+    freshness: float = Field(default=0.0, ge=0.0, le=1.0)
+    directness: float = Field(default=0.0, ge=0.0, le=1.0)
+    role: str = ""
+    rationale: str = ""
+
+
+class CoverageOut(BaseModel):
+    claim_fragment: str = ""
+    relation: str = "uncertain"
+    evidence_indices: list[int] = Field(default_factory=list)
+    reason: str = ""
+
+
+class ComputationValueOut(BaseModel):
+    label: str = ""
+    value: str = ""
+    unit: str = ""
+    source_evidence_index: int | None = None
+
+
+class ComputationCheckOut(BaseModel):
+    kind: str = "numeric"
+    claimed_value: str = ""
+    extracted_values: list[ComputationValueOut] = Field(default_factory=list)
+    formula: str = ""
+    computed_value: str = ""
+    tolerance: str = ""
+    judgment: str = "uncertain"
+    rationale: str = ""
+
+
 class UnifiedVerifierOutput(BaseModel):
     verdict: FindingVerdict
     confidence: float = Field(ge=0.0, le=1.0)
@@ -107,6 +182,9 @@ class UnifiedVerifierOutput(BaseModel):
     why_wrong: str | None = None
     correct_information: CorrectedInfoOut | None = None
     evidence: list[EvidenceOut] = Field(default_factory=list)
+    evidence_quality: list[EvidenceQualityOut] = Field(default_factory=list)
+    coverage: list[CoverageOut] = Field(default_factory=list)
+    computation_check: ComputationCheckOut | None = None
     reasoning_chain: list[VerificationStepOut] = Field(default_factory=list)
 
 
@@ -134,12 +212,14 @@ async def verify_claim(
     surrounding: str = "",
     domain_hint: str = "",
     idempotency_key: str | None = None,
+    on_step: StepCallback | None = None,
 ) -> AgentResult[UnifiedVerifierOutput]:
     runner = AgentRunner(
         client=client,
         model_cls=UnifiedVerifierOutput,
         agent_name="unified_verifier",
         max_output_tokens=6000,
+        on_step=on_step,
     )
     return await runner.run(
         instructions=SYSTEM_PROMPT,
