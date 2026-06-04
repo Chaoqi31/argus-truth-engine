@@ -28,10 +28,18 @@ export function loadJobFromJsonString(raw: string): Job {
   return parsed as Job;
 }
 
-export async function loadSampleJob(): Promise<Job> {
-  const resp = await fetch("/sample-findings.json");
+export type Scenario = "nvidia" | "legal";
+
+const SCENARIO_FILE: Record<Scenario, string> = {
+  nvidia: "/sample-findings.json",
+  legal: "/sample-findings-legal.json",
+};
+
+export async function loadSampleJob(scenario: Scenario = "nvidia"): Promise<Job> {
+  const url = SCENARIO_FILE[scenario];
+  const resp = await fetch(url);
   if (!resp.ok) {
-    throw new Error(`failed to load sample-findings.json: ${resp.status}`);
+    throw new Error(`failed to load ${url}: ${resp.status}`);
   }
   const text = await resp.text();
   return loadJobFromJsonString(text);

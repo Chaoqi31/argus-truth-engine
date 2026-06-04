@@ -25,7 +25,7 @@ import {
   JobNotFoundError,
   type ContentDomain,
 } from "@/lib/api";
-import { loadSampleJob } from "@/lib/load-job";
+import { loadSampleJob, type Scenario } from "@/lib/load-job";
 import { replayTrace } from "@/lib/trace-replayer";
 import type { FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
@@ -145,6 +145,9 @@ function AuditPageContent() {
   // live UI on click. `demoRunning` flips on once playback starts.
   const [demoJob, setDemoJob] = useState<Job | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
+  const [scenario, setScenario] = useState<Scenario>(() =>
+    params.get("scenario") === "legal" ? "legal" : "nvidia",
+  );
   const demoAbortRef = useRef<AbortController | null>(null);
   // Guards the one-time terminal transition (done/failed) for the live run so
   // the WS `finished` path and the polling fallback can't double-load or race.
@@ -306,9 +309,10 @@ function AuditPageContent() {
     if (liveId) return; // live mode owns the page
     if (job) return; // already running/finished
     if (!demo) return; // no demo → input UI (see AuditInputPage below)
-    if (demoJob) return; // already loaded
     let cancelled = false;
-    loadSampleJob()
+    // Reloads when `scenario` changes so the picker can swap fixtures. Keeps the
+    // previous demoJob visible until the new one resolves (local fetch is fast).
+    loadSampleJob(scenario)
       .then((sample) => {
         if (!cancelled) setDemoJob(sample);
       })
@@ -319,7 +323,7 @@ function AuditPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [liveId, demo, job, demoJob, router]);
+  }, [scenario, liveId, demo, job, router]);
 
   // Abort any in-flight demo playback if the page unmounts mid-stream.
   useEffect(() => () => demoAbortRef.current?.abort(), []);
@@ -395,7 +399,14 @@ function AuditPageContent() {
   // Demo idle screen: fixture loaded but not yet running — show the source
   // report + a single Run button. Clicking Run streams it through the live UI.
   if (demo && demoJob && !job && !demoRunning && runStatus === "idle") {
-    return <DemoIdleScreen job={demoJob} onRun={runDemo} />;
+    return (
+      <DemoIdleScreen
+        job={demoJob}
+        onRun={runDemo}
+        scenario={scenario}
+        onScenarioChange={setScenario}
+      />
+    );
   }
 
   // Live / demo-running view: banner + document + live trace + findings preview.
@@ -934,7 +945,22 @@ function toLiveFinding(f: Finding): LiveFinding {
 // Shown at /audit?demo=1 before the user clicks Run. Presents the bundled
 // note read-only with a single primary action that replays the completed
 // audit through the live UI. No network call — honest, neutral copy.
-function DemoIdleScreen({ job, onRun }: { job: Job; onRun: () => void }) {
+const DEMO_SCENARIOS: Array<{ key: Scenario; label: string }> = [
+  { key: "nvidia", label: "Investment research" },
+  { key: "legal", label: "Legal filing" },
+];
+
+function DemoIdleScreen({
+  job,
+  onRun,
+  scenario,
+  onScenarioChange,
+}: {
+  job: Job;
+  onRun: () => void;
+  scenario: Scenario;
+  onScenarioChange: (s: Scenario) => void;
+}) {
   const [starting, setStarting] = useState(false);
   return (
     <div className="cockpit cc-backdrop min-h-screen">
@@ -956,6 +982,28 @@ function DemoIdleScreen({ job, onRun }: { job: Job; onRun: () => void }) {
 
         {/* Action rail */}
         <aside className="flex flex-col justify-center gap-6 border-t border-[var(--cc-border)] px-8 py-12 lg:border-l lg:border-t-0">
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
+              Choose a scenario
+            </span>
+            <div className="flex gap-1 rounded-[10px] bg-muted p-0.5 ring-1 ring-[var(--cc-border)]">
+              {DEMO_SCENARIOS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => onScenarioChange(s.key)}
+                  aria-pressed={scenario === s.key}
+                  className={`flex-1 rounded-[8px] px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary ${
+                    scenario === s.key
+                      ? "bg-background text-foreground shadow-[var(--shadow-card)]"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex flex-col gap-2">
             <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
               Sample audit
