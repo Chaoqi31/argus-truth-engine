@@ -45,6 +45,7 @@ class _State(TypedDict, total=False):
     filtered_claims: list[dict[str, str]]  # [{"claim_id","text","reason"}]
     findings: Annotated[list[Finding], operator.add]
     traces: Annotated[dict[str, ReasoningTrace], _dict_merge]
+    stage_summaries: Annotated[dict[str, dict[str, Any]], _dict_merge]
     evidences: Annotated[list[Evidence], operator.add]
     audit_report_md: str | None
     aborted: bool

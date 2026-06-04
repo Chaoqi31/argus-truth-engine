@@ -42,5 +42,9 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             job_id=ctx.job_id, claim_id="(planner)", agent="planner", stream=result.final
         )
         await ctx.publisher.publish("step", _step_payload(trace, n_claims=len(claims)))
-        return {"claims": claims, "traces": {trace.id: trace}}
+        return {
+            "claims": claims,
+            "traces": {trace.id: trace},
+            "stage_summaries": {"planner": {"n_claims": len(claims)}},
+        }
     return node

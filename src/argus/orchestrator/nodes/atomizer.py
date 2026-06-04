@@ -15,15 +15,31 @@ def _atomizer_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             return {}
         claims = state.get("claims", [])
         if not claims or not ctx.cheap_client:
-            return {"original_claims": list(claims)}
+            return {
+                "original_claims": list(claims),
+                "stage_summaries": {
+                    "atomizer": {"n_original": len(claims), "n_atoms": len(claims)}
+                },
+            }
         try:
             atoms = await run_atomizer(ctx.cheap_client, claims)
         except Exception as exc:
             log.warning("orchestrator.atomizer_failed", error=str(exc)[:300])
-            return {"original_claims": list(claims)}
+            return {
+                "original_claims": list(claims),
+                "stage_summaries": {
+                    "atomizer": {"n_original": len(claims), "n_atoms": len(claims)}
+                },
+            }
         log.info("orchestrator.atomized", n_original=len(claims), n_atoms=len(atoms))
         await ctx.publisher.publish("atomized", {
             "n_original": len(claims), "n_atoms": len(atoms),
         })
-        return {"claims": atoms, "original_claims": list(claims)}
+        return {
+            "claims": atoms,
+            "original_claims": list(claims),
+            "stage_summaries": {
+                "atomizer": {"n_original": len(claims), "n_atoms": len(atoms)}
+            },
+        }
     return node

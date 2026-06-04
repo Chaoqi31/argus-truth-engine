@@ -5573,5 +5573,111 @@
       "retrieved_at": "2026-06-01T10:52:01.344387",
       "retrieved_by_step_id": "step_d395890c49e6"
     }
+  ],
+  "stages": [
+    {
+      "key": "parse",
+      "name": "Parse",
+      "engine": "deterministic",
+      "summary": "Read 989 chars of input text",
+      "metrics": {
+        "pages": 1,
+        "chars": 989
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "planner",
+      "name": "Planner",
+      "engine": "deepseek",
+      "summary": "Extracted 7 candidate claim(s)",
+      "metrics": {
+        "n_claims": 7
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "atomizer",
+      "name": "Atomizer",
+      "engine": "deepseek",
+      "summary": "Normalised 7 claim(s) — no splitting needed",
+      "metrics": {
+        "n_original": 7,
+        "n_atoms": 7
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "checkworthiness",
+      "name": "Check-worthiness",
+      "engine": "deepseek",
+      "summary": "7 check-worthy · none filtered",
+      "metrics": {
+        "n_checkworthy": 7,
+        "n_filtered": 0
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "review_gate",
+      "name": "Review gate",
+      "engine": "deterministic",
+      "summary": "7 claim(s) sent to verification",
+      "metrics": {
+        "n_before": 7,
+        "n_after": 7,
+        "n_verifying": 7
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "verify",
+      "name": "Verify",
+      "engine": "miromind",
+      "summary": "Deep-researched 7 claim(s) · 309 steps · 115 web searches",
+      "metrics": {
+        "n_claims": 7,
+        "n_steps": 309,
+        "n_searches": 115
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "consistency",
+      "name": "Consistency",
+      "engine": "deepseek",
+      "summary": "3 cross-claim issue(s) found",
+      "metrics": {
+        "n_findings": 3
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "confidence",
+      "name": "Confidence",
+      "engine": "deterministic",
+      "summary": "Scored 10 finding(s) on 3 factors (authority · freshness · agreement)",
+      "metrics": {
+        "n_scored": 10
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "reporter",
+      "name": "Reporter",
+      "engine": "deepseek",
+      "summary": "Executive summary generated",
+      "metrics": {},
+      "strategy": null,
+      "filtered_claims": null
+    }
   ]
 }

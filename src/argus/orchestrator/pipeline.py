@@ -15,7 +15,7 @@ from argus.engineering import BoundedRunner, BudgetTracker
 from argus.llm.cheap_client import CheapLLMClient
 from argus.log import log
 from argus.miromind.client import MiromindClient
-from argus.models.domain import Job
+from argus.models.domain import Job, Stage, StageFilteredClaim
 from argus.orchestrator.context import (
     _Ctx,
     _Publisher,
@@ -158,6 +158,150 @@ async def _run_pipeline(
                            repo, raised_exc, cheap_client)
 
 
+def _build_stages(final_state: _State, job: Job) -> list[Stage]:
+    """Build the ordered per-stage pipeline summary for the UI.
+
+    One Stage per pipeline node, in execution order. Reads accumulated
+    per-stage counts from ``final_state["stage_summaries"]`` (populated by the
+    nodes) plus the assembled Job fields. Tolerant of missing data so a partial
+    run (e.g. budget abort) still yields a coherent list.
+    """
+    ss = final_state.get("stage_summaries", {})
+    original_claims = final_state.get("original_claims", [])
+    filtered = final_state.get("filtered_claims", [])
+    doc = final_state.get("doc")
+
+    stages: list[Stage] = []
+
+    # 1. parse
+    if doc is not None:
+        pages = len(doc.pages)
+        chars = len(doc.full_text)
+    else:
+        pages = 0
+        chars = len(job.input_text or "")
+    if job.input_mode == "text":
+        parse_summary = f"Read {chars} chars of input text"
+    else:
+        parse_summary = f"Parsed {pages} page(s) · {chars} chars"
+    stages.append(Stage(
+        key="parse", name="Parse", engine="deterministic",
+        summary=parse_summary, metrics={"pages": pages, "chars": chars},
+    ))
+
+    # 2. planner
+    n_claims = ss.get("planner", {}).get("n_claims", len(original_claims))
+    stages.append(Stage(
+        key="planner", name="Planner", engine="deepseek",
+        summary=f"Extracted {n_claims} candidate claim(s)",
+        metrics={"n_claims": n_claims},
+        strategy=ss.get("planner", {}).get("strategy"),
+    ))
+
+    # 3. atomizer
+    a = ss.get("atomizer", {})
+    n_original = a.get("n_original", 0)
+    n_atoms = a.get("n_atoms", 0)
+    if n_atoms > n_original:
+        atomizer_summary = f"Split {n_original} into {n_atoms} atomic claims"
+    else:
+        atomizer_summary = f"Normalised {n_original} claim(s) — no splitting needed"
+    stages.append(Stage(
+        key="atomizer", name="Atomizer", engine="deepseek",
+        summary=atomizer_summary,
+        metrics={"n_original": n_original, "n_atoms": n_atoms},
+    ))
+
+    # 4. checkworthiness
+    c = ss.get("checkworthiness", {})
+    n_checkworthy = c.get("n_checkworthy", 0)
+    n_filtered = c.get("n_filtered", 0)
+    if n_filtered == 0:
+        cw_summary = f"{n_checkworthy} check-worthy · none filtered"
+    else:
+        cw_summary = f"{n_checkworthy} check-worthy · {n_filtered} filtered out"
+    stages.append(Stage(
+        key="checkworthiness", name="Check-worthiness", engine="deepseek",
+        summary=cw_summary,
+        metrics={"n_checkworthy": n_checkworthy, "n_filtered": n_filtered},
+        filtered_claims=(
+            [StageFilteredClaim(**f) for f in filtered] if filtered else None
+        ),
+    ))
+
+    # 5. review_gate
+    r = ss.get("review_gate", {})
+    n_before = r.get("n_before", 0)
+    n_after = r.get("n_after", 0)
+    n_verifying = r.get("n_verifying", len(job.claims))
+    if n_before != n_after or n_after != n_verifying:
+        rg_summary = (
+            f"{n_verifying} claim(s) sent to verification "
+            f"(from {n_before} after dedup/cap)"
+        )
+    else:
+        rg_summary = f"{n_verifying} claim(s) sent to verification"
+    stages.append(Stage(
+        key="review_gate", name="Review gate", engine="deterministic",
+        summary=rg_summary,
+        metrics={
+            "n_before": n_before, "n_after": n_after, "n_verifying": n_verifying,
+        },
+    ))
+
+    # 6. verify
+    n_steps = sum(len(t.steps) for t in job.traces)
+    # Count web_search steps (consistent with the cockpit stats bar); the
+    # per-trace num_search_queries aggregate isn't always populated.
+    n_searches = sum(
+        1 for t in job.traces for s in t.steps if s.type == "web_search"
+    )
+    stages.append(Stage(
+        key="verify", name="Verify", engine="miromind",
+        summary=(
+            f"Deep-researched {job.claims_audited} claim(s) · "
+            f"{n_steps} steps · {n_searches} web searches"
+        ),
+        metrics={
+            "n_claims": job.claims_audited, "n_steps": n_steps,
+            "n_searches": n_searches,
+        },
+    ))
+
+    # 7. consistency
+    n_cons = sum(1 for f in job.findings if f.agent == "Consistency")
+    stages.append(Stage(
+        key="consistency", name="Consistency", engine="deepseek",
+        summary=f"{n_cons} cross-claim issue(s) found",
+        metrics={"n_findings": n_cons},
+    ))
+
+    # 8. confidence
+    n_scored = sum(
+        1 for f in job.findings if getattr(f, "confidence", None) is not None
+    )
+    stages.append(Stage(
+        key="confidence", name="Confidence", engine="deterministic",
+        summary=(
+            f"Scored {n_scored} finding(s) on 3 factors "
+            f"(authority · freshness · agreement)"
+        ),
+        metrics={"n_scored": n_scored},
+    ))
+
+    # 9. reporter
+    stages.append(Stage(
+        key="reporter", name="Reporter", engine="deepseek",
+        summary=(
+            "Executive summary generated" if job.audit_report_md
+            else "No report generated"
+        ),
+        metrics={},
+    ))
+
+    return stages
+
+
 async def _finalize(
     job: Job,
     final_state: _State,
@@ -181,6 +325,7 @@ async def _finalize(
     # On a budget abort these diverge, signalling partial coverage downstream.
     job.claims_total = len(job.claims)
     job.claims_audited = sum(1 for f in job.findings if f.agent == "UnifiedVerifier")
+    job.stages = _build_stages(final_state, job)
     job.cost_usd = round(budget.spent_usd, 6)
     job.total_tokens = sum(t.total_tokens for t in job.traces)
     if raised_exc is not None:

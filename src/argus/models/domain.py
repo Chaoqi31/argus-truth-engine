@@ -238,6 +238,22 @@ class ContentDomain(StrEnum):
     SCIENCE = "science"
 
 
+class StageFilteredClaim(_Base):
+    claim_id: str | None = None
+    text: str
+    reason: str
+
+
+class Stage(_Base):
+    key: str
+    name: str
+    engine: Literal["deepseek", "miromind", "deterministic"]
+    summary: str
+    metrics: dict[str, int] = Field(default_factory=dict)
+    strategy: str | None = None
+    filtered_claims: list[StageFilteredClaim] | None = None
+
+
 class Job(_Base):
     id: str
     scenario_label: str | None = None
@@ -269,3 +285,4 @@ class Job(_Base):
     findings: list[Finding] = Field(default_factory=list)
     traces: list[ReasoningTrace] = Field(default_factory=list)
     evidences: list[Evidence] = Field(default_factory=list)
+    stages: list[Stage] = Field(default_factory=list)

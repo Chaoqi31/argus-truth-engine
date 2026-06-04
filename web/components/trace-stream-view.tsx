@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Finding, Job, Step } from "@/lib/types";
+import type { Finding, Job, Stage, Step } from "@/lib/types";
 import { stepIcon, verdictTone } from "@/lib/colors";
 
 // Verdict badge tints — keyed by the tone from `verdictTone`. Mirror the
@@ -70,23 +70,24 @@ interface ClaimGroup {
 // Which engine runs each pipeline stage. Only Verify touches MiroMind; the
 // rest run on the cheap LLM or are deterministic. Badge tints follow the same
 // /15-surface pattern as verdicts.
-const ENGINE_BADGE: Record<string, { label: string; cls: string }> = {
+const ENGINE_BADGE: Record<Stage["engine"], { label: string; cls: string }> = {
   miromind: { label: "★ MiroMind", cls: "bg-primary/15 text-primary" },
   deepseek: { label: "DeepSeek", cls: "bg-muted text-muted-foreground" },
-  rules: { label: "deterministic", cls: "bg-muted text-muted-foreground" },
-  hitl: { label: "human gate", cls: "bg-warning/15 text-warning-foreground" },
+  deterministic: { label: "deterministic", cls: "bg-muted text-muted-foreground" },
 };
 
-interface Stage {
-  name: string;
-  engine: keyof typeof ENGINE_BADGE;
-  outcome: string;
-}
+// Human-readable labels for the per-stage metric chips.
+const METRIC_LABEL: Record<string, string> = {
+  pages: "pages", chars: "chars",
+  n_claims: "claims", n_original: "original", n_atoms: "atomic",
+  n_checkworthy: "check-worthy", n_filtered: "filtered",
+  n_before: "before", n_after: "after", n_verifying: "to verify",
+  n_steps: "steps", n_searches: "web searches",
+  n_findings: "findings", n_scored: "scored",
+};
 
 function StaticReplay({ job }: { job: Job | null }) {
-  // Verify holds the deep MiroMind trace; collapsed by default so the whole
-  // pipeline reads as a compact overview first (progressive disclosure).
-  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
   if (!job) {
     return (
@@ -110,13 +111,16 @@ function StaticReplay({ job }: { job: Job | null }) {
     })
     .filter((g) => g.steps.length > 0);
 
-  const totalSteps = groups.reduce((n, g) => n + g.steps.length, 0);
   const totalSearches = groups.reduce(
     (n, g) => n + g.steps.filter((s) => s.type === "web_search").length,
     0,
   );
 
-  if (groups.length === 0) {
+  // Persisted per-stage summary when present; otherwise derive a thinner view
+  // from the job so older fixtures/jobs still render every stage.
+  const stages: Stage[] = job.stages?.length ? job.stages : deriveStages(job, groups);
+
+  if (stages.length === 0 && groups.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
         <span aria-hidden className="text-2xl">🔍</span>
@@ -129,23 +133,13 @@ function StaticReplay({ job }: { job: Job | null }) {
     );
   }
 
-  const nClaims = job.claims.length || groups.length;
-  const nConsistency = job.findings.filter((f) => f.agent === "Consistency").length;
-
-  // Phase A (extract claims) + Phase B post-verify stages. The Verify stage is
-  // rendered between `pre` and `post` so its deep trace can expand inline.
-  const pre: Stage[] = [
-    { name: "Parse", engine: "rules", outcome: "Document → text + character offsets" },
-    { name: "Planner", engine: "deepseek", outcome: "Audit strategy & domain hints" },
-    { name: "Atomizer", engine: "deepseek", outcome: `Split into ${nClaims} atomic claims` },
-    { name: "Check-worthiness", engine: "deepseek", outcome: "Opinions & trivia filtered out" },
-    { name: "Review gate", engine: "hitl", outcome: `${nClaims} claims selected to verify` },
-  ];
-  const post: Stage[] = [
-    { name: "Consistency", engine: "deepseek", outcome: nConsistency ? `${nConsistency} cross-claim finding${nConsistency > 1 ? "s" : ""}` : "No contradictions found" },
-    { name: "Confidence", engine: "rules", outcome: "Scored on 3 measured factors" },
-    { name: "Reporter", engine: "deepseek", outcome: job.audit_report_md ? "Executive summary generated" : "—" },
-  ];
+  const toggle = (k: string) =>
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
 
   return (
     <div className="flex h-full flex-col">
@@ -154,44 +148,21 @@ function StaticReplay({ job }: { job: Job | null }) {
           Audit pipeline
         </span>
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {pre.length + 1 + post.length} stages · {totalSearches} web searches
+          {stages.length} stages · {totalSearches} web searches
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">
         <ol className="flex flex-col">
-          {pre.map((s, i) => (
-            <StageRow key={s.name} index={i + 1} stage={s} />
-          ))}
-
-          {/* Verify — the one MiroMind deep-research stage, expandable */}
-          <li className="border-b border-border">
-            <button
-              type="button"
-              onClick={() => setVerifyOpen((o) => !o)}
-              aria-expanded={verifyOpen}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <span className="w-4 shrink-0 text-center font-mono text-[10px] text-muted-foreground">{pre.length + 1}</span>
-              <span aria-hidden className="shrink-0 font-mono text-[10px] text-primary">{verifyOpen ? "▾" : "▸"}</span>
-              <span className="shrink-0 text-xs font-semibold text-foreground">Verify</span>
-              <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${ENGINE_BADGE.miromind.cls}`}>
-                {ENGINE_BADGE.miromind.label}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-                {nClaims} claims · {totalSteps} steps · {totalSearches} searches
-              </span>
-            </button>
-            {verifyOpen && (
-              <ul className="flex flex-col border-t border-border bg-muted/20">
-                {groups.map((g) => (
-                  <ClaimTraceGroup key={g.finding.id} group={g} />
-                ))}
-              </ul>
-            )}
-          </li>
-
-          {post.map((s, i) => (
-            <StageRow key={s.name} index={pre.length + 2 + i} stage={s} />
+          {stages.map((s, i) => (
+            <StageItem
+              key={s.key}
+              index={i + 1}
+              stage={s}
+              open={openKeys.has(s.key)}
+              onToggle={() => toggle(s.key)}
+              groups={groups}
+              job={job}
+            />
           ))}
         </ol>
       </div>
@@ -199,16 +170,163 @@ function StaticReplay({ job }: { job: Job | null }) {
   );
 }
 
-function StageRow({ index, stage }: { index: number; stage: Stage }) {
-  const badge = ENGINE_BADGE[stage.engine];
+function StageItem({
+  index,
+  stage,
+  open,
+  onToggle,
+  groups,
+  job,
+}: {
+  index: number;
+  stage: Stage;
+  open: boolean;
+  onToggle: () => void;
+  groups: ClaimGroup[];
+  job: Job;
+}) {
+  const badge = ENGINE_BADGE[stage.engine] ?? ENGINE_BADGE.deterministic;
+  const isVerify = stage.key === "verify";
   return (
-    <li className="flex items-center gap-2.5 border-b border-border px-3 py-2.5 last:border-b-0">
-      <span className="w-4 shrink-0 text-center font-mono text-[10px] text-muted-foreground">{index}</span>
-      <span className="shrink-0 text-xs font-semibold text-foreground">{stage.name}</span>
-      <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${badge.cls}`}>{badge.label}</span>
-      <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">{stage.outcome}</span>
+    <li className="border-b border-border last:border-b-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+      >
+        <span className="w-4 shrink-0 text-center font-mono text-[10px] text-muted-foreground">{index}</span>
+        <span aria-hidden className="shrink-0 font-mono text-[10px] text-primary">{open ? "▾" : "▸"}</span>
+        <span className="shrink-0 text-xs font-semibold text-foreground">{stage.name}</span>
+        <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${badge.cls}`}>
+          {badge.label}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">
+          {stage.summary}
+        </span>
+      </button>
+      {open &&
+        (isVerify ? (
+          groups.length > 0 ? (
+            <ul className="flex flex-col border-t border-border bg-muted/20">
+              {groups.map((g) => (
+                <ClaimTraceGroup key={g.finding.id} group={g} />
+              ))}
+            </ul>
+          ) : (
+            <div className="border-t border-border bg-muted/20 px-3 py-3 pl-9 text-[11px] text-muted-foreground">
+              No MiroMind reasoning trace recorded for this run.
+            </div>
+          )
+        ) : (
+          <StageDetail stage={stage} job={job} />
+        ))}
     </li>
   );
+}
+
+function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
+  const chips = Object.entries(stage.metrics ?? {});
+  const consistencyFindings =
+    stage.key === "consistency"
+      ? job.findings.filter((f) => f.agent === "Consistency")
+      : [];
+  return (
+    <div className="flex flex-col gap-2.5 border-t border-border bg-muted/20 px-3 py-3 pl-9">
+      {chips.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {chips.map(([k, v]) => (
+            <span
+              key={k}
+              className="inline-flex items-baseline gap-1 rounded-[6px] bg-background px-1.5 py-0.5 text-[10px]"
+            >
+              <span className="font-mono font-semibold tabular-nums text-foreground">{v}</span>
+              <span className="text-muted-foreground">{METRIC_LABEL[k] ?? k}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {stage.key === "planner" && stage.strategy && (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">Strategy: </span>
+          {stage.strategy}
+        </p>
+      )}
+
+      {stage.key === "checkworthiness" &&
+        stage.filtered_claims &&
+        stage.filtered_claims.length > 0 && (
+          <ul className="flex flex-col gap-1.5">
+            {stage.filtered_claims.map((fc, i) => (
+              <li
+                key={fc.claim_id ?? i}
+                className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px]"
+              >
+                <p className="text-foreground line-clamp-2">{fc.text}</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  <span aria-hidden>↳ </span>
+                  {fc.reason}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+
+      {stage.key === "consistency" && consistencyFindings.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {consistencyFindings.map((f) => (
+            <li
+              key={f.id}
+              className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px] text-muted-foreground"
+            >
+              <span className="font-mono text-[9px] uppercase tracking-wider text-foreground">
+                {f.verdict}
+              </span>
+              <span className="ml-1.5">{f.summary}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {stage.key === "confidence" && (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Each verdict is scored on three measured factors — source authority, evidence freshness,
+          and source agreement.
+        </p>
+      )}
+
+      {stage.key === "reporter" && (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {job.audit_report_md
+            ? "The full executive summary is rendered in the report panel."
+            : "No executive summary was generated for this run."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function deriveStages(job: Job, groups: ClaimGroup[]): Stage[] {
+  const nClaims = job.claims.length || groups.length;
+  const nConsistency = job.findings.filter((f) => f.agent === "Consistency").length;
+  const totalSteps = groups.reduce((n, g) => n + g.steps.length, 0);
+  const totalSearches = groups.reduce(
+    (n, g) => n + g.steps.filter((s) => s.type === "web_search").length,
+    0,
+  );
+  const nAudited = job.claims_audited ?? groups.length;
+  return [
+    { key: "parse", name: "Parse", engine: "deterministic", summary: "Document → text + character offsets", metrics: {} },
+    { key: "planner", name: "Planner", engine: "deepseek", summary: "Audit strategy & domain hints", metrics: { n_claims: nClaims } },
+    { key: "atomizer", name: "Atomizer", engine: "deepseek", summary: `Normalised into ${nClaims} atomic claims`, metrics: { n_atoms: nClaims } },
+    { key: "checkworthiness", name: "Check-worthiness", engine: "deepseek", summary: "Opinions & trivia filtered out", metrics: {} },
+    { key: "review_gate", name: "Review gate", engine: "deterministic", summary: `${nClaims} claims selected to verify`, metrics: { n_verifying: nClaims } },
+    { key: "verify", name: "Verify", engine: "miromind", summary: `Deep-researched ${nAudited} claim(s) · ${totalSteps} steps · ${totalSearches} web searches`, metrics: { n_claims: nAudited, n_steps: totalSteps, n_searches: totalSearches } },
+    { key: "consistency", name: "Consistency", engine: "deepseek", summary: nConsistency ? `${nConsistency} cross-claim finding(s)` : "No contradictions found", metrics: { n_findings: nConsistency } },
+    { key: "confidence", name: "Confidence", engine: "deterministic", summary: "Scored on 3 measured factors", metrics: {} },
+    { key: "reporter", name: "Reporter", engine: "deepseek", summary: job.audit_report_md ? "Executive summary generated" : "—", metrics: {} },
+  ];
 }
 
 function ClaimTraceGroup({ group }: { group: ClaimGroup }) {

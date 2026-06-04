@@ -199,3 +199,42 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
     assert out.exists()
     saved = json.loads(out.read_text())
     assert saved["id"] == job.id
+
+
+async def test_orchestrator_builds_per_stage_summary(tmp_path: Path) -> None:
+    """A completed job carries an ordered 9-entry per-stage summary."""
+    router = StreamRouter()
+    router.add("planner", [msg(_planner_json()), completed(tokens=120)])
+    router.add(
+        "unified_verifier",
+        [tool("web_search", {"q": "Smith"}, 2), msg(_verifier_fab()), completed(tokens=80)],
+    )
+    router.add(
+        "unified_verifier",
+        [tool("fetch_url_content", {"url": "y"}, 2), msg(_verifier_ok()), completed(tokens=80)],
+    )
+    router.add("consistency", [msg(_consistency_empty()), completed(tokens=30)])
+    router.add("reporter", [msg(_reporter()), completed(tokens=20)])
+
+    out = tmp_path / "findings.json"
+    job = await audit_pdf(
+        pdf_path=FIXTURE_PDF,
+        output_path=out,
+        settings=Settings(miromind_api_key="x", miromind_retry_base_delay_s=0.001),
+        client=router.make_client(),
+        budget_usd=10.0,
+    )
+
+    assert len(job.stages) == 9
+    assert [s.key for s in job.stages] == [
+        "parse", "planner", "atomizer", "checkworthiness", "review_gate",
+        "verify", "consistency", "confidence", "reporter",
+    ]
+    assert all(s.summary for s in job.stages)
+    by_key = {s.key: s for s in job.stages}
+    assert "n_original" in by_key["atomizer"].metrics
+    assert "n_atoms" in by_key["atomizer"].metrics
+    assert "checkworthiness" in by_key
+    # The summary survives the JSON round-trip written to output_path.
+    saved = json.loads(out.read_text())
+    assert len(saved["stages"]) == 9

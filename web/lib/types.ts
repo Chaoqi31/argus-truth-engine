@@ -144,6 +144,24 @@ export type JobStatus =
   | "done"
   | "failed";
 
+/** A claim dropped by the check-worthiness stage, with the reason. */
+export interface StageFilteredClaim {
+  claim_id?: string | null;
+  text: string;
+  reason: string;
+}
+
+/** One pipeline stage's persisted summary (UI: the clickable stage rows). */
+export interface Stage {
+  key: string;
+  name: string;
+  engine: "deepseek" | "miromind" | "deterministic";
+  summary: string;
+  metrics: Record<string, number>;
+  strategy?: string | null;
+  filtered_claims?: StageFilteredClaim[] | null;
+}
+
 export interface Job {
   id: string;
   scenario_label?: string | null;
@@ -164,6 +182,7 @@ export interface Job {
   findings: Finding[];
   traces: ReasoningTrace[];
   evidences: Evidence[];
+  stages?: Stage[];
 }
 
 export function isCitationClaim(c: Claim): boolean {

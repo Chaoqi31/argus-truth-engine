@@ -67,6 +67,7 @@ def _review_gate_node(
         if state.get("aborted"):
             return {}
         claims = state.get("claims", [])
+        n_before = len(claims)
 
         # Dedupe before the paid verification step. The atomizer can emit atoms
         # that duplicate existing claims verbatim and nothing downstream
@@ -108,10 +109,22 @@ def _review_gate_node(
                 {"n_extracted": n_extracted, "n_verifying": cap},
             )
 
+        # Per-stage summary for the UI. `claims` here is the post-dedup,
+        # post-cap list that actually goes to verification.
+        review_summary = {
+            "review_gate": {
+                "n_before": n_before,
+                "n_after": len(deduped),
+                "n_verifying": len(claims),
+            }
+        }
+
         if auto_review or not claims:
             # Pass-through. If a cap was applied we MUST return the capped list
             # — returning {} would leave the full claim list in state.
-            return {"claims": claims} if (capped_applied or dedup_applied) else {}
+            if capped_applied or dedup_applied:
+                return {"claims": claims, "stage_summaries": review_summary}
+            return {"stage_summaries": review_summary}
 
         # LangGraph interrupt() is replay-based: when Command(resume=...)
         # arrives, this node body re-executes from the top. The original
@@ -141,10 +154,21 @@ def _review_gate_node(
             filtered = [c for c in claims if c.id in selected_set]
             await ctx.publisher.publish("review_submitted",
                                         {"n_selected": len(filtered)})
-            return {"claims": filtered}
+            return {
+                "claims": filtered,
+                "stage_summaries": {
+                    "review_gate": {
+                        "n_before": n_before,
+                        "n_after": len(deduped),
+                        "n_verifying": len(filtered),
+                    }
+                },
+            }
         await ctx.publisher.publish("review_submitted",
                                     {"n_selected": len(claims), "auto": True})
         # No selection → keep all (already-capped) claims. Return the capped
         # list when a cap applied so the truncation survives this fallback.
-        return {"claims": claims} if (capped_applied or dedup_applied) else {}
+        if capped_applied or dedup_applied:
+            return {"claims": claims, "stage_summaries": review_summary}
+        return {"stage_summaries": review_summary}
     return node
