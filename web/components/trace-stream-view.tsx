@@ -476,6 +476,12 @@ function StepItem({ step, highlighted = false }: { step: Step; highlighted?: boo
   const isFetch = step.type === "fetch_url_content";
   const hits = isSearch ? parseSearchHits(step.content) : [];
   const content = step.content as Record<string, unknown>;
+  const stageMark = content.__stage as
+    | { name: string; engine: Stage["engine"]; summary: string }
+    | undefined;
+  const claimMark = content.__claim as
+    | { index: number; total: number; text: string }
+    | undefined;
   const thought = typeof content?.thought === "string" ? content.thought : null;
   const hasThought = !!thought && !isSearch && !isFetch && thought.trim() !== step.summary.trim();
   const [open, setOpen] = useState(false);
@@ -484,6 +490,31 @@ function StepItem({ step, highlighted = false }: { step: Step; highlighted?: boo
   useEffect(() => {
     if (highlighted) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [highlighted]);
+
+  // Pipeline-stage marker (live replay only) — a labelled stage line.
+  if (stageMark) {
+    const badge = ENGINE_BADGE[stageMark.engine] ?? ENGINE_BADGE.deterministic;
+    return (
+      <li className="mt-1 flex items-center gap-2 border-t border-border/60 pt-2 text-xs first:mt-0 first:border-t-0 first:pt-0">
+        <span className="shrink-0 font-semibold text-foreground">{stageMark.name}</span>
+        <span className={`shrink-0 rounded-[5px] px-1.5 py-0.5 text-[9px] font-medium ${badge.cls}`}>
+          {badge.label}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">{stageMark.summary}</span>
+      </li>
+    );
+  }
+  // Per-claim verify header (live replay only) — the claim MiroMind is researching.
+  if (claimMark) {
+    return (
+      <li className="mt-1 flex items-start gap-2 border-t border-border/60 pt-2 text-xs">
+        <span className="shrink-0 rounded-[5px] bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+          ★ Verify {claimMark.index}/{claimMark.total}
+        </span>
+        <span className="min-w-0 flex-1 text-foreground">{claimMark.text}</span>
+      </li>
+    );
+  }
 
   return (
     <li

@@ -343,30 +343,80 @@ function AuditPageContent() {
     setRunStatus("running");
     setDemoRunning(true);
 
-    const steps = demoJob.traces
-      .flatMap((t) => t.steps)
-      .sort((a, b) => a.sequence - b.sequence);
     const findings = demoJob.findings;
+    const claimText = new Map(demoJob.claims.map((c) => [c.id, c.text]));
+    const traceById = new Map(demoJob.traces.map((t) => [t.id, t]));
+    const stagesByKey = new Map((demoJob.stages ?? []).map((s) => [s.key, s]));
+    const findingIndex = new Map(findings.map((f, k) => [f.id, k] as const));
 
-    // A verdict only appears AFTER its claim's reasoning has fully streamed —
-    // reveal finding k once the last step of its trace has been shown.
-    const revealAt = findings.map((f) => {
-      let last = 0;
-      steps.forEach((s, i) => {
-        if (s.trace_id === f.reasoning_trace_id) last = i + 1;
-      });
-      return last || steps.length;
+    // Stream a single timeline that narrates the WHOLE pipeline, in order:
+    // pre-verify stages → per-claim MiroMind deep research → post-verify stages.
+    // Stage/claim markers are synthetic Step-shaped items (content.__stage /
+    // content.__claim — only ever injected here, never in the fixture); the real
+    // MiroMind steps are the fixture's. replayTrace sorts by sequence, so each
+    // item gets a monotonic seq to preserve this order. revealAt[k] = the event
+    // count after which finding k surfaces.
+    let seq = 0;
+    const timeline: Step[] = [];
+    const revealAt = new Array<number>(findings.length).fill(0);
+    const marker = (content: Record<string, unknown>, summary: string): Step => ({
+      id: `pipe-${seq}`,
+      trace_id: "__pipeline",
+      sequence: ++seq,
+      type: "message",
+      summary,
+      content,
+      evidence_ids: [],
+      parent_step_id: null,
+      created_at: "",
     });
+    const pushStage = (key: string) => {
+      const st = stagesByKey.get(key);
+      if (!st) return;
+      timeline.push(
+        marker(
+          { __stage: { key: st.key, name: st.name, engine: st.engine, summary: st.summary } },
+          st.summary,
+        ),
+      );
+    };
+
+    (["parse", "planner", "atomizer", "checkworthiness", "review_gate"] as const).forEach(pushStage);
+
+    const verifiers = findings.filter((f) => f.agent === "UnifiedVerifier");
+    verifiers.forEach((f, i) => {
+      const trace = traceById.get(f.reasoning_trace_id);
+      const tsteps = trace ? [...trace.steps].sort((a, b) => a.sequence - b.sequence) : [];
+      if (tsteps.length === 0) return;
+      const text = claimText.get(f.claim_id) ?? f.summary;
+      timeline.push(marker({ __claim: { index: i + 1, total: verifiers.length, text } }, text));
+      tsteps.forEach((s) => timeline.push({ ...s, sequence: ++seq }));
+      const k = findingIndex.get(f.id);
+      if (k !== undefined) revealAt[k] = timeline.length;
+    });
+
+    (["consistency", "confidence", "reporter"] as const).forEach((key) => {
+      pushStage(key);
+      if (key === "consistency") {
+        findings
+          .filter((f) => f.agent === "Consistency")
+          .forEach((f) => {
+            const k = findingIndex.get(f.id);
+            if (k !== undefined) revealAt[k] = timeline.length;
+          });
+      }
+    });
+
     const revealed = new Set<number>();
     let shown = 0;
 
     void replayTrace(
-      steps,
+      timeline,
       (step) => {
         appendLiveStep(step);
         shown += 1;
         findings.forEach((f, k) => {
-          if (!revealed.has(k) && shown >= revealAt[k]) {
+          if (!revealed.has(k) && revealAt[k] > 0 && shown >= revealAt[k]) {
             appendLiveFinding(toLiveFinding(f));
             revealed.add(k);
           }
