@@ -133,6 +133,7 @@ function AuditPageContent() {
   const setRunStatus = useArgusStore((s) => s.setRunStatus);
   const resetLive = useArgusStore((s) => s.resetLive);
   const setReviewReady = useArgusStore((s) => s.setReviewReady);
+  const clearStore = useArgusStore((s) => s.clear);
 
   const consoleMode = useArgusStore((s) => s.consoleMode);
   const setConsoleMode = useArgusStore((s) => s.setConsoleMode);
@@ -382,6 +383,14 @@ function AuditPageContent() {
     });
   };
 
+  // Re-watch the demo: fully reset the store (clears the finished job + live
+  // state) and stream the held fixture through the live UI again. demoJob lives
+  // in local state, so it survives the store clear.
+  const replayDemo = () => {
+    clearStore();
+    runDemo();
+  };
+
   const isTextMode = params.get("mode") === "text" || job?.input_mode === "text";
 
   // Demo idle screen: fixture loaded but not yet running — show the source
@@ -422,7 +431,7 @@ function AuditPageContent() {
           reason={runError}
           activeAgent={lastAgent}
         />
-        <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : ""}`}>
+        <main className={`grid grid-rows-1 h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : ""}`}>
           {showPdf ? (
             <div className="hidden md:block">
               <PdfViewer
@@ -444,7 +453,7 @@ function AuditPageContent() {
               />
             </div>
           ) : null}
-          <aside className="flex flex-col border-l border-[var(--cc-border)]">
+          <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
             {runStatus === "reviewing" && liveId ? (
               <ClaimReviewPanel jobId={liveId} />
             ) : (
@@ -455,7 +464,7 @@ function AuditPageContent() {
                   </span>
                 </div>
                 <LiveFindingsList findings={liveFindings} />
-                <div className="border-t border-[var(--cc-border)] h-[18rem] min-h-0 flex flex-col">
+                <div className="border-t border-[var(--cc-border)] flex-1 min-h-0 flex flex-col">
                   <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
                 </div>
               </>
@@ -506,6 +515,16 @@ function AuditPageContent() {
       <ArgusHeader
         rightSlot={
           <div className="flex items-center gap-2">
+            {demo === "1" && (
+              <button
+                type="button"
+                onClick={replayDemo}
+                className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Replay the demo audit"
+              >
+                <span aria-hidden>↻</span> Replay
+              </button>
+            )}
             <PaletteHint />
             <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
           </div>

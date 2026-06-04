@@ -45,14 +45,14 @@ const TYPE_BORDER: Record<StepType, string> = {
 // Node geometry — kept here so DagTab can re-derive a node's centre for the
 // recenter effect without re-measuring the DOM.
 const NODE_WIDTH = 280;
-const NODE_HEIGHT = 72;
+const NODE_HEIGHT = 92;
 
 export function _buildGraph(trace: ReasoningTrace): { nodes: Node[]; edges: Edge[] } {
   const sorted = sortStepsBySequence(trace.steps);
   const nodes: Node[] = sorted.map((s: Step, i: number) => ({
     id: s.id,
-    position: { x: 240, y: i * 110 },
-    data: { step: s, label: `${stepIcon[s.type]}  ${s.type}\n${truncate(s.summary, 120)}` },
+    position: { x: 240, y: i * 132 },
+    data: { step: s, label: `${stepIcon[s.type]}  ${s.type}\n${truncate(s.summary, 85)}` },
     style: {
       background: TYPE_TINT[s.type],
       border: `1.5px solid ${TYPE_BORDER[s.type]}`,
@@ -62,6 +62,9 @@ export function _buildGraph(trace: ReasoningTrace): { nodes: Node[]; edges: Edge
       fontWeight: 500,
       whiteSpace: "pre-wrap",
       width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+      overflow: "hidden",
+      lineHeight: 1.35,
       color: "var(--vis-node-fg)",
       boxShadow: "var(--shadow-card)",
     },
@@ -171,7 +174,7 @@ export function DagTab({ trace }: Props) {
   const findingId = job?.findings.find((f) => f.reasoning_trace_id === trace.id)?.id ?? null;
 
   return (
-    <div className="relative h-[640px] w-full">
+    <div className="relative h-full min-h-[420px] w-full">
       <ReactFlow
         key={trace.id} /* remount on trace switch so fitView re-runs */
         nodes={nodes}
@@ -179,6 +182,9 @@ export function DagTab({ trace }: Props) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         fitView
+        panOnScroll
+        zoomOnScroll={false}
+        fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}
         onNodeClick={onNodeClick}
         nodesDraggable={false}
@@ -190,6 +196,7 @@ export function DagTab({ trace }: Props) {
         {/* Both children live inside <ReactFlow> so they can use the flow context. */}
         <MeasureOnMount nodeIds={nodeIds} />
         <ViewportFocus nodes={base.nodes} highlightedStepId={highlightedStepId} />
+        <RefitOnResize />
       </ReactFlow>
 
       {selected && (
@@ -322,6 +329,39 @@ function ViewportFocus({
     setCenter(cx, cy, { zoom: 1.15, duration: reduceMotion ? 0 : 600 });
   }, [highlightedStepId, nodes, setCenter, reduceMotion]);
 
+  return null;
+}
+
+/**
+ * Re-runs `fitView` whenever the flow's panel resizes so the graph stays
+ * centered when the cockpit's right console is dragged wider/narrower. The
+ * flow's `domNode` can be null on the first effect (effects run
+ * child-before-parent), so we mirror MeasureOnMount's subscribe pattern and
+ * attach the ResizeObserver the moment it appears. Lives inside `<ReactFlow>`
+ * for the provider context.
+ */
+function RefitOnResize() {
+  const { fitView } = useReactFlow();
+  const store = useStoreApi();
+  useEffect(() => {
+    let ro: ResizeObserver | null = null;
+    let raf = 0;
+    const attach = (): boolean => {
+      const { domNode } = store.getState();
+      if (!domNode) return false;
+      ro = new ResizeObserver(() => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          void fitView({ padding: 0.2, duration: 200 });
+        });
+      });
+      ro.observe(domNode);
+      return true;
+    };
+    if (attach()) return () => { cancelAnimationFrame(raf); ro?.disconnect(); };
+    const unsubscribe = store.subscribe(() => { if (attach()) unsubscribe(); });
+    return () => { cancelAnimationFrame(raf); ro?.disconnect(); unsubscribe(); };
+  }, [fitView, store]);
   return null;
 }
 
