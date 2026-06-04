@@ -205,13 +205,15 @@ def _make_unified_finding(
 def _contradictions_to_findings(
     *, job_id: str, parsed: ConsistencyOutput, trace_id: str
 ) -> list[Finding]:
+    # One finding per contradiction. The pair (claim_a, claim_b) is a single
+    # logical contradiction — emitting a finding per side produced two identical
+    # cards in the findings list. Key it to claim_a; the summary names both
+    # claims, and claim_b keeps its own per-claim verdict elsewhere.
     out: list[Finding] = []
     for pair in parsed.contradictions:
-        a_id = f"f_{uuid4().hex[:12]}"
-        b_id = f"f_{uuid4().hex[:12]}"
         out.append(
             Finding(
-                id=a_id,
+                id=f"f_{uuid4().hex[:12]}",
                 job_id=job_id,
                 claim_id=pair.claim_a_id,
                 agent="Consistency",
@@ -221,22 +223,7 @@ def _contradictions_to_findings(
                 summary=pair.summary,
                 evidence_ids=[],
                 reasoning_trace_id=trace_id,
-                related_finding_ids=[b_id],
-            )
-        )
-        out.append(
-            Finding(
-                id=b_id,
-                job_id=job_id,
-                claim_id=pair.claim_b_id,
-                agent="Consistency",
-                verdict=FindingVerdict.CONTRADICTION,
-                severity=pair.severity,
-                confidence=pair.confidence,
-                summary=pair.summary,
-                evidence_ids=[],
-                reasoning_trace_id=trace_id,
-                related_finding_ids=[a_id],
+                related_finding_ids=[],
             )
         )
     return out

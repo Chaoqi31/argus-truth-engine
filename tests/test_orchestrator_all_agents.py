@@ -206,8 +206,8 @@ async def test_full_5_agent_pipeline(tmp_path: Path) -> None:
     )
 
     assert len(job.claims) == 3
-    # 3 unified_verifier findings (c1, c2, c3) + 2 paired consistency findings = 5
-    assert len(job.findings) == 5
+    # 3 unified_verifier findings (c1, c2, c3) + 1 consistency finding = 4
+    assert len(job.findings) == 4
     by_agent = {f.agent for f in job.findings}
     assert by_agent == {"UnifiedVerifier", "Consistency"}
 
@@ -215,10 +215,8 @@ async def test_full_5_agent_pipeline(tmp_path: Path) -> None:
     assert "3 issues" in job.audit_report_md
 
     consistency_findings = [f for f in job.findings if f.agent == "Consistency"]
-    assert len(consistency_findings) == 2
-    f_a, f_b = consistency_findings
-    assert f_a.id in f_b.related_finding_ids
-    assert f_b.id in f_a.related_finding_ids
+    assert len(consistency_findings) == 1
+    assert consistency_findings[0].related_finding_ids == []
 
     step_types = {s.type for t in job.traces for s in t.steps}
     assert StepType.WEB_SEARCH in step_types
