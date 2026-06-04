@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Finding, Job, Stage, Step } from "@/lib/types";
 import { stepIcon, verdictTone } from "@/lib/colors";
+import { useArgusStore } from "@/lib/store";
 
 // Verdict badge tints — keyed by the tone from `verdictTone`. Mirror the
 // severity-tint pattern (text-foreground on a /15 surface) so contrast holds.
@@ -86,8 +87,29 @@ const METRIC_LABEL: Record<string, string> = {
   n_findings: "findings", n_scored: "scored",
 };
 
+// One-line "what this step does" shown at the top of each expanded stage.
+const STAGE_BLURB: Record<string, string> = {
+  parse: "Extracts the raw text and character offsets from the document.",
+  planner: "Reads the document and pulls out the discrete factual claims worth checking.",
+  atomizer: "Splits compound claims into atomic, independently-verifiable statements.",
+  checkworthiness: "Drops opinions, forecasts and trivia — keeps only checkable factual claims.",
+  review_gate: "De-duplicates the claims and caps how many go to paid verification.",
+  verify: "Runs each claim through MiroMind deep research — web searches, fetches, reasoning.",
+  consistency: "Checks the claims against each other for contradictions and unsupported leaps.",
+  confidence: "Scores each verdict on source authority, evidence freshness and source agreement.",
+  reporter: "Writes the executive summary of the audit.",
+};
+
 function StaticReplay({ job }: { job: Job | null }) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+  const highlightedStepId = useArgusStore((s) => s.highlightedStepId);
+
+  // A cross-link from the evidence / finding panels ("show step in the trace")
+  // sets highlightedStepId — open the Verify stage so that step is reachable.
+  useEffect(() => {
+    if (!highlightedStepId) return;
+    setOpenKeys((prev) => (prev.has("verify") ? prev : new Set(prev).add("verify")));
+  }, [highlightedStepId]);
 
   if (!job) {
     return (
@@ -162,6 +184,7 @@ function StaticReplay({ job }: { job: Job | null }) {
               onToggle={() => toggle(s.key)}
               groups={groups}
               job={job}
+              highlightedStepId={highlightedStepId}
             />
           ))}
         </ol>
@@ -177,6 +200,7 @@ function StageItem({
   onToggle,
   groups,
   job,
+  highlightedStepId,
 }: {
   index: number;
   stage: Stage;
@@ -184,6 +208,7 @@ function StageItem({
   onToggle: () => void;
   groups: ClaimGroup[];
   job: Job;
+  highlightedStepId: string | null;
 }) {
   const badge = ENGINE_BADGE[stage.engine] ?? ENGINE_BADGE.deterministic;
   const isVerify = stage.key === "verify";
@@ -210,7 +235,7 @@ function StageItem({
           groups.length > 0 ? (
             <ul className="flex flex-col border-t border-border bg-muted/20">
               {groups.map((g) => (
-                <ClaimTraceGroup key={g.finding.id} group={g} />
+                <ClaimTraceGroup key={g.finding.id} group={g} highlightedStepId={highlightedStepId} />
               ))}
             </ul>
           ) : (
@@ -233,6 +258,9 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
       : [];
   return (
     <div className="flex flex-col gap-2.5 border-t border-border bg-muted/20 px-3 py-3 pl-9">
+      {STAGE_BLURB[stage.key] && (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{STAGE_BLURB[stage.key]}</p>
+      )}
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {chips.map(([k, v]) => (
@@ -246,6 +274,29 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
           ))}
         </div>
       )}
+
+      {(stage.key === "planner" || stage.key === "atomizer" || stage.key === "checkworthiness") &&
+        job.claims.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {stage.key === "planner"
+                ? "Candidate claims"
+                : stage.key === "atomizer"
+                  ? "Atomic claims"
+                  : "Kept as check-worthy"}
+            </p>
+            <ul className="flex flex-col gap-1">
+              {job.claims.map((c) => (
+                <li
+                  key={c.id}
+                  className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px] text-foreground"
+                >
+                  {c.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
       {stage.key === "planner" && stage.strategy && (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -329,9 +380,22 @@ function deriveStages(job: Job, groups: ClaimGroup[]): Stage[] {
   ];
 }
 
-function ClaimTraceGroup({ group }: { group: ClaimGroup }) {
+function ClaimTraceGroup({
+  group,
+  highlightedStepId,
+}: {
+  group: ClaimGroup;
+  highlightedStepId: string | null;
+}) {
   const { finding, claimText, steps } = group;
+  const containsHighlight =
+    highlightedStepId != null && steps.some((s) => s.id === highlightedStepId);
   const [open, setOpen] = useState(false);
+
+  // Auto-open when a contained step is cross-linked; the user can still close it.
+  useEffect(() => {
+    if (containsHighlight) setOpen(true);
+  }, [containsHighlight]);
 
   const nThink = steps.filter((s) => s.type === "thinking").length;
   const nSearch = steps.filter((s) => s.type === "web_search").length;
@@ -363,7 +427,7 @@ function ClaimTraceGroup({ group }: { group: ClaimGroup }) {
       {open && (
         <ol className="flex flex-col gap-1 bg-muted/30 px-3 py-2 pl-7">
           {steps.map((s) => (
-            <StepItem key={s.id} step={s} />
+            <StepItem key={s.id} step={s} highlighted={s.id === highlightedStepId} />
           ))}
         </ol>
       )}
@@ -406,15 +470,26 @@ export function parseSearchHits(content: Record<string, unknown>): SearchHit[] {
     }));
 }
 
-function StepItem({ step }: { step: Step }) {
+function StepItem({ step, highlighted = false }: { step: Step; highlighted?: boolean }) {
   const icon = stepIcon[step.type] ?? "⚙";
   const isSearch = step.type === "web_search";
   const isFetch = step.type === "fetch_url_content";
   const hits = isSearch ? parseSearchHits(step.content) : [];
+  const content = step.content as Record<string, unknown>;
+  const thought = typeof content?.thought === "string" ? content.thought : null;
+  const hasThought = !!thought && !isSearch && !isFetch && thought.trim() !== step.summary.trim();
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    if (highlighted) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [highlighted]);
 
   return (
-    <li className="flex flex-col gap-1 text-xs">
+    <li
+      ref={ref}
+      className={`flex flex-col gap-1 rounded-[6px] text-xs ${highlighted ? "-mx-1.5 bg-primary/10 px-1.5 py-1 ring-1 ring-primary/40" : ""}`}
+    >
       <div className="flex items-start gap-2">
         <span aria-hidden className="mt-0.5 shrink-0">{icon}</span>
         <div className="min-w-0 flex-1">
@@ -438,6 +513,16 @@ function StepItem({ step }: { step: Step }) {
               <span className="text-muted-foreground">fetch </span>
               <span className="break-all font-mono text-primary/80">{step.summary.replace(/^fetch:\s*/i, "")}</span>
             </span>
+          ) : hasThought ? (
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              className="text-left text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span aria-hidden className="mr-1 font-mono text-[10px] text-muted-foreground">{open ? "▾" : "▸"}</span>
+              {step.summary}
+            </button>
           ) : (
             <span className="text-muted-foreground">{step.summary}</span>
           )}
@@ -463,6 +548,11 @@ function StepItem({ step }: { step: Step }) {
             </li>
           ))}
         </ul>
+      )}
+      {hasThought && open && (
+        <div className="ml-6 border-l border-border pl-3">
+          <p className="whitespace-pre-wrap font-mono text-[11px] leading-snug text-foreground/80">{thought}</p>
+        </div>
       )}
     </li>
   );

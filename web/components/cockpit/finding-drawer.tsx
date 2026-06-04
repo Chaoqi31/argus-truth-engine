@@ -50,8 +50,8 @@ export function FindingDrawer() {
   const finding = job?.findings.find((f) => f.id === drawerFindingId) ?? null;
   const open = drawerFindingId !== null;
 
-  // Cross-link a step to the Zone-3 DAG: point it at this finding's trace,
-  // focus the producing node in graph mode, and close the drawer to reveal it.
+  // Cross-link a step into the Trace: point it at this finding's trace,
+  // highlight that step in the Trace view, and close the drawer to reveal it.
   const jumpToStep = (stepId: string) => {
     if (finding) setActiveFinding(finding.id);
     storeJumpToStep(stepId);
@@ -248,7 +248,7 @@ export function FindingDrawer() {
                             <button
                               type="button"
                               onClick={() => jumpToStep(s.id)}
-                              aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the reasoning graph`}
+                              aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the trace`}
                               className="flex w-full gap-3 rounded-md text-left transition-colors hover:text-[var(--cc-primary-bright)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
                             >
                               <span
@@ -348,7 +348,7 @@ export function FindingDrawer() {
                                       <button
                                         type="button"
                                         onClick={() => jumpToStep(e.retrieved_by_step_id)}
-                                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the reasoning graph`}
+                                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the trace`}
                                         className="shrink-0 rounded border border-[var(--cc-border)] px-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--cc-text-muted)] transition-colors hover:border-[var(--cc-primary)] hover:text-[var(--cc-primary-bright)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
                                       >
                                         step {ordinals.get(producingStep.id) ?? 0}

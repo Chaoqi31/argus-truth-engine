@@ -9,7 +9,6 @@ import { JobStatsBar } from "@/components/job-stats-bar";
 import { FindingsTab } from "@/components/findings-tab";
 import { EvidenceTab } from "@/components/evidence-tab";
 import { TraceStreamView } from "@/components/trace-stream-view";
-import { DagTab } from "@/components/dag-tab";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
 import { ScenarioBanner } from "@/components/scenario-banner";
 import { ExportMenu, type ExportFormat } from "@/components/export-menu";
@@ -505,11 +504,6 @@ function AuditPageContent() {
   const fileUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(job.id)}/pdf` : "/sample-report.pdf";
   const jobIsText = job.input_mode === "text";
 
-  // Reasoning DAG (Zone-3 "Graph") follows the active finding. Switching findings
-  // re-derives this from activeFindingId, so the graph stays in sync.
-  const activeFinding = job.findings.find((f) => f.id === activeFindingId);
-  const activeTrace = job.traces.find((t) => t.id === activeFinding?.reasoning_trace_id) ?? null;
-
   return (
     <div className="cockpit cc-backdrop flex h-screen flex-col">
       <ArgusHeader
@@ -591,7 +585,7 @@ function AuditPageContent() {
           onKeyStep={(dir) => setConsoleW((w) => clampPx(w - dir * 24, COCKPIT_CONSOLE_MIN, COCKPIT_CONSOLE_MAX))}
         />
 
-        {/* Zone 3 — reasoning console (evidence / live trace / graph) */}
+        {/* Zone 3 — reasoning console (evidence / trace) */}
         <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
           <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
             <ConsoleToggle current={consoleMode} onChange={setConsoleMode} />
@@ -599,10 +593,8 @@ function AuditPageContent() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {consoleMode === "evidence" ? (
               <EvidenceTab job={job} findingId={activeFindingId} />
-            ) : consoleMode === "trace" ? (
-              <TraceStreamView job={job} />
             ) : (
-              <DagTab trace={activeTrace} />
+              <TraceStreamView job={job} />
             )}
           </div>
         </aside>
@@ -864,7 +856,6 @@ function ConsoleToggle({
   const opts: Array<{ key: ConsoleMode; label: string }> = [
     { key: "evidence", label: "Evidence" },
     { key: "trace", label: "Trace" },
-    { key: "graph", label: "Graph" },
   ];
   return (
     <div className="flex w-full gap-1 rounded-md bg-muted p-0.5 ring-1 ring-[var(--cc-border)]">

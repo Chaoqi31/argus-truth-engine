@@ -12,7 +12,7 @@ there, not inline.
   `shadow-[var(--shadow-card)]`, `rounded-[var(--radius-card)]`) — never hardcode hex
   in components.
 - **Fonts**: `app/layout.tsx` — IBM Plex Sans (`--font-sans`, body + headings) and
-  IBM Plex Mono (`--font-mono`, code/trace/DAG).
+  IBM Plex Mono (`--font-mono`, code/trace).
 
 ## Palette (defined as tokens — reference by name)
 - Primary / CTA / links: Kraken Purple `--color-primary` `#7132f5`; hover → `#5741d8`.
@@ -21,7 +21,7 @@ there, not inline.
 - Borders: `--color-border` `#dedee5`, `--color-border-strong` on hover.
 - Soft purple surface (icon chips, subtle bg): `--color-primary-soft`.
 - Semantic: success `#149e61`, warning, destructive — use the `*-foreground` variants for text on `/15` tints.
-- The `--vis-*` tokens encode DAG step type (multi-hue) — leave them; they are data-vis, not theme.
+- The `--vis-*` tokens encode reasoning-step type (multi-hue) — leave them; they are data-vis, not theme.
 
 ## Rules
 - **Light mode only.** No dark mode, no `dark:` variants, no theme toggle.
