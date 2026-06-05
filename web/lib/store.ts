@@ -1,11 +1,14 @@
 "use client";
 
 import { create } from "zustand";
+import { pickInitialFindingId } from "@/lib/findings";
 import type {
   FilteredClaim,
+  FindingReview,
   Job,
   LiveFinding,
   ReviewClaim,
+  ReviewerStatus,
   RunStatus,
   Step,
 } from "@/lib/types";
@@ -14,8 +17,14 @@ interface ArgusState {
   // existing
   job: Job | null;
   activeFindingId: string | null;
+  findingReviews: Record<string, FindingReview>;
   setJob: (job: Job) => void;
   setActiveFinding: (findingId: string | null) => void;
+  setFindingReview: (
+    jobId: string,
+    findingId: string,
+    patch: Partial<Pick<FindingReview, "status" | "note">>,
+  ) => void;
   clear: () => void;
 
   // live-mode (B3-C)
@@ -35,6 +44,7 @@ interface ArgusState {
   setReviewReady: (claims: ReviewClaim[], filtered: FilteredClaim[]) => void;
   toggleClaimSelection: (claimId: string) => void;
   selectAllClaims: () => void;
+  selectHighImportanceClaims: () => void;
   clearReview: () => void;
 
   // cockpit surfaces (T1 contract; filled by T2–T4 surface agents)
@@ -80,9 +90,38 @@ const INITIAL_COCKPIT = {
   consoleMode: "evidence" as ConsoleMode,
 };
 
+const DEFAULT_REVIEW_STATUS: ReviewerStatus = "open";
+
+function reviewStorageKey(jobId: string): string {
+  return `argus:finding-reviews:${jobId}`;
+}
+
+function readStoredReviews(jobId: string): Record<string, FindingReview> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(reviewStorageKey(jobId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, FindingReview>;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredReviews(jobId: string, reviews: Record<string, FindingReview>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(reviewStorageKey(jobId), JSON.stringify(reviews));
+  } catch {
+    /* local persistence is best-effort */
+  }
+}
+
 export const useArgusStore = create<ArgusState>((set) => ({
   job: null,
   activeFindingId: null,
+  findingReviews: {},
   ...INITIAL_LIVE,
   ...INITIAL_REVIEW,
   ...INITIAL_COCKPIT,
@@ -90,13 +129,33 @@ export const useArgusStore = create<ArgusState>((set) => ({
   setJob: (job) =>
     set({
       job,
-      activeFindingId: job.findings[0]?.id ?? null,
+      activeFindingId: pickInitialFindingId(job.findings),
+      findingReviews: readStoredReviews(job.id),
     }),
   setActiveFinding: (findingId) => set({ activeFindingId: findingId }),
+  setFindingReview: (jobId, findingId, patch) =>
+    set((s) => {
+      const prev = s.findingReviews[findingId] ?? {
+        status: DEFAULT_REVIEW_STATUS,
+        note: "",
+        updated_at: new Date().toISOString(),
+      };
+      const next = {
+        ...s.findingReviews,
+        [findingId]: {
+          ...prev,
+          ...patch,
+          updated_at: new Date().toISOString(),
+        },
+      };
+      writeStoredReviews(jobId, next);
+      return { findingReviews: next };
+    }),
   clear: () =>
     set({
       job: null,
       activeFindingId: null,
+      findingReviews: {},
       ...INITIAL_LIVE,
       ...INITIAL_REVIEW,
       ...INITIAL_COCKPIT,
@@ -105,7 +164,13 @@ export const useArgusStore = create<ArgusState>((set) => ({
   appendLiveStep: (step) =>
     set((s) => ({ liveSteps: [...s.liveSteps, step] })),
   appendLiveFinding: (finding) =>
-    set((s) => ({ liveFindings: [...s.liveFindings, finding] })),
+    set((s) => {
+      const existing = s.liveFindings.findIndex((f) => f.id === finding.id);
+      if (existing === -1) return { liveFindings: [...s.liveFindings, finding] };
+      const next = [...s.liveFindings];
+      next[existing] = finding;
+      return { liveFindings: next };
+    }),
   setRunStatus: (status, error = null) => set({ runStatus: status, runError: error }),
   resetLive: () => set({ ...INITIAL_LIVE }),
 
@@ -127,6 +192,12 @@ export const useArgusStore = create<ArgusState>((set) => ({
   selectAllClaims: () =>
     set((s) => ({
       selectedClaimIds: new Set(s.reviewClaims.map((c) => c.id)),
+    })),
+  selectHighImportanceClaims: () =>
+    set((s) => ({
+      selectedClaimIds: new Set(
+        s.reviewClaims.filter((c) => c.importance === "high").map((c) => c.id),
+      ),
     })),
   clearReview: () => set({ ...INITIAL_REVIEW }),
 

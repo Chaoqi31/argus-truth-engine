@@ -17,7 +17,6 @@ import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
 import { subscribeTrace } from "@/lib/trace-ws";
 import {
   getJob,
-  downloadReport,
   uploadPdf,
   submitText,
   UnsupportedMediaTypeError,
@@ -27,12 +26,17 @@ import {
 } from "@/lib/api";
 import { loadSampleJob, type Scenario } from "@/lib/load-job";
 import { replayTrace } from "@/lib/trace-replayer";
-import type { FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step } from "@/lib/types";
+import { buildAuditPackMarkdown } from "@/lib/audit-pack";
+import { orderFindingsForDemoReplay } from "@/lib/demo-replay";
+import type { FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step, StepType } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
 import { FindingDrawer } from "@/components/cockpit/finding-drawer";
 import { CommandPalette } from "@/components/cockpit/command-palette";
 import { EvidenceDiff } from "@/components/cockpit/evidence-diff";
+import { ReasoningWalkthroughCta } from "@/components/reasoning-walkthrough-cta";
+import { DemoRunControls } from "@/components/demo-run-controls";
+import { PdfUploadDropzone } from "@/components/pdf-upload-dropzone";
 import CountUp from "@/components/react-bits/CountUp";
 import BlurText from "@/components/react-bits/BlurText";
 
@@ -94,6 +98,16 @@ function SearchIcon() {
   );
 }
 
+function downloadText(filename: string, text: string, type: string) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // Cockpit column sizing (lg only). Document + console are px-resizable; the
 // middle findings column flexes. Hard min/max clamps keep every zone usable.
 const COCKPIT_DOC_MIN = 300;
@@ -126,6 +140,7 @@ function AuditPageContent() {
   const liveFindings = useArgusStore((s) => s.liveFindings);
   const runStatus = useArgusStore((s) => s.runStatus);
   const runError = useArgusStore((s) => s.runError);
+  const findingReviews = useArgusStore((s) => s.findingReviews);
   const setJob = useArgusStore((s) => s.setJob);
   const appendLiveStep = useArgusStore((s) => s.appendLiveStep);
   const appendLiveFinding = useArgusStore((s) => s.appendLiveFinding);
@@ -157,32 +172,26 @@ function AuditPageContent() {
   useCommandPaletteHotkey();
 
   const onExport = async (fmt: ExportFormat) => {
-    if (!liveId) return;
-    if (fmt === "pdf") {
-      const blob = await downloadReport(liveId, null);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `argus-audit-${liveId}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+    if (!job) return;
+    const exportId = liveId ?? job.id ?? "demo";
+    if (fmt === "audit_pack") {
+      downloadText(
+        `argus-audit-pack-${exportId}.md`,
+        buildAuditPackMarkdown(job, findingReviews),
+        "text/markdown",
+      );
     } else if (fmt === "json") {
-      const blob = new Blob([JSON.stringify(job, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `argus-audit-${liveId}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadText(
+        `argus-evidence-${exportId}.json`,
+        JSON.stringify({ ...job, reviewer_decisions: findingReviews }, null, 2),
+        "application/json",
+      );
     } else {
-      const md = job?.audit_report_md ?? "";
-      const blob = new Blob([md], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `argus-audit-${liveId}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadText(
+        `argus-executive-summary-${exportId}.md`,
+        job.audit_report_md ?? "",
+        "text/markdown",
+      );
     }
   };
 
@@ -343,7 +352,7 @@ function AuditPageContent() {
     setRunStatus("running");
     setDemoRunning(true);
 
-    const findings = demoJob.findings;
+    const findings = orderFindingsForDemoReplay(demoJob);
     const claimText = new Map(demoJob.claims.map((c) => [c.id, c.text]));
     const traceById = new Map(demoJob.traces.map((t) => [t.id, t]));
     const stagesByKey = new Map((demoJob.stages ?? []).map((s) => [s.key, s]));
@@ -444,6 +453,15 @@ function AuditPageContent() {
     runDemo();
   };
 
+  const finishDemoNow = () => {
+    if (!demoJob) return;
+    demoAbortRef.current?.abort();
+    setJob(demoJob);
+    setRunStatus("done");
+    setConsoleMode("evidence");
+    setDemoRunning(false);
+  };
+
   const isTextMode = params.get("mode") === "text" || job?.input_mode === "text";
 
   // Demo idle screen: fixture loaded but not yet running — show the source
@@ -479,6 +497,9 @@ function AuditPageContent() {
         <ArgusHeader
           rightSlot={
             <div className="flex items-center gap-2">
+              {demoRunning && demoJob && (
+                <DemoRunControls onShowFullAudit={finishDemoNow} />
+              )}
               <PaletteHint />
               <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
             </div>
@@ -557,6 +578,11 @@ function AuditPageContent() {
     setDrawerFinding(id);
   };
 
+  const startReasoningWalkthrough = (id: string) => {
+    setActiveFinding(id);
+    setConsoleMode("trace");
+  };
+
   const onClaimClick = (claimId: string) => {
     const f = job.findings.find((f) => f.claim_id === claimId);
     if (f) selectFinding(f.id);
@@ -588,7 +614,7 @@ function AuditPageContent() {
       {demo === "1" && job?.scenario_label && job?.persona && (
         <ScenarioBanner label={job.scenario_label} persona={job.persona} />
       )}
-      <VerdictHero job={job} />
+      <VerdictHero job={job} onStartReasoningWalkthrough={startReasoningWalkthrough} />
       <JobStatsBar job={job} />
       <main
         className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px] lg:[grid-template-columns:var(--cc-doc-w)_minmax(0,1fr)_var(--cc-console-w)]"
@@ -651,7 +677,7 @@ function AuditPageContent() {
           <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
             <ConsoleToggle current={consoleMode} onChange={setConsoleMode} />
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
             {consoleMode === "evidence" ? (
               <EvidenceTab job={job} findingId={activeFindingId} />
             ) : (
@@ -678,9 +704,16 @@ function AuditPageContent() {
 // Large headline (BlurText reveal), glowing status dot, severity counts via
 // CountUp. Honors prefers-reduced-motion (BlurText/CountUp degrade gracefully
 // when not in view / reduced motion via their own guards).
-function VerdictHero({ job }: { job: Job }) {
+function VerdictHero({
+  job,
+  onStartReasoningWalkthrough,
+}: {
+  job: Job;
+  onStartReasoningWalkthrough: (findingId: string) => void;
+}) {
   const sev = { critical: 0, major: 0, minor: 0 };
-  for (const f of job.findings) {
+  const issueFindings = job.findings.filter((f) => f.verdict !== "ok");
+  for (const f of issueFindings) {
     if (f.severity === "critical") sev.critical++;
     else if (f.severity === "major") sev.major++;
     else if (f.severity === "minor") sev.minor++;
@@ -689,10 +722,15 @@ function VerdictHero({ job }: { job: Job }) {
   const verdicts = new Set(job.findings.map((f) => f.verdict));
   const flags: string[] = [];
   if (verdicts.has("fabricated")) flags.push("fabricated citations");
-  if (verdicts.has("mismatch") || verdicts.has("misrepresented"))
+  if (verdicts.has("mismatch") || verdicts.has("misrepresented")) {
     flags.push("misaligned quotes");
-  if (verdicts.has("stale") || verdicts.has("superseded")) flags.push("stale data");
+  }
+  if (verdicts.has("inaccurate")) flags.push("incorrect facts");
+  if (verdicts.has("outdated") || verdicts.has("stale") || verdicts.has("superseded")) flags.push("stale data");
   if (verdicts.has("contradiction")) flags.push("internal contradictions");
+  if (verdicts.has("unsupported-inference") || verdicts.has("overreach")) {
+    flags.push("unsupported reasoning");
+  }
 
   const tone: "danger" | "warn" | "ok" =
     sev.critical > 0 ? "danger" : sev.major > 0 ? "warn" : "ok";
@@ -703,8 +741,17 @@ function VerdictHero({ job }: { job: Job }) {
   };
 
   const subject = job.input_mode === "text" ? "this content" : "this report";
+  const total = job.claims_total && job.claims_total > 0 ? job.claims_total : job.claims.length;
+  const audited = job.claims_audited && job.claims_audited > 0 ? job.claims_audited : job.findings.filter((f) => f.agent === "UnifiedVerifier").length;
+  const partial = total > 0 && audited < total;
+  const unchecked = Math.max(0, total - audited);
+  const failed = job.status === "failed" || job.status === "interrupted";
   let headline: string;
-  if (issues === 0) {
+  if (failed) {
+    headline = `Argus stopped before completing ${subject}.`;
+  } else if (partial) {
+    headline = `Argus partially audited ${subject}.`;
+  } else if (issues === 0) {
     headline = `Argus found no issues in ${subject}.`;
   } else if (flags.length > 0) {
     const joined =
@@ -724,7 +771,7 @@ function VerdictHero({ job }: { job: Job }) {
   return (
     <section
       role="status"
-      className="relative flex h-16 items-center gap-4 overflow-hidden border-b border-[var(--cc-border)] px-6"
+      className="relative flex min-h-20 items-center gap-4 overflow-hidden border-b border-[var(--cc-border)] px-6 py-3"
     >
       <span
         aria-hidden
@@ -739,15 +786,33 @@ function VerdictHero({ job }: { job: Job }) {
           animateBy="words"
           delay={60}
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          {issues === 0
-            ? "No factual issues detected across the checked claims."
-            : "Verdicts below link to external evidence and reasoning."}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>
+            {audited}/{total || job.claims.length} selected claims checked
+          </span>
+          <span aria-hidden>·</span>
+          <span>{issues} issue{issues === 1 ? "" : "s"} found</span>
+          <span aria-hidden>·</span>
+          <span>{job.evidences.length} cited source{job.evidences.length === 1 ? "" : "s"}</span>
+          {partial && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="font-medium text-warning-foreground">
+                {unchecked} unchecked
+              </span>
+            </>
+          )}
+        </div>
+        {(partial || failed) && (
+          <p className="mt-1.5 inline-flex rounded bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning-foreground">
+            Partial coverage: review unchecked claims before relying on a clean conclusion.
+          </p>
+        )}
       </div>
 
-      {counts.length > 0 && (
-        <div className="hidden shrink-0 items-center gap-5 sm:flex">
+      <div className="hidden shrink-0 items-center gap-5 sm:flex">
+        {counts.length > 0 && (
+          <>
           {counts.map((c) => (
             <div key={c.label} className="text-right">
               <CountUp
@@ -765,14 +830,16 @@ function VerdictHero({ job }: { job: Job }) {
           ))}
           <div className="text-right">
             <span className="block font-mono text-xl font-bold tabular-nums text-muted-foreground">
-              {job.claims.length}
+              {audited}/{total || job.claims.length}
             </span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {job.claims.length === 1 ? "claim" : "claims"}
+              checked
             </span>
           </div>
-        </div>
-      )}
+          </>
+        )}
+        <ReasoningWalkthroughCta job={job} onStart={onStartReasoningWalkthrough} />
+      </div>
     </section>
   );
 }
@@ -807,9 +874,15 @@ function RunBanner({
     return (
       <div
         role="alert"
-        className="flex h-12 items-center gap-3 border-b border-[var(--cc-danger)]/40 bg-[var(--cc-danger)]/10 px-4 text-xs text-[var(--cc-danger)]"
+        className="flex h-12 items-center gap-3 overflow-x-auto border-b border-[var(--cc-danger)]/40 bg-[var(--cc-danger)]/10 px-4 text-xs text-[var(--cc-danger)]"
       >
-        Audit failed — {reason ?? "unknown"}
+        <span className="shrink-0 font-medium">Audit did not complete.</span>
+        <span className="min-w-0 truncate">
+          {reason ?? "The run stopped before every selected claim was verified."}
+        </span>
+        <span className="hidden shrink-0 text-[var(--cc-danger)]/80 sm:inline">
+          Streamed findings remain visible; rerun or refresh to check server state.
+        </span>
       </div>
     );
   }
@@ -822,11 +895,12 @@ function RunBanner({
       >
         <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-muted-foreground" />
         <span className="text-[var(--cc-text)]">
-          Waking the audit backend… connecting to the live trace.
+          Waking the audit backend… connecting to the live trace. Final results will still load by polling if the socket is slow.
         </span>
       </div>
     );
   }
+  const verb = runStatus === "verifying" ? "Verifying claims" : "Audit running";
   return (
     <div
       role="status"
@@ -835,7 +909,7 @@ function RunBanner({
     >
       <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--cc-ok)]" />
       <span className="shrink-0 text-[var(--cc-text)]">
-        Audit running… <strong>{steps}</strong> steps · <strong>{findings}</strong> findings
+        {verb}… <strong>{steps}</strong> steps · <strong>{findings}</strong> findings
       </span>
       {activeAgent && (
         <span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
@@ -941,7 +1015,67 @@ function ConsoleToggle({
 
 // --- payload coercion ------------------------------------------------------
 
+const STEP_TYPES = new Set<StepType>([
+  "thinking",
+  "web_search",
+  "fetch_url_content",
+  "execute_python",
+  "execute_command",
+  "tool_call",
+  "message",
+]);
+
+function isStepType(value: unknown): value is StepType {
+  return typeof value === "string" && STEP_TYPES.has(value as StepType);
+}
+
+function recordFrom(value: unknown): Record<string, unknown> | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 function stepFromPayload(payload: Record<string, unknown>): Step | null {
+  const native = recordFrom(payload.step);
+  if (native) {
+    const traceId =
+      typeof native.trace_id === "string"
+        ? native.trace_id
+        : typeof payload.trace_id === "string"
+          ? payload.trace_id
+          : null;
+    if (!traceId) return null;
+
+    const baseContent = recordFrom(native.content) ?? {};
+    const content = {
+      ...baseContent,
+      agent: payload.agent,
+      claim_id: payload.claim_id,
+    };
+
+    return {
+      id:
+        typeof native.id === "string"
+          ? native.id
+          : `live_${traceId}_${Math.random().toString(36).slice(2, 8)}`,
+      trace_id: traceId,
+      sequence:
+        typeof native.sequence === "number"
+          ? native.sequence
+          : Number(payload.sequence ?? 0),
+      type: isStepType(native.type) ? native.type : "message",
+      summary:
+        typeof native.summary === "string"
+          ? native.summary
+          : String(payload.summary ?? payload.agent ?? "agent"),
+      content,
+      evidence_ids: Array.isArray(native.evidence_ids)
+        ? native.evidence_ids.filter((id): id is string => typeof id === "string")
+        : [],
+      parent_step_id: typeof native.parent_step_id === "string" ? native.parent_step_id : null,
+      created_at: typeof native.created_at === "string" ? native.created_at : new Date().toISOString(),
+    };
+  }
+
   if (typeof payload.trace_id !== "string") return null;
   return {
     id: `live_${payload.trace_id}_${Math.random().toString(36).slice(2, 8)}`,
@@ -1000,6 +1134,34 @@ const DEMO_SCENARIOS: Array<{ key: Scenario; label: string }> = [
   { key: "legal", label: "Legal filing" },
 ];
 
+const DEMO_COPY: Record<
+  Scenario,
+  { eyebrow: string; title: string; body: string; checklist: string[] }
+> = {
+  nvidia: {
+    eyebrow: "Investment committee walkthrough",
+    title: "Review an AI investment memo before committee",
+    body:
+      "Replay how Argus audits a vendor-style NVIDIA research note with planted factual errors, then turns the result into a claim-level review package.",
+    checklist: [
+      "Claims extracted from the memo",
+      "MiroMind searches and fetched sources streamed live",
+      "Reviewer decisions captured for the final Audit Pack",
+    ],
+  },
+  legal: {
+    eyebrow: "Legal review walkthrough",
+    title: "Review an AI legal memo before filing",
+    body:
+      "Replay how Argus checks authority, citation fit, and source mismatch before a team relies on generated legal analysis.",
+    checklist: [
+      "Questionable citations isolated by claim",
+      "Source trail kept next to each verdict",
+      "Reviewer notes preserved for handoff",
+    ],
+  },
+};
+
 function DemoIdleScreen({
   job,
   onRun,
@@ -1012,6 +1174,7 @@ function DemoIdleScreen({
   onScenarioChange: (s: Scenario) => void;
 }) {
   const [starting, setStarting] = useState(false);
+  const copy = DEMO_COPY[scenario];
   return (
     <div className="cockpit cc-backdrop min-h-screen">
       <ArgusHeader />
@@ -1056,15 +1219,22 @@ function DemoIdleScreen({
           </div>
           <div className="flex flex-col gap-2">
             <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--cc-text-muted)]">
-              Sample audit
+              {copy.eyebrow}
             </span>
             <h1 className="text-2xl font-bold tracking-tight text-[var(--cc-text)]">
-              Audit this note
+              {copy.title}
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Replays a completed audit of this note, step by step — every reasoning
-              step, web search, and verdict, just as it streamed live.
+              {copy.body}
             </p>
+            <ul className="mt-2 space-y-1.5 text-sm text-[var(--cc-text)]">
+              {copy.checklist.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <span aria-hidden className="mt-2 size-1.5 rounded-full bg-primary" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Show the report inline on small screens (the left column is hidden). */}
@@ -1090,12 +1260,12 @@ function DemoIdleScreen({
               ) : (
                 <>
                   <RunIcon />
-                  Run audit
+                  Run audit walkthrough
                 </>
               )}
             </button>
             <p className="text-[11px] text-[var(--cc-text-muted)]">
-              No API key needed — replays a completed audit.
+              No API key needed — this replays a completed audit.
             </p>
           </div>
         </aside>
@@ -1219,11 +1389,17 @@ function AuditInputPage() {
   };
 
   const onPicked = async (file: File) => {
+    const looksLikePdf =
+      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!looksLikePdf) {
+      setError("Only PDF files are supported.");
+      return;
+    }
     if (!apiKey.trim()) { setError("Please paste your MiroMind API key first."); return; }
     setLoading("upload");
     setError(null);
     try {
-      const { job_id } = await uploadPdf(file, apiKey);
+      const { job_id } = await uploadPdf(file, apiKey, { contentDomain });
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
@@ -1235,16 +1411,53 @@ function AuditInputPage() {
     }
   };
 
+  const domainSelect = (
+    <div className="flex items-center gap-2">
+      <label htmlFor="domain-select" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+        Content domain
+      </label>
+      <select
+        id="domain-select"
+        value={contentDomain}
+        onChange={(e) => setContentDomain(e.target.value as ContentDomain)}
+        disabled={loading !== null}
+        className="cursor-pointer rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+      >
+        <option value="general">General</option>
+        <option value="academic">Academic</option>
+        <option value="medical">Medical</option>
+        <option value="legal">Legal</option>
+        <option value="finance">Finance</option>
+        <option value="technology">Technology</option>
+        <option value="news">News</option>
+        <option value="science">Science</option>
+      </select>
+    </div>
+  );
+
   return (
     <>
       <ArgusHeader />
       <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-xl">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Start an audit</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Audit AI-generated reports before sign-off
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Paste AI-generated content or upload a PDF to verify.
+              Verify research, legal, and governance documents before they reach
+              clients, regulators, or investment committees.
             </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {["Investment research", "Legal & compliance", "AI governance"].map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)]">
@@ -1275,30 +1488,10 @@ function AuditInputPage() {
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   disabled={loading !== null}
-                  placeholder="Paste LLM-generated content here (research report, article, analysis…)"
+                  placeholder="Paste an AI-generated research memo, legal note, compliance summary, or market analysis..."
                   className="h-48 w-full resize-y rounded-lg border border-border bg-background p-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 />
-                <div className="flex items-center gap-2">
-                  <label htmlFor="domain-select" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    Content domain
-                  </label>
-                  <select
-                    id="domain-select"
-                    value={contentDomain}
-                    onChange={(e) => setContentDomain(e.target.value as ContentDomain)}
-                    disabled={loading !== null}
-                    className="cursor-pointer rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-                  >
-                    <option value="general">General</option>
-                    <option value="academic">Academic</option>
-                    <option value="medical">Medical</option>
-                    <option value="legal">Legal</option>
-                    <option value="finance">Finance</option>
-                    <option value="technology">Technology</option>
-                    <option value="news">News</option>
-                    <option value="science">Science</option>
-                  </select>
-                </div>
+                {domainSelect}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{textInput.length.toLocaleString()} characters</span>
                   <button
@@ -1307,7 +1500,7 @@ function AuditInputPage() {
                     disabled={loading !== null || textInput.trim().length < 50}
                     className="cursor-pointer rounded-[12px] bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5741d8] disabled:pointer-events-none disabled:opacity-50"
                   >
-                    {loading === "upload" ? "Submitting…" : "Check for hallucinations →"}
+                    {loading === "upload" ? "Submitting…" : "Run document audit →"}
                   </button>
                 </div>
               </div>
@@ -1315,25 +1508,14 @@ function AuditInputPage() {
 
             {/* PDF upload */}
             {inputMode === "pdf" && (
-              <div className="mt-4 flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border p-8 text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-10 text-muted-foreground/50" aria-hidden>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <line x1="9" y1="15" x2="15" y2="15" />
-                </svg>
-                <p className="text-sm text-muted-foreground">Drop a PDF here or click to browse</p>
-                <label className={`cursor-pointer rounded-[12px] bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5741d8] ${loading !== null ? "pointer-events-none opacity-50" : ""}`}>
-                  {loading === "upload" ? "Uploading…" : "Select PDF"}
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    disabled={loading !== null}
-                    className="sr-only"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) onPicked(f); }}
-                  />
-                </label>
-              </div>
+              <>
+                <div className="mt-4">{domainSelect}</div>
+                <PdfUploadDropzone
+                  busy={loading === "upload"}
+                  disabled={loading !== null}
+                  onPicked={onPicked}
+                />
+              </>
             )}
 
             {error && (
@@ -1350,7 +1532,7 @@ function AuditInputPage() {
               disabled={loading !== null}
               className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
             >
-              {loading === "sample" ? "Loading…" : "…or try the sample audit (no key needed)"}
+              {loading === "sample" ? "Loading…" : "Try the investment research walkthrough (no key needed)"}
             </button>
           </div>
         </div>

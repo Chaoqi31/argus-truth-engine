@@ -41,6 +41,7 @@ class JobRunner:
         pdf_bytes: bytes,
         filename: str,
         api_key_override: str | None = None,
+        content_domain: str = "general",
     ) -> str:
         job_id = f"job_{uuid4().hex[:12]}"
         key = f"{job_id}/{filename}"
@@ -73,6 +74,7 @@ class JobRunner:
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
+                    content_domain=content_domain,
                     checkpointer=self.state.checkpointer,
                 )
                 self.records[job_id].result = job

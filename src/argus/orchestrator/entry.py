@@ -56,6 +56,7 @@ async def audit_pdf(
     trace_bus: TraceBus | None = None,
     job_id: str | None = None,
     auto_review: bool = False,
+    content_domain: str = "general",
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> Job:
     """Top-level Plan B2 pipeline — LangGraph parallel 5-agent.
@@ -71,8 +72,11 @@ async def audit_pdf(
 
     if job_id is None:
         job_id = f"job_{uuid4().hex[:12]}"
+    from argus.models.domain import ContentDomain
+    is_known = content_domain in ContentDomain.__members__.values()
+    domain = ContentDomain(content_domain) if is_known else ContentDomain.GENERAL
     job = Job(id=job_id, pdf_path=str(pdf_path), input_mode="pdf",
-              auto_review=auto_review, status="parsing")
+              content_domain=domain, auto_review=auto_review, status="parsing")
 
     initial: _State = {
         "job_id": job_id,

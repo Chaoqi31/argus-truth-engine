@@ -202,7 +202,7 @@ async def test_orchestrator_emits_findings_for_each_citation(tmp_path: Path) -> 
 
 
 async def test_orchestrator_builds_per_stage_summary(tmp_path: Path) -> None:
-    """A completed job carries an ordered 9-entry per-stage summary."""
+    """A completed job carries an ordered 10-entry per-stage summary."""
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=120)])
     router.add(
@@ -225,16 +225,17 @@ async def test_orchestrator_builds_per_stage_summary(tmp_path: Path) -> None:
         budget_usd=10.0,
     )
 
-    assert len(job.stages) == 9
+    assert len(job.stages) == 10
     assert [s.key for s in job.stages] == [
         "parse", "planner", "atomizer", "checkworthiness", "review_gate",
-        "verify", "consistency", "confidence", "reporter",
+        "verify", "skeptic", "consistency", "confidence", "reporter",
     ]
     assert all(s.summary for s in job.stages)
     by_key = {s.key: s for s in job.stages}
     assert "n_original" in by_key["atomizer"].metrics
     assert "n_atoms" in by_key["atomizer"].metrics
     assert "checkworthiness" in by_key
+    assert by_key["skeptic"].metrics["n_reviewed"] == 0
     # The summary survives the JSON round-trip written to output_path.
     saved = json.loads(out.read_text())
-    assert len(saved["stages"]) == 9
+    assert len(saved["stages"]) == 10

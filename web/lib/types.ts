@@ -110,6 +110,78 @@ export interface CorrectedInfo {
   retrieved_date?: string | null;
 }
 
+export interface ReasoningStep {
+  step: string;
+  content: string;
+  evidence_ref?: string | null;
+  confidence_delta?: number;
+}
+
+export interface VerificationStep {
+  action: string;
+  observation: string;
+  reasoning: string;
+}
+
+export type FindingReasoningStep = ReasoningStep | VerificationStep;
+
+export interface EvidenceQuality {
+  evidence_id: string;
+  authority: number;
+  independence: number;
+  freshness: number;
+  directness: number;
+  role: string;
+  rationale: string;
+}
+
+export interface ClaimCoverage {
+  claim_fragment: string;
+  relation: string;
+  evidence_ids: string[];
+  reason: string;
+}
+
+export interface ComputationValue {
+  label: string;
+  value: string;
+  unit: string;
+  source_evidence_id?: string | null;
+}
+
+export interface ComputationCheck {
+  kind: "numeric" | "date";
+  claimed_value: string;
+  extracted_values: ComputationValue[];
+  formula: string;
+  computed_value: string;
+  tolerance: string;
+  judgment: string;
+  rationale: string;
+}
+
+export interface SkepticCounterevidence {
+  source: string;
+  url?: string | null;
+  snippet: string;
+  relevance: string;
+}
+
+export interface SkepticReview {
+  status: "no_counterevidence" | "counterevidence_found" | "inconclusive";
+  summary: string;
+  recommended_verdict?: FindingVerdict | null;
+  counterevidence: SkepticCounterevidence[];
+}
+
+export type ReviewerStatus = "open" | "accepted" | "disputed" | "needs-recheck" | "resolved";
+
+export interface FindingReview {
+  status: ReviewerStatus;
+  note: string;
+  updated_at: string;
+}
+
 export interface Finding {
   id: string;
   job_id: string;
@@ -124,6 +196,12 @@ export interface Finding {
   why_wrong?: string | null;
   /** What the right answer is, with an authoritative source. */
   correct_information?: CorrectedInfo | null;
+  /** Structured explanation returned by the verifier before the raw trace. */
+  reasoning_chain?: FindingReasoningStep[];
+  evidence_quality?: EvidenceQuality[];
+  coverage?: ClaimCoverage[];
+  skeptic_review?: SkepticReview | null;
+  computation_check?: ComputationCheck | null;
   evidence_ids: string[];
   reasoning_trace_id: string;
   related_finding_ids: string[];
@@ -142,7 +220,8 @@ export type JobStatus =
   | "verifying"
   | "reporting"
   | "done"
-  | "failed";
+  | "failed"
+  | "interrupted";
 
 /** A claim dropped by the check-worthiness stage, with the reason. */
 export interface StageFilteredClaim {
@@ -162,6 +241,17 @@ export interface Stage {
   filtered_claims?: StageFilteredClaim[] | null;
 }
 
+export interface BenchmarkExpectedClaim {
+  claim_id: string;
+  verdict: FindingVerdict;
+  rationale: string;
+}
+
+export interface BenchmarkSpec {
+  name: string;
+  expected_claims: BenchmarkExpectedClaim[];
+}
+
 export interface Job {
   id: string;
   scenario_label?: string | null;
@@ -169,6 +259,15 @@ export interface Job {
   pdf_path: string;
   input_text?: string | null;
   input_mode?: "pdf" | "text";
+  content_domain?:
+    | "general"
+    | "academic"
+    | "medical"
+    | "legal"
+    | "finance"
+    | "technology"
+    | "news"
+    | "science";
   status: JobStatus;
   created_at: string;
   completed_at: string | null;
@@ -183,6 +282,7 @@ export interface Job {
   traces: ReasoningTrace[];
   evidences: Evidence[];
   stages?: Stage[];
+  benchmark?: BenchmarkSpec | null;
 }
 
 export function isCitationClaim(c: Claim): boolean {

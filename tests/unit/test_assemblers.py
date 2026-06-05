@@ -74,6 +74,84 @@ def test_make_unified_finding_preserves_verdict_and_links_trace():
     assert finding.confidence == 0.9
 
 
+def test_make_unified_finding_maps_audit_depth_fields_to_real_evidence_ids():
+    payload = UnifiedVerifierOutput(
+        verdict=FindingVerdict.INACCURATE,
+        confidence=0.88,
+        summary="The growth rate is overstated.",
+        why_wrong="The arithmetic does not match the filing values.",
+        correct_information=CorrectedInfoOut(
+            value="Revenue grew 216.7%, not 230%.", source="Acme 10-K"
+        ),
+        evidence=[
+            EvidenceOut(
+                source_type="company_filing",
+                url="https://sec.gov/acme-2024",
+                snippet="47.5",
+            ),
+            EvidenceOut(
+                source_type="company_filing",
+                url="https://sec.gov/acme-2023",
+                snippet="15.0",
+            ),
+        ],
+        reasoning_chain=[],
+        evidence_quality=[
+            {
+                "evidence_index": 0,
+                "authority": 0.95,
+                "independence": 0.8,
+                "freshness": 0.9,
+                "directness": 0.95,
+                "role": "primary_source",
+                "rationale": "SEC filing directly reports the FY2024 value.",
+            }
+        ],
+        coverage=[
+            {
+                "claim_fragment": "Revenue grew 230% YoY",
+                "relation": "refutes",
+                "evidence_indices": [0, 1],
+                "reason": "The filing values compute to 216.7%, not 230%.",
+            }
+        ],
+        computation_check={
+            "kind": "numeric",
+            "claimed_value": "230% YoY growth",
+            "extracted_values": [
+                {
+                    "label": "FY2024 revenue",
+                    "value": "47.5",
+                    "unit": "B USD",
+                    "source_evidence_index": 0,
+                },
+                {
+                    "label": "FY2023 revenue",
+                    "value": "15.0",
+                    "unit": "B USD",
+                    "source_evidence_index": 1,
+                },
+            ],
+            "formula": "(47.5 - 15.0) / 15.0 * 100",
+            "computed_value": "216.7%",
+            "tolerance": "rounding",
+            "judgment": "refutes",
+            "rationale": "The computed growth is materially below the claimed rate.",
+        },
+    )
+    finding, evs = _make_unified_finding(
+        job_id="job_x", claim=_sample_claim(), parsed=payload, trace=_trace_for()
+    )
+
+    assert finding.evidence_quality[0].evidence_id == evs[0].id
+    assert finding.evidence_quality[0].role == "primary_source"
+    assert finding.coverage[0].evidence_ids == [evs[0].id, evs[1].id]
+    assert finding.coverage[0].relation == "refutes"
+    assert finding.computation_check is not None
+    assert finding.computation_check.extracted_values[0].source_evidence_id == evs[0].id
+    assert finding.computation_check.computed_value == "216.7%"
+
+
 def test_build_trace_links_steps_into_sequential_chain():
     # Out-of-order sequences on purpose — _build_trace must sort before linking.
     raw_steps = [

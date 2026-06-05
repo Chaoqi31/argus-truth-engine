@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -73,6 +76,41 @@ async def test_post_jobs_accepts_pdf_and_returns_job_id(app_under_test: FastAPI)
             assert pdf_resp.content.startswith(b"%PDF")
 
 
+async def test_post_jobs_passes_content_domain_to_pdf_pipeline(app_under_test: FastAPI) -> None:
+    async def _fake_audit(**kw: Any) -> Job:
+        await asyncio.sleep(0)
+        return Job(
+            id=kw["job_id"],
+            pdf_path="x.pdf",
+            status="done",
+            content_domain=kw.get("content_domain", "general"),
+        )
+
+    with patch("argus.api.runner.audit_pdf", new=_fake_audit):
+        async with AsyncClient(
+            transport=ASGITransport(app=app_under_test), base_url="http://test"
+        ) as client:
+            with FIXTURE_PDF.open("rb") as fh:
+                resp = await client.post(
+                    "/jobs",
+                    data={"content_domain": "finance"},
+                    files={"pdf": ("sample-report.pdf", fh, "application/pdf")},
+                )
+            assert resp.status_code == HTTP_ACCEPTED, resp.text
+            job_id = resp.json()["job_id"]
+
+            got = None
+            for _ in range(40):
+                got = await client.get(f"/jobs/{job_id}")
+                if got.status_code == HTTP_OK and got.json().get("status") == "done":
+                    break
+                await asyncio.sleep(0.05)
+
+            assert got is not None
+            assert got.status_code == HTTP_OK
+            assert got.json()["content_domain"] == "finance"
+
+
 async def test_get_missing_job_returns_404(app_under_test: FastAPI) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app_under_test), base_url="http://test"
@@ -102,3 +140,41 @@ async def test_post_rejects_oversized_upload(app_under_test: FastAPI) -> None:
             files={"pdf": ("sample-report.pdf", b"%PDF-1.4", "application/pdf")},
         )
     assert resp.status_code == HTTP_PAYLOAD_TOO_LARGE
+
+
+def test_app_factory_import_does_not_require_weasyprint(tmp_path: Path) -> None:
+    """Health/API startup should not fail just because PDF export deps are absent."""
+    script = f"""
+import builtins
+
+original_import = builtins.__import__
+
+def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name == "weasyprint":
+        raise OSError("cannot load library 'pango-1.0-0'")
+    return original_import(name, globals, locals, fromlist, level)
+
+builtins.__import__ = guarded_import
+
+from argus.api.app import create_app
+from argus.config import Settings
+
+app = create_app(settings=Settings(
+    miromind_api_key="sk_test",
+    db_url=None,
+    redis_url=None,
+    storage_root={str(tmp_path / "uploads")!r},
+))
+assert app.title == "Argus API"
+"""
+    env = os.environ.copy()
+    src = str(Path(__file__).resolve().parents[1] / "src")
+    env["PYTHONPATH"] = f"{src}{os.pathsep}{env.get('PYTHONPATH', '')}"
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout

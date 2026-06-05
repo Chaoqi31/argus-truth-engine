@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useArgusStore } from "@/lib/store";
+import { buildAuditPackMarkdown } from "@/lib/audit-pack";
 import type { Finding, Claim } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ interface ClaimResult {
 
 interface ActionResult {
   kind: "action";
-  id: string;
+  id: "action:export-audit-pack" | "action:export-json" | "action:export-markdown";
   label: string;
   meta: string;
 }
@@ -88,11 +89,33 @@ function verdictClass(verdict: string): string {
 const STATIC_ACTIONS: ActionResult[] = [
   {
     kind: "action",
-    id: "action:export",
-    label: "Export findings as JSON",
-    meta: "Action",
+    id: "action:export-audit-pack",
+    label: "Export Audit Pack",
+    meta: "Reviewer-ready markdown",
+  },
+  {
+    kind: "action",
+    id: "action:export-json",
+    label: "Export Evidence JSON",
+    meta: "Job, evidence, trace, and reviewer decisions",
+  },
+  {
+    kind: "action",
+    id: "action:export-markdown",
+    label: "Export Executive Markdown",
+    meta: "Executive summary markdown",
   },
 ];
+
+function downloadText(filename: string, text: string, type: string) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -113,6 +136,7 @@ export function CommandPalette() {
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
   const job = useArgusStore((s) => s.job);
+  const reviews = useArgusStore((s) => s.findingReviews);
 
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -215,25 +239,35 @@ export function CommandPalette() {
           break;
         }
         case "action": {
-          if (r.id === "action:export") {
-            if (job) {
-              const blob = new Blob([JSON.stringify(job.findings, null, 2)], {
-                type: "application/json",
-              });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `argus-findings-${job.id}.json`;
-              a.click();
-              URL.revokeObjectURL(url);
-            }
+          if (!job) {
             setPaletteOpen(false);
+            break;
           }
+          if (r.id === "action:export-audit-pack") {
+            downloadText(
+              `argus-audit-pack-${job.id}.md`,
+              buildAuditPackMarkdown(job, reviews),
+              "text/markdown",
+            );
+          } else if (r.id === "action:export-json") {
+            downloadText(
+              `argus-evidence-${job.id}.json`,
+              JSON.stringify({ ...job, reviewer_decisions: reviews }, null, 2),
+              "application/json",
+            );
+          } else if (r.id === "action:export-markdown") {
+            downloadText(
+              `argus-executive-summary-${job.id}.md`,
+              job.audit_report_md ?? "",
+              "text/markdown",
+            );
+          }
+          setPaletteOpen(false);
           break;
         }
       }
     },
-    [job, setActiveFinding, setDrawerFinding, setPaletteOpen]
+    [job, reviews, setActiveFinding, setDrawerFinding, setPaletteOpen]
   );
 
   // Keyboard navigation inside the palette

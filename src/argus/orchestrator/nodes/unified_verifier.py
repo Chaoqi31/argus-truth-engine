@@ -16,6 +16,7 @@ from argus.models.domain import Claim, ClaimType, Evidence, Finding, FindingVerd
 from argus.orchestrator.assemblers import (
     _build_trace,
     _finding_payload,
+    _live_step_payload,
     _make_unified_finding,
     _step_payload,
     _surrounding_text,
@@ -77,12 +78,24 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 idem_key = make_idempotency_key(
                     ctx.job_id, "UnifiedVerifier", claim.id
                 )
+
+                async def publish_live_step(step: Any) -> None:
+                    await ctx.publisher.publish(
+                        "step",
+                        _live_step_payload(
+                            agent="UnifiedVerifier",
+                            claim_id=claim.id,
+                            step=step,
+                        ),
+                    )
+
                 try:
                     result = await verify_claim(
                         ctx.client, claim.text,
                         surrounding=surrounding,
                         domain_hint=domain_hint,
                         idempotency_key=idem_key,
+                        on_step=publish_live_step,
                     )
                     return claim, result, None, None
                 except JsonRepairFailed as exc:

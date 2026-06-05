@@ -194,6 +194,67 @@ class ConfidenceBreakdown(_Base):
     reasoning: str = ""  # 1-sentence description of the measured factors
 
 
+class EvidenceQuality(_Base):
+    """Per-evidence quality signals used to explain why a source is trusted."""
+
+    evidence_id: str
+    authority: float = Field(default=0.0, ge=0.0, le=1.0)
+    independence: float = Field(default=0.0, ge=0.0, le=1.0)
+    freshness: float = Field(default=0.0, ge=0.0, le=1.0)
+    directness: float = Field(default=0.0, ge=0.0, le=1.0)
+    role: str = ""
+    rationale: str = ""
+
+
+class ClaimCoverage(_Base):
+    """How evidence supports/refutes a specific fragment of the claim."""
+
+    claim_fragment: str
+    relation: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
+class ComputationValue(_Base):
+    """One value extracted for a numerical/date verification check."""
+
+    label: str
+    value: str
+    unit: str = ""
+    source_evidence_id: str | None = None
+
+
+class ComputationCheck(_Base):
+    """Reproducible numeric/date check behind a verifier judgment."""
+
+    kind: Literal["numeric", "date"]
+    claimed_value: str = ""
+    extracted_values: list[ComputationValue] = Field(default_factory=list)
+    formula: str = ""
+    computed_value: str = ""
+    tolerance: str = ""
+    judgment: str = ""
+    rationale: str = ""
+
+
+class SkepticCounterevidence(_Base):
+    """A possible counterexample found by the skeptic pass."""
+
+    source: str = ""
+    url: str | None = None
+    snippet: str = ""
+    relevance: str = ""
+
+
+class SkepticReview(_Base):
+    """Independent challenge pass over a high-risk verifier conclusion."""
+
+    status: Literal["no_counterevidence", "counterevidence_found", "inconclusive"]
+    summary: str
+    recommended_verdict: FindingVerdict | None = None
+    counterevidence: list[SkepticCounterevidence] = Field(default_factory=list)
+
+
 class SearchStrategy(_Base):
     """A planned search approach for verifying a claim from a specific angle."""
 
@@ -215,6 +276,10 @@ class Finding(_Base):
     why_wrong: str | None = None
     correct_information: CorrectedInfo | None = None
     reasoning_chain: list[ReasoningStep | VerificationStep] = Field(default_factory=list)
+    evidence_quality: list[EvidenceQuality] = Field(default_factory=list)
+    coverage: list[ClaimCoverage] = Field(default_factory=list)
+    skeptic_review: SkepticReview | None = None
+    computation_check: ComputationCheck | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     reasoning_trace_id: str
     related_finding_ids: list[str] = Field(default_factory=list)
@@ -254,6 +319,27 @@ class Stage(_Base):
     filtered_claims: list[StageFilteredClaim] | None = None
 
 
+class BenchmarkExpectedClaim(_Base):
+    """Demo-fixture-only ground truth — see :class:`BenchmarkSpec`."""
+
+    claim_id: str
+    verdict: FindingVerdict
+    rationale: str
+
+
+class BenchmarkSpec(_Base):
+    """Planted-error answer key for the demo sample fixture ONLY.
+
+    Never populated on live audits (always ``None`` there); it exists so the
+    demo ``web/public/sample-findings.json`` can carry a known-answer benchmark
+    that the frontend benchmark panel scores the verifier against. This is not a
+    live capability — do not mistake it for a metric measured on real jobs.
+    """
+
+    name: str
+    expected_claims: list[BenchmarkExpectedClaim] = Field(default_factory=list)
+
+
 class Job(_Base):
     id: str
     scenario_label: str | None = None
@@ -286,3 +372,5 @@ class Job(_Base):
     traces: list[ReasoningTrace] = Field(default_factory=list)
     evidences: list[Evidence] = Field(default_factory=list)
     stages: list[Stage] = Field(default_factory=list)
+    # Demo-fixture-only ground truth; always None on live jobs. See BenchmarkSpec.
+    benchmark: BenchmarkSpec | None = None

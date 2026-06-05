@@ -5,7 +5,37 @@
   "pdf_path": "",
   "input_text": "UNITED STATES DISTRICT COURT — SOUTHERN DISTRICT OF NEW YORK\nDelacroix v. Transpacific Airways, Inc.\n\nPLAINTIFF'S MEMORANDUM OF LAW IN OPPOSITION TO DEFENDANT'S MOTION TO DISMISS\n(Draft — prepared with AI research assistance)\n\nPRELIMINARY STATEMENT\n\nDefendant's motion should be denied. Controlling authority squarely supports plaintiff's position, and defendant's contrary reading cannot be reconciled with the weight of precedent.\n\nARGUMENT\n\nI.  The limitations period was tolled during the pendency of the bankruptcy stay.\n\nIn Varghese v. China Southern Airlines Co., 925 F.3d 1339, 1345 (11th Cir. 2019), the Eleventh Circuit held that a carrier's limitations period is tolled while a related bankruptcy proceeding remains pending.\n\nII.  Plaintiff may recover for purely emotional injuries.\n\nIn Zicherman v. Korean Air Lines Co., 516 U.S. 217, 231 (1996), the Supreme Court held that the Warsaw Convention permits recovery for purely emotional injuries even absent any accompanying physical harm. And in Rivera v. Metro Transit Authority, 412 F.3d 880, 887 (2d Cir. 2009), the Second Circuit excused the administrative-exhaustion requirement on futility grounds.\n\nIII.  Defendant's forum-selection clause is unenforceable.\n\nIn Shute v. Carnival Cruise Lines, 499 U.S. 585 (1991), the Supreme Court held that such clauses are unenforceable against individual consumers.\n\nCONCLUSION\n\nFor the foregoing reasons, defendant's motion should be denied. Counsel is mindful that courts now scrutinize AI-assisted filings with particular care, as in Mata v. Avianca, Inc., 678 F. Supp. 3d 443 (S.D.N.Y. 2023).\n",
   "input_mode": "text",
-  "content_domain": "general",
+  "content_domain": "legal",
+  "benchmark": {
+    "name": "AI-drafted legal brief planted-error benchmark",
+    "expected_claims": [
+      {
+        "claim_id": "a_1",
+        "verdict": "fabricated",
+        "rationale": "Planted fabricated case: Varghese v. China Southern Airlines Co. does not exist at the cited reporter entry."
+      },
+      {
+        "claim_id": "a_2",
+        "verdict": "inaccurate",
+        "rationale": "Planted reversed holding: Zicherman does not permit purely emotional injury recovery in the way claimed."
+      },
+      {
+        "claim_id": "a_3",
+        "verdict": "fabricated",
+        "rationale": "Planted fabricated case: Rivera v. Metro Transit Authority does not exist at the cited Second Circuit entry."
+      },
+      {
+        "claim_id": "a_4",
+        "verdict": "inaccurate",
+        "rationale": "Planted reversed holding: Shute upheld the forum-selection clause rather than rejecting it."
+      },
+      {
+        "claim_id": "a_5",
+        "verdict": "ok",
+        "rationale": "Control claim: Mata v. Avianca is a real AI-assisted filing sanctions case."
+      }
+    ]
+  },
   "auto_review": true,
   "status": "done",
   "created_at": "2026-06-04T05:44:23.719897",
@@ -175,6 +205,12 @@
       "summary": "The cited case, Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019), does not exist and is a now‑well‑documented AI‑generated fabrication. Because there is no authentic Eleventh Circuit decision by that name and citation, it cannot have adopted any holding on tolling a carrier’s limitations period during a bankruptcy proceeding.",
       "why_wrong": "The memorandum relies on a non‑existent Eleventh Circuit decision. In Mata v. Avianca, Inc., the Southern District of New York found that the purported Varghese opinion—cited with the same caption and Federal Reporter citation—was a fake, confirmed by the Eleventh Circuit clerk as not an authentic ruling and having no party named Varghese on its docket since 2010. The content ascribed to Varghese, including discussion of tolling under the Montreal Convention due to a bankruptcy stay, appears only in the fabricated text and not in any real Eleventh Circuit precedent.",
       "correct_information": null,
+      "skeptic_review": {
+        "status": "no_counterevidence",
+        "summary": "The independent skeptic pass checked for caption variants, reporter-page mismatches, and unpublished Eleventh Circuit records but found no credible source that rescues the Varghese citation.",
+        "recommended_verdict": null,
+        "counterevidence": []
+      },
       "reasoning_chain": [
         {
           "action": "Searched broadly for 'Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019)' in case law databases and general web sources",
@@ -190,6 +226,73 @@
           "action": "Cross‑checked with secondary reporting (e.g., New York Times and legal commentary on Mata v. Avianca)",
           "observation": "These sources repeatedly describe Varghese v. China Southern Airlines as a nonexistent case produced by ChatGPT, noting that neither the caption nor citation corresponds to any real Eleventh Circuit decision.",
           "reasoning": "Independent media and legal analyses corroborate the court’s conclusion, eliminating the possibility that this is merely an obscure or unpublished case and supporting the verdict that the claim rests on a fabricated authority."
+        }
+      ],
+      "coverage": [
+        {
+          "claim_fragment": "Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019) exists",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_792ecbe88d79",
+            "ev_a3ee485bc95a"
+          ],
+          "reason": "The Mata sanctions record and court opinion state that the Eleventh Circuit clerk confirmed the Varghese decision was not authentic."
+        },
+        {
+          "claim_fragment": "The case adopted tolling of the Montreal Convention limitations period during bankruptcy",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_792ecbe88d79",
+            "ev_1bf0321967da"
+          ],
+          "reason": "The supposed tolling discussion appears only in the fabricated Varghese text; no authentic Eleventh Circuit authority supports the claimed holding."
+        },
+        {
+          "claim_fragment": "The citation can be located by caption or reporter reference",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_a2333ea1ec50",
+            "ev_1bf0321967da"
+          ],
+          "reason": "Independent reporting and legal commentary describe failed caption and citation searches and explain that the reporter citation points to other material."
+        }
+      ],
+      "evidence_quality": [
+        {
+          "evidence_id": "ev_792ecbe88d79",
+          "authority": 0.88,
+          "independence": 0.8,
+          "freshness": 0.95,
+          "directness": 0.95,
+          "role": "primary_record",
+          "rationale": "The Mata record directly quotes the court and clerk-confirmation basis for treating Varghese as fabricated."
+        },
+        {
+          "evidence_id": "ev_a3ee485bc95a",
+          "authority": 0.9,
+          "independence": 0.85,
+          "freshness": 0.95,
+          "directness": 0.95,
+          "role": "primary_record",
+          "rationale": "The sanctions opinion is the authoritative court record documenting that the cited case did not exist."
+        },
+        {
+          "evidence_id": "ev_a2333ea1ec50",
+          "authority": 0.7,
+          "independence": 0.9,
+          "freshness": 0.85,
+          "directness": 0.75,
+          "role": "corroborating_source",
+          "rationale": "Independent journalism corroborates the failed caption/citation search but is secondary to the court record."
+        },
+        {
+          "evidence_id": "ev_1bf0321967da",
+          "authority": 0.65,
+          "independence": 0.9,
+          "freshness": 0.85,
+          "directness": 0.8,
+          "role": "corroborating_source",
+          "rationale": "Legal technical commentary explains the reporter mismatch and fabricated-citation pattern."
         }
       ],
       "evidence_ids": [
@@ -3777,6 +3880,20 @@
         "n_claims": 5,
         "n_steps": 198,
         "n_searches": 76
+      },
+      "strategy": null,
+      "filtered_claims": null
+    },
+    {
+      "key": "skeptic",
+      "name": "Skeptic challenge",
+      "engine": "miromind",
+      "summary": "Challenged 1 high-risk finding(s) · 0 counterevidence found · 1 cleared",
+      "metrics": {
+        "n_reviewed": 1,
+        "n_cleared": 1,
+        "n_counterevidence_found": 0,
+        "n_inconclusive": 0
       },
       "strategy": null,
       "filtered_claims": null

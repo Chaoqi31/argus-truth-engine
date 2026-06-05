@@ -269,15 +269,16 @@ export default function HomePage() {
             <p
               className={`mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground transition-[transform,opacity,filter] duration-[640ms] delay-[80ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
-              Upload any AI-generated report. Get back every factual claim,
-              every verdict, and the full reasoning chain behind it.
+              Upload an AI-generated research, legal, or governance report.
+              Get claim-level verdicts, cited evidence, and a reviewer-ready
+              reasoning trail before your team signs off.
             </p>
 
             {/* Data points */}
             <div
               className={`mt-12 flex items-center gap-6 md:gap-12 transition-[transform,opacity,filter] duration-[640ms] delay-[160ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
-              <StatPoint value={1353} suffix="+" label="AI-hallucination court cases" trigger={heroVisible} delay={220} />
+              <StatPoint value={1536} label="AI-hallucination legal cases" trigger={heroVisible} delay={220} />
               <div className="h-10 w-px bg-border" />
               <StatPoint value={95} suffix="%" label="GenAI pilots, no return" trigger={heroVisible} delay={300} />
               <div className="h-10 w-px bg-border" />
@@ -362,7 +363,8 @@ export default function HomePage() {
             <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
               One autonomous verifier investigates every claim — choosing its own
               sources and strategy — while a consistency checker scans for claims
-              that contradict each other. Nothing gets missed.
+              that contradict each other. Risky claims move into a review queue
+              instead of disappearing inside a summary.
             </p>
           </div>
 
@@ -436,7 +438,7 @@ export default function HomePage() {
               <PipelineStep step={1} title="Parse & atomize" body="PDF or text is parsed, then broken into atomic, independently verifiable claims. A checkworthiness gate filters trivial statements." trigger={pipelineVisible} delay={0} />
               <PipelineStep step={2} title="Autonomous verification" body="A self-directed verifier investigates each claim in parallel — choosing its own tools and sources, constrained only by the output schema. A consistency checker runs alongside it to catch claims that contradict each other." trigger={pipelineVisible} delay={200} />
               <PipelineStep step={3} title="Confidence & cross-verification" body="Each verdict is corroborated against multiple independent, authoritative sources. Confidence is then decomposed into three auditable factors — source authority, evidence freshness, and source agreement." trigger={pipelineVisible} delay={400} />
-              <PipelineStep step={4} title="Audit report" body="Findings are ranked by severity and confidence. An exportable PDF audit report is generated — ready to file, attach, or cite." trigger={pipelineVisible} delay={600} isLast />
+              <PipelineStep step={4} title="Audit Pack" body="Findings are ranked by severity and confidence, then packaged with reviewer decisions, notes, reasoning, and source links — ready to file, attach, or cite." trigger={pipelineVisible} delay={600} isLast />
             </div>
           </div>
         </section>
@@ -461,6 +463,7 @@ export default function HomePage() {
                   "Watch the verifier think in real-time via WebSocket",
                   "Every source URL is clickable and verifiable",
                   "Every verdict ships why it's wrong and the correct answer",
+                  "Reviewer decisions stay attached to each finding",
                   "Confidence decomposed into 3 auditable factors",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5">
@@ -547,8 +550,9 @@ export default function HomePage() {
               Ready to audit?
             </h2>
             <p className="mt-4 text-muted-foreground">
-              See Argus in action on an AI-generated NVIDIA equity-research note
-              with deliberately planted errors — no API key needed.
+              See Argus turn an AI-generated NVIDIA research note into a
+              claim-level audit walkthrough with evidence, trace, and reviewer
+              decisions — no API key needed.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
               <Link href="/audit" className={PRIMARY_BTN}>
