@@ -103,4 +103,130 @@ describe("CommandPalette", () => {
     await expect(exportedBlob!.text()).resolves.toContain("Review decision: disputed");
     await expect(exportedBlob!.text()).resolves.toContain("Reviewer wants another source");
   });
+
+  it("exports the evidence station snapshot from the command palette", async () => {
+    let exportedBlob: Blob | null = null;
+    let exportedFilename = "";
+
+    vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      exportedBlob = blob as Blob;
+      return "blob:argus-evidence-station";
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click(this: HTMLAnchorElement) {
+      exportedFilename = this.download;
+    });
+
+    useArgusStore.getState().setJob(job);
+    useArgusStore.getState().setFindingReview("job_1", "f1", {
+      status: "accepted",
+      note: "Evidence checked.",
+    });
+    useArgusStore.getState().setPaletteOpen(true);
+
+    render(<CommandPalette />);
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "evidence station" } });
+    fireEvent.click(screen.getByText("Export Evidence Station"));
+
+    expect(exportedFilename).toBe("argus-evidence-station-job_1.json");
+    expect(exportedBlob).not.toBeNull();
+    const payload = JSON.parse(await exportedBlob!.text());
+    expect(payload.schema).toBe("argus.evidence_station.v1");
+    expect(payload.claims).toHaveLength(1);
+    expect(payload.findings).toHaveLength(1);
+    expect(payload.evidences).toHaveLength(1);
+    expect(payload.reviewer_decisions.f1.status).toBe("accepted");
+  });
+
+  it("filters findings and opens the selected finding drawer", () => {
+    useArgusStore.getState().setJob(job);
+    useArgusStore.getState().setPaletteOpen(true);
+
+    render(<CommandPalette />);
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Goldman" } });
+    fireEvent.click(screen.getByText("No matching Goldman report was found."));
+
+    expect(useArgusStore.getState().activeFindingId).toBe("f1");
+    expect(useArgusStore.getState().drawerFindingId).toBe("f1");
+    expect(useArgusStore.getState().paletteOpen).toBe(false);
+  });
+
+  it("does not rank unrelated long summaries above an exact query match", () => {
+    const legalJob: Job = {
+      ...job,
+      claims: [
+        {
+          ...job.claims[0],
+          id: "c_shute",
+          text: "In Shute v. Carnival Cruise Lines, 499 U.S. 585 (1991), the Supreme Court held that such clauses are unenforceable against individual consumers.",
+        },
+        {
+          ...job.claims[0],
+          id: "c_varghese",
+          text: "In Varghese v. China Southern Airlines Co., 925 F.3d 1339, 1345 (11th Cir. 2019), the Eleventh Circuit tolled the limitations period.",
+        },
+      ],
+      findings: [
+        {
+          ...job.findings[0],
+          id: "f_shute",
+          claim_id: "c_shute",
+          verdict: "unsupported-inference",
+          severity: "major",
+          summary:
+            "The claim states that in Shute v. Carnival Cruise Lines, 499 U.S. 585 (1991), the Supreme Court held that forum-selection clauses are unenforceable against individual consumers. However, the actual holding was enforceable.",
+        },
+        {
+          ...job.findings[0],
+          id: "f_varghese",
+          claim_id: "c_varghese",
+          verdict: "fabricated",
+          severity: "critical",
+          summary:
+            "The cited case, Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019), does not exist.",
+        },
+      ],
+    };
+
+    useArgusStore.getState().setJob(legalJob);
+    useArgusStore.getState().setPaletteOpen(true);
+
+    render(<CommandPalette />);
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Varghese" } });
+    const options = screen.getAllByRole("option");
+    expect(options[0]).toHaveTextContent("Varghese v. China Southern Airlines");
+
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    expect(useArgusStore.getState().activeFindingId).toBe("f_varghese");
+    expect(useArgusStore.getState().drawerFindingId).toBe("f_varghese");
+  });
+
+  it("opens the related finding when selecting a matching claim", () => {
+    useArgusStore.getState().setJob(job);
+    useArgusStore.getState().setPaletteOpen(true);
+
+    render(<CommandPalette />);
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Silicon Supercycle" } });
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+
+    expect(useArgusStore.getState().activeFindingId).toBe("f1");
+    expect(useArgusStore.getState().drawerFindingId).toBe("f1");
+    expect(useArgusStore.getState().paletteOpen).toBe(false);
+  });
+
+  it("shows an empty state when no finding, claim, or action matches", () => {
+    useArgusStore.getState().setJob(job);
+    useArgusStore.getState().setPaletteOpen(true);
+
+    render(<CommandPalette />);
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "no such term" } });
+
+    expect(screen.getByText("No results for that query.")).toBeInTheDocument();
+  });
 });

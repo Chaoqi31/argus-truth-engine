@@ -60,10 +60,10 @@ export function ExportMenu({ onSelect, disabled }: Props) {
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 mt-1 w-44 rounded-md border border-border bg-background py-1 text-xs shadow-[var(--shadow-card)]"
+          className="absolute right-0 mt-1 w-48 rounded-md border border-border bg-background py-1 text-xs shadow-[var(--shadow-card)]"
         >
           <button type="button" role="menuitem" onClick={() => choose("audit_pack")} className="block w-full px-3 py-1.5 text-left hover:bg-muted">Audit Pack</button>
-          <button type="button" role="menuitem" onClick={() => choose("json")} className="block w-full px-3 py-1.5 text-left hover:bg-muted">Evidence JSON</button>
+          <button type="button" role="menuitem" onClick={() => choose("json")} className="block w-full px-3 py-1.5 text-left hover:bg-muted">Evidence Station</button>
           <button type="button" role="menuitem" onClick={() => choose("markdown")} className="block w-full px-3 py-1.5 text-left hover:bg-muted">Executive Markdown</button>
         </div>
       )}

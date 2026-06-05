@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { ArgusHeader } from "@/components/argus-header";
+import { MarketingCtas } from "@/components/marketing-ctas";
 import { useScrollReveal } from "@/lib/use-scroll-reveal";
 
 const PERSONAS = [
@@ -53,7 +53,7 @@ const FEATURES = [
   },
   {
     title: "Full reasoning transparency",
-    body: "Every web search, every fetched source, every chain-of-thought step is recorded and visible. Not a black-box score — a readable audit trail.",
+    body: "Every web search, every fetched source, and every reasoning step is recorded and visible. Not a black-box score — a readable audit trail.",
   },
   {
     title: "Decomposed confidence score",
@@ -61,7 +61,7 @@ const FEATURES = [
   },
   {
     title: "Exportable audit report",
-    body: "Download findings as a styled PDF, structured JSON, or Markdown summary — ready to file, attach, or integrate into your workflow.",
+    body: "Download an Audit Pack, Evidence Station JSON, or Executive Markdown — ready to file, attach, or integrate into your workflow.",
   },
 ];
 
@@ -151,20 +151,7 @@ export default function ForTeamsPage() {
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
             Run it through Argus before you sign off — fabricated citations and false claims, surfaced with evidence.
           </p>
-          <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-            <Link
-              href="/audit"
-              className="cursor-pointer rounded-[12px] bg-primary px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#5741d8]"
-            >
-              Start auditing
-            </Link>
-            <Link
-              href="/audit?demo=1"
-              className="cursor-pointer rounded-[12px] border border-border bg-background px-8 py-3.5 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-200 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)]"
-            >
-              See a sample audit
-            </Link>
-          </div>
+          <MarketingCtas className="mt-7" />
         </section>
       </main>
     </>

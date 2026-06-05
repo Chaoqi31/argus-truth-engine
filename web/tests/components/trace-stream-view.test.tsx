@@ -158,10 +158,7 @@ describe("TraceStreamView", () => {
   it("opens the MiroMind verify walkthrough on the evidence-backed issue first", () => {
     const { container } = render(<TraceStreamView job={loadSampleJob()} />);
 
-    const verifyStage = screen
-      .getAllByRole("button")
-      .find((button) => button.textContent?.includes("★ MiroMind"));
-    expect(verifyStage).toHaveAttribute("aria-expanded", "true");
+    const openFullTrace = screen.getByRole("button", { name: /Open full trace/i });
     expect(screen.getAllByText(/Silicon Supercycle/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/fabricated/i).length).toBeGreaterThan(0);
 
@@ -169,14 +166,58 @@ describe("TraceStreamView", () => {
     expect(text).toContain("2 sources");
     expect(text).toContain("2 reasoning steps");
     expect(text).toContain("3 searches");
-    expect(text).toContain("Verdict brief");
-    expect(text).toContain("Why wrong");
-    expect(text).toContain("Correct");
-    expect(text).toContain("Tracking Trillions");
-    expect(text.indexOf("Silicon Supercycle")).toBeLessThan(
-      text.indexOf("data-center segment"),
+    expect(text).toContain("Start here");
+    expect(text).toContain("What Argus proved");
+    expect(text).toContain("Stage overview");
+    expect(text).not.toContain("Verdict brief");
+
+    fireEvent.click(openFullTrace);
+    const expandedText = container.textContent ?? "";
+    expect(expandedText).toContain("Full trace workspace");
+    expect(expandedText).toContain("Verify claims");
+    expect(expandedText).toContain("Verdict brief");
+    expect(expandedText).toContain("Why wrong");
+    expect(expandedText).toContain("Correct");
+    expect(expandedText).toContain("Tracking Trillions");
+    expect(expandedText.indexOf("Silicon Supercycle")).toBeLessThan(
+      expandedText.indexOf("data-center segment"),
     );
-    expect(text.indexOf("Verdict brief")).toBeLessThan(text.indexOf("Reasoning checkpoint 1"));
+    expect(expandedText.indexOf("Verdict brief")).toBeLessThan(expandedText.indexOf("Reasoning checkpoint 1"));
+  });
+
+  it("uses the selected finding for the trace brief when one is active", () => {
+    render(<TraceStreamView job={loadSampleJob()} activeFindingId="f_ok" />);
+
+    expect(screen.getByText(/Its data-center segment alone generated/)).toBeInTheDocument();
+    expect(screen.getByText(/The data-center segment claim is lower priority/)).toBeInTheDocument();
+    expect(screen.queryByText(/No record can be found of the claimed Goldman Sachs report/)).not.toBeInTheDocument();
+  });
+
+  it("does not reuse another finding's verifier trace for derived findings", () => {
+    const job = loadSampleJob();
+    job.findings = [
+      ...job.findings,
+      {
+        id: "f_derived",
+        job_id: "job_trace",
+        claim_id: "c_bad",
+        agent: "Consistency",
+        verdict: "unsupported-inference",
+        severity: "major",
+        confidence: 0.91,
+        summary: "The claim overextends the verified evidence.",
+        evidence_ids: [],
+        reasoning_trace_id: "t_derived",
+        related_finding_ids: ["f_bad"],
+        created_at: "2026-06-01T00:00:00Z",
+      },
+    ];
+
+    render(<TraceStreamView job={job} activeFindingId="f_derived" />);
+
+    expect(screen.getByText(/Selected finding/i)).toBeInTheDocument();
+    expect(screen.getByText(/pipeline-derived/i)).toBeInTheDocument();
+    expect(screen.queryByText(/What Argus proved/i)).not.toBeInTheDocument();
   });
 
   it("explains the skeptic challenge stage with review outcomes and counterevidence", () => {
@@ -227,8 +268,10 @@ describe("TraceStreamView", () => {
     fireEvent.click(screen.getByRole("button", { name: /Skeptic challenge/i }));
 
     expect(screen.getByText(/Independently challenges high-risk MiroMind verdicts/i)).toBeInTheDocument();
-    expect(screen.getByText("reviewed")).toBeInTheDocument();
-    expect(screen.getByText("counterevidence")).toBeInTheDocument();
+    expect(screen.getAllByText("reviewed").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("counterevidence").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Audit ledger/i)).toBeInTheDocument();
+    expect(screen.getByText(/Transparent because/i)).toBeInTheDocument();
     expect(screen.getAllByText(/counterevidence found/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/A primary filing supports a narrower interpretation/i)).toBeInTheDocument();
     expect(screen.getByText(/Issuer 20-F/i)).toBeInTheDocument();

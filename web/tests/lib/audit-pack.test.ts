@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAuditPackMarkdown } from "@/lib/audit-pack";
+import { buildAuditPackMarkdown, buildEvidenceStationJson } from "@/lib/audit-pack";
 import type { FindingReview, Job } from "@/lib/types";
 
 const job: Job = {
@@ -151,7 +151,7 @@ describe("buildAuditPackMarkdown", () => {
 
     expect(markdown).toContain("## Auditability Controls");
     expect(markdown).toContain("- Controls present: 6/6");
-    expect(markdown).toContain("| MiroMind trace | 1/1 | 0 |");
+    expect(markdown).toContain("| Reasoning trace | 1/1 | 0 |");
     expect(markdown).toContain("| Evidence-to-step provenance | 1/1 | 0 |");
     expect(markdown).toContain("| Computation replay | n/a | n/a |");
   });
@@ -247,7 +247,7 @@ describe("buildAuditPackMarkdown", () => {
 
     expect(markdown).toContain("## Auditability Gap Register");
     expect(markdown).toContain("- Fully audit-ready findings: 1/2");
-    expect(markdown).toContain("| f_gap | ok | A second claim without a saved audit trail. | MiroMind trace; Linked evidence; Evidence-to-step provenance; Claim coverage matrix; Source-quality scoring |");
+    expect(markdown).toContain("| f_gap | ok | A second claim without a saved audit trail. | Reasoning trace; Linked evidence; Evidence-to-step provenance; Claim coverage matrix; Source-quality scoring |");
   });
 
   it("exports execution controls that demonstrate the runtime architecture", () => {
@@ -779,6 +779,75 @@ describe("buildAuditPackMarkdown", () => {
     expect(markdown).toContain(
       "| UnifiedVerifier | The memo cites a Goldman Silicon Supercycle report. | 2 | 3 | 0 | 0 | 4200 | 900 | resp_123 |",
     );
+    expect(markdown).toContain("## Stage Dossiers");
+    expect(markdown).toContain("### Stage 1: Planner");
+    expect(markdown).toContain("- Input: Parsed document text with domain hints.");
+    expect(markdown).toContain("| Claim | Type | Importance | Page | Text |");
+    expect(markdown).toContain("### Stage 2: Verify");
+    expect(markdown).toContain(
+      "| Finding | Verdict | Severity | Confidence | Sources | Steps | Searches | MiroMind Response | Claim |",
+    );
+    expect(markdown).toContain(
+      "| f1 | fabricated | major | 94% | 1 | 2 | 3 | resp_123 | The memo cites a Goldman Silicon Supercycle report. |",
+    );
+  });
+
+  it("exports an evidence-station JSON snapshot with the latest audit structure", () => {
+    const stationJob: Job = {
+      ...job,
+      stages: [
+        {
+          key: "parse",
+          name: "Parse",
+          engine: "deterministic",
+          summary: "Document parsed.",
+          metrics: { pages: 1, chars: 120 },
+        },
+      ],
+      traces: [
+        {
+          id: "t1",
+          job_id: "j1",
+          claim_id: "c1",
+          agent: "UnifiedVerifier",
+          miromind_response_id: "resp_json",
+          started_at: "2026-05-20T00:00:00Z",
+          completed_at: "2026-05-20T00:05:00Z",
+          total_tokens: 100,
+          reasoning_tokens: 20,
+          num_search_queries: 1,
+          final_verdict_step_id: null,
+          steps: [],
+        },
+      ],
+    };
+    const reviews: Record<string, FindingReview> = {
+      f1: {
+        status: "accepted",
+        note: "Reviewer accepted the finding.",
+        updated_at: "2026-05-20T00:20:00Z",
+      },
+    };
+
+    const payload = JSON.parse(buildEvidenceStationJson(stationJob, reviews));
+
+    expect(payload.schema).toBe("argus.evidence_station.v1");
+    expect(payload.counts).toMatchObject({
+      claims: 1,
+      findings: 1,
+      evidences: 1,
+      traces: 1,
+      stages: 1,
+      reviewer_decisions: 1,
+    });
+    expect(payload.job.id).toBe("j1");
+    expect(payload.job.claims).toBeUndefined();
+    expect(payload.claims[0].id).toBe("c1");
+    expect(payload.findings[0].reasoning_trace_id).toBe("t1");
+    expect(payload.evidences[0].retrieved_by_step_id).toBe("s1");
+    expect(payload.traces[0].miromind_response_id).toBe("resp_json");
+    expect(payload.stages[0].key).toBe("parse");
+    expect(payload.reviewer_decisions.f1.status).toBe("accepted");
   });
 
   it("surfaces the independent skeptic challenge pass as a reviewable audit section", () => {

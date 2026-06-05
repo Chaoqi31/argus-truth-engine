@@ -29,43 +29,16 @@ function countSearches(job: Job, finding: Finding): number {
   return trace.num_search_queries > 0 ? trace.num_search_queries : stepSearches;
 }
 
-function countToolCalls(job: Job, finding: Finding): number {
-  const trace = traceFor(job, finding);
-  if (!trace) return 0;
-  const searches = countSearches(job, finding);
-  const fetches = trace.steps.filter((step) => step.type === "fetch_url_content").length;
-  const codeSteps = trace.steps.filter(
-    (step) => step.type === "execute_python" || step.type === "execute_command",
-  ).length;
-  return searches + fetches + codeSteps;
-}
-
-function tokenLabel(trace: ReturnType<typeof traceFor>): string | null {
-  if (!trace) return null;
-  if (trace.reasoning_tokens > 0) {
-    return noun(trace.reasoning_tokens, "reasoning token");
-  }
-  if (trace.total_tokens > 0) {
-    return noun(trace.total_tokens, "total token");
-  }
-  return null;
-}
-
 export function ReasoningWalkthroughCta({ job, onStart }: Props) {
   const finding = pickWalkthroughFinding(job);
   const trace = finding ? traceFor(job, finding) : null;
   const disabled = finding === null;
   const searches = finding ? countSearches(job, finding) : 0;
-  const toolCalls = finding ? countToolCalls(job, finding) : 0;
   const sources = finding?.evidence_ids.length ?? 0;
   const verdict = finding?.verdict.replaceAll("-", " ") ?? "no saved trace";
   const steps = trace?.steps.length ?? 0;
-  const primaryMeta = [verdict, noun(steps, "step"), tokenLabel(trace)].filter(Boolean).join(" · ");
-  const secondaryMeta = [
-    noun(toolCalls, "tool call"),
-    noun(searches, "search", "searches"),
-    noun(sources, "source"),
-  ].join(" · ");
+  const primaryMeta = [verdict, noun(steps, "step")].join(" · ");
+  const secondaryMeta = [noun(searches, "search", "searches"), noun(sources, "source")].join(" · ");
 
   return (
     <div className="flex shrink-0 flex-col items-end gap-1.5">

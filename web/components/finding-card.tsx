@@ -3,6 +3,7 @@
 import type { Claim, Evidence, Finding, FindingReview, ReviewerStatus } from "@/lib/types";
 import { SeverityBadge } from "@/components/severity-badge";
 import { verdictTone } from "@/lib/colors";
+import { isDerivedFinding } from "@/lib/findings";
 
 interface Props {
   finding: Finding;
@@ -83,14 +84,24 @@ export function FindingCard({
   const pct = Math.round(finding.confidence * 100);
   const reasoningCount = finding.reasoning_chain?.length ?? 0;
   const sourceCount = evidences.length || finding.evidence_ids.length;
+  const derived = isDerivedFinding(finding);
+  const sourceLabel =
+    sourceCount > 0
+      ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}`
+      : derived
+        ? "derived finding"
+        : "no cited sources";
   const why = finding.why_wrong || finding.summary;
   const reviewStatus = review?.status ?? "open";
   const skepticStatus = finding.skeptic_review?.status ?? null;
+  const bodyPadding = active ? "p-3 pl-4" : "p-2.5 pl-4";
 
   return (
     <div
-      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background shadow-[var(--shadow-card)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] ${
-        active ? "border-primary" : "border-border hover:border-border-strong"
+      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] ${
+        active
+          ? "border-primary shadow-[var(--shadow-card)]"
+          : "border-border shadow-sm hover:border-border-strong"
       }`}
     >
       {/* Vertical accent bar coloured by verdict tone */}
@@ -100,7 +111,7 @@ export function FindingCard({
       <button
         type="button"
         onClick={onClick}
-        className="relative block w-full p-3 pl-4 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+        className={`relative block w-full ${bodyPadding} text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset`}
       >
         <div className="flex items-start justify-between gap-2">
           <span
@@ -124,21 +135,29 @@ export function FindingCard({
               {SKEPTIC_LABEL[skepticStatus]}
             </span>
           )}
+          {derived && (
+            <span
+              className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+              title={`${finding.agent} finding derived from pipeline outputs`}
+            >
+              Derived
+            </span>
+          )}
         </div>
         {claim?.text && (
-          <p className="mt-2 line-clamp-2 text-[13px] font-medium leading-snug text-foreground">
+          <p className={`mt-2 text-[13px] font-medium leading-snug text-foreground ${active ? "line-clamp-2" : "line-clamp-1"}`}>
             {claim.text}
           </p>
         )}
-        <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-foreground">
+        <p className={`mt-1.5 text-sm leading-snug text-foreground ${active ? "line-clamp-2" : "line-clamp-1"}`}>
           {finding.summary}
         </p>
-        {why !== finding.summary && (
+        {active && why !== finding.summary && (
           <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
             {why}
           </p>
         )}
-        {finding.correct_information?.value && (
+        {active && finding.correct_information?.value && (
           <div className="mt-2 rounded-md bg-muted px-2 py-1.5">
             <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
               Correct
@@ -148,7 +167,7 @@ export function FindingCard({
             </p>
           </div>
         )}
-        {(finding.flags ?? []).length > 0 && (
+        {active && (finding.flags ?? []).length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {(finding.flags ?? []).map((fl) => (
               <span
@@ -164,8 +183,8 @@ export function FindingCard({
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           <ConfidenceRing pct={pct} color={TONE_RING[tone]} />
           <span aria-hidden>·</span>
-          <span>{sourceCount} source{sourceCount === 1 ? "" : "s"}</span>
-          {reasoningCount > 0 && (
+          <span>{sourceLabel}</span>
+          {active && reasoningCount > 0 && (
             <>
               <span aria-hidden>·</span>
               <span>{reasoningCount} reasoning step{reasoningCount === 1 ? "" : "s"}</span>

@@ -85,6 +85,7 @@ describe("FindingsTab", () => {
   beforeEach(() => {
     window.localStorage.removeItem(REVIEW_STORAGE_KEY);
     useArgusStore.getState().clear();
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("renders each finding's summary", () => {
@@ -100,6 +101,15 @@ describe("FindingsTab", () => {
     render(<FindingsTab job={job} activeFindingId={null} onSelect={handler} onOpenDrawer={() => undefined} />);
     fireEvent.click(screen.getByText(/No record in Crossref/));
     expect(handler).toHaveBeenCalledWith("f1");
+  });
+
+  it("scrolls the active finding card into view", () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+
+    render(<FindingsTab job={job} activeFindingId="f2" onSelect={() => undefined} onOpenDrawer={() => undefined} />);
+
+    expect(scroll).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
 
   it("sorts severity major before minor", () => {
@@ -134,6 +144,8 @@ describe("FindingsTab", () => {
     render(<FindingsTab job={reviewJob} activeFindingId={null} onSelect={() => undefined} onOpenDrawer={() => undefined} />);
 
     expect(screen.getAllByRole("button")[0]?.textContent).toMatch(/No record in Crossref/);
+    expect(screen.getByText("Derived")).toBeInTheDocument();
+    expect(screen.getByText(/derived finding/i)).toBeInTheDocument();
   });
 
   it("shows reviewer status on finding cards", () => {

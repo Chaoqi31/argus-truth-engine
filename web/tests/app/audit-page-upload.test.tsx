@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import AuditPage from "@/app/audit/page";
 import { useArgusStore } from "@/lib/store";
 import { uploadPdf } from "@/lib/api";
+import type { Job } from "@/lib/types";
 
 const push = vi.fn();
 
@@ -26,6 +27,23 @@ function getPdfDropZone() {
   return zone;
 }
 
+const staleDemoJob: Job = {
+  id: "demo_stale",
+  pdf_path: "sample.pdf",
+  status: "done",
+  created_at: "2026-05-20T00:00:00Z",
+  completed_at: "2026-05-20T00:10:00Z",
+  cost_usd: 0,
+  total_tokens: 0,
+  claims_total: 0,
+  claims_audited: 0,
+  audit_report_md: null,
+  claims: [],
+  findings: [],
+  traces: [],
+  evidences: [],
+};
+
 describe("AuditPage PDF upload", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,30 +66,32 @@ describe("AuditPage PDF upload", () => {
     });
 
     await waitFor(() =>
-      expect(uploadPdf).toHaveBeenCalledWith(file, "test-key", { contentDomain: "general" }),
+      expect(uploadPdf).toHaveBeenCalledWith(file, "test-key"),
     );
     expect(push).toHaveBeenCalledWith("/audit?id=job_pdf");
   });
 
-  it("passes the selected content domain for PDF audits", async () => {
+  it("does not ask visitors to classify the content domain before upload", () => {
     render(<AuditPage />);
 
-    fireEvent.change(screen.getByLabelText(/your miromind api key/i), {
-      target: { value: "test-key" },
-    });
+    expect(screen.queryByLabelText(/content domain/i)).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: /upload pdf/i }));
-    fireEvent.change(screen.getByRole("combobox", { name: /content domain/i }), {
-      target: { value: "finance" },
-    });
 
-    const file = new File(["%PDF-1.7"], "brief.pdf", { type: "application/pdf" });
-    fireEvent.drop(getPdfDropZone(), {
-      dataTransfer: { files: [file] },
-    });
+    expect(screen.queryByLabelText(/content domain/i)).not.toBeInTheDocument();
+  });
 
-    await waitFor(() =>
-      expect(uploadPdf).toHaveBeenCalledWith(file, "test-key", { contentDomain: "finance" }),
+  it("offers sample audit navigation from the input page", () => {
+    render(<AuditPage />);
+
+    expect(screen.getByRole("link", { name: /see a sample audit/i })).toHaveAttribute(
+      "href",
+      "/audit?demo=1",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: /see a sample audit/i }));
+
+    expect(push).toHaveBeenCalledWith("/audit?demo=1");
   });
 
   it("does not upload a dropped PDF before the visitor enters an API key", async () => {
@@ -103,5 +123,16 @@ describe("AuditPage PDF upload", () => {
 
     expect(uploadPdf).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toHaveTextContent(/only pdf files are supported/i);
+  });
+
+  it("opens the fresh input page even if a previous demo job is still in the store", async () => {
+    useArgusStore.getState().setJob(staleDemoJob);
+
+    render(<AuditPage />);
+
+    expect(
+      screen.getByRole("heading", { name: /audit ai-generated reports before sign-off/i }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(useArgusStore.getState().job).toBeNull());
   });
 });

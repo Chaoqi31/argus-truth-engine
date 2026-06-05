@@ -14,6 +14,7 @@ import { getFindingAuditability, type FindingAuditability } from "@/lib/auditabi
 import { safeHttpUrl } from "@/lib/url";
 import { useArgusStore } from "@/lib/store";
 import { stepOrdinals } from "@/lib/steps";
+import { isDerivedFinding } from "@/lib/findings";
 
 interface Props {
   job: Job;
@@ -39,6 +40,7 @@ export function EvidenceTab({ job, findingId }: Props) {
   const reasoningChain = finding.reasoning_chain ?? [];
   const coverage = finding.coverage ?? [];
   const auditability = getFindingAuditability(job, finding);
+  const derived = isDerivedFinding(finding);
   const review = reviews[finding.id] ?? { status: "open" as const, note: "", updated_at: "" };
   const qualityByEvidence = new Map(
     (finding.evidence_quality ?? []).map((q) => [q.evidence_id, q]),
@@ -47,7 +49,7 @@ export function EvidenceTab({ job, findingId }: Props) {
   const ordinals = trace ? stepOrdinals(trace.steps) : new Map<string, number>();
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-5 p-4">
       <section>
         <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Claim</h2>
         <p className="mt-1 text-base">{claim?.text ?? "(claim missing)"}</p>
@@ -55,6 +57,14 @@ export function EvidenceTab({ job, findingId }: Props) {
           <p className="mt-0.5 text-xs text-muted-foreground">page {claim.page}</p>
         )}
       </section>
+
+      <FindingProofSummary
+        findingSummary={finding.summary}
+        rationale={finding.why_wrong ?? null}
+        evidenceCount={evidences.length}
+        reasoningCount={reasoningChain.length}
+        traceStepCount={trace?.steps.length ?? 0}
+      />
 
       {claim && (finding.correct_information || finding.why_wrong) && (
         <ClaimVerdictCompare
@@ -65,171 +75,294 @@ export function EvidenceTab({ job, findingId }: Props) {
         />
       )}
 
-      <TransparencyChecklist auditability={auditability} />
+      {derived && evidences.length === 0 && (
+        <DerivedFindingNotice agent={finding.agent} />
+      )}
 
-      <ReviewDecisionSection
-        review={review}
-        onStatus={(status) => setFindingReview(job.id, finding.id, { status })}
-        onNote={(note) => setFindingReview(job.id, finding.id, { note })}
+      <EvidenceReceiptSection
+        evidences={evidences}
+        trace={trace}
+        ordinals={ordinals}
+        qualityByEvidence={qualityByEvidence}
+        onJumpToStep={jumpToStep}
+        onCompareEvidence={(evidenceId) => setEvidenceDiff({ findingId: finding.id, evidenceId })}
       />
 
-      {reasoningChain.length > 0 && (
-        <section>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Reasoning summary
-          </h2>
-          <ol className="mt-2 space-y-2 text-sm">
-            {reasoningChain.map((step, i) => (
-              <ReasoningSummaryItem key={i} step={step} index={i + 1} />
-            ))}
-          </ol>
-        </section>
-      )}
+      <details open className="rounded-md border border-border bg-muted/20 px-3 py-2">
+        <summary className="cursor-pointer list-none font-mono text-[10px] uppercase tracking-wider text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
+          Reviewer action
+        </summary>
+        <div className="mt-3">
+          <ReviewDecisionSection
+            review={review}
+            onStatus={(status) => setFindingReview(job.id, finding.id, { status })}
+            onNote={(note) => setFindingReview(job.id, finding.id, { note })}
+          />
+        </div>
+      </details>
 
-      {finding.computation_check && (
-        <ComputationCheckSection check={finding.computation_check} />
-      )}
+      <details className="rounded-md border border-border bg-background px-3 py-2">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
+          <span>Forensic details</span>
+          <span>{trace?.steps.length ?? 0} trace steps</span>
+        </summary>
+        <div className="mt-4 space-y-6">
+          <TransparencyChecklist auditability={auditability} />
 
-      {coverage.length > 0 && (
-        <CoverageMatrix coverage={coverage} evidences={evidences} />
-      )}
+          {reasoningChain.length > 0 && (
+            <section>
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Reasoning summary
+              </h2>
+              <ol className="mt-2 space-y-2 text-sm">
+                {reasoningChain.map((step, i) => (
+                  <ReasoningSummaryItem key={i} step={step} index={i + 1} />
+                ))}
+              </ol>
+            </section>
+          )}
 
-      {finding.skeptic_review && (
-        <SkepticReviewSection review={finding.skeptic_review} />
-      )}
+          {finding.computation_check && (
+            <ComputationCheckSection check={finding.computation_check} />
+          )}
 
-      {finding.verdict === "fabricated" && trace && (
-        <SearchTrailSection steps={trace.steps} />
-      )}
+          {coverage.length > 0 && (
+            <CoverageMatrix coverage={coverage} evidences={evidences} />
+          )}
 
-      <section>
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Trace steps
-        </h2>
-        <ol className="mt-2 space-y-1 text-sm">
-          {trace?.steps.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => jumpToStep(s.id)}
-                aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the trace`}
-                className="flex min-w-0 w-full gap-2 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <span aria-hidden>{stepIcon[s.type]}</span>
-                <span className="min-w-0 break-words">{s.summary}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </section>
+          {finding.skeptic_review && (
+            <SkepticReviewSection review={finding.skeptic_review} />
+          )}
 
-      {finding.why_wrong && (
-        <section>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Why it&apos;s wrong
-          </h2>
-          <p className="mt-1 text-sm leading-relaxed">{finding.why_wrong}</p>
-        </section>
-      )}
+          {finding.verdict === "fabricated" && trace && (
+            <SearchTrailSection steps={trace.steps} />
+          )}
 
-      {finding.correct_information && (
-        <section>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Correct information
-          </h2>
-          <p className="mt-1 text-sm leading-relaxed">{finding.correct_information.value}</p>
-          <p className="mt-1.5 flex flex-wrap items-center gap-1 font-mono text-xs text-muted-foreground">
-            <span className="uppercase tracking-wider">Source:</span>
-            {safeHttpUrl(finding.correct_information.url) ? (
-              <a
-                href={safeHttpUrl(finding.correct_information.url)!}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                {finding.correct_information.source}
-              </a>
-            ) : (
-              <span>{finding.correct_information.source}</span>
-            )}
-            {finding.correct_information.retrieved_date && (
-              <span className="text-[10px] opacity-70">
-                · retrieved {finding.correct_information.retrieved_date}
-              </span>
-            )}
-          </p>
-        </section>
-      )}
+          <TraceStepSection trace={trace} ordinals={ordinals} onJumpToStep={jumpToStep} />
 
-      {finding.confidence_breakdown && finding.evidence_ids.length > 0 && (
-        <section>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Confidence breakdown
-          </h2>
-          <div className="mt-2">
-            <ConfidenceBreakdown breakdown={finding.confidence_breakdown} />
-          </div>
-        </section>
-      )}
+          {finding.why_wrong && (
+            <section>
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Why it&apos;s wrong
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed">{finding.why_wrong}</p>
+            </section>
+          )}
 
-      <section>
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Evidence ({evidences.length})
-        </h2>
-        <ul className="mt-2 space-y-2 text-sm">
-          {evidences.map((e) => {
-            const producingStep = trace?.steps.find((s) => s.id === e.retrieved_by_step_id);
-            const quality = qualityByEvidence.get(e.id);
-            return (
-              <li key={e.id} className="rounded-md border border-border p-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5">
-                    <span className="font-mono text-xs text-muted-foreground">{e.source_type}</span>
-                    {producingStep && (
-                      <button
-                        type="button"
-                        onClick={() => jumpToStep(e.retrieved_by_step_id)}
-                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the trace`}
-                        className="rounded border border-border px-1 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-                      >
-                        step {ordinals.get(producingStep.id) ?? 0}
-                      </button>
-                    )}
-                  </span>
-                  {safeHttpUrl(e.url) ? (
-                    <a
-                      href={safeHttpUrl(e.url)!}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="min-w-0 break-all text-right text-xs text-primary underline-offset-2 hover:underline"
-                    >
-                      {e.citation}
-                    </a>
-                  ) : e.citation ? (
-                    <span className="min-w-0 break-all text-xs text-muted-foreground">{e.citation}</span>
-                  ) : null}
-                </div>
-                {e.snippet && (
-                  <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{e.snippet}</p>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <SourceBadge evidence={e} quality={quality} />
-                  <FreshnessBadge evidence={e} quality={quality} />
-                  <button
-                    type="button"
-                    onClick={() => setEvidenceDiff({ findingId: finding.id, evidenceId: e.id })}
-                    className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    compare
-                  </button>
-                </div>
-                {quality && <EvidenceQualityBlock quality={quality} />}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+          {finding.correct_information && (
+            <CorrectInformationSection finding={finding} />
+          )}
+
+          {finding.confidence_breakdown && finding.evidence_ids.length > 0 && (
+            <section>
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Confidence breakdown
+              </h2>
+              <div className="mt-2">
+                <ConfidenceBreakdown breakdown={finding.confidence_breakdown} />
+              </div>
+            </section>
+          )}
+        </div>
+      </details>
     </div>
+  );
+}
+
+function FindingProofSummary({
+  findingSummary,
+  rationale,
+  evidenceCount,
+  reasoningCount,
+  traceStepCount,
+}: {
+  findingSummary: string;
+  rationale: string | null;
+  evidenceCount: number;
+  reasoningCount: number;
+  traceStepCount: number;
+}) {
+  return (
+    <section className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
+      <h2 className="text-xs font-mono uppercase tracking-wider text-primary">
+        Evidence summary
+      </h2>
+      <p className="mt-1.5 text-sm leading-relaxed text-foreground">
+        {findingSummary}
+      </p>
+      {rationale && rationale !== findingSummary && (
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {rationale}
+        </p>
+      )}
+      <div className="mt-2 flex flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="rounded border border-border bg-background px-1.5 py-0.5">
+          <span className="text-foreground">{evidenceCount}</span> evidence
+        </span>
+        <span className="rounded border border-border bg-background px-1.5 py-0.5">
+          <span className="text-foreground">{reasoningCount}</span> reasoning
+        </span>
+        <span className="rounded border border-border bg-background px-1.5 py-0.5">
+          <span className="text-foreground">{traceStepCount}</span> trace steps
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function EvidenceReceiptSection({
+  evidences,
+  trace,
+  ordinals,
+  qualityByEvidence,
+  onJumpToStep,
+  onCompareEvidence,
+}: {
+  evidences: Evidence[];
+  trace: Job["traces"][number] | undefined;
+  ordinals: Map<string, number>;
+  qualityByEvidence: Map<string, EvidenceQuality>;
+  onJumpToStep: (stepId: string) => void;
+  onCompareEvidence: (evidenceId: string) => void;
+}) {
+  return (
+    <section>
+      <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        Evidence ({evidences.length})
+      </h2>
+      <ul className="mt-2 space-y-2 text-sm">
+        {evidences.map((e) => {
+          const producingStep = trace?.steps.find((s) => s.id === e.retrieved_by_step_id);
+          const quality = qualityByEvidence.get(e.id);
+          return (
+            <li key={e.id} className="rounded-md border border-border p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs text-muted-foreground">{e.source_type}</span>
+                  {producingStep && (
+                    <button
+                      type="button"
+                      onClick={() => onJumpToStep(e.retrieved_by_step_id)}
+                      aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the trace`}
+                      className="rounded border border-border px-1 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      step {ordinals.get(producingStep.id) ?? 0}
+                    </button>
+                  )}
+                </span>
+                {safeHttpUrl(e.url) ? (
+                  <a
+                    href={safeHttpUrl(e.url)!}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="min-w-0 break-all text-right text-xs text-primary underline-offset-2 hover:underline"
+                  >
+                    {e.citation}
+                  </a>
+                ) : e.citation ? (
+                  <span className="min-w-0 break-all text-xs text-muted-foreground">{e.citation}</span>
+                ) : null}
+              </div>
+              {e.snippet && (
+                <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{e.snippet}</p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <SourceBadge evidence={e} quality={quality} />
+                <FreshnessBadge evidence={e} quality={quality} />
+                <button
+                  type="button"
+                  onClick={() => onCompareEvidence(e.id)}
+                  className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  compare
+                </button>
+              </div>
+              {quality && <EvidenceQualityBlock quality={quality} />}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function TraceStepSection({
+  trace,
+  ordinals,
+  onJumpToStep,
+}: {
+  trace: Job["traces"][number] | undefined;
+  ordinals: Map<string, number>;
+  onJumpToStep: (stepId: string) => void;
+}) {
+  return (
+    <section>
+      <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        Trace steps
+      </h2>
+      <ol className="mt-2 space-y-1 text-sm">
+        {trace?.steps.map((s) => (
+          <li key={s.id}>
+            <button
+              type="button"
+              onClick={() => onJumpToStep(s.id)}
+              aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the trace`}
+              className="flex min-w-0 w-full gap-2 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span aria-hidden>{stepIcon[s.type]}</span>
+              <span className="min-w-0 break-words">{s.summary}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function CorrectInformationSection({ finding }: { finding: Job["findings"][number] }) {
+  if (!finding.correct_information) return null;
+  return (
+    <section>
+      <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        Correct information
+      </h2>
+      <p className="mt-1 text-sm leading-relaxed">{finding.correct_information.value}</p>
+      <p className="mt-1.5 flex flex-wrap items-center gap-1 font-mono text-xs text-muted-foreground">
+        <span className="uppercase tracking-wider">Source:</span>
+        {safeHttpUrl(finding.correct_information.url) ? (
+          <a
+            href={safeHttpUrl(finding.correct_information.url)!}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-primary underline-offset-2 hover:underline"
+          >
+            {finding.correct_information.source}
+          </a>
+        ) : (
+          <span>{finding.correct_information.source}</span>
+        )}
+        {finding.correct_information.retrieved_date && (
+          <span className="text-[10px] opacity-70">
+            · retrieved {finding.correct_information.retrieved_date}
+          </span>
+        )}
+      </p>
+    </section>
+  );
+}
+
+function DerivedFindingNotice({ agent }: { agent: string }) {
+  return (
+    <section className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+      <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        Derived pipeline finding
+      </h2>
+      <p className="mt-1 leading-relaxed text-muted-foreground">
+        This {agent} finding is derived from the audit pipeline rather than a new
+        external-source lookup. Use it as a review cue, then compare it with the
+        verifier findings and trace-backed evidence for the same claim.
+      </p>
+    </section>
   );
 }
 

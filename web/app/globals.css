@@ -207,6 +207,54 @@
   100% { transform: translateY(-8px); }
 }
 
+/* Full trace workspace: subtle, audit-console depth without dark mode. */
+.trace-workspace-shell {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-primary) 4%, var(--color-background)) 0%,
+      var(--color-background) 34%,
+      color-mix(in oklab, var(--color-primary) 8%, var(--color-muted)) 100%
+    );
+}
+
+.trace-workspace-surface {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 27px,
+      rgba(113, 50, 245, 0.018) 27px,
+      rgba(113, 50, 245, 0.018) 28px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 27px,
+      rgba(113, 50, 245, 0.014) 27px,
+      rgba(113, 50, 245, 0.014) 28px
+    ),
+    linear-gradient(
+      180deg,
+      var(--color-background) 0%,
+      color-mix(in oklab, var(--color-primary) 4%, var(--color-background)) 56%,
+      color-mix(in oklab, var(--color-primary) 8%, var(--color-muted)) 100%
+    );
+}
+
+@keyframes trace-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .animate-row-in {
     animation: argus-fade-in-up 280ms ease-out both;
@@ -248,6 +296,10 @@
   .cc-float {
     animation: cc-float 3s ease-in-out infinite;
   }
+
+  .trace-panel-enter {
+    animation: trace-panel-in 360ms var(--ease-enter) both;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -263,7 +315,8 @@
 
   /* Disable decorative motion when the user prefers reduced motion. */
   .cc-pulse-glow,
-  .cc-float {
+  .cc-float,
+  .trace-panel-enter {
     animation: none;
   }
 }

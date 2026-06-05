@@ -60,7 +60,7 @@ function StatPoint({
       className={`text-center transition-[transform,opacity,filter] duration-[600ms] ease-enter ${trigger ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <p className="text-3xl font-bold tabular-nums md:text-4xl">
+      <p className="text-2xl font-bold tabular-nums md:text-3xl">
         {prefix}{count.toLocaleString()}{suffix}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>
@@ -86,14 +86,20 @@ function FeatureCard({
 }) {
   return (
     <div
-      className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,opacity,filter,border-color,box-shadow] duration-500 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${trigger ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
+      className={`h-full transition-[transform,opacity,filter] duration-500 ease-enter ${trigger ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary">
-        {icon}
+      <div className="group relative h-full overflow-hidden rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,border-color,box-shadow] duration-300 ease-enter will-change-transform hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_18px_45px_rgba(102,63,255,0.14)] motion-reduce:transform-none motion-reduce:transition-none">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-primary/10 to-transparent opacity-0 transition-[transform,opacity] duration-500 ease-enter group-hover:translate-x-[420%] group-hover:opacity-100 motion-reduce:hidden"
+        />
+        <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary transition-[transform,background-color] duration-300 ease-enter group-hover:scale-110 group-hover:-rotate-3 group-hover:bg-primary group-hover:text-white motion-reduce:transform-none">
+          {icon}
+        </div>
+        <h3 className="text-base font-semibold transition-colors duration-300 ease-enter group-hover:text-primary">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
       </div>
-      <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
     </div>
   );
 }
@@ -176,9 +182,9 @@ const CheckIcon = (
 /*  Buttons — Kraken primary (solid purple) + white outlined          */
 /* ------------------------------------------------------------------ */
 const PRIMARY_BTN =
-  "cursor-pointer rounded-[12px] bg-primary px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#5741d8] disabled:opacity-50";
+  "group relative inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-[12px] bg-primary px-8 py-3.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(113,50,245,0.24)] transition-[transform,background-color,box-shadow] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-8 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-white/35 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-1 hover:scale-[1.02] hover:bg-[#5741d8] hover:shadow-[0_18px_42px_rgba(113,50,245,0.34)] hover:before:translate-x-[430%] hover:before:opacity-100 active:translate-y-0 active:scale-[0.985] disabled:opacity-50 motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden";
 const WHITE_BTN =
-  "cursor-pointer rounded-[12px] border border-border bg-background px-8 py-3.5 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-200 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] disabled:opacity-50";
+  "group relative inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-[12px] border border-border bg-background px-8 py-3.5 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[transform,border-color,box-shadow,color] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-8 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-primary/12 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-1 hover:scale-[1.02] hover:border-primary/35 hover:text-primary hover:shadow-[0_16px_38px_rgba(16,24,40,0.11)] hover:before:translate-x-[430%] hover:before:opacity-100 active:translate-y-0 active:scale-[0.985] disabled:opacity-50 motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden";
 
 /* ================================================================== */
 /*  LANDING PAGE                                                      */
@@ -202,7 +208,7 @@ export default function HomePage() {
       // Fully clear the store (not just live state) so a stale job from a
       // previous demo run can't bypass the idle screen on a repeat visit.
       // The audit page loads the fixture itself and shows the streaming replay.
-      await loadSampleJob();
+      await loadSampleJob("legal");
       clearStore();
       router.push("/audit?demo=1");
     } catch {
@@ -226,7 +232,15 @@ export default function HomePage() {
             <Link href="/miromind" className="text-muted-foreground transition-colors hover:text-foreground">Powered by MiroMind</Link>
             <Link href="/for-teams" className="text-muted-foreground transition-colors hover:text-foreground">For teams</Link>
             <Link
+              href="/audit?demo=1"
+              onClick={clearStore}
+              className="cursor-pointer rounded-[12px] border border-border bg-background px-4 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-[var(--shadow-card-hover)]"
+            >
+              See a sample audit
+            </Link>
+            <Link
               href="/audit"
+              onClick={clearStore}
               className="cursor-pointer rounded-[12px] bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#5741d8]"
             >
               Start auditing
@@ -241,7 +255,7 @@ export default function HomePage() {
         {/* ============================================================ */}
         <section
           ref={heroRef}
-          className="relative flex min-h-[calc(100vh-56px)] flex-col items-center justify-center px-6 pt-16"
+          className="relative flex min-h-[calc(100vh-56px)] flex-col items-center px-6 pt-10"
         >
           {/* Background glow */}
           <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center overflow-hidden">
@@ -259,7 +273,7 @@ export default function HomePage() {
           <div className="relative z-10 flex max-w-4xl flex-col items-center text-center">
             {/* Headline */}
             <h1
-              className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-7xl transition-[transform,opacity,filter] duration-[640ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
+              className={`text-balance text-5xl font-bold leading-[1.08] tracking-tight md:text-[3.5rem] transition-[transform,opacity,filter] duration-[640ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
               The audit layer for{" "}
               <span className="text-primary">AI-generated content</span>
@@ -267,20 +281,20 @@ export default function HomePage() {
 
             {/* Subtitle */}
             <p
-              className={`mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground transition-[transform,opacity,filter] duration-[640ms] delay-[80ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
+              className={`mt-4 max-w-xl text-balance text-base leading-relaxed text-muted-foreground transition-[transform,opacity,filter] duration-[640ms] delay-[80ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
-              Upload an AI-generated research, legal, or governance report.
+              Upload an AI-generated research note, legal brief, or governance report.
               Get claim-level verdicts, cited evidence, and a reviewer-ready
               reasoning trail before your team signs off.
             </p>
 
             {/* Data points */}
             <div
-              className={`mt-12 flex items-center gap-6 md:gap-12 transition-[transform,opacity,filter] duration-[640ms] delay-[160ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
+              className={`mt-8 flex items-center gap-6 md:gap-12 transition-[transform,opacity,filter] duration-[640ms] delay-[160ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
               <StatPoint value={1536} label="AI-hallucination legal cases" trigger={heroVisible} delay={220} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={95} suffix="%" label="GenAI pilots, no return" trigger={heroVisible} delay={300} />
+              <StatPoint value={95} suffix="%" label="GenAI pilots show no return" trigger={heroVisible} delay={300} />
               <div className="h-10 w-px bg-border" />
               <StatPoint value={30} suffix="%" label="GenAI projects abandoned" trigger={heroVisible} delay={380} />
             </div>
@@ -297,9 +311,9 @@ export default function HomePage() {
 
             {/* CTAs */}
             <div
-              className={`mt-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 transition-[transform,opacity,filter] duration-[640ms] delay-[260ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
+              className={`mt-6 flex flex-col items-center gap-3 sm:flex-row sm:gap-4 transition-[transform,opacity,filter] duration-[640ms] delay-[260ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
-              <Link href="/audit" className={PRIMARY_BTN}>
+              <Link href="/audit" onClick={clearStore} className={PRIMARY_BTN}>
                 Start auditing
               </Link>
               <button
@@ -316,13 +330,13 @@ export default function HomePage() {
 
           {/* Product mock */}
           <div
-            className={`relative z-10 mt-20 w-full max-w-4xl transition-[transform,opacity,filter] duration-[760ms] delay-[360ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
+            className={`relative z-10 mt-5 w-full max-w-4xl origin-top transition-[transform,opacity,filter] duration-[760ms] delay-[360ms] ease-enter [@media(min-height:940px)]:mt-9 [@media(min-height:940px)]:scale-[1.06] ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
           >
             <HeroProductMock />
           </div>
 
           {/* Scroll indicator */}
-          <div className={`mt-12 pb-8 transition-opacity duration-700 delay-[460ms] ease-enter ${heroVisible ? "opacity-100" : "opacity-0"}`}>
+          <div className={`hidden transition-opacity duration-700 delay-[460ms] ease-enter ${heroVisible ? "opacity-100" : "opacity-0"}`}>
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <span className="text-[10px] uppercase tracking-widest">Scroll to explore</span>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden>
@@ -372,7 +386,7 @@ export default function HomePage() {
             <FeatureCard
               icon={BookIcon}
               title="Fabricated references"
-              body="Searches academic and public registries — such as Crossref, arXiv, and SSRN — to confirm a cited work actually exists. Papers, cases, or filings that don't get flagged."
+              body="Searches academic and public registries — such as Crossref, arXiv, and SSRN — to confirm a cited work actually exists. Missing papers, cases, or filings get flagged."
               trigger={featuresVisible}
               delay={0}
             />
@@ -454,13 +468,13 @@ export default function HomePage() {
                 Reasoning you can read.
               </h2>
               <p className="mt-5 leading-relaxed text-muted-foreground">
-                Every web search, every fetched source, every chain-of-thought step is recorded
+                Every web search, every fetched source, and every reasoning step is recorded
                 and streamed live. This isn&apos;t a black-box confidence score — it&apos;s a readable,
                 auditable chain of evidence.
               </p>
               <ul className="mt-7 space-y-3 text-sm">
                 {[
-                  "Watch the verifier think in real-time via WebSocket",
+                  "Watch verifier activity stream in real time via WebSocket",
                   "Every source URL is clickable and verifiable",
                   "Every verdict ships why it's wrong and the correct answer",
                   "Reviewer decisions stay attached to each finding",
@@ -550,12 +564,12 @@ export default function HomePage() {
               Ready to audit?
             </h2>
             <p className="mt-4 text-muted-foreground">
-              See Argus turn an AI-generated NVIDIA research note into a
+              See Argus turn an AI-drafted legal brief into a
               claim-level audit walkthrough with evidence, trace, and reviewer
               decisions — no API key needed.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-              <Link href="/audit" className={PRIMARY_BTN}>
+              <Link href="/audit" onClick={clearStore} className={PRIMARY_BTN}>
                 Start auditing
               </Link>
               <button

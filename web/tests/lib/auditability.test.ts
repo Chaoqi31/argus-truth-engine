@@ -174,6 +174,61 @@ describe("auditability", () => {
     expect(auditability.controls.find((c) => c.id === "computation")?.status).toBe("not_applicable");
   });
 
+  it("treats source controls as non-applicable for derived pipeline findings", () => {
+    const derivedFinding: Finding = {
+      ...finding,
+      id: "f_derived",
+      claim_id: "c_derived",
+      agent: "Consistency",
+      verdict: "unsupported-inference",
+      severity: "major",
+      evidence_ids: [],
+      coverage: [],
+      evidence_quality: [],
+      skeptic_review: null,
+      computation_check: null,
+      reasoning_trace_id: "t_derived",
+    };
+    const derivedJob: Job = {
+      ...job,
+      claims: [
+        {
+          id: "c_derived",
+          text: "The document draws a conclusion not supported by its verified claims.",
+          page: 1,
+          span: [0, 67],
+          type: "qualitative",
+          importance: "high",
+          extracted_metadata: {},
+        },
+      ],
+      findings: [derivedFinding],
+      traces: [
+        {
+          ...job.traces[0]!,
+          id: "t_derived",
+          claim_id: "c_derived",
+          agent: "Consistency",
+          miromind_response_id: "deepseek:consistency",
+        },
+      ],
+      evidences: [],
+    };
+
+    const auditability = getFindingAuditability(derivedJob, derivedFinding);
+
+    expect(auditability.presentCount).toBe(1);
+    expect(auditability.requiredCount).toBe(1);
+    expect(auditability.controls.find((c) => c.id === "trace")?.label).toBe("Reasoning trace");
+    expect(auditability.controls.find((c) => c.id === "evidence")?.status).toBe("not_applicable");
+    expect(auditability.controls.find((c) => c.id === "provenance")?.status).toBe("not_applicable");
+    expect(auditability.controls.find((c) => c.id === "coverage")?.status).toBe("not_applicable");
+    expect(auditability.controls.find((c) => c.id === "source_quality")?.status).toBe("not_applicable");
+    expect(auditability.controls.find((c) => c.id === "evidence")?.detail).toContain(
+      "does not create new external-source evidence",
+    );
+  });
+
   it("aggregates controls across the job for an export-ready auditability summary", () => {
     const summary = getJobAuditability(job);
 
@@ -237,7 +292,7 @@ describe("auditability", () => {
         severity: "minor",
         missingControlIds: ["trace", "evidence", "provenance", "coverage", "source_quality"],
         missingControlLabels: [
-          "MiroMind trace",
+          "Reasoning trace",
           "Linked evidence",
           "Evidence-to-step provenance",
           "Claim coverage matrix",

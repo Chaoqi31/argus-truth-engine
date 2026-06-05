@@ -1,5 +1,6 @@
 import type { Finding, Job } from "@/lib/types";
 import { plural } from "@/lib/format";
+import { isDerivedFinding } from "@/lib/findings";
 
 export type AuditabilityControlId =
   | "trace"
@@ -55,7 +56,7 @@ export interface JobAuditability {
 }
 
 const CONTROL_LABEL: Record<AuditabilityControlId, string> = {
-  trace: "MiroMind trace",
+  trace: "Reasoning trace",
   evidence: "Linked evidence",
   provenance: "Evidence-to-step provenance",
   coverage: "Claim coverage matrix",
@@ -91,6 +92,8 @@ export function getFindingAuditability(
   const traceStepIds = new Set(trace?.steps.map((step) => step.id) ?? []);
   const evidenceById = new Map(job.evidences.map((e) => [e.id, e]));
   const evidenceIds = finding.evidence_ids;
+  const derived = isDerivedFinding(finding);
+  const derivedDetail = `${finding.agent} finding derived from pipeline outputs; it does not create new external-source evidence.`;
   const linkedEvidence = evidenceIds
     .map((id) => evidenceById.get(id))
     .filter((e) => e !== undefined);
@@ -114,29 +117,53 @@ export function getFindingAuditability(
     ),
     control(
       "evidence",
-      evidenceIds.length > 0 && linkedEvidence.length === evidenceIds.length ? "present" : "missing",
-      evidenceIds.length > 0
+      derived && evidenceIds.length === 0
+        ? "not_applicable"
+        : evidenceIds.length > 0 && linkedEvidence.length === evidenceIds.length
+          ? "present"
+          : "missing",
+      derived && evidenceIds.length === 0
+        ? derivedDetail
+        : evidenceIds.length > 0
         ? `${linkedEvidence.length}/${evidenceIds.length} sources resolved`
         : "No evidence IDs attached.",
     ),
     control(
       "provenance",
-      linkedEvidence.length > 0 && provenanceLinked === linkedEvidence.length ? "present" : "missing",
-      linkedEvidence.length > 0
+      derived && evidenceIds.length === 0
+        ? "not_applicable"
+        : linkedEvidence.length > 0 && provenanceLinked === linkedEvidence.length
+          ? "present"
+          : "missing",
+      derived && evidenceIds.length === 0
+        ? derivedDetail
+        : linkedEvidence.length > 0
         ? `${provenanceLinked}/${linkedEvidence.length} sources tied to trace steps`
         : "No evidence to tie back to trace steps.",
     ),
     control(
       "coverage",
-      (finding.coverage?.length ?? 0) > 0 ? "present" : "missing",
-      (finding.coverage?.length ?? 0) > 0
+      derived && (finding.coverage?.length ?? 0) === 0
+        ? "not_applicable"
+        : (finding.coverage?.length ?? 0) > 0
+          ? "present"
+          : "missing",
+      derived && (finding.coverage?.length ?? 0) === 0
+        ? `${finding.agent} findings are claim-level pipeline findings, not fragment-level verifier coverage.`
+        : (finding.coverage?.length ?? 0) > 0
         ? plural(finding.coverage?.length ?? 0, "claim fragment")
         : "No fragment-level coverage matrix.",
     ),
     control(
       "source_quality",
-      (finding.evidence_quality?.length ?? 0) > 0 ? "present" : "missing",
-      (finding.evidence_quality?.length ?? 0) > 0
+      derived && (finding.evidence_quality?.length ?? 0) === 0
+        ? "not_applicable"
+        : (finding.evidence_quality?.length ?? 0) > 0
+          ? "present"
+          : "missing",
+      derived && (finding.evidence_quality?.length ?? 0) === 0
+        ? derivedDetail
+        : (finding.evidence_quality?.length ?? 0) > 0
         ? plural(finding.evidence_quality?.length ?? 0, "source scored", "sources scored")
         : "No authority/freshness/directness scoring.",
     ),

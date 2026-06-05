@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArgusHeader } from "@/components/argus-header";
+import { MarketingCtas } from "@/components/marketing-ctas";
 
 export const metadata = {
   title: "Incidents — Argus",
@@ -19,7 +19,7 @@ const INCIDENTS: { outlet: string; date: string; figure: string; org: string; bo
     url: "https://fortune.com/2025/11/25/deloitte-caught-fabricated-ai-generated-research-million-dollar-report-canada-government/",
   },
   {
-    outlet: "GPTZero", date: "2025", figure: "16 / 27", org: "EY Canada",
+    outlet: "GPTZero", date: "2025", figure: "16/27 citations", org: "EY Canada",
     body: "Withdrew a loyalty-fraud cybersecurity study after 16 of 27 citations were found hallucinated — including a McKinsey report that does not exist.",
     url: "https://gptzero.me/investigations/ey",
   },
@@ -29,7 +29,7 @@ const INCIDENTS: { outlet: string; date: string; figure: string; org: string; bo
     url: "https://chicago.suntimes.com/the-watchdogs/2025/12/09/goldberg-segalla-law-firm-cha-sanctioned-60-000-ai-chatgpt-lead-paint-court-case",
   },
   {
-    outlet: "The Daily Record", date: "Oct 2025", figure: "21 / 23", org: "California appeal",
+    outlet: "The Daily Record", date: "Oct 2025", figure: "21/23 quotes", org: "California appeal",
     body: "An attorney was fined $10,000 — 21 of the 23 case quotations in the opening brief were fabricated by AI.",
     url: "https://thedailyrecord.com/2025/10/13/california-lawyer-ai-fake-citations-fine/",
   },
@@ -39,7 +39,7 @@ const INCIDENTS: { outlet: string; date: string; figure: string; org: string; bo
     url: "https://www.cnn.com/2023/05/27/business/chat-gpt-avianca-mata-lawyers",
   },
   {
-    outlet: "NPR", date: "May 2025", figure: "10 / 15", org: "Chicago Sun-Times",
+    outlet: "NPR", date: "May 2025", figure: "10/15 fake books", org: "Chicago Sun-Times",
     body: "A syndicated “summer reading list” ran ten books that don't exist — fake titles attributed to real, award-winning authors.",
     url: "https://www.npr.org/2025/05/20/nx-s1-5405022/fake-summer-reading-list-ai",
   },
@@ -81,19 +81,25 @@ export default function IncidentsPage() {
               href={it.url}
               target="_blank"
               rel="noreferrer"
-              className="group flex flex-col rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] duration-200 ease-enter hover:border-border-strong hover:shadow-[var(--shadow-card-hover)]"
+              className="group relative flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,border-color,box-shadow] duration-300 ease-enter will-change-transform hover:-translate-y-1 hover:scale-[1.01] hover:border-primary/35 hover:shadow-[0_18px_45px_rgba(102,63,255,0.13)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none"
             >
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-primary/10 to-transparent opacity-0 transition-[transform,opacity] duration-500 ease-enter group-hover:translate-x-[430%] group-hover:opacity-100 motion-reduce:hidden"
+              />
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   {it.outlet} · {it.date}
                 </span>
-                <span className="rounded-md bg-destructive/10 px-2 py-0.5 font-mono text-xs font-bold text-destructive-foreground">
+                <span className="rounded-md bg-destructive/10 px-2 py-0.5 font-mono text-xs font-bold text-destructive-foreground transition-[transform,background-color] duration-300 ease-enter group-hover:scale-105 group-hover:bg-destructive/15 motion-reduce:transform-none">
                   {it.figure}
                 </span>
               </div>
-              <h2 className="mt-3 text-lg font-semibold">{it.org}</h2>
+              <h2 className="mt-3 text-lg font-semibold transition-colors duration-300 ease-enter group-hover:text-primary">{it.org}</h2>
               <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{it.body}</p>
-              <span className="mt-4 text-xs font-medium text-primary group-hover:underline">Read the report →</span>
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary transition-transform duration-300 ease-enter group-hover:translate-x-1 group-hover:underline motion-reduce:transform-none">
+                Read the report →
+              </span>
             </a>
           ))}
         </div>
@@ -104,12 +110,7 @@ export default function IncidentsPage() {
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
             Argus audits AI-generated content for fabricated citations and false claims before you sign off.
           </p>
-          <Link
-            href="/audit"
-            className="mt-7 inline-block cursor-pointer rounded-[12px] bg-primary px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#5741d8]"
-          >
-            Start auditing
-          </Link>
+          <MarketingCtas className="mt-7" />
         </section>
       </main>
     </>

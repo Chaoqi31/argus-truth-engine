@@ -19,11 +19,12 @@ interface Props {
   job: Job | null;
   liveMode?: boolean;
   liveSteps?: Step[];
+  activeFindingId?: string | null;
 }
 
-export function TraceStreamView({ job, liveMode = false, liveSteps = [] }: Props) {
+export function TraceStreamView({ job, liveMode = false, liveSteps = [], activeFindingId = null }: Props) {
   if (liveMode) return <LiveTrace steps={liveSteps} />;
-  return <StaticReplay job={job} />;
+  return <StaticReplay job={job} activeFindingId={activeFindingId} />;
 }
 
 function LiveTrace({ steps }: { steps: Step[] }) {
@@ -269,8 +270,9 @@ const STAGE_BLURB: Record<string, string> = {
   reporter: "Writes the executive summary of the audit.",
 };
 
-function StaticReplay({ job }: { job: Job | null }) {
-  const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set(["verify"]));
+function StaticReplay({ job, activeFindingId }: { job: Job | null; activeFindingId: string | null }) {
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [workspaceStageKey, setWorkspaceStageKey] = useState("verify");
   const highlightedStepId = useArgusStore((s) => s.highlightedStepId);
 
   if (!job) {
@@ -300,12 +302,18 @@ function StaticReplay({ job }: { job: Job | null }) {
     (n, g) => n + g.steps.filter((s) => s.type === "web_search").length,
     0,
   );
+  const selectedFinding =
+    activeFindingId !== null ? job.findings.find((f) => f.id === activeFindingId) ?? null : null;
+  const selectedGroup =
+    activeFindingId !== null ? groups.find((g) => g.finding.id === activeFindingId) ?? null : null;
+  const fallbackGroup = selectedFinding ? null : groups[0] ?? null;
+  const focusClaimText = selectedFinding
+    ? claimText.get(selectedFinding.claim_id) ?? selectedFinding.summary
+    : "";
 
   // Persisted per-stage summary when present; otherwise derive a thinner view
   // from the job so older fixtures/jobs still render every stage.
   const stages: Stage[] = job.stages?.length ? job.stages : deriveStages(job, groups);
-  const effectiveOpenKeys =
-    highlightedStepId !== null ? new Set([...openKeys, "verify"]) : openKeys;
 
   if (stages.length === 0 && groups.length === 0) {
     return (
@@ -320,37 +328,509 @@ function StaticReplay({ job }: { job: Job | null }) {
     );
   }
 
-  const toggle = (k: string) =>
-    setOpenKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
+  const openWorkspace = (stageKey = "verify") => {
+    setWorkspaceStageKey(stageKey);
+    setWorkspaceOpen(true);
+  };
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-        <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Audit pipeline
-        </span>
-        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {stages.length} stages · {totalSearches} web searches
-        </span>
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        <div className="min-w-0">
+          <span className="block text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Reasoning walkthrough
+          </span>
+          <span className="block truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+            {stages.length} stages · {totalSearches} web searches
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => openWorkspace("verify")}
+          className="shrink-0 rounded-md border border-border bg-background px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          Open full trace
+        </button>
       </div>
+      {selectedGroup ? (
+        <ReasoningFocus group={selectedGroup} />
+      ) : selectedFinding ? (
+        <SelectedFindingTraceNotice finding={selectedFinding} claimText={focusClaimText} />
+      ) : fallbackGroup ? (
+        <ReasoningFocus group={fallbackGroup} />
+      ) : null}
       <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="border-b border-border bg-muted/20 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Stage overview
+        </div>
         <ol className="flex flex-col">
           {stages.map((s, i) => (
-            <StageItem
+            <StageOverviewItem
               key={s.key}
               index={i + 1}
               stage={s}
-              open={effectiveOpenKeys.has(s.key)}
-              onToggle={() => toggle(s.key)}
-              groups={groups}
-              job={job}
-              highlightedStepId={highlightedStepId}
+              active={s.key === "verify" && selectedGroup !== null}
+              onOpen={() => openWorkspace(s.key)}
             />
+          ))}
+        </ol>
+      </div>
+      {workspaceOpen && (
+        <TraceWorkspace
+          key={`${activeFindingId ?? "none"}-${workspaceStageKey}`}
+          job={job}
+          stages={stages}
+          groups={groups}
+          initialStageKey={workspaceStageKey}
+          activeFindingId={activeFindingId}
+          highlightedStepId={highlightedStepId}
+          onClose={() => setWorkspaceOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function StageOverviewItem({
+  index,
+  stage,
+  active,
+  onOpen,
+}: {
+  index: number;
+  stage: Stage;
+  active: boolean;
+  onOpen: () => void;
+}) {
+  const badge = ENGINE_BADGE[stage.engine] ?? ENGINE_BADGE.deterministic;
+  return (
+    <li className="border-b border-border last:border-b-0">
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
+          active ? "bg-primary/5" : ""
+        }`}
+      >
+        <span className="w-4 shrink-0 text-center font-mono text-[10px] text-muted-foreground">
+          {index}
+        </span>
+        <span className="min-w-0 truncate text-xs font-semibold text-foreground">
+          {stage.name}
+        </span>
+        <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${badge.cls}`}>
+          {badge.label}
+        </span>
+        <span className="col-start-2 col-end-4 min-w-0 truncate text-[11px] text-muted-foreground">
+          {stage.summary}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function TraceWorkspace({
+  job,
+  stages,
+  groups,
+  initialStageKey,
+  activeFindingId,
+  highlightedStepId,
+  onClose,
+}: {
+  job: Job;
+  stages: Stage[];
+  groups: ClaimGroup[];
+  initialStageKey: string;
+  activeFindingId: string | null;
+  highlightedStepId: string | null;
+  onClose: () => void;
+}) {
+  const activeGroup =
+    activeFindingId !== null ? groups.find((g) => g.finding.id === activeFindingId) ?? null : null;
+  const [stageKey, setStageKey] = useState(initialStageKey);
+  const [selectedFindingId, setSelectedFindingId] = useState(
+    activeGroup?.finding.id ?? groups[0]?.finding.id ?? null,
+  );
+  const selectedStage = stages.find((stage) => stage.key === stageKey) ?? stages[0] ?? null;
+  const selectedGroup =
+    selectedFindingId !== null
+      ? groups.find((group) => group.finding.id === selectedFindingId) ?? null
+      : null;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const stageContentKey = selectedStage?.key ?? "none";
+
+  return (
+    <div className="trace-workspace-shell fixed inset-0 z-50 text-foreground shadow-[var(--shadow-card-hover)]">
+      <div className="flex h-full flex-col">
+        <header className="flex items-center justify-between gap-4 border-b border-border/80 bg-background/95 px-5 py-3 shadow-[0_1px_0_rgba(113,50,245,0.04)]">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Full trace workspace
+            </p>
+            <h2 className="truncate text-base font-semibold">
+              Pipeline reasoning · {stages.length} stages · {groups.length} verified claims
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Close
+          </button>
+        </header>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(320px,0.85fr)_minmax(460px,1.15fr)] gap-3 p-3">
+          <aside className="trace-workspace-surface min-h-0 overflow-y-auto rounded-[14px] border border-border/80 shadow-[0_12px_36px_rgba(16,24,40,0.07)]">
+            <div className="border-b border-border/70 px-4 py-3">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Stages
+              </p>
+            </div>
+            <ol className="space-y-1 p-2">
+              {stages.map((stage, index) => {
+                const badge = ENGINE_BADGE[stage.engine] ?? ENGINE_BADGE.deterministic;
+                const active = selectedStage?.key === stage.key;
+                return (
+                  <li key={stage.key}>
+                    <button
+                      type="button"
+                      onClick={() => setStageKey(stage.key)}
+                      aria-pressed={active}
+                      className={`group relative w-full overflow-hidden rounded-[10px] px-3 py-3 text-left transition-[transform,background-color,box-shadow,color] duration-300 ease-enter hover:-translate-y-0.5 hover:bg-primary/5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset motion-reduce:transform-none motion-reduce:transition-none ${
+                        active ? "bg-primary/10 text-primary shadow-[0_10px_28px_rgba(113,50,245,0.12)]" : ""
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`absolute inset-y-2 left-0 w-1 rounded-r-full bg-primary transition-[transform,opacity] duration-300 ease-enter ${
+                          active ? "scale-y-100 opacity-100" : "scale-y-50 opacity-0 group-hover:scale-y-75 group-hover:opacity-40"
+                        }`}
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className={`w-5 font-mono text-[10px] ${active ? "text-primary" : "text-muted-foreground"}`}>
+                          {index + 1}
+                        </span>
+                        <span className={`min-w-0 flex-1 truncate text-xs font-semibold ${active ? "text-foreground" : ""}`}>
+                          {stage.name}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 pl-7">
+                        <span className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium transition-transform duration-300 ease-enter group-hover:scale-105 motion-reduce:transform-none ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </aside>
+
+          {selectedStage?.key === "verify" ? (
+            <>
+              <section
+                key={`${stageContentKey}-claims`}
+                className="trace-panel-enter trace-workspace-surface min-h-0 overflow-y-auto rounded-[14px] border border-border/80 shadow-[0_12px_36px_rgba(16,24,40,0.07)]"
+              >
+                <VerifyClaimList
+                  groups={groups}
+                  selectedFindingId={selectedFindingId}
+                  onSelect={setSelectedFindingId}
+                />
+              </section>
+              <section
+                key={`${stageContentKey}-detail`}
+                className="trace-panel-enter trace-workspace-surface min-h-0 overflow-y-auto rounded-[14px] border border-border/80 shadow-[0_12px_36px_rgba(16,24,40,0.07)]"
+              >
+                {selectedGroup ? (
+                  <WorkspaceClaimDetail group={selectedGroup} highlightedStepId={highlightedStepId} />
+                ) : (
+                  <div className="p-5 text-sm text-muted-foreground">
+                    No verifier claim selected.
+                  </div>
+                )}
+              </section>
+            </>
+          ) : selectedStage ? (
+            <section
+              key={stageContentKey}
+              className="trace-panel-enter trace-workspace-surface col-span-2 min-h-0 overflow-y-auto rounded-[14px] border border-border/80 shadow-[0_12px_36px_rgba(16,24,40,0.07)]"
+            >
+              <StageDossier stage={selectedStage} job={job} groups={groups} />
+            </section>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StageDossier({
+  stage,
+  job,
+  groups,
+}: {
+  stage: Stage;
+  job: Job;
+  groups: ClaimGroup[];
+}) {
+  const badge = ENGINE_BADGE[stage.engine] ?? ENGINE_BADGE.deterministic;
+  const ledger = stageLedger(stage, job, groups);
+
+  return (
+    <div className="w-full px-7 py-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-[6px] px-2 py-1 text-xs font-medium ${badge.cls}`}>
+          {badge.label}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Stage dossier
+        </span>
+      </div>
+      <h3 className="mt-2 text-lg font-semibold">{stage.name}</h3>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        {stage.summary}
+      </p>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(280px,0.75fr)_minmax(520px,1.25fr)]">
+        <aside className="space-y-4">
+          <StageLedgerBlock ledger={ledger} />
+          <MetricLedger metrics={stage.metrics ?? {}} />
+        </aside>
+        <StageDetail stage={stage} job={job} />
+      </div>
+    </div>
+  );
+}
+
+interface StageLedgerInfo {
+  input: string;
+  output: string;
+  transparency: string;
+}
+
+function stageLedger(stage: Stage, job: Job, groups: ClaimGroup[]): StageLedgerInfo {
+  const claimCount = job.claims.length;
+  const findingCount = job.findings.length;
+  const evidenceCount = job.evidences.length;
+  const verifiedCount = groups.length;
+  const traceSteps = groups.reduce((n, group) => n + group.steps.length, 0);
+  const searchCount = groups.reduce(
+    (n, group) => n + group.steps.filter((step) => step.type === "web_search").length,
+    0,
+  );
+
+  switch (stage.key) {
+    case "parse":
+      return {
+        input: "Uploaded or pasted source text.",
+        output: `${stage.metrics.pages ?? 1} page(s), ${stage.metrics.chars ?? 0} characters and text spans for highlighting.`,
+        transparency: "Every later claim keeps a page/span pointer back to the original document.",
+      };
+    case "planner":
+      return {
+        input: "Parsed document text with domain hints.",
+        output: `${claimCount} candidate factual claim(s) with claim type and importance metadata.`,
+        transparency: "The candidate list shows exactly what Argus decided was worth checking.",
+      };
+    case "atomizer":
+      return {
+        input: `${stage.metrics.n_original ?? claimCount} original claim unit(s).`,
+        output: `${stage.metrics.n_atoms ?? claimCount} atomic claim(s) for independent verification.`,
+        transparency: "Compound assertions are split before research so one true subclaim cannot hide one false subclaim.",
+      };
+    case "checkworthiness":
+      return {
+        input: `${claimCount} extracted claim(s).`,
+        output: `${stage.metrics.n_checkworthy ?? claimCount} check-worthy claim(s), ${stage.metrics.n_filtered ?? 0} filtered out.`,
+        transparency: "Only externally verifiable factual statements move into paid research.",
+      };
+    case "review_gate":
+      return {
+        input: `${stage.metrics.n_before ?? claimCount} check-worthy claim(s).`,
+        output: `${stage.metrics.n_after ?? verifiedCount} claim(s) queued for MiroMind verification.`,
+        transparency: "The gate prevents low-value claims from consuming deep-research budget.",
+      };
+    case "skeptic":
+      return {
+        input: `${stage.metrics.n_reviewed ?? 0} high-risk verifier finding(s).`,
+        output: `${stage.metrics.n_cleared ?? 0} cleared, ${stage.metrics.n_counterevidence_found ?? 0} with counterevidence, ${stage.metrics.n_inconclusive ?? 0} inconclusive.`,
+        transparency: "High-risk verdicts get a second search path before confidence scoring.",
+      };
+    case "consistency":
+      return {
+        input: `${claimCount} claims and ${findingCount} finding(s).`,
+        output: `${stage.metrics.n_findings ?? 0} cross-claim issue(s).`,
+        transparency: "This catches contradictions and over-extensions that are not visible claim by claim.",
+      };
+    case "confidence":
+      return {
+        input: `${findingCount} finding(s), ${evidenceCount} source receipt(s), ${traceSteps} verifier trace step(s).`,
+        output: `${stage.metrics.n_scored ?? findingCount} scored finding(s).`,
+        transparency: "Scores are based on authority, freshness and source agreement rather than a single opaque percentage.",
+      };
+    case "reporter":
+      return {
+        input: `${findingCount} finding(s), ${evidenceCount} evidence receipt(s), ${searchCount} verifier search(es).`,
+        output: job.audit_report_md ? "Executive summary generated." : "No executive summary generated.",
+        transparency: "The report is a synthesis layer over the recorded findings, not a replacement for evidence and trace.",
+      };
+    default:
+      return {
+        input: "Previous pipeline stage output.",
+        output: stage.summary,
+        transparency: "The stage output is preserved so the audit path can be reviewed later.",
+      };
+  }
+}
+
+function StageLedgerBlock({ ledger }: { ledger: StageLedgerInfo }) {
+  return (
+    <div className="rounded-[12px] border border-border/80 bg-background px-4 py-4 shadow-[0_8px_28px_rgba(16,24,40,0.06)]">
+      <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        Audit ledger
+      </p>
+      <dl className="mt-3 space-y-3">
+        <StageLedgerRow label="Input" value={ledger.input} />
+        <StageLedgerRow label="Output" value={ledger.output} />
+        <StageLedgerRow label="Transparent because" value={ledger.transparency} />
+      </dl>
+    </div>
+  );
+}
+
+function StageLedgerRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm leading-relaxed text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function MetricLedger({ metrics }: { metrics: Record<string, number> }) {
+  const entries = Object.entries(metrics);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="rounded-[12px] border border-border/80 bg-background px-4 py-4 shadow-[0_8px_28px_rgba(16,24,40,0.06)]">
+      <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        Stage metrics
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {entries.map(([key, value]) => (
+          <div key={key} className="rounded-[10px] border border-primary/10 bg-primary/5 px-3 py-2">
+            <p className="font-mono text-lg font-semibold tabular-nums text-foreground">
+              {value}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+              {METRIC_LABEL[key] ?? key}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VerifyClaimList({
+  groups,
+  selectedFindingId,
+  onSelect,
+}: {
+  groups: ClaimGroup[];
+  selectedFindingId: string | null;
+  onSelect: (findingId: string) => void;
+}) {
+  return (
+    <div>
+      <div className="border-b border-border/70 bg-[linear-gradient(180deg,rgba(113,50,245,0.045),transparent)] px-4 py-3">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Verify claims
+        </p>
+      </div>
+      <ol>
+        {groups.map((group) => {
+          const { finding, claimText, steps } = group;
+          const selected = finding.id === selectedFindingId;
+          const tone = verdictTone[finding.verdict] ?? "muted";
+          const nSearch = steps.filter((step) => step.type === "web_search").length;
+          return (
+            <li key={finding.id} className="border-b border-border last:border-b-0">
+              <button
+                type="button"
+                onClick={() => onSelect(finding.id)}
+                aria-pressed={selected}
+                className={`w-full px-4 py-3 text-left transition-[background-color,box-shadow] duration-300 ease-enter hover:bg-primary/5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
+                  selected ? "bg-primary/10 shadow-[inset_3px_0_0_var(--color-primary)]" : ""
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}>
+                    {finding.verdict}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {finding.evidence_ids.length} sources · {steps.length} steps · {nSearch} searches
+                  </span>
+                </div>
+                <p className="mt-1.5 line-clamp-3 text-xs font-medium leading-snug">
+                  {claimText}
+                </p>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function WorkspaceClaimDetail({
+  group,
+  highlightedStepId,
+}: {
+  group: ClaimGroup;
+  highlightedStepId: string | null;
+}) {
+  const { finding, claimText, steps } = group;
+  const nSearch = steps.filter((step) => step.type === "web_search").length;
+  const nFetch = steps.filter((step) => step.type === "fetch_url_content").length;
+  const tone = verdictTone[finding.verdict] ?? "muted";
+
+  return (
+    <div>
+      <div className="sticky top-0 z-10 border-b border-border/70 bg-background px-5 py-4 shadow-[0_1px_0_rgba(113,50,245,0.04)]">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}>
+            {finding.verdict}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {finding.evidence_ids.length} sources · {steps.length} steps · {nSearch} searches
+            {nFetch > 0 ? ` · ${nFetch} fetches` : ""}
+          </span>
+        </div>
+        <p className="mt-2 text-sm font-semibold leading-snug">
+          {claimText}
+        </p>
+      </div>
+
+      <div key={finding.id} className="trace-panel-enter px-5 py-4">
+        <VerdictBrief finding={finding} />
+        <ol className="mt-4 flex flex-col gap-2">
+          {steps.map((step) => (
+            <StepItem key={step.id} step={step} highlighted={step.id === highlightedStepId} />
           ))}
         </ol>
       </div>
@@ -358,65 +838,83 @@ function StaticReplay({ job }: { job: Job | null }) {
   );
 }
 
-function StageItem({
-  index,
-  stage,
-  open,
-  onToggle,
-  groups,
-  job,
-  highlightedStepId,
-}: {
-  index: number;
-  stage: Stage;
-  open: boolean;
-  onToggle: () => void;
-  groups: ClaimGroup[];
-  job: Job;
-  highlightedStepId: string | null;
-}) {
-  const badge = ENGINE_BADGE[stage.engine] ?? ENGINE_BADGE.deterministic;
-  const isVerify = stage.key === "verify";
+function SelectedFindingTraceNotice({ finding, claimText }: { finding: Finding; claimText: string }) {
+  const derived = finding.agent !== "UnifiedVerifier";
+  const tone = verdictTone[finding.verdict] ?? "muted";
+
   return (
-    <li className="border-b border-border last:border-b-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-      >
-        <span className="w-4 shrink-0 text-center font-mono text-[10px] text-muted-foreground">{index}</span>
-        <span aria-hidden className="shrink-0 font-mono text-[10px] text-primary">{open ? "▾" : "▸"}</span>
-        <span className="shrink-0 text-xs font-semibold text-foreground">{stage.name}</span>
-        <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${badge.cls}`}>
-          {badge.label}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">
-          {stage.summary}
-        </span>
-      </button>
-      {open &&
-        (isVerify ? (
-          groups.length > 0 ? (
-            <ul className="flex flex-col border-t border-border bg-muted/20">
-              {groups.map((g, groupIndex) => (
-                <ClaimTraceGroup
-                  key={g.finding.id}
-                  group={g}
-                  highlightedStepId={highlightedStepId}
-                  initiallyOpen={groupIndex === 0}
-                />
-              ))}
-            </ul>
-          ) : (
-            <div className="border-t border-border bg-muted/20 px-3 py-3 pl-9 text-[11px] text-muted-foreground">
-              No MiroMind reasoning trace recorded for this run.
-            </div>
-          )
-        ) : (
-          <StageDetail stage={stage} job={job} />
-        ))}
-    </li>
+    <section className="border-b border-border bg-background px-3 py-3">
+      <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Selected finding
+          </span>
+          <span className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}>
+            {finding.verdict}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {derived ? "pipeline-derived" : "no saved trace"}
+          </span>
+        </div>
+        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-snug text-foreground">
+          {claimText}
+        </p>
+        <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">
+          {derived
+            ? "This finding was produced from pipeline outputs rather than a separate MiroMind verifier run. The full audit-stage trail is still available below."
+            : "This finding does not have a saved per-claim MiroMind trace. The full audit-stage trail is still available below."}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ReasoningFocus({ group }: { group: ClaimGroup }) {
+  const { finding, claimText, steps } = group;
+  const nSearch = steps.filter((s) => s.type === "web_search").length;
+  const nFetch = steps.filter((s) => s.type === "fetch_url_content").length;
+  const nSources = finding.evidence_ids.length;
+  const nReasoning = finding.reasoning_chain?.length ?? 0;
+  const tone = verdictTone[finding.verdict] ?? "muted";
+  const proof = finding.why_wrong ?? finding.summary;
+
+  return (
+    <section className="border-b border-border bg-background px-3 py-3">
+      <div className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
+            Start here
+          </span>
+          <span className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}>
+            {finding.verdict}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {nSources > 0
+              ? `${nSources} ${pluralizeTraceMetric("source", nSources)}`
+              : "trace-backed"}
+            {nSearch > 0 ? ` · ${nSearch} ${pluralizeTraceMetric("search", nSearch)}` : ""}
+            {nFetch > 0 ? ` · ${nFetch} ${pluralizeTraceMetric("fetch", nFetch)}` : ""}
+          </span>
+        </div>
+        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-snug text-foreground">
+          {claimText}
+        </p>
+        <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">What Argus proved: </span>
+          {proof}
+        </p>
+        {finding.correct_information?.value && (
+          <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Correct: </span>
+            {finding.correct_information.value}
+          </p>
+        )}
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Open stages below: {nReasoning} {pluralizeTraceMetric("reasoning step", nReasoning)}
+          {nSearch > 0 ? ` · ${nSearch} ${pluralizeTraceMetric("search", nSearch)}` : ""}
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -430,17 +928,24 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
     stage.key === "skeptic"
       ? job.findings.filter((f) => f.agent === "UnifiedVerifier" && f.skeptic_review)
       : [];
+  const confidenceFindings =
+    stage.key === "confidence" ? sortFindingsForReview(job.findings) : [];
   return (
-    <div className="flex flex-col gap-2.5 border-t border-border bg-muted/20 px-3 py-3 pl-9">
+    <div className="flex flex-col gap-4 rounded-[12px] border border-primary/10 bg-[linear-gradient(180deg,#fff,rgba(113,50,245,0.035))] px-4 py-4 shadow-[0_8px_28px_rgba(16,24,40,0.06)]">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Detailed artifacts
+        </p>
+      </div>
       {STAGE_BLURB[stage.key] && (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">{STAGE_BLURB[stage.key]}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{STAGE_BLURB[stage.key]}</p>
       )}
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {chips.map(([k, v]) => (
             <span
               key={k}
-              className="inline-flex items-baseline gap-1 rounded-[6px] bg-background px-1.5 py-0.5 text-[10px]"
+              className="inline-flex items-baseline gap-1 rounded-[6px] border border-primary/10 bg-background px-2 py-1 text-xs shadow-sm"
             >
               <span className="font-mono font-semibold tabular-nums text-foreground">{v}</span>
               <span className="text-muted-foreground">{METRIC_LABEL[k] ?? k}</span>
@@ -449,23 +954,37 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
         </div>
       )}
 
-      {(stage.key === "planner" || stage.key === "atomizer" || stage.key === "checkworthiness") &&
+      {stage.key === "parse" && (
+        <DocumentExcerpt job={job} />
+      )}
+
+      {(stage.key === "planner" ||
+        stage.key === "atomizer" ||
+        stage.key === "checkworthiness" ||
+        stage.key === "review_gate") &&
         job.claims.length > 0 && (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-2">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
               {stage.key === "planner"
                 ? "Candidate claims"
                 : stage.key === "atomizer"
                   ? "Atomic claims"
-                  : "Kept as check-worthy"}
+                  : stage.key === "checkworthiness"
+                    ? "Kept as check-worthy"
+                    : "Selected for verification"}
             </p>
-            <ul className="flex flex-col gap-1">
+            <ul className="grid gap-2">
               {job.claims.map((c) => (
                 <li
                   key={c.id}
-                  className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px] text-foreground"
+                  className="rounded-[8px] border border-border/80 bg-background px-3 py-2 text-xs leading-relaxed text-foreground shadow-sm"
                 >
-                  {c.text}
+                  <div className="mb-1 flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <span>{c.type}</span>
+                    <span>page {c.page}</span>
+                    <span>{c.importance}</span>
+                  </div>
+                  <p>{c.text}</p>
                 </li>
               ))}
             </ul>
@@ -473,7 +992,7 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
         )}
 
       {stage.key === "planner" && stage.strategy && (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           <span className="font-medium text-foreground">Strategy: </span>
           {stage.strategy}
         </p>
@@ -486,7 +1005,7 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
             {stage.filtered_claims.map((fc, i) => (
               <li
                 key={fc.claim_id ?? i}
-                className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px]"
+                className="rounded-[8px] border border-border/80 bg-background px-3 py-2 text-xs shadow-sm"
               >
                 <p className="text-foreground line-clamp-2">{fc.text}</p>
                 <p className="mt-0.5 text-muted-foreground">
@@ -507,10 +1026,10 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
               return (
                 <li
                   key={f.id}
-                  className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px]"
+                  className="rounded-[8px] border border-border/80 bg-background px-3 py-2 text-xs leading-relaxed shadow-sm"
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-mono text-[9px] uppercase tracking-wider text-foreground">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-foreground">
                       {review.status.replaceAll("_", " ")}
                     </span>
                     {review.recommended_verdict && (
@@ -535,7 +1054,7 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
             })}
           </ul>
         ) : (
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
+          <p className="text-sm leading-relaxed text-muted-foreground">
             No findings required independent challenge.
           </p>
         )
@@ -546,9 +1065,9 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
           {consistencyFindings.map((f) => (
             <li
               key={f.id}
-              className="rounded-[6px] border border-border bg-background px-2 py-1.5 text-[11px] text-muted-foreground"
+              className="rounded-[8px] border border-border/80 bg-background px-3 py-2 text-xs leading-relaxed text-muted-foreground shadow-sm"
             >
-              <span className="font-mono text-[9px] uppercase tracking-wider text-foreground">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-foreground">
                 {f.verdict}
               </span>
               <span className="ml-1.5">{f.summary}</span>
@@ -558,21 +1077,120 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
       )}
 
       {stage.key === "confidence" && (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Each verdict is scored on three measured factors — source authority, evidence freshness,
-          and source agreement.
-        </p>
+        <ConfidenceStageArtifacts findings={confidenceFindings} />
       )}
 
       {stage.key === "reporter" && (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {job.audit_report_md
-            ? "The full executive summary is rendered in the report panel."
-            : "No executive summary was generated for this run."}
-        </p>
+        <ReportStageArtifact report={job.audit_report_md} />
       )}
     </div>
   );
+}
+
+function DocumentExcerpt({ job }: { job: Job }) {
+  const source =
+    job.input_text?.trim() ||
+    job.claims.map((claim) => claim.text).join("\n\n");
+
+  if (!source) {
+    return (
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        No document text was persisted for this run.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        Parsed text excerpt
+      </p>
+      <div className="mt-2 rounded-[6px] border border-border bg-background px-3 py-2">
+        <p className="line-clamp-8 whitespace-pre-wrap text-xs leading-relaxed text-foreground">
+          {source}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ConfidenceStageArtifacts({ findings }: { findings: Finding[] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Each verdict is scored on source authority, evidence freshness and source agreement.
+      </p>
+      <ol className="grid gap-2">
+        {findings.map((finding) => {
+          const tone = verdictTone[finding.verdict] ?? "muted";
+          const breakdown = finding.confidence_breakdown;
+          return (
+            <li
+              key={finding.id}
+              className="rounded-[6px] border border-border bg-background px-3 py-2 text-xs"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}>
+                  {finding.verdict}
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {Math.round(finding.confidence * 100)}% confidence
+                </span>
+              </div>
+              <p className="mt-1.5 line-clamp-2 leading-relaxed text-foreground">
+                {finding.summary}
+              </p>
+              {breakdown && (
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                  <ConfidenceFactor label="authority" value={breakdown.source_authority} />
+                  <ConfidenceFactor label="freshness" value={breakdown.evidence_freshness} />
+                  <ConfidenceFactor label="agreement" value={breakdown.source_agreement} />
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function ConfidenceFactor({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="rounded border border-border bg-muted/30 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <span className="text-foreground">{Math.round(value * 100)}%</span> {label}
+    </span>
+  );
+}
+
+function ReportStageArtifact({ report }: { report: string | null }) {
+  if (!report) {
+    return (
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        No executive summary was generated for this run.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        Generated executive summary
+      </p>
+      <div className="mt-2 rounded-[6px] border border-border bg-background px-3 py-2">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          {plainReportText(report)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function plainReportText(report: string): string {
+  return report
+    .replace(/\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function deriveStages(job: Job, groups: ClaimGroup[]): Stage[] {
@@ -595,66 +1213,6 @@ function deriveStages(job: Job, groups: ClaimGroup[]): Stage[] {
     { key: "confidence", name: "Confidence", engine: "deterministic", summary: "Scored on 3 measured factors", metrics: {} },
     { key: "reporter", name: "Reporter", engine: "deepseek", summary: job.audit_report_md ? "Executive summary generated" : "—", metrics: {} },
   ];
-}
-
-function ClaimTraceGroup({
-  group,
-  highlightedStepId,
-  initiallyOpen = false,
-}: {
-  group: ClaimGroup;
-  highlightedStepId: string | null;
-  initiallyOpen?: boolean;
-}) {
-  const { finding, claimText, steps } = group;
-  const containsHighlight =
-    highlightedStepId != null && steps.some((s) => s.id === highlightedStepId);
-  const [open, setOpen] = useState(initiallyOpen);
-  const isOpen = open || containsHighlight;
-
-  const nThink = steps.filter((s) => s.type === "thinking").length;
-  const nSearch = steps.filter((s) => s.type === "web_search").length;
-  const nFetch = steps.filter((s) => s.type === "fetch_url_content").length;
-  const nSources = finding.evidence_ids.length;
-  const nReasoning = finding.reasoning_chain?.length ?? nThink;
-  const tone = verdictTone[finding.verdict] ?? "muted";
-
-  return (
-    <li className="border-b border-border last:border-b-0">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={isOpen}
-        className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-      >
-        <span aria-hidden className="shrink-0 font-mono text-[10px] text-muted-foreground">
-          {isOpen ? "▾" : "▸"}
-        </span>
-        <span className="min-w-0 truncate text-xs font-medium text-foreground">{claimText}</span>
-        <span
-          className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}
-        >
-          {finding.verdict}
-        </span>
-        <span className="col-start-2 col-end-4 flex min-w-0 flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          <TraceMetric value={nSources} label="source" />
-          <TraceMetric value={nReasoning} label="reasoning step" />
-          <TraceMetric value={nSearch} label="search" />
-          {nFetch > 0 && <TraceMetric value={nFetch} label="fetch" />}
-        </span>
-      </button>
-      {isOpen && (
-        <div className="bg-muted/30">
-          <VerdictBrief finding={finding} />
-          <ol className="flex flex-col gap-1 px-3 py-2 pl-7">
-            {steps.map((s) => (
-              <StepItem key={s.id} step={s} highlighted={s.id === highlightedStepId} />
-            ))}
-          </ol>
-        </div>
-      )}
-    </li>
-  );
 }
 
 function VerdictBrief({ finding }: { finding: Finding }) {
@@ -718,15 +1276,6 @@ function reasoningBriefText(step: FindingReasoningStep): string {
   if ("content" in step && step.content) return step.content;
   if ("observation" in step && step.observation) return step.observation;
   return "";
-}
-
-function TraceMetric({ value, label }: { value: number; label: string }) {
-  const displayLabel = pluralizeTraceMetric(label, value);
-  return (
-    <span className="rounded border border-border bg-background px-1.5 py-0.5">
-      <span className="text-foreground">{value}</span> {displayLabel}
-    </span>
-  );
 }
 
 function pluralizeTraceMetric(label: string, value: number): string {

@@ -34,6 +34,10 @@ function reviewPriority(finding: Finding): number {
   return 4;
 }
 
+export function isDerivedFinding(finding: Finding): boolean {
+  return finding.agent !== "UnifiedVerifier";
+}
+
 export function sortFindingsForReview(findings: readonly Finding[]): Finding[] {
   return [...findings].sort((a, b) => {
     // Primary: severity (critical → major → minor) so the most important
