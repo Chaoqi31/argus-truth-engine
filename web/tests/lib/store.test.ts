@@ -47,7 +47,7 @@ describe("argus store", () => {
     expect(s.activeFindingId).toBe("f1");
   });
 
-  it("setJob spotlights an evidence-backed issue before a source-less derived finding", () => {
+  it("setJob spotlights an evidence-backed issue before a same-severity source-less finding", () => {
     useArgusStore.getState().setJob({
       ...minimalJob,
       findings: [
@@ -57,7 +57,7 @@ describe("argus store", () => {
           claim_id: "c1",
           agent: "Consistency",
           verdict: "contradiction",
-          severity: "critical",
+          severity: "major",
           confidence: 1,
           summary: "Two claims contradict each other.",
           evidence_ids: [],

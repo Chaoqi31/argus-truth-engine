@@ -95,6 +95,7 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             f for f in state.get("findings", [])
             if f.agent == "UnifiedVerifier"
             and f.verdict in _HIGH_RISK_VERDICTS
+            and f.confidence < ctx.settings.skeptic_confidence_threshold
             and f.skeptic_review is None
         ]
         if not findings:

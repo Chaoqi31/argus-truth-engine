@@ -161,7 +161,7 @@ function AuditPageContent() {
   const [demoJob, setDemoJob] = useState<Job | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
   const [scenario, setScenario] = useState<Scenario>(() =>
-    params.get("scenario") === "legal" ? "legal" : "nvidia",
+    params.get("scenario") === "nvidia" ? "nvidia" : "legal",
   );
   const demoAbortRef = useRef<AbortController | null>(null);
   // Guards the one-time terminal transition (done/failed) for the live run so
@@ -471,6 +471,7 @@ function AuditPageContent() {
       <DemoIdleScreen
         job={demoJob}
         onRun={runDemo}
+        onSkipToResults={finishDemoNow}
         scenario={scenario}
         onScenarioChange={setScenario}
       />
@@ -946,13 +947,13 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
       return next;
     });
   return (
-    <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+    <ul className="flex max-h-[42vh] shrink-0 flex-col gap-2 overflow-y-auto p-3">
       {findings.map((f) => {
         const isOpen = expanded.has(f.id);
         return (
           <li
             key={f.id}
-            className={`rounded-[var(--radius-card)] border ${sev(f.severity)} text-xs`}
+            className={`overflow-hidden rounded-[var(--radius-card)] border ${sev(f.severity)} text-xs`}
           >
             <button
               type="button"
@@ -1130,8 +1131,8 @@ function toLiveFinding(f: Finding): LiveFinding {
 // note read-only with a single primary action that replays the completed
 // audit through the live UI. No network call — honest, neutral copy.
 const DEMO_SCENARIOS: Array<{ key: Scenario; label: string }> = [
-  { key: "nvidia", label: "Investment research" },
   { key: "legal", label: "Legal filing" },
+  { key: "nvidia", label: "Investment research" },
 ];
 
 const DEMO_COPY: Record<
@@ -1145,8 +1146,8 @@ const DEMO_COPY: Record<
       "Replay how Argus audits a vendor-style NVIDIA research note with planted factual errors, then turns the result into a claim-level review package.",
     checklist: [
       "Claims extracted from the memo",
-      "MiroMind searches and fetched sources streamed live",
-      "Reviewer decisions captured for the final Audit Pack",
+      "Searches + sources streamed live",
+      "Decisions saved to the Audit Pack",
     ],
   },
   legal: {
@@ -1155,9 +1156,9 @@ const DEMO_COPY: Record<
     body:
       "Replay how Argus checks authority, citation fit, and source mismatch before a team relies on generated legal analysis.",
     checklist: [
-      "Questionable citations isolated by claim",
-      "Source trail kept next to each verdict",
-      "Reviewer notes preserved for handoff",
+      "Citations isolated by claim",
+      "Source trail beside each verdict",
+      "Reviewer notes kept for handoff",
     ],
   },
 };
@@ -1165,11 +1166,13 @@ const DEMO_COPY: Record<
 function DemoIdleScreen({
   job,
   onRun,
+  onSkipToResults,
   scenario,
   onScenarioChange,
 }: {
   job: Job;
   onRun: () => void;
+  onSkipToResults: () => void;
   scenario: Scenario;
   onScenarioChange: (s: Scenario) => void;
 }) {
@@ -1264,8 +1267,16 @@ function DemoIdleScreen({
                 </>
               )}
             </button>
+            <button
+              type="button"
+              onClick={onSkipToResults}
+              disabled={starting}
+              className="inline-flex items-center justify-center gap-2 rounded-[12px] border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+            >
+              Skip to final results
+            </button>
             <p className="text-[11px] text-[var(--cc-text-muted)]">
-              No API key needed — this replays a completed audit.
+              No API key needed. Watch the live reasoning replay, or skip straight to the finished audit.
             </p>
           </div>
         </aside>
@@ -1493,7 +1504,15 @@ function AuditInputPage() {
                 />
                 {domainSelect}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{textInput.length.toLocaleString()} characters</span>
+                  <span
+                    className={`text-xs ${
+                      textInput.trim().length < 50 ? "text-warning-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    {textInput.trim().length < 50
+                      ? `${textInput.length.toLocaleString()} / 50 characters minimum`
+                      : `${textInput.length.toLocaleString()} characters`}
+                  </span>
                   <button
                     type="button"
                     onClick={onSubmitText}
@@ -1532,7 +1551,7 @@ function AuditInputPage() {
               disabled={loading !== null}
               className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
             >
-              {loading === "sample" ? "Loading…" : "Try the investment research walkthrough (no key needed)"}
+              {loading === "sample" ? "Loading…" : "Try a sample walkthrough — no key needed"}
             </button>
           </div>
         </div>

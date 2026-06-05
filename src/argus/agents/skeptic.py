@@ -93,7 +93,10 @@ async def run_skeptic(
         client=client,
         model_cls=SkepticOutput,
         agent_name="skeptic",
-        max_output_tokens=3000,
+        # Deep-research skeptic spends its output budget on reasoning + tool
+        # calls before emitting the final JSON; 3000 starves it (empty output →
+        # JsonRepairFailed → the node silently skips). 8000 lets it finish.
+        max_output_tokens=8000,
     )
     return await runner.run(
         instructions=SYSTEM_PROMPT,
