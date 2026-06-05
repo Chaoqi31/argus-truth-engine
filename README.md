@@ -12,7 +12,7 @@ Argus returns **every factual claim**, a **verdict** on each, and a
 **reviewer-ready reasoning trail** you can click through and verify.
 
 [![Website](https://img.shields.io/badge/website-live-7132f5)](https://argus-truth-engine.vercel.app)
-[![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://platform.miromind.ai/)
+[![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
@@ -253,6 +253,6 @@ cd web && pnpm test       # frontend tests
 
 ## Acknowledgements
 
-- **[MiroMind](https://platform.miromind.ai/)** for the `mirothinker-1-7-deepresearch` model
+- **[MiroMind](https://www.miromind.ai/)** for the `mirothinker-1-7-deepresearch` model
 - **[UCWS Singapore](https://www.ucws.sg/)** for hosting the hackathon
 - **[LangGraph](https://github.com/langchain-ai/langgraph)** for the orchestration primitives

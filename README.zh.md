@@ -11,7 +11,7 @@
 **每一个事实性声明**、**每条声明的判决**，以及一条**可逐步点开核实的推理链**。
 
 [![Website](https://img.shields.io/badge/website-live-7132f5)](https://argus-truth-engine.vercel.app)
-[![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://platform.miromind.ai/)
+[![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
@@ -234,6 +234,6 @@ cd web && pnpm test       # 前端测试
 
 ## 致谢
 
-- **[MiroMind](https://platform.miromind.ai/)** 提供 `mirothinker-1-7-deepresearch` 模型
+- **[MiroMind](https://www.miromind.ai/)** 提供 `mirothinker-1-7-deepresearch` 模型
 - **[UCWS Singapore](https://www.ucws.sg/)** 主办本次黑客松
 - **[LangGraph](https://github.com/langchain-ai/langgraph)** 提供 agent 编排原语
