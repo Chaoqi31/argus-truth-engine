@@ -207,6 +207,7 @@ WebSocket — `InProcessBus` for single-instance, Redis pub/sub for multi-instan
 ```bash
 # Backend — fill ARGUS_MIROMIND_API_KEY in .env, or skip (the UI accepts BYOK)
 cp .env.example .env
+docker compose up -d postgres   # required if you keep ARGUS_DB_URL from .env.example
 uv sync
 uv run argus serve --host 127.0.0.1 --port 8080
 

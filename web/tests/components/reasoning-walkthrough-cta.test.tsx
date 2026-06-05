@@ -155,13 +155,13 @@ describe("ReasoningWalkthroughCta", () => {
     expect(onStart).toHaveBeenCalledWith("f_bad");
     expect(screen.getByText(/fabricated/i)).toBeInTheDocument();
     expect(screen.getByText(/3 steps/i)).toBeInTheDocument();
-    expect(screen.getByText(/120 reasoning tokens/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 tool calls/i)).toBeInTheDocument();
     expect(screen.getByText(/2 searches/i)).toBeInTheDocument();
     expect(screen.getByText(/2 sources/i)).toBeInTheDocument();
+    expect(screen.queryByText(/reasoning tokens/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tool calls/i)).not.toBeInTheDocument();
   });
 
-  it("falls back to total tokens when reasoning tokens are not reported", () => {
+  it("keeps token counts out of the conclusion layer", () => {
     const job = makeJob();
     const traces = job.traces.map((trace) =>
       trace.id === "t_bad" ? { ...trace, total_tokens: 500, reasoning_tokens: 0 } : trace,
@@ -169,7 +169,7 @@ describe("ReasoningWalkthroughCta", () => {
 
     render(<ReasoningWalkthroughCta job={{ ...job, traces }} onStart={vi.fn()} />);
 
-    expect(screen.getByText(/500 total tokens/i)).toBeInTheDocument();
+    expect(screen.queryByText(/500 total tokens/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 reasoning tokens/i)).not.toBeInTheDocument();
   });
 

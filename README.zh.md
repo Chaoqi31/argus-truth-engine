@@ -190,6 +190,7 @@ SQLAlchemy 2.0 异步 ORM（开发/测试用 aiosqlite,生产用 asyncpg + Postg
 ```bash
 # 后端 —— 在 .env 里填 ARGUS_MIROMIND_API_KEY,或跳过（UI 支持 BYOK 自带 key）
 cp .env.example .env
+docker compose up -d postgres   # 如果保留 .env.example 里的 ARGUS_DB_URL,需要先启动
 uv sync
 uv run argus serve --host 127.0.0.1 --port 8080
 

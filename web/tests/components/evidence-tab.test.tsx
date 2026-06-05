@@ -184,7 +184,7 @@ describe("EvidenceTab", () => {
     render(<EvidenceTab job={job} findingId="f1" />);
     expect(screen.getByText(/Transparency checklist/i)).toBeInTheDocument();
     expect(screen.getByText(/7\/7 controls present/i)).toBeInTheDocument();
-    expect(screen.getByText(/MiroMind trace/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reasoning trace/i)).toBeInTheDocument();
     expect(screen.getByText(/Evidence-to-step provenance/i)).toBeInTheDocument();
     expect(screen.getByText(/Claimed vs verified/i)).toBeInTheDocument();
     expect(screen.getAllByText(/authoritative registries/).length).toBeGreaterThan(0);
@@ -218,6 +218,78 @@ describe("EvidenceTab", () => {
     expect(useArgusStore.getState().findingReviews.f1?.note).toBe(
       "Accepted for committee pack.",
     );
+  });
+
+  it("explains source-less derived pipeline findings", () => {
+    const derivedJob: Job = {
+      ...job,
+      claims: [
+        ...job.claims,
+        {
+          id: "c2",
+          text: "The brief draws an unsupported legal inference.",
+          page: 1,
+          span: [23, 68],
+          type: "qualitative",
+          importance: "high",
+          extracted_metadata: {},
+        },
+      ],
+      findings: [
+        ...job.findings,
+        {
+          id: "f2",
+          job_id: "j1",
+          claim_id: "c2",
+          agent: "Consistency",
+          verdict: "unsupported-inference",
+          severity: "major",
+          confidence: 0.95,
+          summary: "The inference is not supported by the verified claims.",
+          why_wrong: "The brief extends beyond the holdings verified elsewhere.",
+          evidence_ids: [],
+          reasoning_trace_id: "t2",
+          related_finding_ids: [],
+          created_at: "2026-05-20T00:00:00Z",
+        },
+      ],
+      traces: [
+        ...job.traces,
+        {
+          id: "t2",
+          job_id: "j1",
+          claim_id: "c2",
+          agent: "Consistency",
+          miromind_response_id: "deepseek:consistency",
+          started_at: "2026-05-20T00:00:00Z",
+          completed_at: null,
+          total_tokens: 40,
+          reasoning_tokens: 0,
+          num_search_queries: 0,
+          final_verdict_step_id: null,
+          steps: [
+            {
+              id: "s2",
+              trace_id: "t2",
+              sequence: 1,
+              type: "message",
+              summary: "Checked claim against verified holdings.",
+              content: {},
+              evidence_ids: [],
+              parent_step_id: null,
+              created_at: "2026-05-20T00:00:00Z",
+            },
+          ],
+        },
+      ],
+    };
+
+    render(<EvidenceTab job={derivedJob} findingId="f2" />);
+
+    expect(screen.getByText(/Derived pipeline finding/i)).toBeInTheDocument();
+    expect(screen.getByText(/rather than a new external-source lookup/i)).toBeInTheDocument();
+    expect(screen.getByText(/1\/1 controls present/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/does not create new external-source evidence/i).length).toBeGreaterThan(0);
   });
 
   it("renders empty state if findingId not found", () => {

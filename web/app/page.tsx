@@ -269,7 +269,7 @@ export default function HomePage() {
             <p
               className={`mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground transition-[transform,opacity,filter] duration-[640ms] delay-[80ms] ease-enter ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-3 opacity-0 blur-[6px]"}`}
             >
-              Upload an AI-generated research, legal, or governance report.
+              Upload an AI-generated research note, legal brief, or governance report.
               Get claim-level verdicts, cited evidence, and a reviewer-ready
               reasoning trail before your team signs off.
             </p>
@@ -280,7 +280,7 @@ export default function HomePage() {
             >
               <StatPoint value={1536} label="AI-hallucination legal cases" trigger={heroVisible} delay={220} />
               <div className="h-10 w-px bg-border" />
-              <StatPoint value={95} suffix="%" label="GenAI pilots, no return" trigger={heroVisible} delay={300} />
+              <StatPoint value={95} suffix="%" label="GenAI pilots show no return" trigger={heroVisible} delay={300} />
               <div className="h-10 w-px bg-border" />
               <StatPoint value={30} suffix="%" label="GenAI projects abandoned" trigger={heroVisible} delay={380} />
             </div>
@@ -372,7 +372,7 @@ export default function HomePage() {
             <FeatureCard
               icon={BookIcon}
               title="Fabricated references"
-              body="Searches academic and public registries — such as Crossref, arXiv, and SSRN — to confirm a cited work actually exists. Papers, cases, or filings that don't get flagged."
+              body="Searches academic and public registries — such as Crossref, arXiv, and SSRN — to confirm a cited work actually exists. Missing papers, cases, or filings get flagged."
               trigger={featuresVisible}
               delay={0}
             />

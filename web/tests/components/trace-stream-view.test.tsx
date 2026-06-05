@@ -161,7 +161,7 @@ describe("TraceStreamView", () => {
     const verifyStage = screen
       .getAllByRole("button")
       .find((button) => button.textContent?.includes("★ MiroMind"));
-    expect(verifyStage).toHaveAttribute("aria-expanded", "true");
+    expect(verifyStage).toHaveAttribute("aria-expanded", "false");
     expect(screen.getAllByText(/Silicon Supercycle/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/fabricated/i).length).toBeGreaterThan(0);
 
@@ -169,14 +169,20 @@ describe("TraceStreamView", () => {
     expect(text).toContain("2 sources");
     expect(text).toContain("2 reasoning steps");
     expect(text).toContain("3 searches");
-    expect(text).toContain("Verdict brief");
-    expect(text).toContain("Why wrong");
-    expect(text).toContain("Correct");
-    expect(text).toContain("Tracking Trillions");
-    expect(text.indexOf("Silicon Supercycle")).toBeLessThan(
-      text.indexOf("data-center segment"),
+    expect(text).toContain("Start here");
+    expect(text).toContain("What Argus proved");
+    expect(text).toContain("Forensic trail");
+
+    fireEvent.click(verifyStage!);
+    const expandedText = container.textContent ?? "";
+    expect(expandedText).toContain("Verdict brief");
+    expect(expandedText).toContain("Why wrong");
+    expect(expandedText).toContain("Correct");
+    expect(expandedText).toContain("Tracking Trillions");
+    expect(expandedText.indexOf("Silicon Supercycle")).toBeLessThan(
+      expandedText.indexOf("data-center segment"),
     );
-    expect(text.indexOf("Verdict brief")).toBeLessThan(text.indexOf("Reasoning checkpoint 1"));
+    expect(expandedText.indexOf("Verdict brief")).toBeLessThan(expandedText.indexOf("Reasoning checkpoint 1"));
   });
 
   it("explains the skeptic challenge stage with review outcomes and counterevidence", () => {

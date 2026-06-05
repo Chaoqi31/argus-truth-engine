@@ -28,7 +28,8 @@ import { loadSampleJob, type Scenario } from "@/lib/load-job";
 import { replayTrace } from "@/lib/trace-replayer";
 import { buildAuditPackMarkdown } from "@/lib/audit-pack";
 import { orderFindingsForDemoReplay } from "@/lib/demo-replay";
-import type { FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step, StepType } from "@/lib/types";
+import { sortFindingsForReview } from "@/lib/findings";
+import type { Claim, FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step, StepType } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
 import { FindingDrawer } from "@/components/cockpit/finding-drawer";
@@ -650,11 +651,11 @@ function AuditPageContent() {
           onKeyStep={(dir) => setDocW((w) => clampPx(w + dir * 24, COCKPIT_DOC_MIN, COCKPIT_DOC_MAX))}
         />
 
-        {/* Zone 2 — findings as premium cards */}
+        {/* Zone 2 — review queue */}
         <section className="flex min-h-0 flex-col border-[var(--cc-border)] lg:border-l">
           <div className="flex items-center gap-2 border-b border-[var(--cc-border)] bg-muted px-4 py-2.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Findings
+              Review queue
             </span>
             <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
               {job.findings.length}
@@ -673,9 +674,12 @@ function AuditPageContent() {
           onKeyStep={(dir) => setConsoleW((w) => clampPx(w - dir * 24, COCKPIT_CONSOLE_MIN, COCKPIT_CONSOLE_MAX))}
         />
 
-        {/* Zone 3 — reasoning console (evidence / trace) */}
+        {/* Zone 3 — evidence and trace */}
         <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
-          <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
+          <div className="flex items-center gap-2 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
+            <span className="hidden shrink-0 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground xl:inline">
+              Evidence trail
+            </span>
             <ConsoleToggle current={consoleMode} onChange={setConsoleMode} />
           </div>
           <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
@@ -768,6 +772,8 @@ function VerdictHero({
   if (sev.critical) counts.push({ n: sev.critical, label: "critical", color: "var(--cc-danger)" });
   if (sev.major) counts.push({ n: sev.major, label: "major", color: "var(--cc-warn)" });
   if (sev.minor) counts.push({ n: sev.minor, label: "minor", color: "var(--cc-text-muted)" });
+  const topFinding = sortFindingsForReview(issueFindings.length > 0 ? issueFindings : job.findings)[0] ?? null;
+  const topClaim = topFinding ? job.claims.find((claim) => claim.id === topFinding.claim_id) ?? null : null;
 
   return (
     <section
@@ -780,6 +786,9 @@ function VerdictHero({
         style={{ color: toneColor[tone], backgroundColor: toneColor[tone] }}
       />
       <div className="relative min-w-0 flex-1">
+        <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Conclusion
+        </p>
         <BlurText
           key={headline}
           text={headline}
@@ -810,6 +819,8 @@ function VerdictHero({
           </p>
         )}
       </div>
+
+      <ReviewFirstCard finding={topFinding} claim={topClaim} />
 
       <div className="hidden shrink-0 items-center gap-5 sm:flex">
         {counts.length > 0 && (
@@ -842,6 +853,35 @@ function VerdictHero({
         <ReasoningWalkthroughCta job={job} onStart={onStartReasoningWalkthrough} />
       </div>
     </section>
+  );
+}
+
+function ReviewFirstCard({ finding, claim }: { finding: Finding | null; claim: Claim | null }) {
+  if (!finding) return null;
+  const rationale = finding.why_wrong ?? finding.summary;
+
+  return (
+    <div className="hidden min-w-[18rem] max-w-[32rem] shrink lg:block">
+      <div className="rounded-md border border-border bg-background/80 px-3 py-2 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
+            Review first
+          </span>
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {finding.severity}
+          </span>
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {Math.round(finding.confidence * 100)}%
+          </span>
+        </div>
+        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-snug text-foreground">
+          {claim?.text ?? finding.summary}
+        </p>
+        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+          {rationale}
+        </p>
+      </div>
+    </div>
   );
 }
 

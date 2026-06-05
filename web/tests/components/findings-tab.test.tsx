@@ -134,6 +134,8 @@ describe("FindingsTab", () => {
     render(<FindingsTab job={reviewJob} activeFindingId={null} onSelect={() => undefined} onOpenDrawer={() => undefined} />);
 
     expect(screen.getAllByRole("button")[0]?.textContent).toMatch(/No record in Crossref/);
+    expect(screen.getByText("Derived")).toBeInTheDocument();
+    expect(screen.getByText(/derived finding/i)).toBeInTheDocument();
   });
 
   it("shows reviewer status on finding cards", () => {

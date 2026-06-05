@@ -151,7 +151,7 @@ describe("buildAuditPackMarkdown", () => {
 
     expect(markdown).toContain("## Auditability Controls");
     expect(markdown).toContain("- Controls present: 6/6");
-    expect(markdown).toContain("| MiroMind trace | 1/1 | 0 |");
+    expect(markdown).toContain("| Reasoning trace | 1/1 | 0 |");
     expect(markdown).toContain("| Evidence-to-step provenance | 1/1 | 0 |");
     expect(markdown).toContain("| Computation replay | n/a | n/a |");
   });
@@ -247,7 +247,7 @@ describe("buildAuditPackMarkdown", () => {
 
     expect(markdown).toContain("## Auditability Gap Register");
     expect(markdown).toContain("- Fully audit-ready findings: 1/2");
-    expect(markdown).toContain("| f_gap | ok | A second claim without a saved audit trail. | MiroMind trace; Linked evidence; Evidence-to-step provenance; Claim coverage matrix; Source-quality scoring |");
+    expect(markdown).toContain("| f_gap | ok | A second claim without a saved audit trail. | Reasoning trace; Linked evidence; Evidence-to-step provenance; Claim coverage matrix; Source-quality scoring |");
   });
 
   it("exports execution controls that demonstrate the runtime architecture", () => {

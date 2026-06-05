@@ -129,6 +129,7 @@ describe("JobStatsBar", () => {
 
     expect(screen.getByText("6")).toBeInTheDocument();
     expect(screen.getByText("tool calls")).toBeInTheDocument();
+    expect(screen.queryByText(/technical details/i)).not.toBeInTheDocument();
   });
 
   it("summarizes reviewer decisions for findings", () => {

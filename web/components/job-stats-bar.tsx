@@ -43,12 +43,22 @@ function buildStats(job: Job): Stat[] {
   );
   const totalToolCalls = toolTotals.searches + toolTotals.fetches + toolTotals.codeSteps;
   const contentDomain = job.content_domain ?? "general";
+  const total = job.claims_total ?? 0;
+  const audited = job.claims_audited ?? 0;
+  const hasCoverage = total > 0;
 
   const stats: Stat[] = [
     {
-      label: "claims",
-      value: String(job.claims.length),
-      hint: "Distinct factual statements extracted from the PDF by the Planner agent.",
+      label: hasCoverage ? "claims checked" : "claims",
+      value: hasCoverage ? `${audited}/${total}` : String(job.claims.length),
+      detail: hasCoverage && audited < total ? "partial coverage" : undefined,
+      detailTone: "warning",
+      warn: hasCoverage && audited < total,
+      hint: hasCoverage
+        ? audited < total
+          ? "Partial coverage — the audit stopped before every selected claim was verified (e.g. budget cap or an unparseable result)."
+          : "Every selected claim received a verdict."
+        : "Distinct factual statements extracted from the PDF by the Planner agent.",
     },
     {
       label: "findings",
@@ -56,35 +66,22 @@ function buildStats(job: Job): Stat[] {
       hint: "Verdicts from the autonomous verifier (one per checked claim) plus the consistency checker's cross-claim contradictions.",
     },
     {
-      label: "domain",
-      value: contentDomain,
-      hint: "Content domain used to steer source selection, verifier hints, and cache keys.",
+      label: "evidence",
+      value: String(job.evidences.length),
+      hint: "Independent sources fetched and cited across all findings.",
     },
-  ];
-
-  // Audit coverage — surfaces partial runs (e.g. budget cap) instead of
-  // letting an incomplete audit look complete.
-  const total = job.claims_total ?? 0;
-  if (total > 0) {
-    const audited = job.claims_audited ?? 0;
-    stats.push({
-      label: "audited",
-      value: `${audited}/${total}`,
-      detail: audited < total ? "partial coverage" : undefined,
-      detailTone: "warning",
-      warn: audited < total,
-      hint:
-        audited < total
-          ? "Partial coverage — the audit stopped before every selected claim was verified (e.g. budget cap or an unparseable result)."
-          : "Every selected claim received a verdict.",
-    });
-  }
-
-  stats.push(
     {
       label: "reasoning steps",
       value: String(totalSteps),
       hint: "Total agent actions (thinking, searches, fetches, code) taken to reach every verdict.",
+    },
+  ];
+
+  stats.push(
+    {
+      label: "domain",
+      value: contentDomain,
+      hint: "Content domain used to steer source selection, verifier hints, and cache keys.",
     },
   );
 
@@ -95,13 +92,6 @@ function buildStats(job: Job): Stat[] {
       hint: "MiroMind deep-research tools used while verifying claims: web searches, fetched pages, and code execution.",
     });
   }
-
-  stats.push({
-    label: "evidence",
-    value: String(job.evidences.length),
-    hint: "Independent sources fetched and cited across all findings.",
-  });
-
   return stats;
 }
 
@@ -132,30 +122,36 @@ export function JobStatsBar({ job }: Props) {
   return (
     <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-1 border-b border-border bg-muted/40 px-6 py-2.5">
       {stats.map((s, i) => (
-        <div key={s.label} className="flex items-baseline gap-1.5">
-          <span
-            className="font-mono text-sm font-semibold tabular-nums"
-            style={s.warn ? { color: "var(--color-warning-foreground)" } : undefined}
-          >
-            {s.value}
-          </span>
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground" title={s.hint}>
-            {s.label}
-          </span>
-          {s.detail && (
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-                s.detailTone === "muted"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-warning/15 text-warning-foreground"
-              }`}
-            >
-              {s.detail}
-            </span>
-          )}
-          {i < stats.length - 1 && <span aria-hidden className="text-border">·</span>}
-        </div>
+        <StatItem key={s.label} stat={s} showDivider={i < stats.length - 1} />
       ))}
+    </div>
+  );
+}
+
+function StatItem({ stat, showDivider }: { stat: Stat; showDivider: boolean }) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span
+        className="font-mono text-sm font-semibold tabular-nums"
+        style={stat.warn ? { color: "var(--color-warning-foreground)" } : undefined}
+      >
+        {stat.value}
+      </span>
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground" title={stat.hint}>
+        {stat.label}
+      </span>
+      {stat.detail && (
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
+            stat.detailTone === "muted"
+              ? "bg-muted text-muted-foreground"
+              : "bg-warning/15 text-warning-foreground"
+          }`}
+        >
+          {stat.detail}
+        </span>
+      )}
+      {showDivider && <span aria-hidden className="text-border">·</span>}
     </div>
   );
 }

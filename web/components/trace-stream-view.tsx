@@ -270,7 +270,7 @@ const STAGE_BLURB: Record<string, string> = {
 };
 
 function StaticReplay({ job }: { job: Job | null }) {
-  const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set(["verify"]));
+  const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set());
   const highlightedStepId = useArgusStore((s) => s.highlightedStepId);
 
   if (!job) {
@@ -332,13 +332,17 @@ function StaticReplay({ job }: { job: Job | null }) {
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Audit pipeline
+          Reasoning walkthrough
         </span>
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {stages.length} stages · {totalSearches} web searches
+          summary first · {stages.length} stages · {totalSearches} web searches
         </span>
       </div>
+      {groups[0] && <ReasoningFocus group={groups[0]} />}
       <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="border-b border-border bg-muted/20 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Forensic trail
+        </div>
         <ol className="flex flex-col">
           {stages.map((s, i) => (
             <StageItem
@@ -355,6 +359,55 @@ function StaticReplay({ job }: { job: Job | null }) {
         </ol>
       </div>
     </div>
+  );
+}
+
+function ReasoningFocus({ group }: { group: ClaimGroup }) {
+  const { finding, claimText, steps } = group;
+  const nSearch = steps.filter((s) => s.type === "web_search").length;
+  const nFetch = steps.filter((s) => s.type === "fetch_url_content").length;
+  const nSources = finding.evidence_ids.length;
+  const nReasoning = finding.reasoning_chain?.length ?? 0;
+  const tone = verdictTone[finding.verdict] ?? "muted";
+  const proof = finding.why_wrong ?? finding.summary;
+
+  return (
+    <section className="border-b border-border bg-background px-3 py-3">
+      <div className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
+            Start here
+          </span>
+          <span className={`rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium capitalize ${TONE_BADGE[tone]}`}>
+            {finding.verdict}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {nSources > 0
+              ? `${nSources} ${pluralizeTraceMetric("source", nSources)}`
+              : "trace-backed"}
+            {nSearch > 0 ? ` · ${nSearch} ${pluralizeTraceMetric("search", nSearch)}` : ""}
+            {nFetch > 0 ? ` · ${nFetch} ${pluralizeTraceMetric("fetch", nFetch)}` : ""}
+          </span>
+        </div>
+        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-snug text-foreground">
+          {claimText}
+        </p>
+        <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">What Argus proved: </span>
+          {proof}
+        </p>
+        {finding.correct_information?.value && (
+          <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Correct: </span>
+            {finding.correct_information.value}
+          </p>
+        )}
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Open stages below: {nReasoning} {pluralizeTraceMetric("reasoning step", nReasoning)}
+          {nSearch > 0 ? ` · ${nSearch} ${pluralizeTraceMetric("search", nSearch)}` : ""}
+        </p>
+      </div>
+    </section>
   );
 }
 

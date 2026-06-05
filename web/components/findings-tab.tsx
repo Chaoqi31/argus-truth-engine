@@ -37,7 +37,7 @@ export function FindingsTab({ job, activeFindingId, onSelect, onOpenDrawer }: Pr
   return (
     <div className="flex flex-col gap-2 p-3">
       <p className="px-1 text-[11px] text-muted-foreground">
-        Sorted by review priority, severity, verdict risk, then confidence.
+        Highest-risk findings first.
       </p>
       {partial && (
         <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
