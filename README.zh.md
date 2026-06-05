@@ -10,13 +10,14 @@
 上传一份 AI 生成的研究报告、法律诉状或治理备忘录。Argus 还给你
 **每一个事实性声明**、**每条声明的判决**，以及一条**可逐步点开核实的推理链**。
 
-[![Live demo](https://img.shields.io/badge/demo-live-7132f5)](https://argus-truth-engine.vercel.app)
+[![Website](https://img.shields.io/badge/website-live-7132f5)](https://argus-truth-engine.vercel.app)
+[![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://platform.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[在线演示](https://argus-truth-engine.vercel.app)** · **演示视频** _（提交时附链接）_ · **[English](README.md)** · **[简体中文](README.zh.md)**
+**[项目网站](https://argus-truth-engine.vercel.app)** · **[演示视频](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
 
 </div>
 
@@ -29,7 +30,7 @@ AI 治理团队和买方分析师。你交给它一份 PDF 或粘贴一段文本
 自主深度研究逐条验证，并为每条声明返回判决、置信度、引用证据和可读的推理 trace。它的
 产出不只是一个分数 —— 而是一条人能读懂、能质疑、能归档的证据链。
 
-现在就试：打开 **[在线演示](https://argus-truth-engine.vercel.app)**，点击
+现在就试：打开 **[项目网站](https://argus-truth-engine.vercel.app)**，点击
 **See a sample audit** —— 它会回放一次真实录制的审计，无需 API key。
 
 ## 我们要解决什么

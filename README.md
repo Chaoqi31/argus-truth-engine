@@ -11,13 +11,14 @@ Upload an AI-generated research note, legal brief, or governance memo.
 Argus returns **every factual claim**, a **verdict** on each, and a
 **reviewer-ready reasoning trail** you can click through and verify.
 
-[![Live demo](https://img.shields.io/badge/demo-live-7132f5)](https://argus-truth-engine.vercel.app)
+[![Website](https://img.shields.io/badge/website-live-7132f5)](https://argus-truth-engine.vercel.app)
+[![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://platform.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[Live demo](https://argus-truth-engine.vercel.app)** · **Demo video** _(link in submission)_ · **[English](README.md)** · **[简体中文](README.zh.md)**
+**[Website](https://argus-truth-engine.vercel.app)** · **[Demo video](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
 
 </div>
 
@@ -32,7 +33,7 @@ with autonomous deep research, and returns a verdict, confidence score, cited
 evidence, and a readable reasoning trace. The output is not just a score — it is
 a chain of evidence a human can read, challenge, and file.
 
-Try it: open the **[live demo](https://argus-truth-engine.vercel.app)** and hit
+Try it: open the **[website](https://argus-truth-engine.vercel.app)** and hit
 **See a sample audit** — it replays a real recorded audit, no API key needed.
 
 ## The problem
