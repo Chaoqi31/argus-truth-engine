@@ -2,6 +2,7 @@
 
 import { type CSSProperties, Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useArgusStore, type ConsoleMode } from "@/lib/store";
 import { ArgusHeader } from "@/components/argus-header";
@@ -22,14 +23,13 @@ import {
   UnsupportedMediaTypeError,
   ArgusApiError,
   JobNotFoundError,
-  type ContentDomain,
 } from "@/lib/api";
 import { loadSampleJob, type Scenario } from "@/lib/load-job";
 import { replayTrace } from "@/lib/trace-replayer";
-import { buildAuditPackMarkdown } from "@/lib/audit-pack";
+import { buildAuditPackMarkdown, buildEvidenceStationJson } from "@/lib/audit-pack";
 import { orderFindingsForDemoReplay } from "@/lib/demo-replay";
 import { sortFindingsForReview } from "@/lib/findings";
-import type { Claim, FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step, StepType } from "@/lib/types";
+import type { FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step, StepType } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
 import { FindingDrawer } from "@/components/cockpit/finding-drawer";
@@ -55,6 +55,9 @@ const PdfViewer = dynamic(
     ),
   },
 );
+
+const DEMO_START_LINK =
+  "inline-flex items-center justify-center rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary";
 
 /** Global ⌘K / Ctrl+K listener that toggles the command palette. */
 function useCommandPaletteHotkey() {
@@ -183,8 +186,8 @@ function AuditPageContent() {
       );
     } else if (fmt === "json") {
       downloadText(
-        `argus-evidence-${exportId}.json`,
-        JSON.stringify({ ...job, reviewer_decisions: findingReviews }, null, 2),
+        `argus-evidence-station-${exportId}.json`,
+        buildEvidenceStationJson(job, findingReviews),
         "application/json",
       );
     } else {
@@ -338,6 +341,14 @@ function AuditPageContent() {
   // Abort any in-flight demo playback if the page unmounts mid-stream.
   useEffect(() => () => demoAbortRef.current?.abort(), []);
 
+  // /audit must always mean "start a new audit". Without this, a finished demo
+  // left in the client store can make the Start auditing CTA reopen the old demo.
+  useEffect(() => {
+    if (liveId || demo || !job) return;
+    demoAbortRef.current?.abort();
+    clearStore();
+  }, [liveId, demo, job, clearStore]);
+
   // Drive the live store from the held fixture so the demo *feels* like a
   // real-time audit: reset live state, stream the merged trace steps with the
   // shared replayer's timed reveal, surface findings progressively as steps
@@ -463,6 +474,11 @@ function AuditPageContent() {
     setDemoRunning(false);
   };
 
+  const startAuditingFromDemo = () => {
+    demoAbortRef.current?.abort();
+    clearStore();
+  };
+
   const isTextMode = params.get("mode") === "text" || job?.input_mode === "text";
 
   // Demo idle screen: fixture loaded but not yet running — show the source
@@ -499,6 +515,11 @@ function AuditPageContent() {
         <ArgusHeader
           rightSlot={
             <div className="flex items-center gap-2">
+              {demoRunning && demoJob && (
+                <Link href="/audit" onClick={startAuditingFromDemo} className={DEMO_START_LINK}>
+                  Start auditing
+                </Link>
+              )}
               {demoRunning && demoJob && (
                 <DemoRunControls onShowFullAudit={finishDemoNow} />
               )}
@@ -560,8 +581,9 @@ function AuditPageContent() {
     );
   }
 
-  // No live job, no demo, no existing job → show the input page
-  if (!liveId && !demo && !job) {
+  // No live job and no demo flag → always show the input page, even if a
+  // previous demo/live result is still present in the client store.
+  if (!liveId && !demo) {
     return <AuditInputPage />;
   }
 
@@ -586,7 +608,7 @@ function AuditPageContent() {
   };
 
   const onClaimClick = (claimId: string) => {
-    const f = job.findings.find((f) => f.claim_id === claimId);
+    const f = sortFindingsForReview(job.findings).find((f) => f.claim_id === claimId);
     if (f) selectFinding(f.id);
   };
 
@@ -607,6 +629,11 @@ function AuditPageContent() {
               >
                 <span aria-hidden>↻</span> Replay
               </button>
+            )}
+            {demo === "1" && (
+              <Link href="/audit" onClick={startAuditingFromDemo} className={DEMO_START_LINK}>
+                Start auditing
+              </Link>
             )}
             <PaletteHint />
             <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
@@ -686,7 +713,7 @@ function AuditPageContent() {
             {consoleMode === "evidence" ? (
               <EvidenceTab job={job} findingId={activeFindingId} />
             ) : (
-              <TraceStreamView job={job} />
+              <TraceStreamView job={job} activeFindingId={activeFindingId} />
             )}
           </div>
         </aside>
@@ -772,8 +799,6 @@ function VerdictHero({
   if (sev.critical) counts.push({ n: sev.critical, label: "critical", color: "var(--cc-danger)" });
   if (sev.major) counts.push({ n: sev.major, label: "major", color: "var(--cc-warn)" });
   if (sev.minor) counts.push({ n: sev.minor, label: "minor", color: "var(--cc-text-muted)" });
-  const topFinding = sortFindingsForReview(issueFindings.length > 0 ? issueFindings : job.findings)[0] ?? null;
-  const topClaim = topFinding ? job.claims.find((claim) => claim.id === topFinding.claim_id) ?? null : null;
 
   return (
     <section
@@ -820,8 +845,6 @@ function VerdictHero({
         )}
       </div>
 
-      <ReviewFirstCard finding={topFinding} claim={topClaim} />
-
       <div className="hidden shrink-0 items-center gap-5 sm:flex">
         {counts.length > 0 && (
           <>
@@ -853,35 +876,6 @@ function VerdictHero({
         <ReasoningWalkthroughCta job={job} onStart={onStartReasoningWalkthrough} />
       </div>
     </section>
-  );
-}
-
-function ReviewFirstCard({ finding, claim }: { finding: Finding | null; claim: Claim | null }) {
-  if (!finding) return null;
-  const rationale = finding.why_wrong ?? finding.summary;
-
-  return (
-    <div className="hidden min-w-[18rem] max-w-[32rem] shrink lg:block">
-      <div className="rounded-md border border-border bg-background/80 px-3 py-2 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
-            Review first
-          </span>
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {finding.severity}
-          </span>
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {Math.round(finding.confidence * 100)}%
-          </span>
-        </div>
-        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-snug text-foreground">
-          {claim?.text ?? finding.summary}
-        </p>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
-          {rationale}
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -1217,10 +1211,17 @@ function DemoIdleScreen({
   onScenarioChange: (s: Scenario) => void;
 }) {
   const [starting, setStarting] = useState(false);
+  const clearStore = useArgusStore((s) => s.clear);
   const copy = DEMO_COPY[scenario];
   return (
     <div className="cockpit cc-backdrop min-h-screen">
-      <ArgusHeader />
+      <ArgusHeader
+        rightSlot={
+          <Link href="/audit" onClick={clearStore} className={DEMO_START_LINK}>
+            Start auditing
+          </Link>
+        }
+      />
       {job.scenario_label && job.persona && (
         <ScenarioBanner label={job.scenario_label} persona={job.persona} />
       )}
@@ -1406,10 +1407,10 @@ function ColumnResizeHandle({
 function AuditInputPage() {
   const router = useRouter();
   const resetLive = useArgusStore((s) => s.resetLive);
+  const clearStore = useArgusStore((s) => s.clear);
   const [apiKey, setApiKey] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "pdf">("text");
   const [textInput, setTextInput] = useState("");
-  const [contentDomain, setContentDomain] = useState<ContentDomain>("general");
   const [loading, setLoading] = useState<"upload" | "sample" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -1418,8 +1419,13 @@ function AuditInputPage() {
   const trySample = () => {
     setLoading("sample");
     setError(null);
-    resetLive();
+    clearStore();
     router.push("/audit?demo=1");
+  };
+
+  const prepareSampleLink = () => {
+    setError(null);
+    clearStore();
   };
 
   const onSubmitText = async () => {
@@ -1428,7 +1434,7 @@ function AuditInputPage() {
     setLoading("upload");
     setError(null);
     try {
-      const { job_id } = await submitText(textInput, apiKey, { contentDomain });
+      const { job_id } = await submitText(textInput, apiKey);
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}&mode=text`);
     } catch (e) {
@@ -1450,7 +1456,7 @@ function AuditInputPage() {
     setLoading("upload");
     setError(null);
     try {
-      const { job_id } = await uploadPdf(file, apiKey, { contentDomain });
+      const { job_id } = await uploadPdf(file, apiKey);
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
@@ -1462,36 +1468,22 @@ function AuditInputPage() {
     }
   };
 
-  const domainSelect = (
-    <div className="flex items-center gap-2">
-      <label htmlFor="domain-select" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-        Content domain
-      </label>
-      <select
-        id="domain-select"
-        value={contentDomain}
-        onChange={(e) => setContentDomain(e.target.value as ContentDomain)}
-        disabled={loading !== null}
-        className="cursor-pointer rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-      >
-        <option value="general">General</option>
-        <option value="academic">Academic</option>
-        <option value="medical">Medical</option>
-        <option value="legal">Legal</option>
-        <option value="finance">Finance</option>
-        <option value="technology">Technology</option>
-        <option value="news">News</option>
-        <option value="science">Science</option>
-      </select>
-    </div>
-  );
-
   return (
     <>
-      <ArgusHeader />
-      <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-6 py-16">
-        <div className="w-full max-w-xl">
-          <div className="mb-8 text-center">
+      <ArgusHeader
+        rightSlot={
+          <Link
+            href="/audit?demo=1"
+            onClick={prepareSampleLink}
+            className="inline-flex items-center justify-center rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            See a sample audit
+          </Link>
+        }
+      />
+      <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center px-6 py-14 md:py-20">
+        <div className="w-full max-w-2xl">
+          <div className="mb-7 text-center">
             <h1 className="text-2xl font-bold tracking-tight">
               Audit AI-generated reports before sign-off
             </h1>
@@ -1542,7 +1534,6 @@ function AuditInputPage() {
                   placeholder="Paste an AI-generated research memo, legal note, compliance summary, or market analysis..."
                   className="h-48 w-full resize-y rounded-lg border border-border bg-background p-3 text-sm leading-relaxed placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                 />
-                {domainSelect}
                 <div className="flex items-center justify-between">
                   <span
                     className={`text-xs ${
@@ -1567,14 +1558,13 @@ function AuditInputPage() {
 
             {/* PDF upload */}
             {inputMode === "pdf" && (
-              <>
-                <div className="mt-4">{domainSelect}</div>
+              <div className="mt-4">
                 <PdfUploadDropzone
                   busy={loading === "upload"}
                   disabled={loading !== null}
                   onPicked={onPicked}
                 />
-              </>
+              </div>
             )}
 
             {error && (
@@ -1584,14 +1574,20 @@ function AuditInputPage() {
             )}
           </div>
 
-          <div className="mt-4 text-center">
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary-soft/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm">
+              <p className="font-medium text-foreground">No API key ready?</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Open the legal filing demo and inspect the full audit workflow.
+              </p>
+            </div>
             <button
               type="button"
               onClick={trySample}
               disabled={loading !== null}
-              className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center justify-center rounded-[10px] border border-border bg-background px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted disabled:opacity-50"
             >
-              {loading === "sample" ? "Loading…" : "Try a sample walkthrough — no key needed"}
+              {loading === "sample" ? "Loading…" : "See a sample audit"}
             </button>
           </div>
         </div>

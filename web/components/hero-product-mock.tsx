@@ -24,23 +24,25 @@ const FINDINGS: { verdict: string; severity: string; confidence: number; claim: 
 ];
 
 const STAGES: { n: number; name: string; engine: string }[] = [
-  { n: 1, name: "Parse", engine: "rules" },
-  { n: 2, name: "Atomizer", engine: "deepseek" },
-  { n: 3, name: "Check-worthiness", engine: "deepseek" },
-  { n: 4, name: "Review gate", engine: "hitl" },
-  { n: 5, name: "Verify", engine: "miromind" },
-  { n: 6, name: "Consistency", engine: "deepseek" },
-  { n: 7, name: "Reporter", engine: "deepseek" },
+  { n: 1, name: "Parse", engine: "deterministic" },
+  { n: 2, name: "Planner", engine: "deepseek" },
+  { n: 3, name: "Atomizer", engine: "deepseek" },
+  { n: 4, name: "Check-worthiness", engine: "deepseek" },
+  { n: 5, name: "Review gate", engine: "deterministic" },
+  { n: 6, name: "Verify", engine: "miromind" },
+  { n: 7, name: "Skeptic challenge", engine: "miromind" },
+  { n: 8, name: "Consistency", engine: "deepseek" },
+  { n: 9, name: "Confidence", engine: "deterministic" },
+  { n: 10, name: "Reporter", engine: "deepseek" },
 ];
 
 const ENGINE_CLS: Record<string, string> = {
   miromind: "bg-primary/15 text-primary",
   deepseek: "bg-muted text-muted-foreground",
-  rules: "bg-muted text-muted-foreground",
-  hitl: "bg-[color-mix(in_oklab,var(--cc-warn,#d18700)_15%,transparent)] text-[var(--cc-warn,#d18700)]",
+  deterministic: "bg-muted text-muted-foreground",
 };
 const ENGINE_LABEL: Record<string, string> = {
-  miromind: "★ MiroMind", deepseek: "DeepSeek", rules: "rules", hitl: "gate",
+  miromind: "★ MiroMind", deepseek: "DeepSeek", deterministic: "det.",
 };
 
 export function HeroProductMock() {
@@ -48,15 +50,15 @@ export function HeroProductMock() {
     <div className="relative mx-auto w-full max-w-3xl">
       <div className="overflow-hidden rounded-[14px] border border-border bg-background shadow-[var(--shadow-card-hover)]">
         {/* Findings + pipeline */}
-        <div className="grid grid-cols-[1fr_196px] divide-x divide-border">
-          <div className="space-y-2.5 p-4 text-left">
+        <div className="grid grid-cols-[minmax(0,1fr)_220px] divide-x divide-border">
+          <div className="space-y-2 p-3 text-left">
             {FINDINGS.map((f) => (
               <div
                 key={f.claim}
                 className="relative overflow-hidden rounded-[10px] border border-border bg-background shadow-[var(--shadow-card)]"
               >
                 <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-[var(--cc-danger,#d92d20)]" />
-                <div className="p-3 pl-4">
+                <div className="p-2.5 pl-4">
                   <div className="flex items-start justify-between gap-2">
                     <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider bg-[color-mix(in_oklab,var(--cc-danger,#d92d20)_15%,transparent)] text-[var(--cc-danger,#d92d20)]">
                       {f.verdict}
@@ -65,22 +67,22 @@ export function HeroProductMock() {
                       {f.severity} · {f.confidence.toFixed(2)}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-[13px] font-medium leading-snug text-foreground">{f.claim}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{f.summary}</p>
+                  <p className="mt-1.5 text-[12px] font-medium leading-snug text-foreground">{f.claim}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{f.summary}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="bg-muted/30 p-4 text-left">
-            <p className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="bg-muted/30 p-3 text-left">
+            <p className="mb-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Audit pipeline
             </p>
-            <ol className="space-y-2.5">
+            <ol className="space-y-1.5">
               {STAGES.map((s) => {
                 const hot = s.engine === "miromind";
                 return (
-                  <li key={s.n} className={`flex items-center gap-2 text-[11px] ${hot ? "font-semibold" : ""}`}>
+                  <li key={s.n} className={`flex items-center gap-2 text-[10px] ${hot ? "font-semibold" : ""}`}>
                     <span className="w-3 shrink-0 text-center font-mono text-[9px] text-muted-foreground">{s.n}</span>
                     <span className={`flex-1 truncate ${hot ? "text-foreground" : "text-muted-foreground"}`}>{s.name}</span>
                     <span className={`shrink-0 rounded px-1.5 py-0.5 text-[8px] font-medium ${ENGINE_CLS[s.engine]}`}>

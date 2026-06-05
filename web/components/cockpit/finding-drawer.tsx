@@ -2,59 +2,40 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { StepType } from "@/lib/types";
 import { useArgusStore } from "@/lib/store";
 import { verdictColorVar } from "@/lib/colors";
 import { SeverityBadge } from "@/components/severity-badge";
 import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
 import { CloseIcon } from "@/components/icons";
 import { safeHttpUrl } from "@/lib/url";
-import { stepOrdinals } from "@/lib/steps";
 /**
  * Finding drawer — T2 surface.
  *
  * Reads `drawerFindingId` from the store (`null` = closed), resolves the Finding
  * from `job.findings`, and slides a dark glass panel in from the right over the
- * cockpit canvas. Body reuses the same data-fetching the evidence tab does:
- *   - reasoning chain  → job.traces[reasoning_trace_id].steps  ("why this verdict")
- *   - confidence       → <ConfidenceBreakdown breakdown={finding.confidence_breakdown}/>
- *   - evidence         → job.evidences filtered by finding.evidence_ids
- * plus the finding's verdict rationale (`finding.summary`).
+ * cockpit canvas. It is intentionally a review dossier: claim, verdict,
+ * rationale, correction, confidence and handoff links. Evidence receipts and
+ * full trace steps live in their dedicated cockpit panels.
  *
  * Contract (kept in sync with page wiring + store):
  *   - close via `setDrawerFinding(null)` (scrim click, ✕, or Esc);
- *   - clicking an evidence item opens the full-screen compare surface via
- *     `setEvidenceDiff({ findingId, evidenceId })` (rendered by <EvidenceDiff/>).
+ *   - evidence/trace handoff buttons focus this finding and switch the console.
  */
-
-/** Short typographic tags for trace step types (no emoji, terminal aesthetic). */
-const STEP_TAG: Record<StepType, string> = {
-  thinking: "think",
-  web_search: "search",
-  fetch_url_content: "fetch",
-  execute_python: "python",
-  execute_command: "exec",
-  tool_call: "tool",
-  message: "note",
-};
 
 export function FindingDrawer() {
   const drawerFindingId = useArgusStore((s) => s.drawerFindingId);
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
-  const setEvidenceDiff = useArgusStore((s) => s.setEvidenceDiff);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
-  const storeJumpToStep = useArgusStore((s) => s.jumpToStep);
+  const setConsoleMode = useArgusStore((s) => s.setConsoleMode);
   const job = useArgusStore((s) => s.job);
   const reduceMotion = useReducedMotion();
 
   const finding = job?.findings.find((f) => f.id === drawerFindingId) ?? null;
   const open = drawerFindingId !== null;
 
-  // Cross-link a step into the Trace: point it at this finding's trace,
-  // highlight that step in the Trace view, and close the drawer to reveal it.
-  const jumpToStep = (stepId: string) => {
+  const openPanel = (mode: "evidence" | "trace") => {
     if (finding) setActiveFinding(finding.id);
-    storeJumpToStep(stepId);
+    setConsoleMode(mode);
     setDrawerFinding(null);
   };
 
@@ -75,8 +56,6 @@ export function FindingDrawer() {
     job && finding
       ? job.evidences.filter((e) => finding.evidence_ids.includes(e.id))
       : [];
-  // Small 1-based step labels ("step 3") in place of the large raw `sequence`.
-  const ordinals = trace ? stepOrdinals(trace.steps) : new Map<string, number>();
 
   const toneColor = finding ? verdictColorVar(finding.verdict) : "var(--cc-text-muted, #9497a9)";
   const confidencePct = finding ? Math.round(finding.confidence * 100) : 0;
@@ -229,59 +208,6 @@ export function FindingDrawer() {
                     </Section>
                   )}
 
-                  {/* Reasoning chain — "why this verdict" (trace steps) */}
-                  <Section label="Why this verdict">
-                    {trace && trace.steps.length > 0 ? (
-                      <ol className="relative space-y-0">
-                        {trace.steps.map((s, i) => (
-                          <li
-                            key={s.id}
-                            className="relative pb-3 pl-1 last:pb-0"
-                          >
-                            {/* connecting rail */}
-                            {i < trace.steps.length - 1 && (
-                              <span
-                                aria-hidden
-                                className="absolute left-[7px] top-4 bottom-0 w-px bg-[var(--cc-border)]"
-                              />
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => jumpToStep(s.id)}
-                              aria-label={`Show step ${ordinals.get(s.id) ?? 0} in the trace`}
-                              className="flex w-full gap-3 rounded-md text-left transition-colors hover:text-[var(--cc-primary-bright)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
-                            >
-                              <span
-                                aria-hidden
-                                className="relative mt-1 size-[14px] shrink-0 rounded-full border border-[var(--cc-border)] bg-[var(--cc-bg)]"
-                              >
-                                <span
-                                  className="absolute inset-[3px] rounded-full"
-                                  style={{
-                                    backgroundColor:
-                                      "color-mix(in oklab, var(--cc-primary, #7132f5) 70%, transparent)",
-                                  }}
-                                />
-                              </span>
-                              <div className="min-w-0">
-                                <span className="mr-2 font-mono text-[9px] uppercase tracking-wider text-[var(--cc-primary-bright)]">
-                                  {STEP_TAG[s.type]}
-                                </span>
-                                <span className="text-sm leading-snug text-[var(--cc-text)]">
-                                  {s.summary}
-                                </span>
-                              </div>
-                            </button>
-                          </li>
-                        ))}
-                      </ol>
-                    ) : (
-                      <p className="text-sm text-[var(--cc-text-muted)]">
-                        No reasoning steps recorded for this finding.
-                      </p>
-                    )}
-                  </Section>
-
                   {/* Confidence breakdown — glowing animated bars (shared cmp) */}
                   {finding.confidence_breakdown && finding.evidence_ids.length > 0 && (
                     <Section label="Confidence breakdown">
@@ -289,83 +215,26 @@ export function FindingDrawer() {
                     </Section>
                   )}
 
-                  {/* Evidence — each row opens the compare surface; URL clickable */}
-                  <Section label={`Evidence (${evidences.length})`}>
-                    {evidences.length > 0 ? (
-                      <ul className="space-y-2">
-                        {evidences.map((e) => {
-                          const producingStep = trace?.steps.find(
-                            (s) => s.id === e.retrieved_by_step_id,
-                          );
-                          const evidenceUrl = safeHttpUrl(e.url);
-                          return (
-                            <li key={e.id}>
-                              <div className="group rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] transition-colors hover:border-[var(--cc-primary)]">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setEvidenceDiff({
-                                      findingId: finding.id,
-                                      evidenceId: e.id,
-                                    })
-                                  }
-                                  aria-label={`Compare claim against ${e.citation}`}
-                                  className="w-full rounded-[10px] px-3 py-2.5 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--cc-text-muted)]">
-                                      {e.source_type}
-                                    </span>
-                                    <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--cc-primary-bright)] opacity-0 transition-opacity group-hover:opacity-100">
-                                      compare
-                                    </span>
-                                  </div>
-                                  <p className="mt-1 text-sm font-medium text-[var(--cc-text)] break-words">
-                                    {e.citation}
-                                  </p>
-                                  {e.snippet && (
-                                    <p className="mt-1 line-clamp-3 text-xs leading-snug text-[var(--cc-text-muted)]">
-                                      {e.snippet}
-                                    </p>
-                                  )}
-                                </button>
-                                {(evidenceUrl || producingStep) && (
-                                  <div className="flex items-center justify-between gap-2 border-t border-[var(--cc-border)] px-3 py-1.5">
-                                    {evidenceUrl ? (
-                                      <a
-                                        href={evidenceUrl}
-                                        target="_blank"
-                                        rel="noreferrer noopener"
-                                        className="inline-flex min-w-0 items-center gap-1 font-mono text-[11px] text-[var(--cc-primary-bright)] underline-offset-2 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
-                                      >
-                                        <ExternalIcon />
-                                        <span className="truncate">{e.url}</span>
-                                      </a>
-                                    ) : (
-                                      <span />
-                                    )}
-                                    {producingStep && (
-                                      <button
-                                        type="button"
-                                        onClick={() => jumpToStep(e.retrieved_by_step_id)}
-                                        aria-label={`Show step ${ordinals.get(producingStep.id) ?? 0} in the trace`}
-                                        className="shrink-0 rounded border border-[var(--cc-border)] px-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--cc-text-muted)] transition-colors hover:border-[var(--cc-primary)] hover:text-[var(--cc-primary-bright)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
-                                      >
-                                        step {ordinals.get(producingStep.id) ?? 0}
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-[var(--cc-text-muted)]">
-                        No external evidence — this is an internal-consistency finding.
-                      </p>
-                    )}
+                  <Section label="Evidence trail">
+                    <HandoffRow
+                      title={`${evidences.length} cited source${evidences.length === 1 ? "" : "s"}`}
+                      body={
+                        evidences.length > 0
+                          ? "Primary records, corroborating sources, provenance and source-quality scores."
+                          : "This finding has no external-source receipts."
+                      }
+                      action="Show evidence"
+                      onClick={() => openPanel("evidence")}
+                    />
+                  </Section>
+
+                  <Section label="Reasoning trace">
+                    <HandoffRow
+                      title={`${trace?.steps.length ?? 0} trace step${trace?.steps.length === 1 ? "" : "s"}`}
+                      body="Verifier search queries, reasoning checkpoints, fetched-source events and synthesis."
+                      action="Show trace"
+                      onClick={() => openPanel("trace")}
+                    />
                   </Section>
                 </>
               )}
@@ -374,6 +243,36 @@ export function FindingDrawer() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+function HandoffRow({
+  title,
+  body,
+  action,
+  onClick,
+}: {
+  title: string;
+  body: string;
+  action: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[var(--cc-text)]">{title}</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--cc-text-muted)]">{body}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClick}
+          className="shrink-0 rounded border border-[var(--cc-border)] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--cc-primary-bright)] transition-colors hover:border-[var(--cc-primary)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--cc-primary)]"
+        >
+          {action}
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArgusHeader } from "@/components/argus-header";
+import { MarketingCtas } from "@/components/marketing-ctas";
 
 export const metadata = {
   title: "Powered by MiroMind — Argus",
@@ -9,11 +9,11 @@ export const metadata = {
 const PILLARS: { title: string; body: string }[] = [
   {
     title: "Autonomous, per claim",
-    body: "The model decides how to investigate each claim — which queries to run, which pages to open, when to compute. Chasing one fabricated citation, it fired 77 distinct searches (exact titles, site filters, file types, paraphrases) before concluding the report was invented. No hard-coded search path.",
+    body: "The model decides how to investigate each claim — which queries to run, which pages to open, when to compute. In the legal demo, the verifier records 76 web searches across 5 selected claims before producing its verdicts. No hard-coded search path.",
   },
   {
     title: "A trace you can trust",
-    body: "Every search, fetch, and thought is streamed and recorded as it happens. A stateful SSE decoder stitches events back together across network packets, so the saved reasoning is exactly what the model did — no dropped steps, no mangled source URLs.",
+    body: "Every search, fetch, and reasoning event is streamed and recorded as it happens. A stateful SSE decoder stitches events back together across network packets, so the saved trace reflects what the model did — no dropped steps, no mangled source URLs.",
   },
   {
     title: "Parallel, idempotent, capped",
@@ -82,12 +82,7 @@ export default function MiroMindPage() {
             Every search, fetch, and step is recorded and replayable in the audit cockpit —
             grouped by claim, down to each source link.
           </p>
-          <Link
-            href="/audit?demo=1"
-            className="mt-7 inline-block cursor-pointer rounded-[12px] bg-primary px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#5741d8]"
-          >
-            See a sample audit
-          </Link>
+          <MarketingCtas className="mt-7" />
         </section>
       </main>
     </>

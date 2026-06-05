@@ -11,6 +11,16 @@ describe("ExportMenu", () => {
     expect(onSelect).toHaveBeenCalledWith("audit_pack");
   });
 
+  it("exposes the evidence station JSON export", () => {
+    const onSelect = vi.fn();
+    render(<ExportMenu onSelect={onSelect} disabled={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /export/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /evidence station/i }));
+
+    expect(onSelect).toHaveBeenCalledWith("json");
+  });
+
   it("disables the trigger when disabled is true", () => {
     render(<ExportMenu onSelect={() => {}} disabled={true} />);
     expect(screen.getByRole("button", { name: /export/i })).toBeDisabled();

@@ -4,24 +4,24 @@ import { useEffect, useState } from "react";
 
 /**
  * Light "live reasoning" panel for the homepage transparency section — mirrors
- * the cockpit's expanded-claim drill-down. One real claim from the NVIDIA sample
- * audit (the fabricated Goldman citation): its reasoning steps stream in line by
- * line and the search counter races 0 → 77, then it loops. Everything fits in
- * view — no internal scroll. Respects prefers-reduced-motion (renders complete).
+ * the cockpit's expanded-claim drill-down. One real claim from the default legal
+ * demo (Shute's reversed holding): its trace steps stream in line by line and
+ * the search counter races 0 → 11, then it loops. Everything fits in view — no
+ * internal scroll. Respects prefers-reduced-motion (renders complete).
  */
 
 type Step = { icon: string; text: string; meta?: string; tone?: "danger" };
 
 const STEPS: Step[] = [
-  { icon: "🔍", text: 'google_search: "Silicon Supercycle" Goldman Sachs', meta: "0 results" },
-  { icon: "🔍", text: 'site:goldmansachs.com "Silicon Supercycle"', meta: "0 results" },
-  { icon: "🔍", text: '"Silicon Supercycle" filetype:pdf', meta: "0 results" },
-  { icon: "📄", text: "fetch: goldmansachs.com/insights", meta: "no match" },
-  { icon: "💭", text: "No record across 77 search variants" },
-  { icon: "●", text: "fabricated · 0.93", tone: "danger" },
+  { icon: "🔍", text: "Shute 499 U.S. 585 forum-selection holding", meta: "source found" },
+  { icon: "📄", text: "fetch: Supreme Court opinion via Justia", meta: "clause enforced" },
+  { icon: "📄", text: "fetch: Cornell LII opinion text", meta: "same holding" },
+  { icon: "💭", text: "Compare document claim: unenforceable vs. sources: enforceable" },
+  { icon: "✓", text: "3 sources agree on the opposite holding", meta: "high confidence" },
+  { icon: "●", text: "inaccurate · 0.99", tone: "danger" },
 ];
 
-const TARGET_SEARCHES = 77;
+const TARGET_SEARCHES = 11;
 const STEP_MS = 600;
 const START_MS = 700;
 const HOLD_MS = 3000;
@@ -29,6 +29,7 @@ const HOLD_MS = 3000;
 function prefersReducedMotion() {
   return (
     typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 }
@@ -73,18 +74,18 @@ export function LiveReasoningPanel() {
           <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-success" />
           Live reasoning trace
         </span>
-        <span className="font-mono text-[11px] text-muted-foreground">1 of 7 claims</span>
+        <span className="font-mono text-[11px] text-muted-foreground">1 of 5 claims</span>
       </div>
       <div className="px-5 py-4">
         <div className="flex items-center gap-2 text-[14px]">
           <span aria-hidden className="font-mono text-[10px] text-muted-foreground">▾</span>
-          <span className="flex-1 truncate font-medium text-foreground">Goldman “Silicon Supercycle” report</span>
+          <span className="flex-1 truncate font-medium text-foreground">Shute holding reversal</span>
           <span className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider bg-[color-mix(in_oklab,var(--cc-danger,#d92d20)_15%,transparent)] text-[var(--cc-danger,#d92d20)]">
-            fabricated
+            inaccurate
           </span>
         </div>
         <span className="ml-5 mt-1.5 block font-mono text-[12px] tabular-nums text-muted-foreground">
-          💭 91 reasoning · 🔍 {searches} searches
+          💭 3 reasoning · 🔍 {searches} source checks
         </span>
         <ol className="mt-4 flex min-h-[176px] flex-col gap-3 border-l border-border pl-4 font-mono text-[12.5px] leading-snug">
           {STEPS.slice(0, shown).map((s, i) => (

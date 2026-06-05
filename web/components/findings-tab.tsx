@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { Evidence, Job } from "@/lib/types";
 import { FindingCard } from "@/components/finding-card";
 import { useArgusStore } from "@/lib/store";
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function FindingsTab({ job, activeFindingId, onSelect, onOpenDrawer }: Props) {
+  const activeCardRef = useRef<HTMLDivElement | null>(null);
   const reviews = useArgusStore((s) => s.findingReviews);
   const claimById = new Map(job.claims.map((c) => [c.id, c]));
   const evidenceById = new Map(job.evidences.map((e) => [e.id, e]));
@@ -18,6 +20,10 @@ export function FindingsTab({ job, activeFindingId, onSelect, onOpenDrawer }: Pr
   const total = job.claims_total ?? 0;
   const audited = job.claims_audited ?? 0;
   const partial = total > 0 && audited < total;
+
+  useEffect(() => {
+    activeCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [activeFindingId]);
 
   if (ranked.length === 0) {
     return (
@@ -44,20 +50,24 @@ export function FindingsTab({ job, activeFindingId, onSelect, onOpenDrawer }: Pr
           Partial coverage: {audited}/{total} selected claims received a verdict.
         </div>
       )}
-      {ranked.map((f) => (
-        <FindingCard
-          key={f.id}
-          finding={f}
-          claim={claimById.get(f.claim_id)}
-          evidences={f.evidence_ids
-            .map((id) => evidenceById.get(id))
-            .filter((e): e is Evidence => e !== undefined)}
-          review={reviews[f.id] ?? null}
-          active={f.id === activeFindingId}
-          onClick={() => onSelect(f.id)}
-          onOpenDrawer={() => onOpenDrawer(f.id)}
-        />
-      ))}
+      {ranked.map((f) => {
+        const active = f.id === activeFindingId;
+        return (
+          <div key={f.id} ref={active ? activeCardRef : null} data-finding-id={f.id}>
+            <FindingCard
+              finding={f}
+              claim={claimById.get(f.claim_id)}
+              evidences={f.evidence_ids
+                .map((id) => evidenceById.get(id))
+                .filter((e): e is Evidence => e !== undefined)}
+              review={reviews[f.id] ?? null}
+              active={active}
+              onClick={() => onSelect(f.id)}
+              onOpenDrawer={() => onOpenDrawer(f.id)}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

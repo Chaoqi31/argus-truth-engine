@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useArgusStore } from "@/lib/store";
-import { buildAuditPackMarkdown } from "@/lib/audit-pack";
+import { buildAuditPackMarkdown, buildEvidenceStationJson } from "@/lib/audit-pack";
 import type { Finding, Claim } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -41,18 +41,29 @@ type Result = FindingResult | ClaimResult | ActionResult;
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Very lightweight fuzzy match: every char in `needle` appears in order in `haystack`. */
-function fuzzyMatch(haystack: string, needle: string): boolean {
-  if (!needle) return true;
-  const h = haystack.toLowerCase();
-  const n = needle.toLowerCase();
-  let hi = 0;
-  for (let ni = 0; ni < n.length; ni++) {
-    const pos = h.indexOf(n[ni], hi);
-    if (pos === -1) return false;
-    hi = pos + 1;
-  }
-  return true;
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function searchMatchScore(haystack: string, needle: string): number | null {
+  const q = normalizeSearchText(needle);
+  if (!q) return 0;
+
+  const h = normalizeSearchText(haystack);
+  if (!h) return null;
+  if (h.includes(q)) return 0;
+
+  const queryTerms = q.split(" ").filter(Boolean);
+  if (queryTerms.length > 1 && queryTerms.every((term) => h.includes(term))) return 1;
+
+  const words = h.split(" ");
+  if (queryTerms.every((term) => words.some((word) => word.startsWith(term)))) return 2;
+
+  return null;
 }
 
 const VERDICT_LABELS: Record<string, string> = {
@@ -96,8 +107,8 @@ const STATIC_ACTIONS: ActionResult[] = [
   {
     kind: "action",
     id: "action:export-json",
-    label: "Export Evidence JSON",
-    meta: "Job, evidence, trace, and reviewer decisions",
+    label: "Export Evidence Station",
+    meta: "Structured claims, findings, evidence, traces, stages",
   },
   {
     kind: "action",
@@ -169,8 +180,9 @@ export function CommandPalette() {
 
   // Build filtered results
   const results: Result[] = (() => {
-    const out: Result[] = [];
+    const out: Array<{ result: Result; score: number; order: number }> = [];
     const q = query.trim();
+    let order = 0;
 
     if (job) {
       // Findings
@@ -180,25 +192,35 @@ export function CommandPalette() {
           VERDICT_LABELS[f.verdict] ?? f.verdict,
           SEVERITY_LABELS[f.severity] ?? f.severity,
         ].join(" ");
-        if (fuzzyMatch(searchable, q)) {
+        const score = searchMatchScore(searchable, q);
+        if (score !== null) {
           out.push({
-            kind: "finding",
-            id: f.id,
-            label: f.summary,
-            meta: `${VERDICT_LABELS[f.verdict] ?? f.verdict} · ${SEVERITY_LABELS[f.severity] ?? f.severity}`,
-            verdict: f.verdict,
-            severity: f.severity,
+            score,
+            order: order++,
+            result: {
+              kind: "finding",
+              id: f.id,
+              label: f.summary,
+              meta: `${VERDICT_LABELS[f.verdict] ?? f.verdict} · ${SEVERITY_LABELS[f.severity] ?? f.severity}`,
+              verdict: f.verdict,
+              severity: f.severity,
+            },
           });
         }
       }
       // Claims
       for (const c of job.claims as Claim[]) {
-        if (fuzzyMatch(c.text, q)) {
+        const score = searchMatchScore(c.text, q);
+        if (score !== null) {
           out.push({
-            kind: "claim",
-            id: c.id,
-            label: c.text,
-            meta: `Claim · ${c.type}`,
+            score,
+            order: order++,
+            result: {
+              kind: "claim",
+              id: c.id,
+              label: c.text,
+              meta: `Claim · ${c.type}`,
+            },
           });
         }
       }
@@ -206,12 +228,13 @@ export function CommandPalette() {
 
     // Static actions — always shown when query matches
     for (const a of STATIC_ACTIONS) {
-      if (fuzzyMatch(a.label, q)) {
-        out.push(a);
+      const score = searchMatchScore(a.label, q);
+      if (score !== null) {
+        out.push({ result: a, score, order: order++ });
       }
     }
 
-    return out;
+    return out.sort((a, b) => a.score - b.score || a.order - b.order).map((item) => item.result);
   })();
 
   // Keep the selection in range when the result set shrinks. Derived during
@@ -251,8 +274,8 @@ export function CommandPalette() {
             );
           } else if (r.id === "action:export-json") {
             downloadText(
-              `argus-evidence-${job.id}.json`,
-              JSON.stringify({ ...job, reviewer_decisions: reviews }, null, 2),
+              `argus-evidence-station-${job.id}.json`,
+              buildEvidenceStationJson(job, reviews),
               "application/json",
             );
           } else if (r.id === "action:export-markdown") {
