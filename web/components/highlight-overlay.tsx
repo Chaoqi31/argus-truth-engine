@@ -46,8 +46,8 @@ export function HighlightOverlay({
               type="button"
               onClick={() => onClaimClick(c.id)}
               aria-label={`Claim on page ${c.page}: ${c.text}. Click to inspect.`}
-              className={`min-h-9 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${bg} ${
-                isActive ? "border-primary" : "border-transparent"
+              className={`min-h-9 rounded-md border px-2.5 py-1.5 text-xs font-medium shadow-sm transition-[transform,border-color,background-color,box-shadow,color] duration-300 ease-enter hover:-translate-y-0.5 hover:scale-[1.02] hover:border-primary/50 hover:shadow-[0_12px_26px_rgba(16,24,40,0.14)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none ${bg} ${
+                isActive ? "border-primary shadow-[0_0_0_3px_rgba(113,50,245,0.14)]" : "border-transparent"
               }`}
               title={c.text}
             >

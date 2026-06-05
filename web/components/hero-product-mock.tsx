@@ -21,6 +21,11 @@ const FINDINGS: { verdict: string; severity: string; confidence: number; claim: 
     claim: "Zicherman v. Korean Air Lines, 516 U.S. 217 (1996) permits recovery for purely emotional injury",
     summary: "Misstates the holding — Zicherman bars damages for purely emotional harm under the Warsaw Convention.",
   },
+  {
+    verdict: "fabricated", severity: "major", confidence: 0.75,
+    claim: "Rivera v. Metro Transit Authority, 412 F.3d 880 (2d Cir. 2009)",
+    summary: "No matching Second Circuit case exists — the citation points to a different court and case.",
+  },
 ];
 
 const STAGES: { n: number; name: string; engine: string }[] = [
@@ -47,18 +52,18 @@ const ENGINE_LABEL: Record<string, string> = {
 
 export function HeroProductMock() {
   return (
-    <div className="relative mx-auto w-full max-w-3xl">
+    <div className="relative mx-auto w-full max-w-[1040px]">
       <div className="overflow-hidden rounded-[14px] border border-border bg-background shadow-[var(--shadow-card-hover)]">
         {/* Findings + pipeline */}
-        <div className="grid grid-cols-[minmax(0,1fr)_220px] divide-x divide-border">
-          <div className="space-y-2 p-3 text-left">
+        <div className="grid grid-cols-[minmax(0,1fr)_250px] divide-x divide-border">
+          <div className="space-y-2.5 p-4 text-left">
             {FINDINGS.map((f) => (
               <div
                 key={f.claim}
                 className="relative overflow-hidden rounded-[10px] border border-border bg-background shadow-[var(--shadow-card)]"
               >
                 <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-[var(--cc-danger,#d92d20)]" />
-                <div className="p-2.5 pl-4">
+                <div className="p-3 pl-4">
                   <div className="flex items-start justify-between gap-2">
                     <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider bg-[color-mix(in_oklab,var(--cc-danger,#d92d20)_15%,transparent)] text-[var(--cc-danger,#d92d20)]">
                       {f.verdict}
@@ -74,11 +79,11 @@ export function HeroProductMock() {
             ))}
           </div>
 
-          <div className="bg-muted/30 p-3 text-left">
-            <p className="mb-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="bg-muted/30 p-4 text-left">
+            <p className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Audit pipeline
             </p>
-            <ol className="space-y-1.5">
+            <ol className="space-y-2">
               {STAGES.map((s) => {
                 const hot = s.engine === "miromind";
                 return (

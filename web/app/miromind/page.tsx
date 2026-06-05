@@ -58,21 +58,33 @@ export default function MiroMindPage() {
         </header>
 
         {/* Pillars */}
-        <div className="grid gap-5 pb-12 md:grid-cols-2">
-          {PILLARS.map((p) => (
-            <div key={p.title} className="rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)]">
-              <h2 className="text-base font-semibold">{p.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{p.body}</p>
+        <div className="grid gap-5 md:grid-cols-2">
+          {PILLARS.map((p, index) => (
+            <div
+              key={p.title}
+              className="animate-reveal group relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,border-color,box-shadow,background-color] duration-300 ease-enter will-change-transform hover:-translate-y-1.5 hover:scale-[1.01] hover:border-primary/35 hover:bg-primary-soft/20 hover:shadow-[0_22px_52px_rgba(102,63,255,0.15)] motion-reduce:transform-none motion-reduce:transition-none"
+              style={{ animationDelay: `${index * 70}ms` }}
+            >
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-primary/70 transition-transform duration-500 ease-enter group-hover:scale-x-100 motion-reduce:hidden"
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-primary/12 to-transparent opacity-0 transition-[transform,opacity] duration-500 ease-enter group-hover:translate-x-[430%] group-hover:opacity-100 motion-reduce:hidden"
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-6 left-0 w-1 origin-top scale-y-0 rounded-r-full bg-primary transition-transform duration-300 ease-enter group-hover:scale-y-100 motion-reduce:hidden"
+              />
+              <h2 className="relative text-base font-semibold transition-[color,transform] duration-300 ease-enter group-hover:translate-x-1 group-hover:text-primary motion-reduce:transform-none">
+                {p.title}
+              </h2>
+              <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground transition-colors duration-300 ease-enter group-hover:text-foreground/80">
+                {p.body}
+              </p>
             </div>
           ))}
-        </div>
-
-        {/* Callout */}
-        <div className="rounded-[var(--radius-card)] border border-primary/30 bg-primary-soft px-6 py-5 text-center">
-          <p className="text-sm text-foreground">
-            <span className="font-semibold">One MiroMind call per claim</span>{" "}
-            <span className="text-muted-foreground">— and the verifier is the only thing that ever calls it.</span>
-          </p>
         </div>
 
         {/* CTA */}

@@ -7,7 +7,7 @@
 
 ### **The audit layer for AI-generated content.**
 
-Upload anything an AI wrote — a research note, a legal brief, a compliance memo.
+Upload an AI-generated research note, legal brief, or governance memo.
 Argus returns **every factual claim**, a **verdict** on each, and a
 **reviewer-ready reasoning trail** you can click through and verify.
 
@@ -25,22 +25,22 @@ Argus returns **every factual claim**, a **verdict** on each, and a
 
 ## What is Argus
 
-Argus audits AI-generated content for the people who *consume* it but didn't write
-it — compliance officers, legal teams, AI governance teams, buy-side analysts. Hand
-it a PDF or paste text; it extracts every factual claim, verifies each with
-autonomous deep research, and returns a verdict, a confidence score, and a
-clickable evidence trail for each. The output isn't a score — it's a reasoning
-chain a human can read, audit, and file.
+Argus audits AI-generated content for people who *consume* it but did not write
+it — compliance officers, legal teams, AI governance teams, and buy-side analysts.
+Hand it a PDF or paste text; it extracts every factual claim, verifies each one
+with autonomous deep research, and returns a verdict, confidence score, cited
+evidence, and a readable reasoning trace. The output is not just a score — it is
+a chain of evidence a human can read, challenge, and file.
 
 Try it: open the **[live demo](https://argus-truth-engine.vercel.app)** and hit
-*Try a sample walkthrough* — it replays a real recorded audit, no API key needed.
+**See a sample audit** — it replays a real recorded audit, no API key needed.
 
 ## The problem
 
 A compliance officer gets an AI-generated risk memo from a vendor. A lawyer opens
-a brief drafted by opposing counsel's chatbot. A PM gets a research note from a
-third-party RAG system. None of them wrote the AI; all of them have to *trust* it
-before they act.
+a brief drafted by opposing counsel's chatbot. An analyst gets a research note
+from a third-party RAG system. None of them wrote the AI; all of them have to
+*trust* it before they act.
 
 It's a real, documented problem:
 
@@ -52,12 +52,13 @@ It's a real, documented problem:
   ([Gartner, 2024](https://www.gartner.com/en/newsroom/press-releases/2024-07-29-gartner-predicts-30-percent-of-generative-ai-projects-will-be-abandoned-after-proof-of-concept-by-end-of-2025)).
 
 Argus is the checkpoint between *"the model said it"* and *"we signed off on it."*
+It is built for AI you did not generate yourself, but still have to trust.
 
 ## What Argus does
 
-Give it any AI-generated artifact — a PDF, a memo, a research note, a transcript.
-It returns **every factual claim**, a **verdict** on each, and **every step of
-reasoning** behind it.
+Give it any AI-generated artifact — a PDF, memo, research note, or transcript.
+It returns **every factual claim**, a **verdict** on each, and the **reasoning
+and evidence** behind it.
 
 | Issue type | What it catches | How it verifies |
 |---|---|---|
@@ -87,8 +88,8 @@ Every finding ships with:
 ## Reasoning transparency
 
 Every finding ships with a curated **reasoning chain** (action / observation /
-reasoning) *and* the **full step trace** — every thought, search, and fetch the
-verifier actually made.
+reasoning), a claim-level evidence panel, and the **full 10-stage trace** —
+every search, fetch, and verification step the pipeline actually recorded.
 
 The verifier catching a fabricated citation:
 
@@ -115,14 +116,14 @@ Claim: "In Rivera v. Metro Transit Authority, 412 F.3d 880, 887 (2d Cir. 2009)�
   Skeptic: no counter-evidence — the fabrication verdict stands.
 ```
 
-The trace uses **progressive disclosure**: each claim is one row (verdict + step
-counts); expand to read its reasoning, expand a search to open its result links.
-A **live audit** streams every step over WebSocket; the sample audits replay the
-same recorded trace.
+The trace uses **progressive disclosure**: each claim starts as one row (verdict
++ step counts); expand it to read the reasoning, then open any search or source
+link for the underlying evidence. A **live audit** streams every step over
+WebSocket; the sample audits replay the same recorded trace.
 
 ## How it works
 
-A LangGraph state machine runs the pipeline in two phases, split by a
+A 10-stage LangGraph state machine runs the pipeline in two phases, split by a
 human-in-the-loop review gate:
 
 ```
@@ -182,8 +183,9 @@ verdicts are left alone — so the extra deep-research call is spent only where 
 second opinion can change the outcome.
 
 Everything else runs on **DeepSeek** (planner, atomizer, checkworthiness,
-consistency, reporter — cheap, no web) or is **deterministic** (parse, review
-gate, confidence), keeping MiroMind's budget on the two steps that need the open web.
+consistency, reporter — lower-cost, no web) or is **deterministic** (parse,
+review gate, confidence), keeping MiroMind's budget on the two steps that need
+the open web.
 
 ### Engineering controls
 
@@ -214,7 +216,7 @@ uv run argus serve --host 127.0.0.1 --port 8080
 # Frontend
 cd web && pnpm install && pnpm dev
 
-# Open http://127.0.0.1:3000 → click "Try a sample walkthrough" to replay a real
+# Open http://127.0.0.1:3000 → click "See a sample audit" to replay a real
 # recorded audit, no API key needed.
 ```
 

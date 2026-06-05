@@ -49,7 +49,7 @@ export function EvidenceTab({ job, findingId }: Props) {
   const ordinals = trace ? stepOrdinals(trace.steps) : new Map<string, number>();
 
   return (
-    <div className="space-y-5 p-4">
+    <div key={finding.id} className="trace-panel-enter space-y-5 p-4">
       <section>
         <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Claim</h2>
         <p className="mt-1 text-base">{claim?.text ?? "(claim missing)"}</p>
@@ -88,8 +88,8 @@ export function EvidenceTab({ job, findingId }: Props) {
         onCompareEvidence={(evidenceId) => setEvidenceDiff({ findingId: finding.id, evidenceId })}
       />
 
-      <details open className="rounded-md border border-border bg-muted/20 px-3 py-2">
-        <summary className="cursor-pointer list-none font-mono text-[10px] uppercase tracking-wider text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
+      <details open className="group rounded-md border border-border bg-muted/20 px-3 py-2 transition-[border-color,background-color,box-shadow] duration-300 ease-enter hover:border-primary/25 hover:bg-primary/5 hover:shadow-[0_10px_28px_rgba(16,24,40,0.07)]">
+        <summary className="cursor-pointer list-none font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors duration-300 ease-enter group-hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
           Reviewer action
         </summary>
         <div className="mt-3">
@@ -101,10 +101,10 @@ export function EvidenceTab({ job, findingId }: Props) {
         </div>
       </details>
 
-      <details className="rounded-md border border-border bg-background px-3 py-2">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
+      <details className="group rounded-md border border-border bg-background px-3 py-2 transition-[border-color,background-color,box-shadow] duration-300 ease-enter hover:border-primary/25 hover:bg-primary/5 hover:shadow-[0_10px_28px_rgba(16,24,40,0.07)]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors duration-300 ease-enter group-hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary">
           <span>Forensic details</span>
-          <span>{trace?.steps.length ?? 0} trace steps</span>
+          <span className="transition-transform duration-300 ease-enter group-hover:translate-x-0.5 motion-reduce:transform-none">{trace?.steps.length ?? 0} trace steps</span>
         </summary>
         <div className="mt-4 space-y-6">
           <TransparencyChecklist auditability={auditability} />
@@ -183,26 +183,30 @@ function FindingProofSummary({
   traceStepCount: number;
 }) {
   return (
-    <section className="rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
-      <h2 className="text-xs font-mono uppercase tracking-wider text-primary">
+    <section className="group relative overflow-hidden rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5 transition-[transform,border-color,box-shadow,background-color] duration-300 ease-enter hover:-translate-y-0.5 hover:border-primary/45 hover:bg-primary/10 hover:shadow-[0_12px_30px_rgba(113,50,245,0.11)] motion-reduce:transform-none">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-primary/12 to-transparent opacity-0 transition-[transform,opacity] duration-500 ease-enter group-hover:translate-x-[430%] group-hover:opacity-100 motion-reduce:hidden"
+      />
+      <h2 className="relative text-xs font-mono uppercase tracking-wider text-primary">
         Evidence summary
       </h2>
-      <p className="mt-1.5 text-sm leading-relaxed text-foreground">
+      <p className="relative mt-1.5 text-sm leading-relaxed text-foreground">
         {findingSummary}
       </p>
       {rationale && rationale !== findingSummary && (
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        <p className="relative mt-1 text-xs leading-relaxed text-muted-foreground transition-colors duration-300 ease-enter group-hover:text-foreground/75">
           {rationale}
         </p>
       )}
-      <div className="mt-2 flex flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        <span className="rounded border border-border bg-background px-1.5 py-0.5">
+      <div className="relative mt-2 flex flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="rounded border border-border bg-background px-1.5 py-0.5 transition-transform duration-300 ease-enter group-hover:-translate-y-0.5 motion-reduce:transform-none">
           <span className="text-foreground">{evidenceCount}</span> evidence
         </span>
-        <span className="rounded border border-border bg-background px-1.5 py-0.5">
+        <span className="rounded border border-border bg-background px-1.5 py-0.5 transition-transform duration-300 ease-enter group-hover:-translate-y-0.5 motion-reduce:transform-none">
           <span className="text-foreground">{reasoningCount}</span> reasoning
         </span>
-        <span className="rounded border border-border bg-background px-1.5 py-0.5">
+        <span className="rounded border border-border bg-background px-1.5 py-0.5 transition-transform duration-300 ease-enter group-hover:-translate-y-0.5 motion-reduce:transform-none">
           <span className="text-foreground">{traceStepCount}</span> trace steps
         </span>
       </div>

@@ -8,6 +8,7 @@ import { useScrollReveal } from "@/lib/use-scroll-reveal";
 import { useCountUp } from "@/lib/use-count-up";
 import { HeroProductMock } from "@/components/hero-product-mock";
 import { LiveReasoningPanel } from "@/components/live-reasoning-panel";
+import { DemoVideoNavLink } from "@/components/demo-video-nav-link";
 import Link from "next/link";
 import Image from "next/image";
 import { ArgusMark } from "@/components/argus-mark";
@@ -231,19 +232,20 @@ export default function HomePage() {
             <Link href="/incidents" className="text-muted-foreground transition-colors hover:text-foreground">Incidents</Link>
             <Link href="/miromind" className="text-muted-foreground transition-colors hover:text-foreground">Powered by MiroMind</Link>
             <Link href="/for-teams" className="text-muted-foreground transition-colors hover:text-foreground">For teams</Link>
-            <Link
-              href="/audit?demo=1"
-              onClick={clearStore}
-              className="cursor-pointer rounded-[12px] border border-border bg-background px-4 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-[var(--shadow-card-hover)]"
-            >
-              See a sample audit
-            </Link>
+            <DemoVideoNavLink />
             <Link
               href="/audit"
               onClick={clearStore}
               className="cursor-pointer rounded-[12px] bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#5741d8]"
             >
               Start auditing
+            </Link>
+            <Link
+              href="/audit?demo=1"
+              onClick={clearStore}
+              className="cursor-pointer rounded-[12px] border border-border bg-background px-4 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-[var(--shadow-card-hover)]"
+            >
+              See a sample audit
             </Link>
           </div>
         </nav>
@@ -255,7 +257,7 @@ export default function HomePage() {
         {/* ============================================================ */}
         <section
           ref={heroRef}
-          className="relative flex min-h-[calc(100vh-56px)] flex-col items-center px-6 pt-10"
+          className="relative flex flex-col items-center px-6 pb-14 pt-10 md:pb-16"
         >
           {/* Background glow */}
           <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center overflow-hidden">
@@ -330,7 +332,7 @@ export default function HomePage() {
 
           {/* Product mock */}
           <div
-            className={`relative z-10 mt-5 w-full max-w-4xl origin-top transition-[transform,opacity,filter] duration-[760ms] delay-[360ms] ease-enter [@media(min-height:940px)]:mt-9 [@media(min-height:940px)]:scale-[1.06] ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
+            className={`relative z-10 mt-10 w-full max-w-5xl origin-top transition-[transform,opacity,filter] duration-[760ms] delay-[360ms] ease-enter [@media(min-height:940px)]:scale-[1.02] ${heroVisible ? "translate-y-0 opacity-100 blur-0" : "translate-y-4 opacity-0 blur-[8px]"}`}
           >
             <HeroProductMock />
           </div>

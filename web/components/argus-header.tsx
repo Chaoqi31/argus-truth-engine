@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArgusMark } from "@/components/argus-mark";
+import { DemoVideoNavLink } from "@/components/demo-video-nav-link";
 
 interface Props {
   rightSlot?: React.ReactNode;
@@ -19,6 +20,7 @@ export function ArgusHeader({ rightSlot }: Props) {
           <Link href="/incidents" className="hover:text-foreground">Incidents</Link>
           <Link href="/miromind" className="hover:text-foreground">Powered by MiroMind</Link>
           <Link href="/for-teams" className="hover:text-foreground">For teams</Link>
+          <DemoVideoNavLink />
         </nav>
       </div>
       {rightSlot}

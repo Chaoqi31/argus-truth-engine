@@ -57,7 +57,7 @@ const PdfViewer = dynamic(
 );
 
 const DEMO_START_LINK =
-  "inline-flex items-center justify-center rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary";
+  "group relative inline-flex items-center justify-center overflow-hidden rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-[transform,border-color,background-color,box-shadow,color] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-6 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-primary/12 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-0.5 hover:border-primary/35 hover:bg-background hover:text-primary hover:shadow-[0_14px_32px_rgba(16,24,40,0.11)] hover:before:translate-x-[430%] hover:before:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden";
 
 /** Global ⌘K / Ctrl+K listener that toggles the command palette. */
 function useCommandPaletteHotkey() {
@@ -82,11 +82,11 @@ function PaletteHint() {
       type="button"
       onClick={() => setPaletteOpen(true)}
       aria-label="Search findings (Command K)"
-      className="hidden items-center gap-2 rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] px-3 py-1.5 text-[13px] text-[var(--cc-text-muted)] shadow-[var(--shadow-card)] transition-colors hover:border-[var(--cc-primary)] hover:text-[var(--cc-text)] sm:inline-flex"
+      className="group relative hidden items-center gap-2 overflow-hidden rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] px-3 py-1.5 text-[13px] text-[var(--cc-text-muted)] shadow-[var(--shadow-card)] transition-[transform,border-color,box-shadow,color] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-6 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-primary/12 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-0.5 hover:border-[var(--cc-primary)] hover:text-[var(--cc-text)] hover:shadow-[0_14px_32px_rgba(16,24,40,0.11)] hover:before:translate-x-[430%] hover:before:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden sm:inline-flex"
     >
       <SearchIcon />
-      <span className="min-w-[8.5rem] text-left">Search findings…</span>
-      <kbd className="rounded border border-[var(--cc-border)] bg-[var(--cc-surface)] px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[var(--cc-text-muted)]">
+      <span className="relative min-w-[8.5rem] text-left">Search findings…</span>
+      <kbd className="relative rounded border border-[var(--cc-border)] bg-[var(--cc-surface)] px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[var(--cc-text-muted)] transition-[transform,border-color,color] duration-300 ease-enter group-hover:scale-105 group-hover:border-primary/40 group-hover:text-primary motion-reduce:transform-none">
         ⌘K
       </kbd>
     </button>
@@ -624,10 +624,11 @@ function AuditPageContent() {
               <button
                 type="button"
                 onClick={replayDemo}
-                className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+                className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-[transform,border-color,background-color,box-shadow,color] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-6 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-primary/12 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-0.5 hover:border-primary/35 hover:bg-background hover:text-primary hover:shadow-[0_14px_32px_rgba(16,24,40,0.11)] hover:before:translate-x-[430%] hover:before:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden"
                 aria-label="Replay the demo audit"
               >
-                <span aria-hidden>↻</span> Replay
+                <span aria-hidden className="relative transition-transform duration-300 ease-enter group-hover:-rotate-45 motion-reduce:transform-none">↻</span>
+                <span className="relative">Replay</span>
               </button>
             )}
             {demo === "1" && (
@@ -987,28 +988,39 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
         return (
           <li
             key={f.id}
-            className={`overflow-hidden rounded-[var(--radius-card)] border ${sev(f.severity)} text-xs`}
+            className={`group overflow-hidden rounded-[var(--radius-card)] border ${sev(f.severity)} text-xs transition-[transform,border-color,box-shadow,background-color] duration-300 ease-enter hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_12px_30px_rgba(16,24,40,0.1)] motion-reduce:transform-none`}
           >
             <button
               type="button"
               onClick={() => toggle(f.id)}
               aria-expanded={isOpen}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors duration-300 ease-enter hover:bg-background/45 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--cc-text)]">{f.verdict}</span>
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--cc-text)] transition-colors duration-300 ease-enter group-hover:text-primary">{f.verdict}</span>
               <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] text-muted-foreground">
                 {f.severity}
-                <span aria-hidden className="text-foreground/60">
-                  {isOpen ? "▾" : "▸"}
+                <span
+                  aria-hidden
+                  className={`text-foreground/60 transition-transform duration-300 ease-enter motion-reduce:transform-none ${isOpen ? "rotate-90" : ""}`}
+                >
+                  ▸
                 </span>
               </span>
             </button>
-            <p
-              className={`px-3 pb-2 text-muted-foreground ${isOpen ? "" : "line-clamp-2"}`}
-              title={isOpen ? undefined : f.summary}
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-enter ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
             >
-              {f.summary}
-            </p>
+              <div className="min-h-0 overflow-hidden">
+                <p className="px-3 pb-2 text-muted-foreground">
+                  {f.summary}
+                </p>
+              </div>
+            </div>
+            {!isOpen && (
+              <p className="line-clamp-2 px-3 pb-2 text-muted-foreground" title={f.summary}>
+                {f.summary}
+              </p>
+            )}
           </li>
         );
       })}
@@ -1035,13 +1047,13 @@ function ConsoleToggle({
           type="button"
           onClick={() => onChange(o.key)}
           aria-pressed={current === o.key}
-          className={`min-h-9 flex-1 rounded px-2.5 text-[11px] font-medium uppercase tracking-wider transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary ${
+          className={`group relative min-h-9 flex-1 overflow-hidden rounded px-2.5 text-[11px] font-medium uppercase tracking-wider transition-[transform,background-color,box-shadow,color] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-6 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-0.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden ${
             current === o.key
-              ? "bg-[var(--cc-primary)] text-white shadow-[var(--cc-glow)]"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-[var(--cc-primary)] text-white shadow-[var(--cc-glow)] hover:before:translate-x-[430%] hover:before:opacity-100"
+              : "text-muted-foreground hover:bg-background hover:text-primary hover:shadow-[0_10px_26px_rgba(16,24,40,0.09)]"
           }`}
         >
-          {o.label}
+          <span className="relative">{o.label}</span>
         </button>
       ))}
     </div>

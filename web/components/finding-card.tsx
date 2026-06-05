@@ -98,14 +98,25 @@ export function FindingCard({
 
   return (
     <div
-      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background transition-all hover:-translate-y-px hover:shadow-[var(--shadow-card-hover)] ${
+      className={`group relative w-full overflow-hidden rounded-[var(--radius-card)] border bg-background transition-[transform,border-color,box-shadow,background-color] duration-300 ease-enter will-change-transform hover:-translate-y-1 hover:scale-[1.003] hover:bg-primary/5 hover:shadow-[0_16px_42px_rgba(16,24,40,0.12)] motion-reduce:transform-none motion-reduce:transition-none ${
         active
-          ? "border-primary shadow-[var(--shadow-card)]"
-          : "border-border shadow-sm hover:border-border-strong"
+          ? "border-primary shadow-[0_16px_46px_rgba(113,50,245,0.15)]"
+          : "border-border shadow-sm hover:border-primary/35"
       }`}
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-primary/70 transition-transform duration-500 ease-enter group-hover:scale-x-100 motion-reduce:hidden"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-primary/10 to-transparent opacity-0 transition-[transform,opacity] duration-500 ease-enter group-hover:translate-x-[430%] group-hover:opacity-100 motion-reduce:hidden"
+      />
       {/* Vertical accent bar coloured by verdict tone */}
-      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${TONE_BAR[tone]}`} />
+      <span
+        aria-hidden
+        className={`absolute inset-y-0 left-0 w-1 transition-[width,opacity] duration-300 ease-enter group-hover:w-1.5 ${TONE_BAR[tone]}`}
+      />
 
       {/* Body — the primary click target selects the finding. */}
       <button
@@ -115,15 +126,15 @@ export function FindingCard({
       >
         <div className="flex items-start justify-between gap-2">
           <span
-            className={`font-mono text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${TONE_VERDICT_BADGE[tone]}`}
+            className={`font-mono text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded transition-transform duration-300 ease-enter group-hover:scale-105 motion-reduce:transform-none ${TONE_VERDICT_BADGE[tone]}`}
           >
             {finding.verdict}
           </span>
-          <SeverityBadge severity={finding.severity} />
+          <SeverityBadge severity={finding.severity} className="transition-[transform,box-shadow] duration-300 ease-enter group-hover:scale-105 group-hover:shadow-[0_8px_18px_rgba(16,24,40,0.08)] motion-reduce:transform-none" />
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${REVIEW_BADGE[reviewStatus]}`}
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider transition-transform duration-300 ease-enter group-hover:-translate-y-0.5 motion-reduce:transform-none ${REVIEW_BADGE[reviewStatus]}`}
           >
             {REVIEW_LABEL[reviewStatus]}
           </span>
@@ -145,11 +156,11 @@ export function FindingCard({
           )}
         </div>
         {claim?.text && (
-          <p className={`mt-2 text-[13px] font-medium leading-snug text-foreground ${active ? "line-clamp-2" : "line-clamp-1"}`}>
+          <p className={`mt-2 text-[13px] font-medium leading-snug text-foreground transition-colors duration-300 ease-enter group-hover:text-primary ${active ? "line-clamp-2" : "line-clamp-1"}`}>
             {claim.text}
           </p>
         )}
-        <p className={`mt-1.5 text-sm leading-snug text-foreground ${active ? "line-clamp-2" : "line-clamp-1"}`}>
+        <p className={`mt-1.5 text-sm leading-snug text-foreground transition-colors duration-300 ease-enter group-hover:text-foreground/90 ${active ? "line-clamp-2" : "line-clamp-1"}`}>
           {finding.summary}
         </p>
         {active && why !== finding.summary && (
@@ -158,7 +169,7 @@ export function FindingCard({
           </p>
         )}
         {active && finding.correct_information?.value && (
-          <div className="mt-2 rounded-md bg-muted px-2 py-1.5">
+          <div className="mt-2 rounded-md bg-muted px-2 py-1.5 transition-[background-color,box-shadow] duration-300 ease-enter group-hover:bg-primary/5 group-hover:shadow-[inset_0_0_0_1px_rgba(113,50,245,0.14)]">
             <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
               Correct
             </p>
@@ -198,7 +209,7 @@ export function FindingCard({
         onClick={onOpenDrawer}
         aria-label="Open finding details"
         title="Open details"
-        className="absolute bottom-2 right-2 z-10 grid size-6 place-items-center rounded-md border border-transparent text-muted-foreground/70 transition-all hover:border-border hover:bg-background hover:text-foreground hover:shadow-[var(--shadow-card)] focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+        className="absolute bottom-2 right-2 z-10 grid size-6 place-items-center rounded-md border border-transparent text-muted-foreground/70 opacity-70 transition-[transform,opacity,border-color,background-color,color,box-shadow] duration-300 ease-enter hover:-translate-y-0.5 hover:border-primary/30 hover:bg-background hover:text-primary hover:shadow-[var(--shadow-card)] group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none"
       >
         <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
           <rect x="1.6" y="2.6" width="10.8" height="8.8" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
@@ -213,7 +224,7 @@ export function FindingCard({
 function ConfidenceRing({ pct, color }: { pct: number; color: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5"
+      className="inline-flex items-center gap-1.5 transition-transform duration-300 ease-enter group-hover:scale-105 motion-reduce:transform-none"
       title={`confidence ${pct}%`}
       aria-label={`confidence ${pct}%`}
     >

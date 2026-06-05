@@ -106,21 +106,33 @@ export default function ForTeamsPage() {
             {PERSONAS.map((p, i) => (
               <div
                 key={p.title}
-                className={`group rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${reveal(personasVisible)} transition-[transform,opacity,filter,border-color,box-shadow]`}
+                className={reveal(personasVisible)}
                 style={{ transitionDelay: `${i * 90}ms` }}
               >
-                <div className="mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary transition-transform duration-300 group-hover:scale-105">
-                  {p.icon}
+                <div className="group relative h-full overflow-hidden rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,border-color,box-shadow,background-color] duration-300 ease-enter will-change-transform hover:-translate-y-1.5 hover:scale-[1.01] hover:border-primary/35 hover:bg-primary-soft/15 hover:shadow-[0_22px_52px_rgba(102,63,255,0.15)] motion-reduce:transform-none motion-reduce:transition-none">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-primary/70 transition-transform duration-500 ease-enter group-hover:scale-x-100 motion-reduce:hidden"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-primary/12 to-transparent opacity-0 transition-[transform,opacity] duration-500 ease-enter group-hover:translate-x-[430%] group-hover:opacity-100 motion-reduce:hidden"
+                  />
+                  <div className="relative mb-4 flex size-11 items-center justify-center rounded-[var(--radius-card)] bg-primary-soft text-primary transition-[transform,background-color,color] duration-300 ease-enter group-hover:-rotate-3 group-hover:scale-110 group-hover:bg-primary group-hover:text-white motion-reduce:transform-none">
+                    {p.icon}
+                  </div>
+                  <h3 className="relative text-base font-semibold transition-[color,transform] duration-300 ease-enter group-hover:translate-x-1 group-hover:text-primary motion-reduce:transform-none">
+                    {p.title}
+                  </h3>
+                  <ul className="relative mt-3 space-y-2 text-sm text-muted-foreground transition-colors duration-300 ease-enter group-hover:text-foreground/80">
+                    {p.bullets.map((b) => (
+                      <li key={b} className="flex items-start gap-2">
+                        {CHECK}
+                        <span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <h3 className="text-base font-semibold">{p.title}</h3>
-                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                  {p.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2">
-                      {CHECK}
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
             ))}
           </div>
@@ -135,11 +147,25 @@ export default function ForTeamsPage() {
             {FEATURES.map((f, i) => (
               <div
                 key={f.title}
-                className={`rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] hover:border-border-strong hover:shadow-[var(--shadow-card-hover)] ${reveal(featuresVisible)} transition-[transform,opacity,filter,border-color,box-shadow]`}
+                className={reveal(featuresVisible)}
                 style={{ transitionDelay: `${i * 80}ms` }}
               >
-                <h3 className="text-base font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+                <div className="group relative h-full overflow-hidden rounded-[var(--radius-card)] border border-border bg-background p-6 shadow-[var(--shadow-card)] transition-[transform,border-color,box-shadow,background-color] duration-300 ease-enter will-change-transform hover:-translate-y-1.5 hover:scale-[1.01] hover:border-primary/35 hover:bg-primary-soft/15 hover:shadow-[0_22px_52px_rgba(102,63,255,0.15)] motion-reduce:transform-none motion-reduce:transition-none">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-primary/70 transition-transform duration-500 ease-enter group-hover:scale-x-100 motion-reduce:hidden"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -inset-y-8 -left-1/3 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-primary/12 to-transparent opacity-0 transition-[transform,opacity] duration-500 ease-enter group-hover:translate-x-[430%] group-hover:opacity-100 motion-reduce:hidden"
+                  />
+                  <h3 className="relative text-base font-semibold transition-[color,transform] duration-300 ease-enter group-hover:translate-x-1 group-hover:text-primary motion-reduce:transform-none">
+                    {f.title}
+                  </h3>
+                  <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground transition-colors duration-300 ease-enter group-hover:text-foreground/80">
+                    {f.body}
+                  </p>
+                </div>
               </div>
             ))}
           </div>

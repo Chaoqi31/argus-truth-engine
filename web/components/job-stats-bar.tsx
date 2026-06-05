@@ -130,19 +130,22 @@ export function JobStatsBar({ job }: Props) {
 
 function StatItem({ stat, showDivider }: { stat: Stat; showDivider: boolean }) {
   return (
-    <div className="flex items-baseline gap-1.5">
+    <div
+      className="group flex items-baseline gap-1.5 rounded-[8px] px-1.5 py-0.5 transition-[transform,background-color,box-shadow] duration-300 ease-enter hover:-translate-y-0.5 hover:bg-background hover:shadow-[0_8px_22px_rgba(16,24,40,0.08)] motion-reduce:transform-none"
+      title={stat.hint}
+    >
       <span
-        className="font-mono text-sm font-semibold tabular-nums"
+        className="font-mono text-sm font-semibold tabular-nums transition-colors duration-300 ease-enter group-hover:text-primary"
         style={stat.warn ? { color: "var(--color-warning-foreground)" } : undefined}
       >
         {stat.value}
       </span>
-      <span className="text-[11px] uppercase tracking-wider text-muted-foreground" title={stat.hint}>
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors duration-300 ease-enter group-hover:text-foreground">
         {stat.label}
       </span>
       {stat.detail && (
         <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
+          className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider transition-transform duration-300 ease-enter group-hover:scale-105 motion-reduce:transform-none ${
             stat.detailTone === "muted"
               ? "bg-muted text-muted-foreground"
               : "bg-warning/15 text-warning-foreground"
