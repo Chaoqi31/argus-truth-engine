@@ -161,7 +161,7 @@ export function EvidenceTab({ job, findingId }: Props) {
         </section>
       )}
 
-      {finding.confidence_breakdown && (
+      {finding.confidence_breakdown && finding.evidence_ids.length > 0 && (
         <section>
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
             Confidence breakdown

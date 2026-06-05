@@ -34,7 +34,7 @@ def _verifier_json() -> str:
     return json.dumps(
         {
             "verdict": "fabricated",
-            "confidence": 0.91,
+            "confidence": 0.6,
             "summary": "No exact title match was found.",
             "why_wrong": "The cited paper could not be located.",
             "correct_information": None,
@@ -123,3 +123,64 @@ async def test_skeptic_counterevidence_downgrades_high_risk_verdict(
         "n_counterevidence_found": 1,
         "n_inconclusive": 0,
     }
+
+
+def _verifier_json_high_confidence() -> str:
+    return json.dumps(
+        {
+            "verdict": "fabricated",
+            "confidence": 0.95,
+            "summary": "No exact title match was found.",
+            "why_wrong": "The cited paper could not be located.",
+            "correct_information": None,
+            "evidence": [
+                {
+                    "source_type": "crossref",
+                    "url": "https://api.crossref.org/works?query=smith-widget",
+                    "snippet": "No matching title.",
+                },
+                {
+                    "source_type": "web_page",
+                    "url": "https://scholar.example/search?q=smith-widget",
+                    "snippet": "No exact match.",
+                },
+            ],
+            "reasoning_chain": [
+                {
+                    "action": "Searched exact title",
+                    "observation": "No exact match.",
+                    "reasoning": "The citation appears fabricated.",
+                }
+            ],
+        }
+    )
+
+
+async def test_skeptic_skips_high_confidence_high_risk_verdict(
+    tmp_path: Path,
+) -> None:
+    # A high-risk verdict the verifier is confident about (>= threshold) is NOT
+    # re-challenged — skeptic only spends a MiroMind call on low-confidence
+    # high-risk findings. No "skeptic" route is registered, so a regression that
+    # wrongly triggers the pass fails loudly on a missing mock route.
+    router = StreamRouter()
+    router.add("planner", [msg(_planner_json()), completed(tokens=80)])
+    router.add(
+        "unified_verifier",
+        [msg(_verifier_json_high_confidence()), completed(tokens=60)],
+    )
+    router.add("consistency", [msg(json.dumps({"contradictions": []})), completed(tokens=20)])
+    router.add("reporter", [msg(_reporter_json()), completed(tokens=20)])
+
+    job = await audit_pdf(
+        pdf_path=FIXTURE_PDF,
+        output_path=tmp_path / "findings.json",
+        settings=Settings(miromind_api_key="x", miromind_retry_base_delay_s=0.001),
+        client=router.make_client(),
+        budget_usd=10.0,
+    )
+
+    finding = next(f for f in job.findings if f.agent == "UnifiedVerifier")
+    assert finding.skeptic_review is None
+    assert finding.verdict == FindingVerdict.FABRICATED
+    assert [t for t in job.traces if t.agent == "Skeptic"] == []

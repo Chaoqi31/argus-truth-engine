@@ -1,25 +1,25 @@
 /**
  * Light "browser frame" hero mock — a static snapshot that mirrors the real
- * cockpit: three real findings from the NVIDIA sample audit (cockpit card
+ * cockpit: three real findings from the Legal sample audit (cockpit card
  * treatment) on the left, the audit pipeline on the right. Values match the
  * fixture; no fabricated data.
  */
 
 const FINDINGS: { verdict: string; severity: string; confidence: number; claim: string; summary: string }[] = [
   {
-    verdict: "fabricated", severity: "major", confidence: 0.93,
-    claim: 'Goldman Sachs report "Silicon Supercycle: The $5 Trillion AI Buildout"',
-    summary: "No record of any such report — the citation invents both the title and its attribution.",
+    verdict: "fabricated", severity: "major", confidence: 0.99,
+    claim: "Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019)",
+    summary: "No such case exists — a now-documented AI-generated citation fabrication.",
   },
   {
     verdict: "inaccurate", severity: "major", confidence: 0.99,
-    claim: "Data-center revenue of $148B in fiscal 2025",
-    summary: "Impossible — it exceeds NVIDIA's $130.5B total revenue for the same year.",
+    claim: "Shute v. Carnival Cruise Lines, 499 U.S. 585 (1991) held forum-selection clauses unenforceable against consumers",
+    summary: "Reverses the real holding — the Supreme Court found the clause enforceable, not unenforceable.",
   },
   {
-    verdict: "inaccurate", severity: "major", confidence: 0.96,
-    claim: "Hopper is NVIDIA's most advanced GPU architecture",
-    summary: "Superseded by the Blackwell architecture, in production since 2024.",
+    verdict: "inaccurate", severity: "major", confidence: 0.97,
+    claim: "Zicherman v. Korean Air Lines, 516 U.S. 217 (1996) permits recovery for purely emotional injury",
+    summary: "Misstates the holding — Zicherman bars damages for purely emotional harm under the Warsaw Convention.",
   },
 ];
 
@@ -47,16 +47,6 @@ export function HeroProductMock() {
   return (
     <div className="relative mx-auto w-full max-w-3xl">
       <div className="overflow-hidden rounded-[14px] border border-border bg-background shadow-[var(--shadow-card-hover)]">
-        {/* Browser chrome */}
-        <div className="flex items-center gap-2 border-b border-border bg-muted/60 px-4 py-2.5">
-          <span className="size-2.5 rounded-full bg-border" />
-          <span className="size-2.5 rounded-full bg-border" />
-          <span className="size-2.5 rounded-full bg-border" />
-          <span className="ml-3 flex-1 rounded-md border border-border bg-background px-3 py-1 text-[11px] text-muted-foreground">
-            argus-truth-engine.vercel.app/audit
-          </span>
-        </div>
-
         {/* Findings + pipeline */}
         <div className="grid grid-cols-[1fr_196px] divide-x divide-border">
           <div className="space-y-2.5 p-4 text-left">

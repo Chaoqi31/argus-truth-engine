@@ -162,7 +162,7 @@
       "claim_id": "a_3",
       "agent": "Consistency",
       "verdict": "contradiction",
-      "severity": "critical",
+      "severity": "major",
       "confidence": 1.0,
       "confidence_breakdown": null,
       "summary": "Claim a_3 states total revenue for fiscal year 2025 is $130.5 billion, but claim a_5 states data-center segment alone generated $148 billion over the same fiscal year. Since data-center revenue cannot exceed total revenue, these figures are contradictory.",
@@ -352,7 +352,7 @@
       "claim_id": "a_5",
       "agent": "UnifiedVerifier",
       "verdict": "inaccurate",
-      "severity": "major",
+      "severity": "critical",
       "confidence": 0.99,
       "confidence_breakdown": null,
       "summary": "The claim that NVIDIA's data-center segment generated $148 billion in revenue in fiscal year 2025 is incorrect. Official company filings and reports show that total company revenue for FY2025 was about $130.5 billion, and data-center revenue was about $115.2 billion, so the claimed $148 billion for just the data-center segment is impossible.",
@@ -392,7 +392,7 @@
       "claim_id": "a_6",
       "agent": "UnifiedVerifier",
       "verdict": "inaccurate",
-      "severity": "major",
+      "severity": "critical",
       "confidence": 0.96,
       "confidence_breakdown": null,
       "summary": "The claim is inaccurate. NVIDIA’s Hopper architecture has been superseded by the Blackwell architecture, which is both more recent and in full production. Therefore, Hopper is no longer NVIDIA’s most advanced GPU architecture currently in production.",
@@ -433,7 +433,7 @@
       "claim_id": "a_7",
       "agent": "UnifiedVerifier",
       "verdict": "fabricated",
-      "severity": "major",
+      "severity": "critical",
       "confidence": 0.93,
       "confidence_breakdown": {
         "source_agreement": 1.0,
@@ -449,12 +449,7 @@
         "url": "https://www.goldmansachs.com/insights/articles/tracking-trillions-the-assumptions-shaping-scale-of-the-ai-build-out",
         "retrieved_date": "2026-06-01"
       },
-      "skeptic_review": {
-        "status": "no_counterevidence",
-        "summary": "The independent skeptic pass searched for title variants, date shifts, and alternate attributions but found no credible Goldman Sachs report matching the claimed title or February 2026 date.",
-        "recommended_verdict": null,
-        "counterevidence": []
-      },
+      "skeptic_review": null,
       "reasoning_chain": [
         {
           "action": "Searched for the exact title \"Silicon Supercycle: The $5 Trillion AI Buildout\" along with \"Goldman Sachs\" and date filters around February 2026, including PDFs and site-restricted queries on goldmansachs.com and citation indexes.",
