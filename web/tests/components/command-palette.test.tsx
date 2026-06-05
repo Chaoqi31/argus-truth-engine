@@ -81,7 +81,7 @@ describe("CommandPalette", () => {
       return "blob:argus-audit-pack";
     });
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click() {
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click(this: HTMLAnchorElement) {
       exportedFilename = this.download;
     });
 

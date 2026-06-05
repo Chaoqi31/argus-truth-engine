@@ -37,7 +37,6 @@ import { EvidenceDiff } from "@/components/cockpit/evidence-diff";
 import { ReasoningWalkthroughCta } from "@/components/reasoning-walkthrough-cta";
 import { DemoRunControls } from "@/components/demo-run-controls";
 import { PdfUploadDropzone } from "@/components/pdf-upload-dropzone";
-import { TechnicalDepthPanel } from "@/components/technical-depth-panel";
 import CountUp from "@/components/react-bits/CountUp";
 import BlurText from "@/components/react-bits/BlurText";
 
@@ -616,7 +615,6 @@ function AuditPageContent() {
         <ScenarioBanner label={job.scenario_label} persona={job.persona} />
       )}
       <VerdictHero job={job} onStartReasoningWalkthrough={startReasoningWalkthrough} />
-      <TechnicalDepthPanel job={job} />
       <JobStatsBar job={job} />
       <main
         className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_360px] lg:[grid-template-columns:var(--cc-doc-w)_minmax(0,1fr)_var(--cc-console-w)]"

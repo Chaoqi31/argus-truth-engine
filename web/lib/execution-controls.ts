@@ -1,4 +1,5 @@
 import type { Job } from "@/lib/types";
+import { formatUsd, isMiroMindResponseId, plural } from "@/lib/format";
 
 export type ExecutionControlId =
   | "background_responses"
@@ -38,18 +39,6 @@ function control(
   detail: string,
 ): ExecutionControl {
   return { id, label: CONTROL_LABEL[id], status, detail };
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`;
-}
-
-function plural(value: number, singular: string, pluralLabel = `${singular}s`): string {
-  return `${value} ${value === 1 ? singular : pluralLabel}`;
-}
-
-function isMiroMindResponseId(id: string): boolean {
-  return Boolean(id) && id !== "n/a" && !id.startsWith("deepseek:");
 }
 
 export function getJobExecutionControls(job: Job): ExecutionControlSummary {

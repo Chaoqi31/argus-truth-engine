@@ -2,6 +2,7 @@ import { getJobAuditability } from "@/lib/auditability";
 import { getAuditFingerprint } from "@/lib/audit-fingerprint";
 import { getBenchmarkEvaluation } from "@/lib/benchmark-evaluation";
 import { getJobExecutionControls } from "@/lib/execution-controls";
+import { formatNumber, isMiroMindResponseId, pct, plural } from "@/lib/format";
 import type { Job } from "@/lib/types";
 
 export type TechnicalProofId =
@@ -64,22 +65,6 @@ function proof(
   evidence: string,
 ): TechnicalProof {
   return { id, label: LABELS[id], status, evidence };
-}
-
-function plural(value: number, singular: string, pluralLabel = `${singular}s`): string {
-  return `${value} ${value === 1 ? singular : pluralLabel}`;
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
-function pct(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
-function isMiroMindResponseId(id: string): boolean {
-  return Boolean(id) && id !== "n/a" && !id.startsWith("deepseek:");
 }
 
 function executionDetail(

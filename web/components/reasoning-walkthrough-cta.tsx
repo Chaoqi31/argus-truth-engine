@@ -2,6 +2,7 @@
 
 import type { Finding, Job } from "@/lib/types";
 import { sortFindingsForReview } from "@/lib/findings";
+import { noun } from "@/lib/format";
 
 interface Props {
   job: Job;
@@ -39,21 +40,13 @@ function countToolCalls(job: Job, finding: Finding): number {
   return searches + fetches + codeSteps;
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
-function plural(value: number, singular: string, pluralLabel = `${singular}s`): string {
-  return `${formatNumber(value)} ${value === 1 ? singular : pluralLabel}`;
-}
-
 function tokenLabel(trace: ReturnType<typeof traceFor>): string | null {
   if (!trace) return null;
   if (trace.reasoning_tokens > 0) {
-    return plural(trace.reasoning_tokens, "reasoning token");
+    return noun(trace.reasoning_tokens, "reasoning token");
   }
   if (trace.total_tokens > 0) {
-    return plural(trace.total_tokens, "total token");
+    return noun(trace.total_tokens, "total token");
   }
   return null;
 }
@@ -67,11 +60,11 @@ export function ReasoningWalkthroughCta({ job, onStart }: Props) {
   const sources = finding?.evidence_ids.length ?? 0;
   const verdict = finding?.verdict.replaceAll("-", " ") ?? "no saved trace";
   const steps = trace?.steps.length ?? 0;
-  const primaryMeta = [verdict, plural(steps, "step"), tokenLabel(trace)].filter(Boolean).join(" · ");
+  const primaryMeta = [verdict, noun(steps, "step"), tokenLabel(trace)].filter(Boolean).join(" · ");
   const secondaryMeta = [
-    plural(toolCalls, "tool call"),
-    plural(searches, "search", "searches"),
-    plural(sources, "source"),
+    noun(toolCalls, "tool call"),
+    noun(searches, "search", "searches"),
+    noun(sources, "source"),
   ].join(" · ");
 
   return (

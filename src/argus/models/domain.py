@@ -320,12 +320,22 @@ class Stage(_Base):
 
 
 class BenchmarkExpectedClaim(_Base):
+    """Demo-fixture-only ground truth — see :class:`BenchmarkSpec`."""
+
     claim_id: str
     verdict: FindingVerdict
     rationale: str
 
 
 class BenchmarkSpec(_Base):
+    """Planted-error answer key for the demo sample fixture ONLY.
+
+    Never populated on live audits (always ``None`` there); it exists so the
+    demo ``web/public/sample-findings.json`` can carry a known-answer benchmark
+    that the frontend benchmark panel scores the verifier against. This is not a
+    live capability — do not mistake it for a metric measured on real jobs.
+    """
+
     name: str
     expected_claims: list[BenchmarkExpectedClaim] = Field(default_factory=list)
 
@@ -362,4 +372,5 @@ class Job(_Base):
     traces: list[ReasoningTrace] = Field(default_factory=list)
     evidences: list[Evidence] = Field(default_factory=list)
     stages: list[Stage] = Field(default_factory=list)
+    # Demo-fixture-only ground truth; always None on live jobs. See BenchmarkSpec.
     benchmark: BenchmarkSpec | None = None

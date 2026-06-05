@@ -5,6 +5,7 @@ import { getBenchmarkEvaluation } from "@/lib/benchmark-evaluation";
 import { getJobExecutionControls } from "@/lib/execution-controls";
 import { getJudgeProofStrip, getTechnicalDepthProof } from "@/lib/technical-depth";
 import { sortFindingsForReview } from "@/lib/findings";
+import { formatNumber, formatUsd, pct, plural } from "@/lib/format";
 
 const REVIEW_STATUS_ORDER = ["open", "accepted", "disputed", "needs-recheck", "resolved"] as const;
 
@@ -45,22 +46,6 @@ function traceToolCounts(trace: Job["traces"][number]): {
       (step) => step.type === "execute_python" || step.type === "execute_command",
     ).length,
   };
-}
-
-function pct(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`;
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
-function noun(value: number, singular: string, plural = `${singular}s`): string {
-  return `${value} ${value === 1 ? singular : plural}`;
 }
 
 function skepticCounterevidenceCell(finding: Finding): string {
@@ -271,7 +256,7 @@ export function buildAuditPackMarkdown(
     `- Review decisions: ${REVIEW_STATUS_ORDER.map((status) => `${status}: ${reviewCounts[status]}`).join("; ")}`,
     `- Estimated cost: ${formatUsd(job.cost_usd)}`,
     `- Tokens: ${formatNumber(job.total_tokens)}`,
-    `- Tool use: ${noun(toolTotals.steps, "step")}; ${noun(toolTotals.searches, "search", "searches")}; ${noun(toolTotals.fetches, "fetch", "fetches")}; ${noun(toolTotals.codeSteps, "code step")}`,
+    `- Tool use: ${plural(toolTotals.steps, "step")}; ${plural(toolTotals.searches, "search", "searches")}; ${plural(toolTotals.fetches, "fetch", "fetches")}; ${plural(toolTotals.codeSteps, "code step")}`,
     "",
     "## Coverage Statement",
     `This audit checked ${audited} of ${total} selected factual claims. ${unchecked} claims were left unchecked.`,

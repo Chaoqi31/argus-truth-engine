@@ -302,8 +302,7 @@ describe("JobStatsBar", () => {
 
     render(<JobStatsBar job={job} />);
 
-    expect(screen.getByText("open review")).toBeInTheDocument();
-    expect(screen.getByText("accepted")).toBeInTheDocument();
-    expect(screen.getByText("disputed")).toBeInTheDocument();
+    expect(screen.getByText("review")).toBeInTheDocument();
+    expect(screen.getByText("1 accepted · 0 disputed")).toBeInTheDocument();
   });
 });

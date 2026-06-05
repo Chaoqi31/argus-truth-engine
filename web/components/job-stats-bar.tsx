@@ -2,6 +2,7 @@
 
 import type { Job } from "@/lib/types";
 import { getJobExecutionControls, type ExecutionControl } from "@/lib/execution-controls";
+import { formatNumber, formatUsd, noun } from "@/lib/format";
 import { useArgusStore } from "@/lib/store";
 import { useState } from "react";
 
@@ -17,18 +18,6 @@ interface Stat {
   hint?: string;
   warn?: boolean;
   controls?: ExecutionControl[];
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`;
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
-function noun(value: number, singular: string, plural = `${singular}s`): string {
-  return `${formatNumber(value)} ${value === 1 ? singular : plural}`;
 }
 
 function traceToolCounts(trace: Job["traces"][number]) {
@@ -177,25 +166,14 @@ export function JobStatsBar({ job }: Props) {
     { open: 0, accepted: 0, disputed: 0, resolved: 0 },
   );
   if (job.findings.length > 0) {
-    stats.push(
-      {
-        label: "open review",
-        value: String(reviewCounts.open),
-        warn: reviewCounts.open > 0,
-        hint: "Findings still awaiting reviewer decision, including needs-recheck.",
-      },
-      {
-        label: "accepted",
-        value: String(reviewCounts.accepted),
-        hint: "Findings accepted by the reviewer.",
-      },
-      {
-        label: "disputed",
-        value: String(reviewCounts.disputed),
-        warn: reviewCounts.disputed > 0,
-        hint: "Findings challenged by the reviewer.",
-      },
-    );
+    stats.push({
+      label: "review",
+      value: String(reviewCounts.open),
+      detail: `${reviewCounts.accepted} accepted · ${reviewCounts.disputed} disputed`,
+      detailTone: "muted",
+      warn: reviewCounts.open > 0,
+      hint: "Reviewer decisions — the value is open findings still awaiting a decision; accepted and disputed counts follow.",
+    });
   }
   return (
     <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-1 border-b border-border bg-muted/40 px-6 py-2.5">

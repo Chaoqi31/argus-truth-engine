@@ -82,7 +82,6 @@ export function FindingCard({
   const tone = verdictTone[finding.verdict];
   const pct = Math.round(finding.confidence * 100);
   const reasoningCount = finding.reasoning_chain?.length ?? 0;
-  const coverageCount = finding.coverage?.length ?? 0;
   const sourceCount = evidences.length || finding.evidence_ids.length;
   const why = finding.why_wrong || finding.summary;
   const reviewStatus = review?.status ?? "open";
@@ -170,12 +169,6 @@ export function FindingCard({
             <>
               <span aria-hidden>·</span>
               <span>{reasoningCount} reasoning step{reasoningCount === 1 ? "" : "s"}</span>
-            </>
-          )}
-          {coverageCount > 0 && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{coverageCount} coverage row{coverageCount === 1 ? "" : "s"}</span>
             </>
           )}
         </div>

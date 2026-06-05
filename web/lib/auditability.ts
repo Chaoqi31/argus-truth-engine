@@ -1,4 +1,5 @@
 import type { Finding, Job } from "@/lib/types";
+import { plural } from "@/lib/format";
 
 export type AuditabilityControlId =
   | "trace"
@@ -79,10 +80,6 @@ function control(
   detail: string,
 ): AuditabilityControl {
   return { id, label: CONTROL_LABEL[id], status, detail };
-}
-
-function plural(value: number, singular: string, pluralLabel = `${singular}s`): string {
-  return `${value} ${value === 1 ? singular : pluralLabel}`;
 }
 
 export function getFindingAuditability(
