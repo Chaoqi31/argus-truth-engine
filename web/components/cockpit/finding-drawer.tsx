@@ -283,7 +283,7 @@ export function FindingDrawer() {
                   </Section>
 
                   {/* Confidence breakdown — glowing animated bars (shared cmp) */}
-                  {finding.confidence_breakdown && (
+                  {finding.confidence_breakdown && finding.evidence_ids.length > 0 && (
                     <Section label="Confidence breakdown">
                       <ConfidenceBreakdown breakdown={finding.confidence_breakdown} />
                     </Section>

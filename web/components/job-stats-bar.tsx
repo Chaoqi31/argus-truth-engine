@@ -1,10 +1,8 @@
 "use client";
 
 import type { Job } from "@/lib/types";
-import { getJobExecutionControls, type ExecutionControl } from "@/lib/execution-controls";
-import { formatNumber, formatUsd, noun } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { useArgusStore } from "@/lib/store";
-import { useState } from "react";
 
 interface Props {
   job: Job;
@@ -17,7 +15,6 @@ interface Stat {
   detailTone?: "muted" | "warning";
   hint?: string;
   warn?: boolean;
-  controls?: ExecutionControl[];
 }
 
 function traceToolCounts(trace: Job["traces"][number]) {
@@ -45,9 +42,7 @@ function buildStats(job: Job): Stat[] {
     { searches: 0, fetches: 0, codeSteps: 0 },
   );
   const totalToolCalls = toolTotals.searches + toolTotals.fetches + toolTotals.codeSteps;
-  const reasoningTokens = job.traces.reduce((n, t) => n + t.reasoning_tokens, 0);
   const contentDomain = job.content_domain ?? "general";
-  const executionControls = getJobExecutionControls(job);
 
   const stats: Stat[] = [
     {
@@ -93,67 +88,26 @@ function buildStats(job: Job): Stat[] {
     },
   );
 
-  if (executionControls.requiredCount > 0) {
-    const missing = executionControls.requiredCount - executionControls.presentCount;
-    stats.push({
-      label: "exec controls",
-      value: `${executionControls.presentCount}/${executionControls.requiredCount}`,
-      detail: missing > 0 ? `${missing} missing` : "background responses · resumable · fan-out",
-      detailTone: missing > 0 ? "warning" : "muted",
-      warn: missing > 0,
-      hint: executionControls.controls
-        .filter((control) => control.status === "present")
-        .map((control) => control.label)
-        .join(" · "),
-      controls: executionControls.controls,
-    });
-  }
-
   if (totalToolCalls > 0) {
     stats.push({
       label: "tool calls",
       value: formatNumber(totalToolCalls),
-      detail: [
-        noun(toolTotals.searches, "search", "searches"),
-        noun(toolTotals.fetches, "fetch", "fetches"),
-        noun(toolTotals.codeSteps, "code step"),
-      ].join(" · "),
-      detailTone: "muted",
       hint: "MiroMind deep-research tools used while verifying claims: web searches, fetched pages, and code execution.",
     });
   }
 
-  if (job.total_tokens > 0) {
-    stats.push({
-      label: "tokens",
-      value: formatNumber(job.total_tokens),
-      detail: reasoningTokens > 0 ? `${formatNumber(reasoningTokens)} reasoning` : undefined,
-      detailTone: "muted",
-      hint: "Total model tokens for this audit. Reasoning tokens come from the saved MiroMind traces.",
-    });
-  }
-
-  stats.push(
-    {
-      label: "evidence",
-      value: String(job.evidences.length),
-      hint: "Independent sources fetched and cited across all findings.",
-    },
-    {
-      label: "cost",
-      value: formatUsd(job.cost_usd),
-      hint: "Estimated MiroMind spend for this audit.",
-    },
-  );
+  stats.push({
+    label: "evidence",
+    value: String(job.evidences.length),
+    hint: "Independent sources fetched and cited across all findings.",
+  });
 
   return stats;
 }
 
 export function JobStatsBar({ job }: Props) {
-  const [openDetails, setOpenDetails] = useState<string | null>(null);
   const reviews = useArgusStore((s) => s.findingReviews);
   const stats = buildStats(job);
-  const detailStat = stats.find((stat) => stat.label === openDetails && stat.controls);
   const reviewCounts = job.findings.reduce(
     (acc, finding) => {
       const status = reviews[finding.id]?.status ?? "open";
@@ -185,22 +139,9 @@ export function JobStatsBar({ job }: Props) {
           >
             {s.value}
           </span>
-          {s.controls ? (
-            <button
-              type="button"
-              className="text-left text-[11px] uppercase tracking-wider text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
-              title={s.hint}
-              aria-expanded={openDetails === s.label}
-              aria-controls="job-stat-details"
-              onClick={() => setOpenDetails(openDetails === s.label ? null : s.label)}
-            >
-              {s.label}
-            </button>
-          ) : (
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground" title={s.hint}>
-              {s.label}
-            </span>
-          )}
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground" title={s.hint}>
+            {s.label}
+          </span>
           {s.detail && (
             <span
               className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
@@ -215,36 +156,6 @@ export function JobStatsBar({ job }: Props) {
           {i < stats.length - 1 && <span aria-hidden className="text-border">·</span>}
         </div>
       ))}
-      {detailStat?.controls && (
-        <div
-          id="job-stat-details"
-          role="region"
-          aria-label={`${detailStat.label} details`}
-          className="basis-full rounded border border-border bg-background/80 p-2"
-        >
-          <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-3">
-            {detailStat.controls.map((control) => (
-              <div key={control.id} className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
-                      control.status === "present"
-                        ? "bg-emerald-500/10 text-emerald-700"
-                        : control.status === "not_applicable"
-                          ? "bg-muted text-muted-foreground"
-                          : "bg-warning/15 text-warning-foreground"
-                    }`}
-                  >
-                    {control.status.replace("_", " ")}
-                  </span>
-                  <span className="truncate text-xs font-medium">{control.label}</span>
-                </div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{control.detail}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -36,10 +36,14 @@ function reviewPriority(finding: Finding): number {
 
 export function sortFindingsForReview(findings: readonly Finding[]): Finding[] {
   return [...findings].sort((a, b) => {
-    const priority = reviewPriority(a) - reviewPriority(b);
-    if (priority !== 0) return priority;
+    // Primary: severity (critical → major → minor) so the most important
+    // findings lead the review queue.
     const severity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
     if (severity !== 0) return severity;
+    // Within a severity: evidence-backed issues first, then verdict kind, then
+    // confidence.
+    const priority = reviewPriority(a) - reviewPriority(b);
+    if (priority !== 0) return priority;
     const verdict = VERDICT_RANK[a.verdict] - VERDICT_RANK[b.verdict];
     if (verdict !== 0) return verdict;
     return b.confidence - a.confidence;

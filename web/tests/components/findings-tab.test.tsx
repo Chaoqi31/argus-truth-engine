@@ -108,7 +108,7 @@ describe("FindingsTab", () => {
     expect(items[0]?.textContent).toMatch(/No record in Crossref/);
   });
 
-  it("ranks evidence-backed review issues before source-less derived findings", () => {
+  it("within a severity tier, ranks evidence-backed issues before source-less derived findings", () => {
     const reviewJob: Job = {
       ...job,
       findings: [
@@ -118,7 +118,7 @@ describe("FindingsTab", () => {
           claim_id: "c2",
           agent: "Consistency",
           verdict: "contradiction",
-          severity: "critical",
+          severity: "major",
           confidence: 1,
           summary: "The document contradicts itself.",
           evidence_ids: [],
