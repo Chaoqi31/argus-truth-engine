@@ -1,11 +1,14 @@
 "use client";
 
-import type { Finding } from "@/lib/types";
+import type { Claim, Evidence, Finding, FindingReview, ReviewerStatus } from "@/lib/types";
 import { SeverityBadge } from "@/components/severity-badge";
 import { verdictTone } from "@/lib/colors";
 
 interface Props {
   finding: Finding;
+  claim?: Claim | null;
+  evidences?: Evidence[];
+  review?: FindingReview | null;
   active: boolean;
   onClick: () => void;
   onOpenDrawer: () => void;
@@ -32,6 +35,34 @@ const TONE_RING: Record<"danger" | "warn" | "ok" | "muted", string> = {
   muted: "var(--cc-text-muted, #9497a9)",
 };
 
+const REVIEW_LABEL: Record<ReviewerStatus, string> = {
+  open: "Open",
+  accepted: "Accepted",
+  disputed: "Disputed",
+  "needs-recheck": "Needs recheck",
+  resolved: "Resolved",
+};
+
+const REVIEW_BADGE: Record<ReviewerStatus, string> = {
+  open: "bg-muted text-muted-foreground",
+  accepted: "bg-success/15 text-success",
+  disputed: "bg-destructive/15 text-destructive-foreground",
+  "needs-recheck": "bg-warning/15 text-warning-foreground",
+  resolved: "bg-primary/10 text-primary",
+};
+
+const SKEPTIC_LABEL = {
+  no_counterevidence: "Skeptic cleared",
+  counterevidence_found: "Skeptic challenged",
+  inconclusive: "Skeptic inconclusive",
+} as const;
+
+const SKEPTIC_BADGE = {
+  no_counterevidence: "bg-success/10 text-success",
+  counterevidence_found: "bg-warning/15 text-warning-foreground",
+  inconclusive: "bg-muted text-muted-foreground",
+} as const;
+
 /**
  * Finding card — light cockpit treatment.
  *
@@ -39,9 +70,22 @@ const TONE_RING: Record<"danger" | "warn" | "ok" | "muted", string> = {
  * `onClick` to select the finding). Subtle border/shadow hover lift and a small
  * confidence ring — no neon glow.
  */
-export function FindingCard({ finding, active, onClick, onOpenDrawer }: Props) {
+export function FindingCard({
+  finding,
+  claim,
+  evidences = [],
+  review,
+  active,
+  onClick,
+  onOpenDrawer,
+}: Props) {
   const tone = verdictTone[finding.verdict];
   const pct = Math.round(finding.confidence * 100);
+  const reasoningCount = finding.reasoning_chain?.length ?? 0;
+  const sourceCount = evidences.length || finding.evidence_ids.length;
+  const why = finding.why_wrong || finding.summary;
+  const reviewStatus = review?.status ?? "open";
+  const skepticStatus = finding.skeptic_review?.status ?? null;
 
   return (
     <div
@@ -66,7 +110,44 @@ export function FindingCard({ finding, active, onClick, onOpenDrawer }: Props) {
           </span>
           <SeverityBadge severity={finding.severity} />
         </div>
-        <p className="mt-1 text-sm leading-snug">{finding.summary}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${REVIEW_BADGE[reviewStatus]}`}
+          >
+            {REVIEW_LABEL[reviewStatus]}
+          </span>
+          {skepticStatus && (
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${SKEPTIC_BADGE[skepticStatus]}`}
+              title={finding.skeptic_review?.summary}
+            >
+              {SKEPTIC_LABEL[skepticStatus]}
+            </span>
+          )}
+        </div>
+        {claim?.text && (
+          <p className="mt-2 line-clamp-2 text-[13px] font-medium leading-snug text-foreground">
+            {claim.text}
+          </p>
+        )}
+        <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-foreground">
+          {finding.summary}
+        </p>
+        {why !== finding.summary && (
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {why}
+          </p>
+        )}
+        {finding.correct_information?.value && (
+          <div className="mt-2 rounded-md bg-muted px-2 py-1.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              Correct
+            </p>
+            <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-foreground">
+              {finding.correct_information.value}
+            </p>
+          </div>
+        )}
         {(finding.flags ?? []).length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {(finding.flags ?? []).map((fl) => (
@@ -80,12 +161,14 @@ export function FindingCard({ finding, active, onClick, onOpenDrawer }: Props) {
             ))}
           </div>
         )}
-        <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           <ConfidenceRing pct={pct} color={TONE_RING[tone]} />
-          {finding.evidence_ids.length > 0 && (
+          <span aria-hidden>·</span>
+          <span>{sourceCount} source{sourceCount === 1 ? "" : "s"}</span>
+          {reasoningCount > 0 && (
             <>
               <span aria-hidden>·</span>
-              <span>{finding.evidence_ids.length} evidence</span>
+              <span>{reasoningCount} reasoning step{reasoningCount === 1 ? "" : "s"}</span>
             </>
           )}
         </div>

@@ -225,6 +225,47 @@ async def test_tool_call_added_then_done_collapses_to_one_step_with_result() -> 
     assert "organic" in searches[0].content["result"]
 
 
+async def test_emits_step_callback_while_streaming_tool_events() -> None:
+    """Live subscribers should see native tool steps before the final JSON lands."""
+    client = AsyncMock()
+    client.submit_background = AsyncMock(return_value="resp_x")
+    emitted: list[dict[str, Any]] = []
+
+    async def on_step(step: object) -> None:
+        emitted.append(step.model_dump(mode="json"))  # type: ignore[attr-defined]
+
+    tool_done = ResponseOutputItemDoneEvent(
+        type="response.output_item.done",
+        sequence_number=2,
+        output_index=0,
+        item={
+            "type": "tool_call",
+            "name": "google_search",
+            "id": "tc_2",
+            "status": "completed",
+            "arguments": '{"q": "goldman silicon supercycle"}',
+            "result": '{"organic":[{"title":"Goldman","link":"https://example.com"}]}',
+        },
+    )
+    valid = '{"verdict":"ok","confidence":0.9}'
+    client.stream = lambda rid, after=0: _events_seq(
+        [tool_done, _msg_delta(valid), _completed()]
+    )
+
+    runner = AgentRunner(
+        client=client,
+        model_cls=Out,
+        agent_name="t",
+        on_step=on_step,
+    )
+    await runner.run(instructions=None, input_text="hi")
+
+    assert len(emitted) == 1
+    assert emitted[0]["type"] == "web_search"
+    assert emitted[0]["summary"] == "search: goldman silicon supercycle"
+    assert "organic" in emitted[0]["content"]["result"]
+
+
 def test_extract_json_repairs_common_llm_damage() -> None:
     """Regression: MiroMind's streamed output occasionally drops punctuation.
 

@@ -33,9 +33,11 @@ export interface UploadResponse {
 export async function uploadPdf(
   file: File,
   apiKey?: string,
+  options?: { contentDomain?: ContentDomain },
 ): Promise<UploadResponse> {
   const form = new FormData();
   form.append("pdf", file);
+  form.append("content_domain", options?.contentDomain ?? "general");
   // BYOK: pass the visitor's own MiroMind key via header. The backend will
   // 400 if neither this header nor a server-side fallback key is present.
   const headers: HeadersInit = {};

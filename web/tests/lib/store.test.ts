@@ -32,8 +32,11 @@ const minimalJob: Job = {
   evidences: [],
 };
 
+const REVIEW_STORAGE_KEY = "argus:finding-reviews:j1";
+
 beforeEach(() => {
-  useArgusStore.setState({ job: null, activeFindingId: null });
+  window.localStorage.removeItem(REVIEW_STORAGE_KEY);
+  useArgusStore.getState().clear();
 });
 
 describe("argus store", () => {
@@ -44,6 +47,44 @@ describe("argus store", () => {
     expect(s.activeFindingId).toBe("f1");
   });
 
+  it("setJob spotlights an evidence-backed issue before a source-less derived finding", () => {
+    useArgusStore.getState().setJob({
+      ...minimalJob,
+      findings: [
+        {
+          id: "f_derived",
+          job_id: "j1",
+          claim_id: "c1",
+          agent: "Consistency",
+          verdict: "contradiction",
+          severity: "critical",
+          confidence: 1,
+          summary: "Two claims contradict each other.",
+          evidence_ids: [],
+          reasoning_trace_id: "t0",
+          related_finding_ids: [],
+          created_at: "2026-05-20T00:00:00Z",
+        },
+        {
+          id: "f_evidence",
+          job_id: "j1",
+          claim_id: "c1",
+          agent: "UnifiedVerifier",
+          verdict: "fabricated",
+          severity: "major",
+          confidence: 0.93,
+          summary: "No record was found in primary sources.",
+          evidence_ids: ["e1"],
+          reasoning_trace_id: "t1",
+          related_finding_ids: [],
+          created_at: "2026-05-20T00:00:00Z",
+        },
+      ],
+    });
+
+    expect(useArgusStore.getState().activeFindingId).toBe("f_evidence");
+  });
+
   it("setActiveFinding switches the current finding", () => {
     useArgusStore.getState().setJob(minimalJob);
     useArgusStore.getState().setActiveFinding("f2");
@@ -52,9 +93,29 @@ describe("argus store", () => {
 
   it("clear resets to initial state", () => {
     useArgusStore.getState().setJob(minimalJob);
+    useArgusStore.getState().setFindingReview("j1", "f1", { status: "accepted" });
     useArgusStore.getState().clear();
     expect(useArgusStore.getState().job).toBeNull();
     expect(useArgusStore.getState().activeFindingId).toBeNull();
+    expect(useArgusStore.getState().findingReviews).toEqual({});
+  });
+
+  it("persists reviewer decisions per job", () => {
+    const s = useArgusStore.getState();
+    s.setJob(minimalJob);
+    s.setFindingReview("j1", "f1", {
+      status: "disputed",
+      note: "Needs a second source.",
+    });
+
+    expect(useArgusStore.getState().findingReviews.f1?.status).toBe("disputed");
+    expect(useArgusStore.getState().findingReviews.f1?.note).toBe("Needs a second source.");
+
+    useArgusStore.getState().clear();
+    useArgusStore.getState().setJob(minimalJob);
+
+    expect(useArgusStore.getState().findingReviews.f1?.status).toBe("disputed");
+    expect(useArgusStore.getState().findingReviews.f1?.note).toBe("Needs a second source.");
   });
 });
 

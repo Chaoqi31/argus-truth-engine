@@ -15,7 +15,11 @@ from argus.agents.base import StreamCollection
 from argus.agents.consistency import ConsistencyOutput
 from argus.models.domain import (
     Claim,
+    ClaimCoverage,
+    ComputationCheck,
+    ComputationValue,
     Evidence,
+    EvidenceQuality,
     EvidenceSource,
     Finding,
     FindingVerdict,
@@ -146,6 +150,65 @@ def _make_unified_finding(
         evidence_records.append(e)
         evidence_ids.append(e.id)
 
+    def evidence_id_at(index: int | None) -> str | None:
+        if index is None or index < 0 or index >= len(evidence_records):
+            return None
+        return evidence_records[index].id
+
+    evidence_quality: list[EvidenceQuality] = []
+    for q in getattr(parsed, "evidence_quality", []):
+        evidence_id = evidence_id_at(q.evidence_index)
+        if evidence_id is None:
+            continue
+        evidence_quality.append(
+            EvidenceQuality(
+                evidence_id=evidence_id,
+                authority=q.authority,
+                independence=q.independence,
+                freshness=q.freshness,
+                directness=q.directness,
+                role=q.role,
+                rationale=q.rationale,
+            )
+        )
+
+    coverage: list[ClaimCoverage] = []
+    for c in getattr(parsed, "coverage", []):
+        coverage.append(
+            ClaimCoverage(
+                claim_fragment=c.claim_fragment,
+                relation=c.relation,
+                evidence_ids=[
+                    evidence_records[i].id
+                    for i in c.evidence_indices
+                    if 0 <= i < len(evidence_records)
+                ],
+                reason=c.reason,
+            )
+        )
+
+    computation_check = None
+    if getattr(parsed, "computation_check", None) is not None:
+        ck = parsed.computation_check
+        computation_check = ComputationCheck(
+            kind="date" if ck.kind == "date" else "numeric",
+            claimed_value=ck.claimed_value,
+            extracted_values=[
+                ComputationValue(
+                    label=v.label,
+                    value=v.value,
+                    unit=v.unit,
+                    source_evidence_id=evidence_id_at(v.source_evidence_index),
+                )
+                for v in ck.extracted_values
+            ],
+            formula=ck.formula,
+            computed_value=ck.computed_value,
+            tolerance=ck.tolerance,
+            judgment=ck.judgment,
+            rationale=ck.rationale,
+        )
+
     reasoning_chain: list[VerificationStep] = []
     for rs in parsed.reasoning_chain:
         reasoning_chain.append(VerificationStep(
@@ -196,6 +259,9 @@ def _make_unified_finding(
         why_wrong=why_wrong,
         correct_information=corrected,
         reasoning_chain=reasoning_chain,
+        evidence_quality=evidence_quality,
+        coverage=coverage,
+        computation_check=computation_check,
         evidence_ids=evidence_ids,
         reasoning_trace_id=trace.id,
     )
@@ -308,6 +374,18 @@ def _step_payload(trace: ReasoningTrace, *, n_claims: int | None = None) -> dict
     return payload
 
 
+def _live_step_payload(*, agent: str, claim_id: str, step: Step) -> dict[str, Any]:
+    return {
+        "trace_id": step.trace_id,
+        "agent": agent,
+        "claim_id": claim_id,
+        "step": step.model_dump(mode="json"),
+        "step_type": step.type.value,
+        "summary": step.summary,
+        "sequence": step.sequence,
+    }
+
+
 def _finding_payload(finding: Finding) -> dict[str, Any]:
     from argus.models.domain import VerificationStep
 
@@ -346,6 +424,16 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
                     "confidence_delta": rs.confidence_delta,
                 })
         payload["reasoning_chain"] = chain
+    if finding.evidence_quality:
+        payload["evidence_quality"] = [
+            q.model_dump(mode="json") for q in finding.evidence_quality
+        ]
+    if finding.coverage:
+        payload["coverage"] = [c.model_dump(mode="json") for c in finding.coverage]
+    if finding.skeptic_review:
+        payload["skeptic_review"] = finding.skeptic_review.model_dump(mode="json")
+    if finding.computation_check:
+        payload["computation_check"] = finding.computation_check.model_dump(mode="json")
     if finding.confidence_breakdown:
         cb = finding.confidence_breakdown
         payload["confidence_breakdown"] = {

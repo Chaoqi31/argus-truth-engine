@@ -42,6 +42,25 @@ describe("uploadPdf", () => {
     expect(fileField.type).toBe("application/pdf");
   });
 
+  it("includes content_domain when a PDF domain is selected", async () => {
+    const captured: { init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (_, init) => {
+      captured.init = init;
+      return new Response(JSON.stringify({ job_id: "job_abc", status: "running" }), {
+        status: 202,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "x.pdf", {
+      type: "application/pdf",
+    });
+    await uploadPdf(file, "test-key", { contentDomain: "finance" });
+
+    const form = captured.init?.body as FormData;
+    expect(form.get("content_domain")).toBe("finance");
+  });
+
   it("throws UnsupportedMediaTypeError on 415", async () => {
     globalThis.fetch = vi.fn(
       async () =>

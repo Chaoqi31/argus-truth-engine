@@ -2,6 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { subscribeTrace } from "@/lib/trace-ws";
 import type { TraceEvent } from "@/lib/trace-ws";
 
+let disconnectors: Array<() => void> = [];
+
+function trackSubscribe(...args: Parameters<typeof subscribeTrace>) {
+  const disconnect = subscribeTrace(...args);
+  disconnectors.push(disconnect);
+  return disconnect;
+}
+
 // Minimal in-memory WebSocket stand-in.
 class FakeSocket {
   static instances: FakeSocket[] = [];
@@ -48,12 +56,16 @@ class FakeSocket {
 }
 
 beforeEach(() => {
+  disconnectors = [];
   FakeSocket.instances = [];
   FakeSocket.failConnect = 0;
   (globalThis as unknown as { WebSocket: typeof FakeSocket }).WebSocket = FakeSocket;
 });
 
 afterEach(() => {
+  for (const disconnect of disconnectors.splice(0).reverse()) {
+    disconnect();
+  }
   vi.restoreAllMocks();
 });
 
@@ -65,7 +77,7 @@ async function flush() {
 describe("subscribeTrace", () => {
   it("opens ws://host/ws/jobs/{id}/trace?after=0 and dispatches events", async () => {
     const events: TraceEvent[] = [];
-    const disconnect = subscribeTrace(
+    const disconnect = trackSubscribe(
       "job_abc",
       { onEvent: (ev) => events.push(ev) },
       { wsHost: "localhost:8080" },
@@ -92,7 +104,7 @@ describe("subscribeTrace", () => {
   it("reconnects with ?after=<lastSeq> on abnormal close, no reconnect after terminal", async () => {
     const events: TraceEvent[] = [];
     const closeReports: boolean[] = [];
-    subscribeTrace(
+    trackSubscribe(
       "job_x",
       {
         onEvent: (ev) => events.push(ev),
@@ -126,7 +138,7 @@ describe("subscribeTrace", () => {
 
   it("ignores duplicate sequence numbers after reconnect replay", async () => {
     const events: TraceEvent[] = [];
-    subscribeTrace(
+    trackSubscribe(
       "job_x",
       { onEvent: (ev) => events.push(ev) },
       { wsHost: "h:1", reconnectDelayMs: 5 },
@@ -145,7 +157,7 @@ describe("subscribeTrace", () => {
   });
 
   it("disconnect() stops further reconnects", async () => {
-    const disconnect = subscribeTrace(
+    const disconnect = trackSubscribe(
       "j",
       { onEvent: () => {} },
       { wsHost: "h:1", reconnectDelayMs: 5 },
@@ -160,7 +172,7 @@ describe("subscribeTrace", () => {
   it("fires onConnected on open and resets the reconnect budget", async () => {
     let connectedCount = 0;
     let gaveUp = false;
-    subscribeTrace(
+    trackSubscribe(
       "job_c",
       {
         onEvent: () => {},
@@ -188,7 +200,7 @@ describe("subscribeTrace", () => {
     let gaveUp = false;
     let errorCount = 0;
     FakeSocket.failConnect = 2; // first two sockets fail, third succeeds
-    subscribeTrace(
+    trackSubscribe(
       "job_t",
       {
         onEvent: () => {},
@@ -210,7 +222,7 @@ describe("subscribeTrace", () => {
   it("calls onGiveUp exactly once after maxReconnectAttempts failed connects", async () => {
     let giveUpCount = 0;
     FakeSocket.failConnect = 50; // every socket fails to connect
-    subscribeTrace(
+    trackSubscribe(
       "job_g",
       {
         onEvent: () => {},

@@ -11,6 +11,7 @@ Responsibilities:
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
@@ -35,6 +36,9 @@ from argus.models.miromind import (
 
 class JsonRepairFailed(RuntimeError):
     """Raised when the model could not produce valid JSON even after one repair."""
+
+
+StepCallback = Callable[[Step], Awaitable[None]]
 
 
 @dataclass
@@ -83,11 +87,13 @@ class AgentRunner[T: BaseModel]:
         model_cls: type[T],
         agent_name: str,
         max_output_tokens: int | None = 8000,
+        on_step: StepCallback | None = None,
     ) -> None:
         self._client = client
         self._model_cls = model_cls
         self._agent_name = agent_name
         self._max_tokens = max_output_tokens
+        self._on_step = on_step
 
     async def run(
         self,
@@ -171,7 +177,12 @@ class AgentRunner[T: BaseModel]:
         tool_steps: dict[str, Step] = {}
 
         async for ev in self._client.stream(rid, after=0):
-            self._record_step(collected, ev, thinking_buf, text_buf, tool_steps)
+            emitted_steps = self._record_step(
+                collected, ev, thinking_buf, text_buf, tool_steps
+            )
+            if self._on_step is not None:
+                for step in emitted_steps:
+                    await self._on_step(step)
             if isinstance(ev, ResponseCompletedEvent):
                 usage = ev.response.usage
                 collected.total_tokens = usage.total_tokens
@@ -198,11 +209,13 @@ class AgentRunner[T: BaseModel]:
         thinking_buf: list[str],
         text_buf: list[str],
         tool_steps: dict[str, Step],
-    ) -> None:
+    ) -> list[Step]:
         if isinstance(ev, ResponseReasoningTextDeltaEvent):
             thinking_buf.append(ev.delta)
+            return []
         elif isinstance(ev, ResponseOutputTextDeltaEvent):
             text_buf.append(ev.delta)
+            return []
         elif isinstance(ev, ResponseOutputItemAddedEvent | ResponseOutputItemDoneEvent):
             item = ev.item or {}
             kind = item.get("type", "tool_call")
@@ -220,7 +233,7 @@ class AgentRunner[T: BaseModel]:
                 if existing is not None:
                     existing.content = item
                     existing.summary = summary
-                    return
+                    return [existing] if _is_completed_tool_event(ev, item) else []
                 step = Step(
                     id=f"step_{uuid4().hex[:12]}",
                     trace_id=collected.response_id,
@@ -232,18 +245,20 @@ class AgentRunner[T: BaseModel]:
                 collected.steps.append(step)
                 if item_id:
                     tool_steps[item_id] = step
+                return [step] if _is_completed_tool_event(ev, item) else []
             elif kind == "reasoning" and thinking_buf:
-                collected.steps.append(
-                    Step(
-                        id=f"step_{uuid4().hex[:12]}",
-                        trace_id=collected.response_id,
-                        sequence=ev.sequence_number,
-                        type=StepType.THINKING,
-                        summary=_truncate("".join(thinking_buf)),
-                        content={"thought": "".join(thinking_buf)},
-                    )
+                step = Step(
+                    id=f"step_{uuid4().hex[:12]}",
+                    trace_id=collected.response_id,
+                    sequence=ev.sequence_number,
+                    type=StepType.THINKING,
+                    summary=_truncate("".join(thinking_buf)),
+                    content={"thought": "".join(thinking_buf)},
                 )
+                collected.steps.append(step)
                 thinking_buf.clear()
+                return [step]
+        return []
 
     def _validate(self, text: str) -> T:
         return self._model_cls.model_validate_json(_extract_json(text))
@@ -321,6 +336,13 @@ def _truncate(s: str, n: int = _TRUNCATE_DEFAULT) -> str:
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def _is_completed_tool_event(
+    ev: ResponseOutputItemAddedEvent | ResponseOutputItemDoneEvent,
+    item: dict[str, Any],
+) -> bool:
+    return isinstance(ev, ResponseOutputItemDoneEvent) or item.get("status") == "completed"
+
+
 def _tool_call_summary(tool_name: str, item: dict[str, Any]) -> str:
     """Extract a human-readable summary from a MiroMind tool call item.
 
@@ -336,15 +358,17 @@ def _tool_call_summary(tool_name: str, item: dict[str, Any]) -> str:
         except (json.JSONDecodeError, TypeError):
             args = {}
 
-    if tool_name == "web_search":
+    step_type = _TOOL_NAME_TO_STEP.get(tool_name, StepType.TOOL_CALL)
+
+    if step_type == StepType.WEB_SEARCH:
         query = args.get("query", args.get("q", ""))
         if query:
             return f"search: {_truncate(query, 120)}"
-    elif tool_name == "fetch_url_content":
+    elif step_type == StepType.FETCH_URL_CONTENT:
         url = args.get("url", "")
         if url:
             return f"fetch: {_truncate(url, 120)}"
-    elif tool_name == "execute_python":
+    elif step_type == StepType.EXECUTE_PYTHON:
         code = args.get("code", "")
         if code:
             return f"python: {_truncate(code.split(chr(10))[0], 100)}"

@@ -66,8 +66,8 @@ export default function IncidentsPage() {
             with fabricated citations — in public, under their own name.
           </p>
           <p className="mt-6 text-sm text-muted-foreground">
-            <a href="https://www.damiencharlotin.com/hallucinations/" target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-2 hover:text-primary">1,353+</a>{" "}
-            court filings caught citing AI-hallucinated cases — and the{" "}
+            <a href="https://www.damiencharlotin.com/hallucinations/" target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-2 hover:text-primary">1,536</a>{" "}
+            legal cases caught relying on AI-hallucinated content — and the{" "}
             <a href="https://www.damiencharlotin.com/hallucinations/" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-primary">tracker</a>{" "}
             grows daily.
           </p>

@@ -27,9 +27,9 @@
 
 这个问题背后有真实且可查证的数据：
 
-- 已有 **1,353+** 份法庭文件被发现引用了 AI 编造（幻觉）的虚假判例 ——
-  [追踪统计](https://www.damiencharlotin.com/hallucinations/)（Damien Charlotin，HEC Paris）
-  仍在以每天数例的速度增长。
+- 已有 **1,536** 起法律案件被记录为法院或仲裁庭处理了 AI 幻觉内容 ——
+  [追踪统计](https://www.damiencharlotin.com/hallucinations/)（Damien Charlotin，HEC Paris；
+  最后更新于 2026 年 6 月 4 日）仍在增长。
 - Gartner 预测 **30% 的生成式 AI 项目将在 2025 年底前、于 PoC 阶段后被放弃** ——
   原因是数据质量差、风险控制不足、成本攀升与商业价值不清
   ([Gartner, 2024](https://www.gartner.com/en/newsroom/press-releases/2024-07-29-gartner-predicts-30-percent-of-generative-ai-projects-will-be-abandoned-after-proof-of-concept-by-end-of-2025))。
@@ -79,28 +79,32 @@
 
 ## ✨ 推理透明度
 
-每条发现都包含一段结构化的**推理链** —— 不是模型的原始思维，而是经过整理的
-行动/观察/推理 三元组序列，清晰展示判决是如何得出的：
+每条发现都同时包含一段整理后的**推理链**（行动 / 观察 / 推理三元组）
+和完整的**原始步骤 trace** —— verifier 实际产生的每个思考、网页搜索和页面抓取事件。
+示例审查中，系统识别出一条虚构的 Goldman Sachs 引用：
 
 ```
-Step 1: 核对 BEA 2024 Q3 预估值（Advance Estimate）
-  → 发现：GDP 增长 2.8%，与声称的 1.6% 矛盾
-  → 推理：首个官方数字就已与声明不符
+Claim: "a February 2026 Goldman Sachs report titled
+        'Silicon Supercycle: The $5 Trillion AI Buildout'…"
 
-Step 2: 核对 BEA 2024 Q3 二次预估值（Second Estimate）
-  → 发现：仍为 2.8%
-  → 推理：两次预估一致，1.6% 可确定为错误
+  🔍 77 次不同搜索 —— 精确标题、site:goldmansachs.com、filetype:pdf、
+     近似改写、Scholar / ResearchGate / LinkedIn、反向排除 …
+  → 没有找到任何形式的该报告
+  → 最接近的真实 Goldman Sachs 文章是
+     "Tracking Trillions: The Assumptions Shaping the Scale of the
+     AI Build-Out"（约 $7.6T capex，2026–2031）—— 标题、时间范围、
+     数字都不同
 
-Step 3: 核对 BEA 2024 Q3 第三次（终值）预估（Third/Final Estimate）
-  → 发现：修订为 3.1%
-  → 推理：最新官方数字确认该错误
-
-Step 4: 追溯 1.6% 这个数字的来源
-  → 发现：它属于 2024 Q1，而非 Q3
-  → 推理：声明混淆了 Q1 与 Q3 的数据 —— 属于不准确，而非虚构
+  Verdict: fabricated (0.93) —— 这条引用同时虚构了报告标题与
+  Goldman Sachs 归属。
 ```
 
-在**实时审查**中，前端通过 WebSocket 在每一步发生的当下流式渲染；在**示例审查**中，你可以逐步回放同一段已记录的推理过程。无论哪种方式，审阅者看到的不只是判决，还有它*为何*出错、*正确答案是什么* —— 并附带可点击的来源 URL 供独立核实。
+Trace 面板使用**渐进披露**：每个 claim 先以一行展示 verdict、证据数量与
+搜索/推理步数；展开后先看到 compact verdict brief（为什么错、正确答案是什么），
+再向下查看完整 MiroMind reasoning stream。搜索步骤还能继续展开查看结果链接。
+在**实时审查**中，前端通过 WebSocket 在每一步发生的当下流式渲染；在**示例审查**
+中，系统回放同一段已记录的真实 trace。无论哪种方式，审阅者看到的不只是判决，
+还有它*为何*出错、*正确答案是什么* —— 并附带可点击的来源 URL 供独立核实。
 
 ## 🏗️ 工作原理
 
@@ -178,8 +182,15 @@ uv run argus serve --host 127.0.0.1 --port 8080
 # 2. Frontend
 cd web && pnpm install && pnpm dev
 
-# 3. Open http://localhost:3000
-#    Click "…or try the sample audit" to see a curated audit without an API key.
+# 3. Open http://127.0.0.1:3000
+#    Click "See a sample audit" to replay a real recorded audit — no API key needed.
+```
+
+macOS 上如果使用 WeasyPrint 导出 PDF 报告，可能需要把 Homebrew 的
+Pango/Cairo 动态库路径暴露给后端：
+
+```bash
+DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve --host 127.0.0.1 --port 8080
 ```
 
 ### 方式 B — 命令行
@@ -219,10 +230,10 @@ uv run argus audit examples/sample-report.pdf \
 ## 🧪 测试
 
 ```bash
-uv run pytest -q          # 171 passing
+uv run pytest -q          # backend tests
 uv run mypy src/argus     # strict
 uv run ruff check .       # lint
-cd web && pnpm test       # vitest
+cd web && pnpm test       # frontend tests
 ```
 
 ## 📜 许可证
