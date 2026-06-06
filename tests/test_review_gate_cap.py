@@ -27,6 +27,9 @@ class _RecordingPublisher:
     async def publish(self, kind: str, payload: dict[str, Any]) -> None:
         self.events.append((kind, payload))
 
+    async def stage(self, **payload: Any) -> None:
+        self.events.append(("stage", payload))
+
 
 def _claim(
     cid: str,

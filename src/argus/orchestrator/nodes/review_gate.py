@@ -68,6 +68,14 @@ def _review_gate_node(
             return {}
         claims = state.get("claims", [])
         n_before = len(claims)
+        publish_stage = not ctx.is_resuming
+        if publish_stage:
+            await ctx.publisher.stage(
+                status="started",
+                key="review_gate",
+                name="Review gate",
+                engine="deterministic",
+            )
 
         # Dedupe before the paid verification step. The atomizer can emit atoms
         # that duplicate existing claims verbatim and nothing downstream
@@ -118,10 +126,33 @@ def _review_gate_node(
                 "n_verifying": len(claims),
             }
         }
+        review_stage_payload = review_summary["review_gate"]
+        stage_finished = False
+
+        async def finish_stage(n_verifying: int) -> None:
+            nonlocal stage_finished
+            if not publish_stage:
+                return
+            if stage_finished:
+                return
+            stage_finished = True
+            await ctx.publisher.stage(
+                status="finished",
+                key="review_gate",
+                name="Review gate",
+                engine="deterministic",
+                summary=f"{n_verifying} claim(s) sent to verification",
+                metrics={
+                    "n_before": n_before,
+                    "n_after": len(deduped),
+                    "n_verifying": n_verifying,
+                },
+            )
 
         if auto_review or not claims:
             # Pass-through. If a cap was applied we MUST return the capped list
             # — returning {} would leave the full claim list in state.
+            await finish_stage(review_stage_payload["n_verifying"])
             if capped_applied or dedup_applied:
                 return {"claims": claims, "stage_summaries": review_summary}
             return {"stage_summaries": review_summary}
@@ -133,6 +164,7 @@ def _review_gate_node(
         # reconnecting clients. Skip the re-publish on resume to avoid
         # the duplicate arriving AFTER the user has already submitted.
         if not ctx.is_resuming:
+            await finish_stage(len(claims))
             await ctx.publisher.publish("review_ready", {
                 "claims": [
                     {"id": c.id, "text": c.text, "type": c.type.value,
@@ -154,6 +186,7 @@ def _review_gate_node(
             filtered = [c for c in claims if c.id in selected_set]
             await ctx.publisher.publish("review_submitted",
                                         {"n_selected": len(filtered)})
+            await finish_stage(len(filtered))
             return {
                 "claims": filtered,
                 "stage_summaries": {
@@ -168,6 +201,7 @@ def _review_gate_node(
                                     {"n_selected": len(claims), "auto": True})
         # No selection → keep all (already-capped) claims. Return the capped
         # list when a cap applied so the truncation survives this fallback.
+        await finish_stage(review_stage_payload["n_verifying"])
         if capped_applied or dedup_applied:
             return {"claims": claims, "stage_summaries": review_summary}
         return {"stage_summaries": review_summary}

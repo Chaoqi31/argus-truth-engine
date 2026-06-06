@@ -84,3 +84,30 @@ async def test_resume_after_skips_already_seen() -> None:
         async for ev in sub.iter_history():
             received.append(ev.sequence)
     assert received == [4, 5]
+
+
+async def test_history_is_trimmed_to_max_events() -> None:
+    bus = InProcessBus(max_history_events=2)
+    for i in range(1, 6):
+        await bus.publish(_event("step", i))
+
+    received: list[int] = []
+    async with bus.subscribe("j1") as sub:
+        async for ev in sub.iter_history():
+            received.append(ev.sequence)
+
+    assert received == [4, 5]
+
+
+async def test_terminal_history_expires_after_ttl() -> None:
+    bus = InProcessBus(history_ttl_s=0.01)
+    await bus.publish(_event("step", 1))
+    await bus.publish(_event("finished", 2))
+    await asyncio.sleep(0.03)
+
+    received: list[int] = []
+    async with bus.subscribe("j1") as sub:
+        async for ev in sub.iter_history():
+            received.append(ev.sequence)
+
+    assert received == []

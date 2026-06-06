@@ -405,10 +405,19 @@ async def _finalize(
             log.error("orchestrator.persist_failed", error=str(exc)[:300])
 
     terminal_kind = "failed" if job.status == "failed" else "finished"
+    timeout_findings = [
+        f for f in job.findings
+        if f.agent == "UnifiedVerifier" and "verifier timed out" in f.flags
+    ]
     terminal_payload: dict[str, Any] = {
         "status": job.status,
         "n_findings": len(job.findings),
         "cost_usd": job.cost_usd,
+        "claims_total": job.claims_total,
+        "claims_audited": job.claims_audited,
+        "partial_coverage": job.claims_audited < job.claims_total,
+        "n_timeout_findings": len(timeout_findings),
+        "timed_out_claim_ids": [f.claim_id for f in timeout_findings],
     }
     if job.status == "failed":
         terminal_payload["reason"] = abort_reason

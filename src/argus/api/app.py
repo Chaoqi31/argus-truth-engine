@@ -31,7 +31,16 @@ def _build_state(settings: Settings) -> AppState:
         repo = JobRepository(sessionmaker_from_engine(engine))
 
     trace_bus: TraceBus = (
-        RedisPubSubBus(settings.redis_url) if settings.redis_url else InProcessBus()
+        RedisPubSubBus(
+            settings.redis_url,
+            max_history_events=settings.trace_history_max_events,
+            history_ttl_s=settings.trace_history_ttl_s,
+        )
+        if settings.redis_url
+        else InProcessBus(
+            max_history_events=settings.trace_history_max_events,
+            history_ttl_s=settings.trace_history_ttl_s,
+        )
     )
 
     return AppState(

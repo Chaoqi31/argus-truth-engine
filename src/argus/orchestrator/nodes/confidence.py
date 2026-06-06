@@ -34,7 +34,21 @@ def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]
         if state.get("aborted"):
             return {}
         findings = state.get("findings", [])
+        await ctx.publisher.stage(
+            status="started",
+            key="confidence",
+            name="Confidence",
+            engine="deterministic",
+        )
         if not findings:
+            await ctx.publisher.stage(
+                status="finished",
+                key="confidence",
+                name="Confidence",
+                engine="deterministic",
+                summary="No findings needed confidence scoring",
+                metrics={"n_scored": 0},
+            )
             return {}
         all_evidences = state.get("evidences", [])
         for f in findings:
@@ -51,5 +65,16 @@ def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]
                     f.flags.append(flag)
                 if cap is not None:
                     f.confidence = min(f.confidence, cap)
+        await ctx.publisher.stage(
+            status="finished",
+            key="confidence",
+            name="Confidence",
+            engine="deterministic",
+            summary=(
+                f"Scored {len(findings)} finding(s) on 3 factors "
+                "(authority · freshness · agreement)"
+            ),
+            metrics={"n_scored": len(findings)},
+        )
         return {}
     return node

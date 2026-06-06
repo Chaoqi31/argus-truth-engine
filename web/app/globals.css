@@ -255,6 +255,19 @@
   }
 }
 
+/* Live counter chip: brief pop when its value ticks up. */
+@keyframes argus-chip-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.2); color: var(--color-primary); }
+  100% { transform: scale(1); }
+}
+
+/* Live frontier: blinking "thinking" dots while MiroMind researches. */
+@keyframes argus-dot-blink {
+  0%, 80%, 100% { opacity: 0.25; }
+  40%           { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .animate-row-in {
     animation: argus-fade-in-up 280ms ease-out both;
@@ -300,6 +313,15 @@
   .trace-panel-enter {
     animation: trace-panel-in 360ms var(--ease-enter) both;
   }
+
+  .chip-pop {
+    display: inline-block;
+    animation: argus-chip-pop 420ms var(--ease-enter) both;
+  }
+
+  .frontier-dot {
+    animation: argus-dot-blink 1.4s ease-in-out infinite;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -316,7 +338,9 @@
   /* Disable decorative motion when the user prefers reduced motion. */
   .cc-pulse-glow,
   .cc-float,
-  .trace-panel-enter {
+  .trace-panel-enter,
+  .chip-pop,
+  .frontier-dot {
     animation: none;
   }
 }

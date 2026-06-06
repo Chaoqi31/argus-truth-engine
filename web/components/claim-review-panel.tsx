@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useArgusStore } from "@/lib/store";
 import { submitClaimSelection } from "@/lib/api";
 import type { ReviewClaim } from "@/lib/types";
@@ -23,6 +24,8 @@ interface Props {
 }
 
 export function ClaimReviewPanel({ jobId }: Props) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const reviewClaims = useArgusStore((s) => s.reviewClaims);
   const filteredClaims = useArgusStore((s) => s.filteredClaims);
   const selectedClaimIds = useArgusStore((s) => s.selectedClaimIds);
@@ -41,6 +44,7 @@ export function ClaimReviewPanel({ jobId }: Props) {
   }, {});
 
   async function handleSubmit() {
+    if (submitting || nSelected === 0) return;
     const ids = Array.from(selectedClaimIds);
     // BYOK: re-send the key on resume — the backend never persists it.
     const apiKey =
@@ -49,10 +53,14 @@ export function ClaimReviewPanel({ jobId }: Props) {
           window.localStorage.getItem("argus-miromind-key")
         : null;
     try {
+      setSubmitting(true);
+      setError(null);
       await submitClaimSelection(jobId, ids, apiKey);
       setRunStatus("verifying");
-    } catch {
-      /* backend will timeout and proceed anyway */
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -120,6 +128,11 @@ export function ClaimReviewPanel({ jobId }: Props) {
 
       {/* Footer actions */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3">
+        {error && (
+          <p role="alert" className="basis-full text-xs text-[var(--cc-danger,#d92d20)]">
+            {error}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -141,10 +154,17 @@ export function ClaimReviewPanel({ jobId }: Props) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={nSelected === 0}
+          disabled={nSelected === 0 || submitting}
+          aria-busy={submitting}
           className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-40"
         >
-          Verify {nSelected} claim{nSelected !== 1 ? "s" : ""} &rarr;
+          {submitting ? (
+            "Submitting..."
+          ) : (
+            <>
+              Verify {nSelected} claim{nSelected !== 1 ? "s" : ""} &rarr;
+            </>
+          )}
         </button>
       </div>
     </div>

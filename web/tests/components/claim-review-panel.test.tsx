@@ -27,6 +27,7 @@ const claims: ReviewClaim[] = [
 describe("ClaimReviewPanel", () => {
   beforeEach(() => {
     vi.mocked(submitClaimSelection).mockClear();
+    vi.mocked(submitClaimSelection).mockResolvedValue(undefined);
     window.localStorage.removeItem("argus-miromind-key");
     window.sessionStorage.removeItem("argus-miromind-key");
     useArgusStore.getState().clear();
@@ -74,5 +75,19 @@ describe("ClaimReviewPanel", () => {
       ["c1", "c2"],
       "session-key",
     );
+  });
+
+  it("shows a resume error instead of silently swallowing it", async () => {
+    vi.mocked(submitClaimSelection).mockRejectedValueOnce(
+      new Error("MiroMind API key required."),
+    );
+    render(<ClaimReviewPanel jobId="job_1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Verify 2 claims/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "MiroMind API key required.",
+    );
+    expect(useArgusStore.getState().runStatus).toBe("reviewing");
   });
 });

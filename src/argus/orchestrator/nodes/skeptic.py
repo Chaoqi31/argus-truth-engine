@@ -90,6 +90,12 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
         if state.get("aborted"):
             return {}
+        await ctx.publisher.stage(
+            status="started",
+            key="skeptic",
+            name="Skeptic challenge",
+            engine="miromind",
+        )
 
         findings = [
             f for f in state.get("findings", [])
@@ -99,6 +105,19 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             and f.skeptic_review is None
         ]
         if not findings:
+            await ctx.publisher.stage(
+                status="finished",
+                key="skeptic",
+                name="Skeptic challenge",
+                engine="miromind",
+                summary="No high-risk verifier findings required independent challenge",
+                metrics={
+                    "n_reviewed": 0,
+                    "n_cleared": 0,
+                    "n_counterevidence_found": 0,
+                    "n_inconclusive": 0,
+                },
+            )
             return {}
 
         claims_by_id: dict[str, Claim] = {c.id: c for c in state.get("claims", [])}
@@ -173,6 +192,39 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                     time_sensitive=(claim.type.value == "time-sensitive"),
                 )
 
+        reviewed = [
+            f for f in findings
+            if f.skeptic_review is not None
+        ]
+        n_counterevidence = sum(
+            1 for f in reviewed
+            if f.skeptic_review and f.skeptic_review.status == "counterevidence_found"
+        )
+        n_cleared = sum(
+            1 for f in reviewed
+            if f.skeptic_review and f.skeptic_review.status == "no_counterevidence"
+        )
+        n_inconclusive = sum(
+            1 for f in reviewed
+            if f.skeptic_review and f.skeptic_review.status == "inconclusive"
+        )
+        await ctx.publisher.stage(
+            status="finished",
+            key="skeptic",
+            name="Skeptic challenge",
+            engine="miromind",
+            summary=(
+                "No high-risk verifier findings required independent challenge"
+                if not reviewed
+                else f"Challenged {len(reviewed)} high-risk finding(s)"
+            ),
+            metrics={
+                "n_reviewed": len(reviewed),
+                "n_cleared": n_cleared,
+                "n_counterevidence_found": n_counterevidence,
+                "n_inconclusive": n_inconclusive,
+            },
+        )
         return {"traces": traces}
 
     return node

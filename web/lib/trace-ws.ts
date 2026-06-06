@@ -1,6 +1,8 @@
 export type TraceEventKind =
   | "started" | "step" | "finding" | "finished" | "failed"
-  | "atomized" | "filtered" | "review_ready" | "review_submitted" | "resumed";
+  | "stage" | "claim" | "heartbeat"
+  | "atomized" | "filtered" | "review_ready" | "review_submitted" | "resumed"
+  | "claims_deduped" | "claims_capped";
 
 export interface TraceEvent {
   job_id: string;

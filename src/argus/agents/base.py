@@ -10,6 +10,7 @@ Responsibilities:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -61,6 +62,7 @@ class StreamCollection:
     num_search_queries: int = 0
     failed: bool = False
     failure_summary: str = ""
+    unknown_tool_names: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -88,12 +90,14 @@ class AgentRunner[T: BaseModel]:
         agent_name: str,
         max_output_tokens: int | None = 8000,
         on_step: StepCallback | None = None,
+        response_timeout_s: float | None = None,
     ) -> None:
         self._client = client
         self._model_cls = model_cls
         self._agent_name = agent_name
         self._max_tokens = max_output_tokens
         self._on_step = on_step
+        self._response_timeout_s = response_timeout_s
 
     async def run(
         self,
@@ -176,27 +180,40 @@ class AgentRunner[T: BaseModel]:
         # same Step instead of appending a duplicate.
         tool_steps: dict[str, Step] = {}
 
-        async for ev in self._client.stream(rid, after=0):
-            emitted_steps = self._record_step(
-                collected, ev, thinking_buf, text_buf, tool_steps
-            )
-            if self._on_step is not None:
-                for step in emitted_steps:
-                    await self._on_step(step)
-            if isinstance(ev, ResponseCompletedEvent):
-                usage = ev.response.usage
-                collected.total_tokens = usage.total_tokens
-                # MiroMind's actual SSE Usage uses input_tokens/output_tokens;
-                # the legacy OpenAI-style prompt_tokens/completion_tokens are
-                # populated as a fallback in our Pydantic model. Prefer the
-                # MiroMind names but fall back to legacy if the API ever flips.
-                collected.input_tokens = usage.input_tokens or usage.prompt_tokens
-                collected.output_tokens = usage.output_tokens or usage.completion_tokens
-                collected.reasoning_tokens = usage.reasoning_tokens
-                collected.num_search_queries = usage.num_search_queries
-            elif isinstance(ev, ResponseFailedEvent):
-                collected.failed = True
-                collected.failure_summary = str(ev.error or "response.failed")
+        async def consume_stream() -> None:
+            async for ev in self._client.stream(rid, after=0):
+                emitted_steps = self._record_step(
+                    collected, ev, thinking_buf, text_buf, tool_steps
+                )
+                if self._on_step is not None:
+                    for step in emitted_steps:
+                        await self._on_step(step)
+                if isinstance(ev, ResponseCompletedEvent):
+                    usage = ev.response.usage
+                    collected.total_tokens = usage.total_tokens
+                    # MiroMind's actual SSE Usage uses input_tokens/output_tokens;
+                    # the legacy OpenAI-style prompt_tokens/completion_tokens are
+                    # populated as a fallback in our Pydantic model. Prefer the
+                    # MiroMind names but fall back to legacy if the API ever flips.
+                    collected.input_tokens = usage.input_tokens or usage.prompt_tokens
+                    collected.output_tokens = usage.output_tokens or usage.completion_tokens
+                    collected.reasoning_tokens = usage.reasoning_tokens
+                    collected.num_search_queries = usage.num_search_queries
+                elif isinstance(ev, ResponseFailedEvent):
+                    collected.failed = True
+                    collected.failure_summary = str(ev.error or "response.failed")
+
+        if self._response_timeout_s is not None and self._response_timeout_s > 0:
+            try:
+                async with asyncio.timeout(self._response_timeout_s):
+                    await consume_stream()
+            except TimeoutError as exc:
+                raise TimeoutError(
+                    f"{self._agent_name} response {rid} timed out after "
+                    f"{self._response_timeout_s:g}s"
+                ) from exc
+        else:
+            await consume_stream()
 
         if text_buf:
             collected.final_text = "".join(text_buf)
@@ -222,6 +239,17 @@ class AgentRunner[T: BaseModel]:
             if kind == "tool_call":
                 tool_name = item.get("name", "")
                 step_type = _TOOL_NAME_TO_STEP.get(tool_name, StepType.TOOL_CALL)
+                if (
+                    tool_name
+                    and tool_name not in _TOOL_NAME_TO_STEP
+                    and tool_name not in collected.unknown_tool_names
+                ):
+                    collected.unknown_tool_names.append(tool_name)
+                    log.warning(
+                        "agent.unknown_tool_name",
+                        agent=self._agent_name,
+                        tool_name=tool_name,
+                    )
                 summary = _tool_call_summary(tool_name, item)
                 # A tool call surfaces twice: `output_item.added` (status
                 # in_progress, no result) then `output_item.done` (status
@@ -322,8 +350,12 @@ _TOOL_NAME_TO_STEP: dict[str, StepType] = {
     "visit_page": StepType.FETCH_URL_CONTENT,
     "browse": StepType.FETCH_URL_CONTENT,
     "web_fetch": StepType.FETCH_URL_CONTENT,
+    # MiroThinker deep-research native tool names (observed in live SSE).
+    "scrape_and_extract_info": StepType.FETCH_URL_CONTENT,
+    "download_file_from_internet_to_sandbox": StepType.FETCH_URL_CONTENT,
     "execute_python": StepType.EXECUTE_PYTHON,
     "run_python": StepType.EXECUTE_PYTHON,
+    "run_python_code": StepType.EXECUTE_PYTHON,
     "python": StepType.EXECUTE_PYTHON,
     "code_interpreter": StepType.EXECUTE_PYTHON,
     "execute_command": StepType.EXECUTE_COMMAND,
@@ -369,7 +401,7 @@ def _tool_call_summary(tool_name: str, item: dict[str, Any]) -> str:
         if url:
             return f"fetch: {_truncate(url, 120)}"
     elif step_type == StepType.EXECUTE_PYTHON:
-        code = args.get("code", "")
+        code = args.get("code_block", args.get("code", ""))
         if code:
             return f"python: {_truncate(code.split(chr(10))[0], 100)}"
 

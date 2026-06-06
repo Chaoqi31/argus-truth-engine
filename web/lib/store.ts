@@ -6,6 +6,7 @@ import type {
   FilteredClaim,
   FindingReview,
   Job,
+  LiveHeartbeat,
   LiveFinding,
   ReviewClaim,
   ReviewerStatus,
@@ -30,10 +31,13 @@ interface ArgusState {
   // live-mode (B3-C)
   liveSteps: Step[];
   liveFindings: LiveFinding[];
+  liveHeartbeat: LiveHeartbeat | null;
   runStatus: RunStatus;
   runError: string | null;
   appendLiveStep: (step: Step) => void;
+  appendLiveSteps: (steps: Step[]) => void;
   appendLiveFinding: (finding: LiveFinding) => void;
+  setLiveHeartbeat: (heartbeat: LiveHeartbeat | null) => void;
   setRunStatus: (status: RunStatus, error?: string | null) => void;
   resetLive: () => void;
 
@@ -72,6 +76,7 @@ export interface EvidenceDiffTarget {
 const INITIAL_LIVE = {
   liveSteps: [] as Step[],
   liveFindings: [] as LiveFinding[],
+  liveHeartbeat: null as LiveHeartbeat | null,
   runStatus: "idle" as RunStatus,
   runError: null as string | null,
 };
@@ -163,6 +168,10 @@ export const useArgusStore = create<ArgusState>((set) => ({
 
   appendLiveStep: (step) =>
     set((s) => ({ liveSteps: [...s.liveSteps, step] })),
+  appendLiveSteps: (steps) => {
+    if (steps.length === 0) return;
+    set((s) => ({ liveSteps: [...s.liveSteps, ...steps] }));
+  },
   appendLiveFinding: (finding) =>
     set((s) => {
       const existing = s.liveFindings.findIndex((f) => f.id === finding.id);
@@ -171,6 +180,7 @@ export const useArgusStore = create<ArgusState>((set) => ({
       next[existing] = finding;
       return { liveFindings: next };
     }),
+  setLiveHeartbeat: (heartbeat) => set({ liveHeartbeat: heartbeat }),
   setRunStatus: (status, error = null) => set({ runStatus: status, runError: error }),
   resetLive: () => set({ ...INITIAL_LIVE }),
 

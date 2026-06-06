@@ -20,6 +20,21 @@ from argus.models.domain import Job
 from argus.orchestrator import audit_pdf, audit_text
 from argus.orchestrator.entry import audit_resume
 
+_ACTIVE_STATUSES = {
+    "queued",
+    "running",
+    "parsing",
+    "planning",
+    "atomizing",
+    "filtering",
+    "verifying",
+    "reporting",
+}
+
+
+class RunnerCapacityError(RuntimeError):
+    """Raised when the process already has too many active audits."""
+
 
 @dataclass
 class JobRecord:
@@ -35,6 +50,28 @@ class JobRunner:
     state: AppState
     records: dict[str, JobRecord] = field(default_factory=dict)
     tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+    async def _reserve(self, record: JobRecord) -> None:
+        async with self.lock:
+            active = sum(1 for r in self.records.values() if r.status in _ACTIVE_STATUSES)
+            if active >= self.state.settings.max_active_jobs:
+                raise RunnerCapacityError("Too many active audits; try again later.")
+            self.records[record.job_id] = record
+
+    async def _reserve_resume(self, job_id: str) -> JobRecord:
+        async with self.lock:
+            existing = self.records.get(job_id)
+            if existing is not None and existing.status in _ACTIVE_STATUSES:
+                raise RunnerCapacityError("This audit is already running.")
+            active = sum(1 for r in self.records.values() if r.status in _ACTIVE_STATUSES)
+            if active >= self.state.settings.max_active_jobs:
+                raise RunnerCapacityError("Too many active audits; try again later.")
+            record = existing or JobRecord(job_id=job_id)
+            record.status = "running"
+            record.error = None
+            self.records[job_id] = record
+            return record
 
     async def submit(
         self,
@@ -45,9 +82,9 @@ class JobRunner:
     ) -> str:
         job_id = f"job_{uuid4().hex[:12]}"
         key = f"{job_id}/{filename}"
-        await self.state.storage.put(key, pdf_bytes, content_type="application/pdf")
         record = JobRecord(job_id=job_id, status="running", pdf_key=key)
-        self.records[job_id] = record
+        await self._reserve(record)
+        await self.state.storage.put(key, pdf_bytes, content_type="application/pdf")
 
         # BYOK: when the caller supplies their own MiroMind key (via the
         # X-Miromind-Key header), bake it into a per-job Settings + Client so
@@ -96,9 +133,9 @@ class JobRunner:
     ) -> str:
         job_id = f"job_{uuid4().hex[:12]}"
         key = f"{job_id}/input.txt"
-        await self.state.storage.put(key, text.encode(), content_type="text/plain")
         record = JobRecord(job_id=job_id, status="running")
-        self.records[job_id] = record
+        await self._reserve(record)
+        await self.state.storage.put(key, text.encode(), content_type="text/plain")
 
         per_job_settings = self.state.settings
         per_job_client: MiromindClient | None = None
@@ -152,10 +189,7 @@ class JobRunner:
             job = await repo.get_job(job_id)
             if job is None or job.status != "interrupted":
                 return None
-            record = JobRecord(job_id=job_id, status="running")
-            self.records[job_id] = record
-        else:
-            record.status = "running"
+        record = await self._reserve_resume(job_id)
 
         output_path = Path(
             self.state.storage.path_for(record.pdf_key or f"{job_id}/input.txt")

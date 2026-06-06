@@ -115,6 +115,73 @@ class _Publisher:
         except Exception as exc:  # pragma: no cover - observability path
             log.warning("trace_bus.publish_failed", error=str(exc)[:300])
 
+    async def stage(
+        self,
+        *,
+        status: str,
+        key: str,
+        name: str,
+        engine: str,
+        summary: str = "",
+        metrics: dict[str, int] | None = None,
+    ) -> None:
+        await self.publish(
+            "stage",
+            {
+                "status": status,
+                "key": key,
+                "name": name,
+                "engine": engine,
+                "summary": summary,
+                "metrics": metrics or {},
+            },
+        )
+
+    async def claim(
+        self,
+        *,
+        status: str,
+        claim: Claim,
+        agent: str,
+        index: int,
+        total: int,
+        verdict: str | None = None,
+        severity: str | None = None,
+    ) -> None:
+        payload: dict[str, Any] = {
+            "status": status,
+            "claim_id": claim.id,
+            "text": claim.text,
+            "agent": agent,
+            "index": index,
+            "total": total,
+        }
+        if verdict is not None:
+            payload["verdict"] = verdict
+        if severity is not None:
+            payload["severity"] = severity
+        await self.publish("claim", payload)
+
+    async def heartbeat(
+        self,
+        *,
+        stage: str,
+        agent: str,
+        claim_id: str | None,
+        elapsed_s: float,
+        message: str,
+    ) -> None:
+        await self.publish(
+            "heartbeat",
+            {
+                "stage": stage,
+                "agent": agent,
+                "claim_id": claim_id,
+                "elapsed_s": round(elapsed_s, 3),
+                "message": message,
+            },
+        )
+
 
 def _charge(ctx: _Ctx, stream: StreamCollection) -> None:
     """Record cost into the budget tracker; raises BudgetExceeded on breach.

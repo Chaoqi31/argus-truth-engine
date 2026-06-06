@@ -307,6 +307,14 @@ export interface LiveFinding {
   summary: string;
 }
 
+export interface LiveHeartbeat {
+  stage: string;
+  agent: string;
+  claim_id?: string | null;
+  elapsed_s: number;
+  message: string;
+}
+
 /** Claim data sent in the review_ready trace event. */
 export interface ReviewClaim {
   id: string;

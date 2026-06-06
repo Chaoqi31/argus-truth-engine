@@ -14,8 +14,10 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from argus.api.app import create_app
+from argus.api.jobs import _derive_progress
 from argus.config import Settings
 from argus.models.domain import Job
+from argus.trace_bus.base import TraceEvent
 
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 
@@ -24,6 +26,11 @@ HTTP_ACCEPTED = 202
 HTTP_PAYLOAD_TOO_LARGE = 413
 HTTP_NOT_FOUND = 404
 HTTP_UNSUPPORTED = 415
+HTTP_TOO_MANY_REQUESTS = 429
+
+
+def _trace_event(kind: str, sequence: int, payload: dict[str, Any]) -> TraceEvent:
+    return TraceEvent(job_id="job_1", sequence=sequence, kind=kind, payload=payload)
 
 
 @pytest.fixture
@@ -35,6 +42,37 @@ def app_under_test(tmp_path: Path) -> FastAPI:
         storage_root=str(tmp_path / "uploads"),
     )
     return create_app(settings=settings)
+
+
+def test_derive_progress_from_trace_history() -> None:
+    progress = _derive_progress([
+        _trace_event("stage", 1, {"status": "finished", "key": "parse"}),
+        _trace_event("stage", 2, {"status": "started", "key": "verify", "name": "Verify"}),
+        _trace_event(
+            "claim",
+            3,
+            {
+                "status": "started",
+                "claim_id": "c1",
+                "text": "Claim one.",
+                "index": 1,
+                "total": 2,
+            },
+        ),
+        _trace_event(
+            "heartbeat",
+            4,
+            {"stage": "verify", "agent": "UnifiedVerifier", "elapsed_s": 12},
+        ),
+    ])
+
+    assert progress["finished_stages"] == ["parse"]
+    assert progress["current_stage"]["key"] == "verify"
+    assert progress["claims_started"] == 1
+    assert progress["claims_finished"] == 0
+    assert progress["claims_total"] == 2
+    assert progress["current_claim"]["claim_id"] == "c1"
+    assert progress["last_heartbeat"]["elapsed_s"] == 12
 
 
 async def test_post_jobs_accepts_pdf_and_returns_job_id(app_under_test: FastAPI) -> None:
@@ -117,6 +155,34 @@ async def test_get_missing_job_returns_404(app_under_test: FastAPI) -> None:
     ) as client:
         resp = await client.get("/jobs/nope")
     assert resp.status_code == HTTP_NOT_FOUND
+
+
+async def test_post_text_rejects_when_active_job_limit_reached(
+    app_under_test: FastAPI,
+) -> None:
+    app_under_test.state.argus.settings.max_active_jobs = 1
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _slow_audit(**kw: Any) -> Job:
+        started.set()
+        await release.wait()
+        return Job(id=kw["job_id"], status="done", input_text=kw["text"], input_mode="text")
+
+    body = {"text": "This is a sufficiently long text input for live audit testing."}
+    with patch("argus.api.runner.audit_text", new=_slow_audit):
+        async with AsyncClient(
+            transport=ASGITransport(app=app_under_test), base_url="http://test"
+        ) as client:
+            first = await client.post("/jobs/text", json=body)
+            assert first.status_code == HTTP_ACCEPTED, first.text
+            await asyncio.wait_for(started.wait(), timeout=1)
+
+            second = await client.post("/jobs/text", json=body)
+            assert second.status_code == HTTP_TOO_MANY_REQUESTS
+            assert "Too many active audits" in second.text
+
+            release.set()
 
 
 async def test_post_rejects_non_pdf(app_under_test: FastAPI) -> None:
