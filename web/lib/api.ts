@@ -2,6 +2,17 @@ import type { Job } from "@/lib/types";
 
 const API_BASE = "/api/argus";
 
+async function responseMessage(resp: Response): Promise<string> {
+  const text = await resp.text().catch(() => "");
+  if (!text) return "";
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown };
+    return typeof parsed.detail === "string" ? parsed.detail : text;
+  } catch {
+    return text;
+  }
+}
+
 export class ArgusApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -53,11 +64,12 @@ export async function uploadPdf(
     throw new UnsupportedMediaTypeError();
   }
   if (resp.status === 400) {
-    const text = await resp.text().catch(() => "");
+    const text = await responseMessage(resp);
     throw new ArgusApiError(400, text || "MiroMind API key required.");
   }
   if (!resp.ok) {
-    throw new ArgusApiError(resp.status, `upload failed (${resp.status})`);
+    const text = await responseMessage(resp);
+    throw new ArgusApiError(resp.status, text || `upload failed (${resp.status})`);
   }
   return (await resp.json()) as UploadResponse;
 }
@@ -91,14 +103,15 @@ export async function submitText(
     headers,
   });
   if (resp.status === 400) {
-    const msg = await resp.text().catch(() => "");
+    const msg = await responseMessage(resp);
     throw new ArgusApiError(400, msg || "MiroMind API key required.");
   }
   if (resp.status === 422) {
     throw new ArgusApiError(422, "Text too short (minimum 50 characters).");
   }
   if (!resp.ok) {
-    throw new ArgusApiError(resp.status, `submit failed (${resp.status})`);
+    const text = await responseMessage(resp);
+    throw new ArgusApiError(resp.status, text || `submit failed (${resp.status})`);
   }
   return (await resp.json()) as UploadResponse;
 }
@@ -121,7 +134,11 @@ export async function submitClaimSelection(
     },
   );
   if (!resp.ok) {
-    throw new ArgusApiError(resp.status, `claim selection failed (${resp.status})`);
+    const text = await responseMessage(resp);
+    throw new ArgusApiError(
+      resp.status,
+      text || `claim selection failed (${resp.status})`,
+    );
   }
 }
 

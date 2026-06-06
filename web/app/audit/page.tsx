@@ -29,7 +29,7 @@ import { replayTrace } from "@/lib/trace-replayer";
 import { buildAuditPackMarkdown, buildEvidenceStationJson } from "@/lib/audit-pack";
 import { orderFindingsForDemoReplay } from "@/lib/demo-replay";
 import { sortFindingsForReview } from "@/lib/findings";
-import type { FilteredClaim, Finding, Job, LiveFinding, ReviewClaim, RunStatus, Step, StepType } from "@/lib/types";
+import type { FilteredClaim, Finding, Job, LiveFinding, LiveHeartbeat, ReviewClaim, RunStatus, Step, StepType } from "@/lib/types";
 import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
 import { FindingDrawer } from "@/components/cockpit/finding-drawer";
@@ -142,12 +142,15 @@ function AuditPageContent() {
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
   const liveSteps = useArgusStore((s) => s.liveSteps);
   const liveFindings = useArgusStore((s) => s.liveFindings);
+  const liveHeartbeat = useArgusStore((s) => s.liveHeartbeat);
   const runStatus = useArgusStore((s) => s.runStatus);
   const runError = useArgusStore((s) => s.runError);
   const findingReviews = useArgusStore((s) => s.findingReviews);
   const setJob = useArgusStore((s) => s.setJob);
   const appendLiveStep = useArgusStore((s) => s.appendLiveStep);
+  const appendLiveSteps = useArgusStore((s) => s.appendLiveSteps);
   const appendLiveFinding = useArgusStore((s) => s.appendLiveFinding);
+  const setLiveHeartbeat = useArgusStore((s) => s.setLiveHeartbeat);
   const setRunStatus = useArgusStore((s) => s.setRunStatus);
   const resetLive = useArgusStore((s) => s.resetLive);
   const setReviewReady = useArgusStore((s) => s.setReviewReady);
@@ -211,12 +214,46 @@ function AuditPageContent() {
     settledRef.current = false;
     let disconnect: () => void = () => {};
     let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingSteps: Step[] = [];
+    const seenStageKeys = new Set<string>();
+
+    const flushSteps = () => {
+      if (flushTimer !== null) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      if (pendingSteps.length === 0) return;
+      const next = pendingSteps;
+      pendingSteps = [];
+      appendLiveSteps(next);
+    };
+
+    const enqueueStep = (step: Step) => {
+      pendingSteps.push(step);
+      if (flushTimer !== null) return;
+      flushTimer = setTimeout(flushSteps, 80);
+    };
+
+    const enqueueStage = (
+      key: string,
+      name: string,
+      engine: string,
+      summary: string,
+      sequence = 0,
+    ) => {
+      if (seenStageKeys.has(key)) return;
+      seenStageKeys.add(key);
+      enqueueStep(stageMarkerStep(key, name, engine, summary, sequence));
+    };
 
     // Single terminal transition. Both the WS `finished` path and the poll
     // funnel through here so there's no double-load / race; cleans up after.
     const settle = (status: RunStatus, reason?: string) => {
       if (cancelled || settledRef.current) return;
+      flushSteps();
       settledRef.current = true;
+      setLiveHeartbeat(null);
       setRunStatus(status, status === "failed" ? (reason ?? "unknown") : null);
       disconnect();
       if (pollTimer !== null) {
@@ -243,8 +280,68 @@ function AuditPageContent() {
       },
       onEvent: (ev) => {
         if (ev.kind === "step") {
-          const step = stepFromPayload(ev.payload);
-          if (step) appendLiveStep(step);
+          // Pre/post-verification agents arrive as one trace-summary step each.
+          // Render them as labelled pipeline-stage cards (mirroring the demo
+          // walkthrough) instead of raw "(planner)" claim groups. The per-claim
+          // verifier + skeptic steps carry a real claim_id and fall through to
+          // the normal claim grouping.
+          const agent = typeof ev.payload.agent === "string" ? ev.payload.agent : "";
+          if (agent === "planner") {
+            const n = ev.payload.n_claims;
+            enqueueStage("parse", "Parse", "deterministic", "Parsed the input document", ev.sequence);
+            enqueueStage(
+              "planner",
+              "Planner",
+              "deepseek",
+              `Extracted ${typeof n === "number" ? n : "?"} candidate claim(s)`,
+              ev.sequence,
+            );
+          } else if (agent === "Consistency") {
+            enqueueStage(
+              "consistency",
+              "Consistency",
+              "deepseek",
+              "Cross-checked the claims for internal contradictions",
+              ev.sequence,
+            );
+          } else if (agent === "Reporter") {
+            enqueueStage("reporter", "Reporter", "deepseek", "Synthesised the audit report", ev.sequence);
+          } else {
+            const step = stepFromPayload(ev.payload);
+            if (step) enqueueStep(step);
+          }
+        } else if (ev.kind === "stage") {
+          const stage = stageFromPayload(ev.payload);
+          if (stage && stage.status === "finished") {
+            enqueueStage(stage.key, stage.name, stage.engine, stage.summary, ev.sequence);
+          }
+        } else if (ev.kind === "claim") {
+          const claim = claimFromPayload(ev.payload);
+          if (claim && claim.status === "started") {
+            enqueueStep(claimMarkerStep(claim, ev.sequence));
+            setRunStatus("verifying");
+          }
+        } else if (ev.kind === "heartbeat") {
+          const heartbeat = heartbeatFromPayload(ev.payload);
+          if (heartbeat) setLiveHeartbeat(heartbeat);
+        } else if (ev.kind === "atomized") {
+          const p = ev.payload as { n_original?: number; n_atoms?: number };
+          enqueueStage(
+            "atomizer",
+            "Atomizer",
+            "deepseek",
+            `Split ${p.n_original ?? "?"} claim(s) into ${p.n_atoms ?? "?"} atomic checks`,
+            ev.sequence,
+          );
+        } else if (ev.kind === "filtered") {
+          const p = ev.payload as { n_checkworthy?: number; n_filtered?: number };
+          enqueueStage(
+            "checkworthiness",
+            "Check-worthiness",
+            "deepseek",
+            `Kept ${p.n_checkworthy ?? "?"} checkworthy, dropped ${p.n_filtered ?? "?"}`,
+            ev.sequence,
+          );
         } else if (ev.kind === "finding") {
           const f = findingFromPayload(ev.payload);
           if (f) appendLiveFinding(f);
@@ -259,6 +356,14 @@ function AuditPageContent() {
           const claims = (ev.payload.claims ?? []) as ReviewClaim[];
           const filtered = (ev.payload.filtered ?? []) as FilteredClaim[];
           setReviewReady(claims, filtered);
+          setLiveHeartbeat(null);
+          enqueueStage(
+            "review_gate",
+            "Review gate",
+            "deterministic",
+            `${claims.length} claim(s) sent to verification`,
+            ev.sequence,
+          );
         } else if (ev.kind === "resumed") {
           setRunStatus("verifying");
         } else if (ev.kind === "failed") {
@@ -307,6 +412,7 @@ function AuditPageContent() {
 
     return () => {
       cancelled = true;
+      if (flushTimer !== null) clearTimeout(flushTimer);
       disconnect();
       if (pollTimer !== null) clearInterval(pollTimer);
     };
@@ -534,6 +640,7 @@ function AuditPageContent() {
           findings={liveFindings.length}
           reason={runError}
           activeAgent={lastAgent}
+          heartbeat={liveHeartbeat}
         />
         <main className={`grid grid-rows-1 h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : ""}`}>
           {showPdf ? (
@@ -886,12 +993,14 @@ function RunBanner({
   findings,
   reason,
   activeAgent,
+  heartbeat,
 }: {
   runStatus: RunStatus;
   steps: number;
   findings: number;
   reason: string | null;
   activeAgent?: string;
+  heartbeat?: LiveHeartbeat | null;
 }) {
   if (runStatus === "reviewing") {
     return (
@@ -937,6 +1046,9 @@ function RunBanner({
     );
   }
   const verb = runStatus === "verifying" ? "Verifying claims" : "Audit running";
+  const heartbeatText = heartbeat
+    ? `${heartbeat.message} ${Math.round(heartbeat.elapsed_s)}s`
+    : null;
   return (
     <div
       role="status"
@@ -953,6 +1065,11 @@ function RunBanner({
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-[var(--cc-text)]">
             {activeAgent}
           </code>
+        </span>
+      )}
+      {heartbeatText && (
+        <span className="min-w-0 shrink-0 truncate text-muted-foreground sm:max-w-[22rem]">
+          {heartbeatText}
         </span>
       )}
     </div>
@@ -1079,6 +1196,124 @@ function isStepType(value: unknown): value is StepType {
 function recordFrom(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+let syntheticStepCounter = 0;
+
+function nextSyntheticStepId(prefix: string, key: string): string {
+  syntheticStepCounter += 1;
+  return `${prefix}-${key}-${syntheticStepCounter}`;
+}
+
+// A synthetic pipeline-stage marker injected into the live step stream so the
+// real audit narrates its stages the way the demo walkthrough does. The shape
+// mirrors runDemo's `__stage` markers; groupLiveSteps renders it as a stage card.
+function stageMarkerStep(
+  key: string,
+  name: string,
+  engine: string,
+  summary: string,
+  sequence: number,
+): Step {
+  return {
+    id: nextSyntheticStepId("stage", key),
+    trace_id: "__pipeline",
+    sequence,
+    type: "message",
+    summary,
+    content: { __stage: { key, name, engine, summary } },
+    evidence_ids: [],
+    parent_step_id: null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+interface StageEventPayload {
+  status: "started" | "finished";
+  key: string;
+  name: string;
+  engine: string;
+  summary: string;
+}
+
+function stageFromPayload(payload: Record<string, unknown>): StageEventPayload | null {
+  if (
+    (payload.status !== "started" && payload.status !== "finished") ||
+    typeof payload.key !== "string" ||
+    typeof payload.name !== "string" ||
+    typeof payload.engine !== "string"
+  ) {
+    return null;
+  }
+  return {
+    status: payload.status,
+    key: payload.key,
+    name: payload.name,
+    engine: payload.engine,
+    summary: typeof payload.summary === "string" ? payload.summary : payload.name,
+  };
+}
+
+interface ClaimEventPayload {
+  status: "started" | "finished";
+  claim_id: string;
+  text: string;
+  index: number;
+  total: number;
+}
+
+function claimFromPayload(payload: Record<string, unknown>): ClaimEventPayload | null {
+  if (
+    (payload.status !== "started" && payload.status !== "finished") ||
+    typeof payload.claim_id !== "string" ||
+    typeof payload.text !== "string" ||
+    typeof payload.index !== "number" ||
+    typeof payload.total !== "number"
+  ) {
+    return null;
+  }
+  return {
+    status: payload.status,
+    claim_id: payload.claim_id,
+    text: payload.text,
+    index: payload.index,
+    total: payload.total,
+  };
+}
+
+function claimMarkerStep(claim: ClaimEventPayload, sequence: number): Step {
+  return {
+    id: nextSyntheticStepId("claim", claim.claim_id),
+    trace_id: "__pipeline",
+    sequence,
+    type: "message",
+    summary: claim.text,
+    content: {
+      claim_id: claim.claim_id,
+      __claim: { index: claim.index, total: claim.total, text: claim.text },
+    },
+    evidence_ids: [],
+    parent_step_id: null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function heartbeatFromPayload(payload: Record<string, unknown>): LiveHeartbeat | null {
+  if (
+    typeof payload.stage !== "string" ||
+    typeof payload.agent !== "string" ||
+    typeof payload.elapsed_s !== "number" ||
+    typeof payload.message !== "string"
+  ) {
+    return null;
+  }
+  return {
+    stage: payload.stage,
+    agent: payload.agent,
+    claim_id: typeof payload.claim_id === "string" ? payload.claim_id : null,
+    elapsed_s: payload.elapsed_s,
+    message: payload.message,
+  };
 }
 
 function stepFromPayload(payload: Record<string, unknown>): Step | null {

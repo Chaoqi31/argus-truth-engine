@@ -148,6 +148,37 @@ describe("live-mode state", () => {
     expect(useArgusStore.getState().liveSteps).toHaveLength(1);
   });
 
+  it("appendLiveSteps batches multiple live steps", () => {
+    const base = {
+      trace_id: "t1",
+      sequence: 1,
+      type: "thinking" as const,
+      summary: "...",
+      content: {},
+      evidence_ids: [],
+      parent_step_id: null,
+      created_at: "2026-05-21T00:00:00Z",
+    };
+    useArgusStore.getState().appendLiveSteps([
+      { ...base, id: "s1" },
+      { ...base, id: "s2", sequence: 2 },
+    ]);
+    expect(useArgusStore.getState().liveSteps.map((s) => s.id)).toEqual(["s1", "s2"]);
+  });
+
+  it("stores live heartbeat state", () => {
+    useArgusStore.getState().setLiveHeartbeat({
+      stage: "verify",
+      agent: "UnifiedVerifier",
+      claim_id: "c1",
+      elapsed_s: 12,
+      message: "MiroMind is still researching this claim.",
+    });
+    expect(useArgusStore.getState().liveHeartbeat?.claim_id).toBe("c1");
+    useArgusStore.getState().setLiveHeartbeat(null);
+    expect(useArgusStore.getState().liveHeartbeat).toBeNull();
+  });
+
   it("appendLiveFinding accumulates", () => {
     const f: LiveFinding = {
       id: "f1",

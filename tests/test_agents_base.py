@@ -266,6 +266,34 @@ async def test_emits_step_callback_while_streaming_tool_events() -> None:
     assert "organic" in emitted[0]["content"]["result"]
 
 
+async def test_records_unknown_tool_names_for_observability() -> None:
+    client = AsyncMock()
+    client.submit_background = AsyncMock(return_value="resp_x")
+    unknown_tool = ResponseOutputItemDoneEvent(
+        type="response.output_item.done",
+        sequence_number=2,
+        output_index=0,
+        item={
+            "type": "tool_call",
+            "name": "brand_new_miromind_tool",
+            "id": "tc_unknown",
+            "status": "completed",
+            "arguments": '{"query": "x"}',
+            "result": "{}",
+        },
+    )
+    valid = '{"verdict":"ok","confidence":0.9}'
+    client.stream = lambda rid, after=0: _events_seq(
+        [unknown_tool, _msg_delta(valid), _completed()]
+    )
+
+    runner = AgentRunner(client=client, model_cls=Out, agent_name="t")
+    result = await runner.run(instructions=None, input_text="hi")
+
+    assert result.first.unknown_tool_names == ["brand_new_miromind_tool"]
+    assert result.first.steps[0].type == StepType.TOOL_CALL
+
+
 def test_extract_json_repairs_common_llm_damage() -> None:
     """Regression: MiroMind's streamed output occasionally drops punctuation.
 

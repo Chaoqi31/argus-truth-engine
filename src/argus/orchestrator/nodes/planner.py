@@ -20,6 +20,12 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
         if doc is None:
             return {"aborted": True, "abort_reason": "no parsed document"}
         input_mode = state.get("input_mode", "pdf")
+        await ctx.publisher.stage(
+            status="started",
+            key="planner",
+            name="Planner",
+            engine="deepseek" if ctx.cheap_client else "miromind",
+        )
         try:
             result = await run_planner(
                 doc,
@@ -42,6 +48,14 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             job_id=ctx.job_id, claim_id="(planner)", agent="planner", stream=result.final
         )
         await ctx.publisher.publish("step", _step_payload(trace, n_claims=len(claims)))
+        await ctx.publisher.stage(
+            status="finished",
+            key="planner",
+            name="Planner",
+            engine="deepseek" if ctx.cheap_client else "miromind",
+            summary=f"Extracted {len(claims)} candidate claim(s)",
+            metrics={"n_claims": len(claims)},
+        )
         return {
             "claims": claims,
             "traces": {trace.id: trace},

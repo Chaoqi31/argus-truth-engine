@@ -213,6 +213,7 @@ async def verify_claim(
     domain_hint: str = "",
     idempotency_key: str | None = None,
     on_step: StepCallback | None = None,
+    response_timeout_s: float | None = None,
 ) -> AgentResult[UnifiedVerifierOutput]:
     runner = AgentRunner(
         client=client,
@@ -220,6 +221,7 @@ async def verify_claim(
         agent_name="unified_verifier",
         max_output_tokens=6000,
         on_step=on_step,
+        response_timeout_s=response_timeout_s,
     )
     return await runner.run(
         instructions=SYSTEM_PROMPT,

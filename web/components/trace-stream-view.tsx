@@ -30,19 +30,39 @@ export function TraceStreamView({ job, liveMode = false, liveSteps = [], activeF
 function LiveTrace({ steps }: { steps: Step[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const reviewClaims = useArgusStore((s) => s.reviewClaims);
+  const heartbeat = useArgusStore((s) => s.liveHeartbeat);
+  // Elapsed is wall-clock from when the first step lands client-side (state set
+  // in an effect, not a ref read during render). Synthetic stage/claim markers
+  // carry an empty created_at and the demo replays months-old fixture steps, so
+  // the step's own timestamp cannot anchor the clock.
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  useEffect(() => {
+    // One-time anchor when the first step lands — a real external signal, not
+    // render-derived state. Same pattern as useCountUp's trigger.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (steps.length > 0 && startedAt === null) setStartedAt(Date.now());
+  }, [steps.length, startedAt]);
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
   }, [steps.length]);
+  // Tick once per second for the elapsed clock. Must NOT depend on steps.length:
+  // re-running on every streamed step clears the interval before it can fire,
+  // which froze the clock for the entire run.
   useEffect(() => {
-    if (steps.length === 0) return;
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [steps.length]);
+  }, []);
 
-  const groups = groupLiveSteps(steps);
+  const claimMeta = new Map(
+    reviewClaims.map(
+      (c, i) => [c.id, { text: c.text, ordinal: `${i + 1}/${reviewClaims.length}` }] as const,
+    ),
+  );
+  const groups = groupLiveSteps(steps, claimMeta);
   const currentClaim = [...groups].reverse().find((g) => g.type === "claim") ?? null;
   const totalSearches = steps.filter((s) => s.type === "web_search").length;
   const totalFetches = steps.filter((s) => s.type === "fetch_url_content").length;
@@ -50,8 +70,7 @@ function LiveTrace({ steps }: { steps: Step[] }) {
     const result = s.content?.result;
     return s.type === "web_search" && typeof result === "string" && result.includes("organic");
   }).length;
-  const firstAt = Date.parse(steps[0]?.created_at ?? "");
-  const elapsed = Number.isFinite(firstAt) ? formatElapsed(now - firstAt) : "0s";
+  const elapsed = startedAt !== null ? formatElapsed(now - startedAt) : "0s";
 
   return (
     <div className="flex h-full flex-col">
@@ -66,9 +85,9 @@ function LiveTrace({ steps }: { steps: Step[] }) {
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          <LiveChip label="searches" value={totalSearches} />
-          <LiveChip label="fetches" value={totalFetches} />
-          <LiveChip label="source sets" value={sourceCount} />
+          <LiveChip label="searches" value={totalSearches} pop />
+          <LiveChip label="fetches" value={totalFetches} pop />
+          <LiveChip label="source sets" value={sourceCount} pop />
           <LiveChip label="elapsed" value={elapsed} />
         </div>
       </div>
@@ -80,6 +99,11 @@ function LiveTrace({ steps }: { steps: Step[] }) {
           <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-foreground">
             {currentClaim.label}
           </p>
+          {heartbeat && (
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {heartbeat.message} {Math.round(heartbeat.elapsed_s)}s elapsed
+            </p>
+          )}
         </div>
       )}
       <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2">
@@ -90,6 +114,12 @@ function LiveTrace({ steps }: { steps: Step[] }) {
             {groups.map((g) => (
               <LiveGroupItem key={g.key} group={g} />
             ))}
+            <li className="flex items-center gap-1.5 px-1 py-1.5 text-xs text-muted-foreground">
+              <span aria-hidden className="frontier-dot size-1.5 rounded-full bg-primary" style={{ animationDelay: "0ms" }} />
+              <span aria-hidden className="frontier-dot size-1.5 rounded-full bg-primary" style={{ animationDelay: "200ms" }} />
+              <span aria-hidden className="frontier-dot size-1.5 rounded-full bg-primary" style={{ animationDelay: "400ms" }} />
+              <span className="ml-1 font-mono text-[10px] uppercase tracking-wider">MiroMind is researching</span>
+            </li>
           </ol>
         )}
       </div>
@@ -97,10 +127,15 @@ function LiveTrace({ steps }: { steps: Step[] }) {
   );
 }
 
-function LiveChip({ label, value }: { label: string; value: string | number }) {
+function LiveChip({ label, value, pop = false }: { label: string; value: string | number; pop?: boolean }) {
   return (
     <span className="rounded border border-border bg-background px-1.5 py-0.5">
-      <span className="text-foreground">{value}</span> {label}
+      {pop ? (
+        <span key={String(value)} className="chip-pop text-foreground">{value}</span>
+      ) : (
+        <span className="text-foreground">{value}</span>
+      )}{" "}
+      {label}
     </span>
   );
 }
@@ -114,7 +149,10 @@ interface LiveStepGroup {
   steps: Step[];
 }
 
-function groupLiveSteps(steps: Step[]): LiveStepGroup[] {
+function groupLiveSteps(
+  steps: Step[],
+  claimMeta?: Map<string, { text: string; ordinal: string }>,
+): LiveStepGroup[] {
   const groups: LiveStepGroup[] = [];
   let currentClaimKey: string | null = null;
 
@@ -164,10 +202,12 @@ function groupLiveSteps(steps: Step[]): LiveStepGroup[] {
 
     const claimId = typeof content.claim_id === "string" ? content.claim_id : null;
     if (claimId) {
+      const meta = claimMeta?.get(claimId);
       const group = pushClaim(
         `claim-${claimId}`,
-        claimId,
+        meta?.text ?? claimId,
         typeof content.agent === "string" ? content.agent : "MiroMind deep research",
+        meta?.ordinal,
       );
       group.steps.push(step);
       continue;
@@ -201,7 +241,7 @@ function formatElapsed(ms: number): string {
 function LiveGroupItem({ group }: { group: LiveStepGroup }) {
   if (group.type === "stage") {
     return (
-      <li className="rounded-md border border-border bg-muted/30 px-2 py-1.5">
+      <li className="animate-row-in rounded-md border border-border bg-muted/30 px-2 py-1.5">
         <p className="font-mono text-[10px] uppercase tracking-wider text-primary">{group.label}</p>
         {group.meta && <p className="mt-0.5 text-xs text-muted-foreground">{group.meta}</p>}
       </li>
@@ -209,7 +249,7 @@ function LiveGroupItem({ group }: { group: LiveStepGroup }) {
   }
 
   return (
-    <li className="rounded-md border border-border bg-background">
+    <li className="animate-row-in rounded-md border border-border bg-background">
       <div className="border-b border-border px-2.5 py-2">
         <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
           <span>{group.type === "claim" ? "Claim" : "Pipeline"}</span>
@@ -221,7 +261,7 @@ function LiveGroupItem({ group }: { group: LiveStepGroup }) {
       {group.steps.length > 0 && (
         <ol className="flex flex-col gap-1 px-2.5 py-2">
           {group.steps.map((s) => (
-            <StepItem key={s.id} step={s} />
+            <StepItem key={s.id} step={s} streamIn />
           ))}
         </ol>
       )}
@@ -1319,7 +1359,7 @@ export function parseSearchHits(content: Record<string, unknown>): SearchHit[] {
     }));
 }
 
-function StepItem({ step, highlighted = false }: { step: Step; highlighted?: boolean }) {
+function StepItem({ step, highlighted = false, streamIn = false }: { step: Step; highlighted?: boolean; streamIn?: boolean }) {
   const icon = stepIcon[step.type] ?? "⚙";
   const isSearch = step.type === "web_search";
   const isFetch = step.type === "fetch_url_content";
@@ -1368,7 +1408,7 @@ function StepItem({ step, highlighted = false }: { step: Step; highlighted?: boo
   return (
     <li
       ref={ref}
-      className={`flex flex-col gap-1 rounded-[6px] text-xs ${highlighted ? "-mx-1.5 bg-primary/10 px-1.5 py-1 ring-1 ring-primary/40" : ""}`}
+      className={`flex flex-col gap-1 rounded-[6px] text-xs ${streamIn ? "animate-row-in" : ""} ${highlighted ? "-mx-1.5 bg-primary/10 px-1.5 py-1 ring-1 ring-primary/40" : ""}`}
     >
       <div className="flex items-start gap-2">
         <span aria-hidden className="mt-0.5 shrink-0">{icon}</span>

@@ -43,8 +43,16 @@ class _Subscription:
 
 
 class RedisPubSubBus:
-    def __init__(self, url: str) -> None:
+    def __init__(
+        self,
+        url: str,
+        *,
+        max_history_events: int = 5000,
+        history_ttl_s: float | None = 86400.0,
+    ) -> None:
         self._redis: Redis = Redis.from_url(url, decode_responses=True)
+        self._max_history_events = max_history_events
+        self._history_ttl_s = history_ttl_s
 
     async def publish(self, event: TraceEvent) -> None:
         payload = json.dumps(
@@ -55,7 +63,12 @@ class RedisPubSubBus:
                 "payload": event.payload,
             }
         )
-        await self._redis.rpush(_HISTORY_KEY.format(job_id=event.job_id), payload)  # type: ignore[misc]
+        history_key = _HISTORY_KEY.format(job_id=event.job_id)
+        await self._redis.rpush(history_key, payload)  # type: ignore[misc]
+        if self._max_history_events > 0:
+            await self._redis.ltrim(history_key, -self._max_history_events, -1)  # type: ignore[misc]
+        if self._history_ttl_s is not None:
+            await self._redis.expire(history_key, max(1, int(self._history_ttl_s)))
         await self._redis.publish(_CHANNEL.format(job_id=event.job_id), payload)
 
     @asynccontextmanager

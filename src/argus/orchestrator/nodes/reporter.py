@@ -15,7 +15,21 @@ from argus.orchestrator.context import _charge_result, _Ctx, _State
 def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
         findings = state.get("findings", [])
+        await ctx.publisher.stage(
+            status="started",
+            key="reporter",
+            name="Reporter",
+            engine="deepseek" if ctx.cheap_client else "miromind",
+        )
         if not findings:
+            await ctx.publisher.stage(
+                status="finished",
+                key="reporter",
+                name="Reporter",
+                engine="deepseek" if ctx.cheap_client else "miromind",
+                summary="No report generated",
+                metrics={},
+            )
             return {}
         try:
             result = await run_reporter(
@@ -26,6 +40,14 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             )
         except JsonRepairFailed as exc:
             log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
+            await ctx.publisher.stage(
+                status="finished",
+                key="reporter",
+                name="Reporter",
+                engine="deepseek" if ctx.cheap_client else "miromind",
+                summary="Reporter could not parse a result",
+                metrics={},
+            )
             return {}
 
         try:
@@ -41,6 +63,14 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             stream=result.final,
         )
         await ctx.publisher.publish("step", _step_payload(trace))
+        await ctx.publisher.stage(
+            status="finished",
+            key="reporter",
+            name="Reporter",
+            engine="deepseek" if ctx.cheap_client else "miromind",
+            summary="Executive summary generated",
+            metrics={},
+        )
         return {
             "audit_report_md": result.parsed.executive_summary_md,
             "traces": {trace.id: trace},

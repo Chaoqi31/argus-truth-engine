@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import uuid4
@@ -31,12 +33,20 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
         claims = state.get("claims", [])
         if not claims:
             return {}
+        await ctx.publisher.stage(
+            status="started",
+            key="verify",
+            name="Verify",
+            engine="miromind",
+        )
 
         doc = state.get("doc")
         runner = ctx.runners["unified_verifier"]
 
         async def run_for_claim(
             claim: Claim,
+            index: int,
+            total: int,
         ) -> tuple[
             Claim,
             AgentResult[Any] | None,
@@ -44,6 +54,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             tuple[Finding, list[Evidence]] | None,
         ]:
             async with runner.acquire():
+                await ctx.publisher.claim(
+                    status="started",
+                    claim=claim,
+                    agent="UnifiedVerifier",
+                    index=index,
+                    total=total,
+                )
                 surrounding = _surrounding_text(doc, claim) if doc else ""
                 domain_hint = get_domain_hint(
                     claim_type=claim.type, content_domain=ctx.content_domain,
@@ -89,6 +106,28 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         ),
                     )
 
+                started_at = time.monotonic()
+
+                async def publish_heartbeats() -> None:
+                    interval = max(0.1, ctx.settings.trace_heartbeat_interval_s)
+                    timeout = ctx.settings.miromind_response_timeout_s
+                    first_delay = (
+                        min(interval, max(0.01, timeout / 2))
+                        if timeout and timeout > 0
+                        else interval
+                    )
+                    await asyncio.sleep(first_delay)
+                    while True:
+                        await ctx.publisher.heartbeat(
+                            stage="verify",
+                            agent="UnifiedVerifier",
+                            claim_id=claim.id,
+                            elapsed_s=time.monotonic() - started_at,
+                            message="MiroMind is still researching this claim.",
+                        )
+                        await asyncio.sleep(interval)
+
+                heartbeat_task = asyncio.create_task(publish_heartbeats())
                 try:
                     result = await verify_claim(
                         ctx.client, claim.text,
@@ -96,6 +135,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         domain_hint=domain_hint,
                         idempotency_key=idem_key,
                         on_step=publish_live_step,
+                        response_timeout_s=ctx.settings.miromind_response_timeout_s,
                     )
                     return claim, result, None, None
                 except JsonRepairFailed as exc:
@@ -117,14 +157,20 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         error=str(exc)[:300],
                     )
                     return claim, None, exc, None
+                finally:
+                    heartbeat_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await heartbeat_task
 
-        results = await asyncio.gather(*(run_for_claim(c) for c in claims))
+        results = await asyncio.gather(
+            *(run_for_claim(c, i, len(claims)) for i, c in enumerate(claims, start=1))
+        )
 
         new_findings: list[Finding] = []
         new_traces: dict[str, ReasoningTrace] = {}
         new_evidences: list[Evidence] = []
 
-        for claim, agent_result, failure, cached_hit in results:
+        for index, (claim, agent_result, failure, cached_hit) in enumerate(results, start=1):
             if cached_hit is not None:
                 # Cache hit path — no MiroMind cost, no fresh trace. The rebuilt
                 # evidence is emitted into this job so evidence_ids resolve.
@@ -132,6 +178,15 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 new_findings.append(cached_finding)
                 new_evidences.extend(cached_evs)
                 await ctx.publisher.publish("finding", _finding_payload(cached_finding))
+                await ctx.publisher.claim(
+                    status="finished",
+                    claim=claim,
+                    agent="UnifiedVerifier",
+                    index=index,
+                    total=len(claims),
+                    verdict=cached_finding.verdict.value,
+                    severity=cached_finding.severity.value,
+                )
                 continue
 
             if failure is not None or agent_result is None:
@@ -146,6 +201,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     "Verification could not be completed — the verifier's "
                     "response could not be parsed into a valid result."
                 )
+                flags = ["unparseable verifier response"]
+                if _is_timeout_failure(failure):
+                    summary = (
+                        "Verification timed out before MiroMind returned a "
+                        "complete result."
+                    )
+                    flags = ["verifier timed out"]
                 # Surface WHY it failed (truncated) so the user isn't left
                 # guessing. Keep it short — don't leak the full payload.
                 if failure is not None:
@@ -163,12 +225,21 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     evidence_ids=[],
                     reasoning_trace_id=trace.id,
                     related_finding_ids=[],
-                    flags=["unparseable verifier response"],
+                    flags=flags,
                 )
                 new_traces[trace.id] = trace
                 new_findings.append(finding)
                 await ctx.publisher.publish("step", _step_payload(trace))
                 await ctx.publisher.publish("finding", _finding_payload(finding))
+                await ctx.publisher.claim(
+                    status="finished",
+                    claim=claim,
+                    agent="UnifiedVerifier",
+                    index=index,
+                    total=len(claims),
+                    verdict=finding.verdict.value,
+                    severity=finding.severity.value,
+                )
                 continue
             try:
                 _charge_result(ctx, agent_result)
@@ -200,6 +271,15 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             new_evidences.extend(ev_records)
             await ctx.publisher.publish("step", _step_payload(trace))
             await ctx.publisher.publish("finding", _finding_payload(finding))
+            await ctx.publisher.claim(
+                status="finished",
+                claim=claim,
+                agent="UnifiedVerifier",
+                index=index,
+                total=len(claims),
+                verdict=finding.verdict.value,
+                severity=finding.severity.value,
+            )
 
             # Persist to cache on fresh verification (skip UNCERTAIN — often transient)
             if ctx.cache is not None and finding.verdict != FindingVerdict.UNCERTAIN:
@@ -215,9 +295,35 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     time_sensitive=(claim.type == ClaimType.TIME_SENSITIVE),
                 )
 
+        n_steps = sum(len(t.steps) for t in new_traces.values())
+        n_searches = sum(
+            1 for t in new_traces.values() for step in t.steps
+            if step.type.value == "web_search"
+        )
+        await ctx.publisher.stage(
+            status="finished",
+            key="verify",
+            name="Verify",
+            engine="miromind",
+            summary=(
+                f"Deep-researched {len(new_findings)} claim(s) · "
+                f"{n_steps} steps · {n_searches} web searches"
+            ),
+            metrics={
+                "n_claims": len(new_findings),
+                "n_steps": n_steps,
+                "n_searches": n_searches,
+            },
+        )
         return {
             "findings": new_findings,
             "traces": new_traces,
             "evidences": new_evidences,
         }
     return node
+
+
+def _is_timeout_failure(failure: Exception | None) -> bool:
+    return isinstance(failure, TimeoutError) or (
+        failure is not None and "timed out" in str(failure).lower()
+    )

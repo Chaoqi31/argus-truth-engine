@@ -14,6 +14,11 @@ kill_timeout = '10s'
   ARGUS_MIROMIND_API_KEY = ''
   ARGUS_STORAGE_ROOT = '/data/uploads'
   PORT = '8080'
+  # Per-stream read timeout. Bumped from the 300s default so several
+  # concurrent deep-research streams on a shared CPU don't hit a premature
+  # ReadTimeout while the event loop is busy. The per-response hard cap
+  # (ARGUS_MIROMIND_RESPONSE_TIMEOUT_S, default 600s) is the real safety net.
+  ARGUS_MIROMIND_STREAM_TIMEOUT_S = '600'
 
 [[mounts]]
   source = 'argus_data'
@@ -23,9 +28,13 @@ kill_timeout = '10s'
 [http_service]
   internal_port = 8080
   force_https = true
+  # Keep 1 machine always running: an audit is a detached background task, so
+  # if HTTP traffic idles mid-audit (client tab closed / WS dropped) auto-stop
+  # would SIGTERM the process and kill the in-flight audit. min=1 prevents that.
+  # (Revert to 0 after the hackathon to drop to scale-to-zero billing.)
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
   [http_service.concurrency]
@@ -41,7 +50,7 @@ kill_timeout = '10s'
     path = '/healthz'
 
 [[vm]]
-  memory = '512mb'
+  memory = '2gb'
   cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 512
+  cpus = 2
+  memory_mb = 2048
