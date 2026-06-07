@@ -4,6 +4,7 @@ import {
   JobNotFoundError,
   UnsupportedMediaTypeError,
   getJob,
+  getSharedJob,
   submitClaimSelection,
   uploadPdf,
 } from "@/lib/api";
@@ -192,5 +193,31 @@ describe("getJob", () => {
     expect((captured.init?.headers as Record<string, string>).Authorization).toBe(
       "Bearer jwt_1",
     );
+  });
+});
+
+describe("getSharedJob", () => {
+  it("loads a public shared audit by token", async () => {
+    const captured: { url?: string; init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (url, init) => {
+      captured.url = String(url);
+      captured.init = init;
+      return new Response(
+        JSON.stringify({ id: "job_shared", pdf_path: "", status: "done", findings: [] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    const out = await getSharedJob("token_1");
+
+    expect(out.id).toBe("job_shared");
+    expect(captured.url).toBe("/api/argus/share/token_1");
+    expect((captured.init?.headers as Record<string, string> | undefined)?.Authorization)
+      .toBeUndefined();
+  });
+
+  it("throws JobNotFoundError for missing share links", async () => {
+    globalThis.fetch = vi.fn(async () => new Response("", { status: 404 }));
+    await expect(getSharedJob("missing")).rejects.toBeInstanceOf(JobNotFoundError);
   });
 });

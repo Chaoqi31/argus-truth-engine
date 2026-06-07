@@ -57,6 +57,11 @@ class UserRow(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    share_links: Mapped[list[AuditShareLinkRow]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 class UserApiKeyRow(Base):
@@ -76,6 +81,44 @@ class UserApiKeyRow(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     user: Mapped[UserRow] = relationship(back_populates="api_keys")
+
+
+class AuditShareLinkRow(Base):
+    __tablename__ = "audit_share_links"
+
+    token: Mapped[str] = mapped_column(String, primary_key=True)
+    job_id: Mapped[str] = mapped_column(String, ForeignKey("jobs.id"), index=True)
+    owner_user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_accessed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    job: Mapped[JobRow] = relationship(back_populates="share_links")
+    owner: Mapped[UserRow] = relationship(back_populates="share_links")
+
+
+class AuditAccessLogRow(Base):
+    __tablename__ = "audit_access_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    job_id: Mapped[str] = mapped_column(String, ForeignKey("jobs.id"), index=True)
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
+    actor_type: Mapped[str] = mapped_column(String, default="user")
+    action: Mapped[str] = mapped_column(String, default="view")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    access_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class AnalyticsEventRow(Base):
+    __tablename__ = "analytics_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(String, ForeignKey("users.id"), nullable=True)
+    event_name: Mapped[str] = mapped_column(String, index=True)
+    path: Mapped[str | None] = mapped_column(String, nullable=True)
+    properties: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 # --- JobRow ---------------------------------------------------------------
@@ -124,6 +167,11 @@ class JobRow(Base):
         lazy="selectin",
     )
     evidences: Mapped[list[EvidenceRow]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    share_links: Mapped[list[AuditShareLinkRow]] = relationship(
         back_populates="job",
         cascade="all, delete-orphan",
         lazy="selectin",

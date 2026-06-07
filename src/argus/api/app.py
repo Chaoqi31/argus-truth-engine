@@ -11,7 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from argus.api.account import router as account_router
 from argus.api.auth import SupabaseJwtVerifier
 from argus.api.deps import AppState
+from argus.api.events import router as events_router
 from argus.api.jobs import router as jobs_router
+from argus.api.share import router as share_router
 from argus.api.ws import router as ws_router
 from argus.config import Settings
 from argus.db.repository import JobRepository
@@ -117,6 +119,8 @@ def create_app(*, settings: Settings) -> FastAPI:
 
     app.include_router(jobs_router)
     app.include_router(account_router)
+    app.include_router(share_router)
+    app.include_router(events_router)
     app.include_router(ws_router)
 
     return app

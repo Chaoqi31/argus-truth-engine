@@ -40,7 +40,13 @@ import { DemoRunControls } from "@/components/demo-run-controls";
 import { PdfUploadDropzone } from "@/components/pdf-upload-dropzone";
 import CountUp from "@/components/react-bits/CountUp";
 import BlurText from "@/components/react-bits/BlurText";
-import { createSavedApiKey, listSavedApiKeys, type SavedApiKey } from "@/lib/account";
+import {
+  buildShareUrl,
+  createAuditShareLink,
+  createSavedApiKey,
+  listSavedApiKeys,
+  type SavedApiKey,
+} from "@/lib/account";
 import { useAuthSession } from "@/lib/use-auth-session";
 import { AuthButton } from "@/components/auth-button";
 
@@ -147,6 +153,61 @@ function SearchIcon() {
       <circle cx="6" cy="6" r="4.25" stroke="currentColor" strokeWidth="1.5" />
       <path d="M9.2 9.2L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function ShareAuditButton({
+  jobId,
+  accessToken,
+}: {
+  jobId: string;
+  accessToken: string | null;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function share() {
+    if (!accessToken) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const link = await createAuditShareLink(accessToken, jobId, 30);
+      const url = buildShareUrl(link.token);
+      setShareUrl(url);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={share}
+        disabled={busy || !accessToken}
+        className="group relative inline-flex items-center justify-center overflow-hidden rounded-[10px] border border-[var(--cc-border)] bg-[var(--cc-bg)] px-3 py-1.5 text-xs font-medium text-[var(--cc-text)] shadow-[var(--shadow-card)] transition-[transform,border-color,background-color,box-shadow,color] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-6 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-primary/12 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-0.5 hover:border-primary/35 hover:bg-background hover:text-primary hover:shadow-[0_14px_32px_rgba(16,24,40,0.11)] hover:before:translate-x-[430%] hover:before:opacity-100 disabled:opacity-50 motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden"
+      >
+        <span className="relative">{busy ? "Sharing..." : "Share"}</span>
+      </button>
+      {(shareUrl || error) && (
+        <div className="auth-menu-enter absolute right-0 top-[calc(100%+0.5rem)] z-50 w-72 rounded-[12px] border border-border bg-background p-3 text-xs shadow-[0_18px_48px_rgba(16,24,40,0.16)]">
+          {shareUrl ? (
+            <>
+              <p className="font-semibold text-success-foreground">Read-only link ready</p>
+              <p className="mt-1 truncate font-mono text-muted-foreground">{shareUrl}</p>
+            </>
+          ) : (
+            <p className="font-semibold text-destructive-foreground">{error}</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -834,6 +895,9 @@ function AuditPageContent() {
               </Link>
             )}
             <PaletteHint />
+            {liveId && auth.user && (
+              <ShareAuditButton jobId={job.id} accessToken={auth.accessToken} />
+            )}
             <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
             <AuthButton next={currentAuditNext} />
           </div>

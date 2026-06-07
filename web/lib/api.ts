@@ -2,6 +2,7 @@ import type { Job } from "@/lib/types";
 import { authHeaders } from "@/lib/account";
 
 const API_BASE = "/api/argus";
+const READ_TIMEOUT_MS = 12_000;
 
 async function responseMessage(resp: Response): Promise<string> {
   const text = await resp.text().catch(() => "");
@@ -176,6 +177,33 @@ export async function getJob(jobId: string, options?: ApiRequestOptions): Promis
     throw new ArgusApiError(resp.status, `get job failed (${resp.status})`);
   }
   return (await resp.json()) as Job;
+}
+
+export async function getSharedJob(token: string): Promise<Job> {
+  const resp = await fetchWithTimeout(`${API_BASE}/share/${encodeURIComponent(token)}`);
+  if (resp.status === 404) {
+    throw new JobNotFoundError(token);
+  }
+  if (!resp.ok) {
+    const text = await responseMessage(resp);
+    throw new ArgusApiError(resp.status, text || `get shared audit failed (${resp.status})`);
+  }
+  return (await resp.json()) as Job;
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), READ_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: init?.signal ?? controller.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ArgusApiError(504, "Request timed out. Please retry.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function downloadReport(

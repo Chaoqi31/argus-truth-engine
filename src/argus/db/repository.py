@@ -6,10 +6,18 @@ from datetime import datetime
 from typing import Protocol
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import selectinload
 
-from argus.db.models import JobRow, UserApiKeyRow, UserRow
+from argus.db.models import (
+    AnalyticsEventRow,
+    AuditAccessLogRow,
+    AuditShareLinkRow,
+    JobRow,
+    UserApiKeyRow,
+    UserRow,
+)
 from argus.models.domain import Job
 
 
@@ -32,6 +40,7 @@ class JobSummary:
     claims_total: int
     claims_audited: int
     cost_usd: float
+    share_links: list[ShareLinkSummary]
 
 
 @dataclass(frozen=True)
@@ -44,6 +53,15 @@ class ApiKeySummary:
     is_default: bool
     created_at: datetime
     last_used_at: datetime | None
+
+
+@dataclass(frozen=True)
+class ShareLinkSummary:
+    token: str
+    job_id: str
+    created_at: datetime
+    expires_at: datetime | None
+    revoked_at: datetime | None
 
 
 class JobRepository:
@@ -121,6 +139,27 @@ class JobRepository:
             ).scalar_one_or_none()
             return row
 
+    async def delete_job_for_user(self, *, job_id: str, owner_user_id: str) -> bool:
+        async with self._smaker() as session, session.begin():
+            row = (
+                await session.execute(
+                    select(JobRow).where(
+                        JobRow.id == job_id,
+                        JobRow.owner_user_id == owner_user_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return False
+            await session.execute(
+                delete(AuditAccessLogRow).where(AuditAccessLogRow.job_id == job_id)
+            )
+            await session.execute(
+                delete(AuditShareLinkRow).where(AuditShareLinkRow.job_id == job_id)
+            )
+            await session.delete(row)
+            return True
+
     async def mark_running_as_interrupted(self) -> int:
         """Flip any unfinished job state to 'interrupted'.
 
@@ -164,9 +203,14 @@ class JobRepository:
         limit: int = 50,
     ) -> list[JobSummary]:
         async with self._smaker() as session:
+            now = datetime.utcnow()
             rows = (
                 await session.execute(
                     select(JobRow)
+                    .options(
+                        selectinload(JobRow.findings),
+                        selectinload(JobRow.share_links),
+                    )
                     .where(JobRow.owner_user_id == owner_user_id)
                     .order_by(JobRow.created_at.desc())
                     .limit(limit)
@@ -184,6 +228,12 @@ class JobRepository:
                     claims_total=row.claims_total or 0,
                     claims_audited=row.claims_audited or 0,
                     cost_usd=row.cost_usd,
+                    share_links=[
+                        _share_link_summary(link)
+                        for link in row.share_links
+                        if link.revoked_at is None
+                        and (link.expires_at is None or link.expires_at > now)
+                    ],
                 )
                 for row in rows
             ]
@@ -294,6 +344,64 @@ class JobRepository:
             await session.commit()
             return row.encrypted_key, row.id
 
+    async def get_api_key_ciphertext_by_id(
+        self,
+        *,
+        user_id: str,
+        key_id: str,
+        provider: str = "miromind",
+    ) -> str | None:
+        async with self._smaker() as session:
+            row = (
+                await session.execute(
+                    select(UserApiKeyRow).where(
+                        UserApiKeyRow.id == key_id,
+                        UserApiKeyRow.user_id == user_id,
+                        UserApiKeyRow.provider == provider,
+                        UserApiKeyRow.revoked_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            return row.encrypted_key if row is not None else None
+
+    async def update_api_key(
+        self,
+        *,
+        user_id: str,
+        key_id: str,
+        label: str | None = None,
+        make_default: bool | None = None,
+        provider: str = "miromind",
+    ) -> ApiKeySummary | None:
+        async with self._smaker() as session, session.begin():
+            row = (
+                await session.execute(
+                    select(UserApiKeyRow).where(
+                        UserApiKeyRow.id == key_id,
+                        UserApiKeyRow.user_id == user_id,
+                        UserApiKeyRow.provider == provider,
+                        UserApiKeyRow.revoked_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            if label is not None:
+                row.label = label.strip() or "MiroMind API key"
+            if make_default:
+                await session.execute(
+                    update(UserApiKeyRow)
+                    .where(
+                        UserApiKeyRow.user_id == user_id,
+                        UserApiKeyRow.provider == provider,
+                        UserApiKeyRow.revoked_at.is_(None),
+                    )
+                    .values(is_default=False)
+                )
+                row.is_default = True
+            row.updated_at = datetime.utcnow()
+            return _api_key_summary(row)
+
     async def revoke_api_key(self, *, user_id: str, key_id: str) -> bool:
         async with self._smaker() as session:
             row = (
@@ -311,6 +419,167 @@ class JobRepository:
             row.is_default = False
             await session.commit()
             return True
+
+    async def create_share_link(
+        self,
+        *,
+        job_id: str,
+        owner_user_id: str,
+        token: str,
+        expires_at: datetime | None,
+    ) -> ShareLinkSummary | None:
+        async with self._smaker() as session, session.begin():
+            job_exists = (
+                await session.execute(
+                    select(JobRow.id).where(
+                        JobRow.id == job_id,
+                        JobRow.owner_user_id == owner_user_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if job_exists is None:
+                return None
+            row = AuditShareLinkRow(
+                token=token,
+                job_id=job_id,
+                owner_user_id=owner_user_id,
+                created_at=datetime.utcnow(),
+                expires_at=expires_at,
+            )
+            session.add(row)
+            return _share_link_summary(row)
+
+    async def revoke_share_link(
+        self,
+        *,
+        job_id: str,
+        owner_user_id: str,
+        token: str,
+    ) -> bool:
+        async with self._smaker() as session, session.begin():
+            row = (
+                await session.execute(
+                    select(AuditShareLinkRow).where(
+                        AuditShareLinkRow.token == token,
+                        AuditShareLinkRow.job_id == job_id,
+                        AuditShareLinkRow.owner_user_id == owner_user_id,
+                        AuditShareLinkRow.revoked_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return False
+            row.revoked_at = datetime.utcnow()
+            return True
+
+    async def get_job_by_share_token(self, token: str) -> Job | None:
+        async with self._smaker() as session, session.begin():
+            now = datetime.utcnow()
+            link = (
+                await session.execute(
+                    select(AuditShareLinkRow).where(
+                        AuditShareLinkRow.token == token,
+                        AuditShareLinkRow.revoked_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            if link is None:
+                return None
+            if link.expires_at is not None and link.expires_at < now:
+                return None
+            row = (
+                await session.execute(select(JobRow).where(JobRow.id == link.job_id))
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            link.last_accessed_at = now
+            session.add(
+                AuditAccessLogRow(
+                    id=f"log_{uuid4().hex[:12]}",
+                    job_id=link.job_id,
+                    user_id=None,
+                    actor_type="share_link",
+                    action="view",
+                    created_at=now,
+                    access_metadata={"token": token[:8]},
+                )
+            )
+            return row.to_domain()
+
+    async def log_job_access(
+        self,
+        *,
+        job_id: str,
+        user_id: str | None,
+        actor_type: str,
+        action: str = "view",
+        metadata: dict[str, object] | None = None,
+    ) -> None:
+        async with self._smaker() as session, session.begin():
+            session.add(
+                AuditAccessLogRow(
+                    id=f"log_{uuid4().hex[:12]}",
+                    job_id=job_id,
+                    user_id=user_id,
+                    actor_type=actor_type,
+                    action=action,
+                    created_at=datetime.utcnow(),
+                    access_metadata=dict(metadata or {}),
+                )
+            )
+
+    async def record_event(
+        self,
+        *,
+        event_name: str,
+        user_id: str | None,
+        path: str | None,
+        properties: dict[str, object] | None = None,
+    ) -> None:
+        async with self._smaker() as session, session.begin():
+            session.add(
+                AnalyticsEventRow(
+                    id=f"evt_{uuid4().hex[:12]}",
+                    user_id=user_id,
+                    event_name=event_name,
+                    path=path,
+                    properties=dict(properties or {}),
+                    created_at=datetime.utcnow(),
+                )
+            )
+
+    async def delete_user_data(self, *, user_id: str) -> None:
+        async with self._smaker() as session, session.begin():
+            job_ids = (
+                await session.execute(select(JobRow.id).where(JobRow.owner_user_id == user_id))
+            ).scalars().all()
+            if job_ids:
+                await session.execute(
+                    delete(AuditAccessLogRow).where(AuditAccessLogRow.job_id.in_(job_ids))
+                )
+                await session.execute(
+                    delete(AuditShareLinkRow).where(AuditShareLinkRow.job_id.in_(job_ids))
+                )
+                rows = (
+                    await session.execute(select(JobRow).where(JobRow.id.in_(job_ids)))
+                ).scalars().all()
+                for row in rows:
+                    await session.delete(row)
+            await session.execute(
+                delete(AnalyticsEventRow).where(AnalyticsEventRow.user_id == user_id)
+            )
+            await session.execute(
+                delete(AuditAccessLogRow).where(AuditAccessLogRow.user_id == user_id)
+            )
+            await session.execute(delete(UserApiKeyRow).where(UserApiKeyRow.user_id == user_id))
+            await session.execute(
+                delete(AuditShareLinkRow).where(AuditShareLinkRow.owner_user_id == user_id)
+            )
+            user = (
+                await session.execute(select(UserRow).where(UserRow.id == user_id))
+            ).scalar_one_or_none()
+            if user is not None:
+                await session.delete(user)
 
 
 def _job_title(row: JobRow) -> str:
@@ -332,4 +601,14 @@ def _api_key_summary(row: UserApiKeyRow) -> ApiKeySummary:
         is_default=bool(row.is_default),
         created_at=row.created_at,
         last_used_at=row.last_used_at,
+    )
+
+
+def _share_link_summary(row: AuditShareLinkRow) -> ShareLinkSummary:
+    return ShareLinkSummary(
+        token=row.token,
+        job_id=row.job_id,
+        created_at=row.created_at,
+        expires_at=row.expires_at,
+        revoked_at=row.revoked_at,
     )

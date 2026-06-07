@@ -1,7 +1,9 @@
 """HTTP /jobs endpoints."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from pathlib import PurePath
+from secrets import token_urlsafe
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
@@ -23,6 +25,18 @@ class TextSubmission(BaseModel):
 
 class ClaimSelection(BaseModel):
     selected_claim_ids: list[str]
+
+
+class ShareCreate(BaseModel):
+    expires_in_days: int | None = Field(default=30, ge=1, le=365)
+
+
+class ShareOut(BaseModel):
+    token: str
+    job_id: str
+    created_at: datetime
+    expires_at: datetime | None
+
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -331,6 +345,105 @@ async def resume_job(
     return {"job_id": job_id, "status": "running"}
 
 
+@router.post("/{job_id}/rerun", status_code=202)
+async def rerun_job(request: Request, job_id: str) -> dict[str, str]:
+    ctx = await _request_auth(request)
+    if ctx.user is None:
+        raise HTTPException(status_code=_HTTP_UNAUTHORIZED, detail="login required")
+    runner = _runner(request)
+    await _require_job_access(request, job_id, ctx, runner=runner)
+    repo = request.app.state.argus.repo
+    if repo is None:
+        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
+    job = await repo.get_job_for_user(job_id, ctx.user.id)
+    if job is None:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
+    api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
+    content_domain = str(getattr(job.content_domain, "value", job.content_domain))
+    try:
+        if job.input_mode == "text" and job.input_text:
+            new_job_id = await runner.submit_text(
+                text=job.input_text,
+                api_key_override=api_key,
+                auto_review=job.auto_review,
+                content_domain=content_domain,
+                owner_user_id=ctx.user.id,
+            )
+        else:
+            path = PurePath(job.pdf_path)
+            try:
+                blob = request.app.state.argus.storage.path_for(str(path)).read_bytes()
+            except Exception:
+                from pathlib import Path
+
+                blob = Path(job.pdf_path).read_bytes()
+            new_job_id = await runner.submit(
+                blob,
+                path.name or "upload.pdf",
+                api_key_override=api_key,
+                content_domain=content_domain,
+                owner_user_id=ctx.user.id,
+            )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="original input not found") from exc
+    except RunnerCapacityError as exc:
+        raise HTTPException(status_code=_HTTP_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    return {"job_id": new_job_id, "status": "running"}
+
+
+@router.post("/{job_id}/share", status_code=201)
+async def create_share_link(
+    request: Request,
+    job_id: str,
+    body: ShareCreate,
+) -> ShareOut:
+    user = await require_user(request)
+    repo = request.app.state.argus.repo
+    if repo is None:
+        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
+    expires_at = (
+        datetime.utcnow() + timedelta(days=body.expires_in_days)
+        if body.expires_in_days is not None
+        else None
+    )
+    created = await repo.create_share_link(
+        job_id=job_id,
+        owner_user_id=user.id,
+        token=token_urlsafe(24),
+        expires_at=expires_at,
+    )
+    if created is None:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
+    return ShareOut(
+        token=created.token,
+        job_id=created.job_id,
+        created_at=created.created_at,
+        expires_at=created.expires_at,
+    )
+
+
+@router.delete("/{job_id}/share/{token}", status_code=204)
+async def revoke_share_link(request: Request, job_id: str, token: str) -> None:
+    user = await require_user(request)
+    repo = request.app.state.argus.repo
+    if repo is None:
+        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
+    revoked = await repo.revoke_share_link(job_id=job_id, owner_user_id=user.id, token=token)
+    if not revoked:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="share link not found")
+
+
+@router.delete("/{job_id}", status_code=204)
+async def delete_job(request: Request, job_id: str) -> None:
+    user = await require_user(request)
+    repo = request.app.state.argus.repo
+    if repo is None:
+        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
+    deleted = await repo.delete_job_for_user(job_id=job_id, owner_user_id=user.id)
+    if not deleted:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
+
+
 @router.get("/{job_id}/pdf")
 async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
     ctx = await _request_auth(request)
@@ -374,11 +487,26 @@ async def get_job(request: Request, job_id: str) -> dict[str, Any]:
         if repo is not None:
             job = await repo.get_job(job_id)
             if job is not None:
+                if ctx.user is not None:
+                    await repo.log_job_access(
+                        job_id=job_id,
+                        user_id=ctx.user.id,
+                        actor_type="user",
+                        metadata={"source": "job_get"},
+                    )
                 dumped: dict[str, Any] = job.model_dump(mode="json")
                 return dumped
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
 
     if record.result is not None:
+        repo = request.app.state.argus.repo
+        if repo is not None and ctx.user is not None:
+            await repo.log_job_access(
+                job_id=job_id,
+                user_id=ctx.user.id,
+                actor_type="user",
+                metadata={"source": "job_get"},
+            )
         result_dump: dict[str, Any] = record.result.model_dump(mode="json")
         return result_dump
     return {
