@@ -1359,6 +1359,35 @@ export function parseSearchHits(content: Record<string, unknown>): SearchHit[] {
     }));
 }
 
+export function displayableThought(raw: string | null, summary: string): string | null {
+  if (!raw) return null;
+  const thought = raw.trim();
+  if (!thought || thought === summary.trim()) return null;
+  if (looksLikeMachineJson(thought)) return null;
+  return thought;
+}
+
+function looksLikeMachineJson(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[") ||
+    trimmed.startsWith("},") ||
+    trimmed.startsWith("],")
+  ) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed !== null && typeof parsed === "object") return true;
+    } catch {
+      /* fall through to structural heuristic */
+    }
+  }
+  const keyMatches = trimmed.match(/"[\w-]+"\s*:/g)?.length ?? 0;
+  const structuralMatches = trimmed.match(/[{}\[\],]/g)?.length ?? 0;
+  return keyMatches >= 3 && structuralMatches >= 5;
+}
+
 function StepItem({ step, highlighted = false, streamIn = false }: { step: Step; highlighted?: boolean; streamIn?: boolean }) {
   const icon = stepIcon[step.type] ?? "⚙";
   const isSearch = step.type === "web_search";
@@ -1371,8 +1400,11 @@ function StepItem({ step, highlighted = false, streamIn = false }: { step: Step;
   const claimMark = content.__claim as
     | { index: number; total: number; text: string }
     | undefined;
-  const thought = typeof content?.thought === "string" ? content.thought : null;
-  const hasThought = !!thought && !isSearch && !isFetch && thought.trim() !== step.summary.trim();
+  const thought = displayableThought(
+    typeof content?.thought === "string" ? content.thought : null,
+    step.summary,
+  );
+  const hasThought = !!thought && !isSearch && !isFetch;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLLIElement | null>(null);
 
@@ -1449,7 +1481,7 @@ function StepItem({ step, highlighted = false, streamIn = false }: { step: Step;
         </div>
       </div>
       {isSearch && open && hits.length > 0 && (
-        <ul className="ml-6 flex flex-col gap-1.5 border-l border-border pl-3">
+        <ul className="ml-6 flex max-h-48 flex-col gap-1.5 overflow-y-auto border-l border-border pl-3 pr-2">
           {hits.map((h, i) => (
             <li key={`${h.link}-${i}`} className="min-w-0">
               <a

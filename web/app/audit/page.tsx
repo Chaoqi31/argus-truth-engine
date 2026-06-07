@@ -40,6 +40,8 @@ import { DemoRunControls } from "@/components/demo-run-controls";
 import { PdfUploadDropzone } from "@/components/pdf-upload-dropzone";
 import CountUp from "@/components/react-bits/CountUp";
 import BlurText from "@/components/react-bits/BlurText";
+import { createSavedApiKey, listSavedApiKeys, type SavedApiKey } from "@/lib/account";
+import { useAuthSession } from "@/lib/use-auth-session";
 
 // pdf.js references browser-only globals (DOMMatrix, etc.) that fail under SSR.
 // Force the PdfViewer to client-only.
@@ -135,6 +137,7 @@ function AuditPageContent() {
   const params = useSearchParams();
   const liveId = params.get("id");
   const demo = params.get("demo");
+  const auth = useAuthSession();
 
   const job = useArgusStore((s) => s.job);
   const activeFindingId = useArgusStore((s) => s.activeFindingId);
@@ -207,8 +210,10 @@ function AuditPageContent() {
   // the finished job even if the WS never connects.
   useEffect(() => {
     if (!liveId) return;
+    if (auth.configured && auth.loading) return;
     resetLive();
     setRunStatus("connecting");
+    const requestOptions = { accessToken: auth.accessToken };
 
     let cancelled = false;
     settledRef.current = false;
@@ -346,7 +351,7 @@ function AuditPageContent() {
           const f = findingFromPayload(ev.payload);
           if (f) appendLiveFinding(f);
         } else if (ev.kind === "finished") {
-          getJob(liveId)
+          getJob(liveId, requestOptions)
             .then((full) => settleDone(full))
             .catch((err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
@@ -380,13 +385,13 @@ function AuditPageContent() {
           "Lost connection to the live trace. The audit may still be running — refresh to check.",
         );
       },
-    });
+    }, { accessToken: auth.accessToken });
 
     // Polling fallback. One immediate call gives a fast 404; the interval keeps
     // checking so a finished job still loads even if the WS never connects, and
     // a cold-start network error never fails the run.
     const poll = () => {
-      getJob(liveId)
+      getJob(liveId, requestOptions)
         .then((full) => {
           if (cancelled || settledRef.current) return;
           if (full.status === "done") {
@@ -417,7 +422,7 @@ function AuditPageContent() {
       if (pollTimer !== null) clearInterval(pollTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveId]);
+  }, [liveId, auth.configured, auth.loading, auth.accessToken]);
 
   // Demo mode (/audit?demo=1): load the bundled fixture but HOLD it in local
   // state instead of pushing it straight to the store. This lets us render an
@@ -642,7 +647,7 @@ function AuditPageContent() {
           activeAgent={lastAgent}
           heartbeat={liveHeartbeat}
         />
-        <main className={`grid grid-rows-1 h-[calc(100vh-3.5rem-3rem)] grid-cols-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : ""}`}>
+        <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 grid-rows-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : "lg:grid-cols-[minmax(0,1fr)_400px]"}`}>
           {showPdf ? (
             <div className="hidden md:block">
               <PdfViewer
@@ -664,23 +669,39 @@ function AuditPageContent() {
               />
             </div>
           ) : null}
-          <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
-            {runStatus === "reviewing" && liveId ? (
+          {runStatus === "reviewing" && liveId ? (
+            <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
               <ClaimReviewPanel jobId={liveId} />
-            ) : (
-              <>
+            </aside>
+          ) : splitGrid ? (
+            <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
+              <div className="min-h-0 flex-1 border-b border-[var(--cc-border)]">
+                <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
+              </div>
+              <div className="max-h-[30vh] shrink-0 overflow-hidden">
                 <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
                   <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                     Live findings preview
                   </span>
                 </div>
-                <LiveFindingsList findings={liveFindings} />
-                <div className="border-t border-[var(--cc-border)] flex-1 min-h-0 flex flex-col">
-                  <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
+                <LiveFindingsList findings={liveFindings} mode="stacked" />
+              </div>
+            </aside>
+          ) : (
+            <>
+              <section className="min-h-0">
+                <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
+              </section>
+              <aside className="hidden min-h-0 flex-col border-l border-[var(--cc-border)] lg:flex">
+                <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Live findings preview
+                  </span>
                 </div>
-              </>
-            )}
-          </aside>
+                <LiveFindingsList findings={liveFindings} mode="side" />
+              </aside>
+            </>
+          )}
         </main>
         <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
         <CommandPalette />
@@ -1076,8 +1097,18 @@ function RunBanner({
   );
 }
 
-function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
+function LiveFindingsList({
+  findings,
+  mode = "stacked",
+}: {
+  findings: LiveFinding[];
+  mode?: "stacked" | "side";
+}) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const listClass =
+    mode === "side"
+      ? "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3"
+      : "flex max-h-[calc(30vh-2.25rem)] shrink-0 flex-col gap-2 overflow-y-auto p-3";
   if (findings.length === 0) {
     return (
       <p className="p-6 text-xs text-muted-foreground">
@@ -1099,7 +1130,7 @@ function LiveFindingsList({ findings }: { findings: LiveFinding[] }) {
       return next;
     });
   return (
-    <ul className="flex max-h-[42vh] shrink-0 flex-col gap-2 overflow-y-auto p-3">
+    <ul className={listClass}>
       {findings.map((f) => {
         const isOpen = expanded.has(f.id);
         return (
@@ -1653,13 +1684,69 @@ function ColumnResizeHandle({
 /* ====================================================================== */
 function AuditInputPage() {
   const router = useRouter();
+  const auth = useAuthSession();
   const resetLive = useArgusStore((s) => s.resetLive);
   const clearStore = useArgusStore((s) => s.clear);
   const [apiKey, setApiKey] = useState("");
+  const [savedKeys, setSavedKeys] = useState<SavedApiKey[]>([]);
+  const [selectedKeyId, setSelectedKeyId] = useState<string>("paste");
+  const [saveKeyToAccount, setSaveKeyToAccount] = useState(false);
   const [inputMode, setInputMode] = useState<"text" | "pdf">("text");
   const [textInput, setTextInput] = useState("");
   const [loading, setLoading] = useState<"upload" | "sample" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!auth.accessToken) {
+      queueMicrotask(() => {
+        setSavedKeys([]);
+        setSelectedKeyId("paste");
+      });
+      return;
+    }
+    let active = true;
+    listSavedApiKeys(auth.accessToken)
+      .then((keys) => {
+        if (!active) return;
+        setSavedKeys(keys);
+        const defaultKey = keys.find((key) => key.is_default) ?? keys[0];
+        if (defaultKey) setSelectedKeyId(defaultKey.id);
+      })
+      .catch(() => {
+        if (active) setSavedKeys([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [auth.accessToken]);
+
+  const usingSavedKey = selectedKeyId !== "paste";
+  const hasRunnableKey = usingSavedKey || apiKey.trim().length > 0;
+
+  const submitOptions = async () => {
+    let apiKeyId = usingSavedKey ? selectedKeyId : null;
+    let rawApiKey = usingSavedKey ? undefined : apiKey;
+    if (
+      auth.accessToken &&
+      !usingSavedKey &&
+      saveKeyToAccount &&
+      apiKey.trim()
+    ) {
+      const saved = await createSavedApiKey(auth.accessToken, apiKey.trim());
+      setSavedKeys((prev) => [saved, ...prev.filter((key) => key.id !== saved.id)]);
+      setSelectedKeyId(saved.id);
+      apiKeyId = saved.id;
+      rawApiKey = undefined;
+      setSaveKeyToAccount(false);
+    }
+    return {
+      rawApiKey,
+      options:
+        auth.accessToken || apiKeyId
+          ? { accessToken: auth.accessToken, apiKeyId }
+          : undefined,
+    };
+  };
 
   // Hand off to the demo page, which loads the fixture and shows the idle
   // "report + Run" screen (playback starts on the Run click, not here).
@@ -1676,12 +1763,15 @@ function AuditInputPage() {
   };
 
   const onSubmitText = async () => {
-    if (!apiKey.trim()) { setError("Please paste your MiroMind API key first."); return; }
+    if (!hasRunnableKey) { setError("Please choose or paste your MiroMind API key first."); return; }
     if (textInput.trim().length < 50) { setError("Text must be at least 50 characters."); return; }
     setLoading("upload");
     setError(null);
     try {
-      const { job_id } = await submitText(textInput, apiKey);
+      const { rawApiKey, options } = await submitOptions();
+      const { job_id } = options
+        ? await submitText(textInput, rawApiKey, options)
+        : await submitText(textInput, rawApiKey);
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}&mode=text`);
     } catch (e) {
@@ -1699,11 +1789,14 @@ function AuditInputPage() {
       setError("Only PDF files are supported.");
       return;
     }
-    if (!apiKey.trim()) { setError("Please paste your MiroMind API key first."); return; }
+    if (!hasRunnableKey) { setError("Please choose or paste your MiroMind API key first."); return; }
     setLoading("upload");
     setError(null);
     try {
-      const { job_id } = await uploadPdf(file, apiKey);
+      const { rawApiKey, options } = await submitOptions();
+      const { job_id } = options
+        ? await uploadPdf(file, rawApiKey, options)
+        : await uploadPdf(file, rawApiKey);
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
@@ -1719,13 +1812,24 @@ function AuditInputPage() {
     <>
       <ArgusHeader
         rightSlot={
-          <Link
-            href="/audit?demo=1"
-            onClick={prepareSampleLink}
-            className="inline-flex items-center justify-center rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            See a sample audit
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/audit?demo=1"
+              onClick={prepareSampleLink}
+              className="inline-flex items-center justify-center rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              See a sample audit
+            </Link>
+            {auth.configured && !auth.loading && !auth.user ? (
+              <button
+                type="button"
+                onClick={() => auth.signIn("/audit")}
+                className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+              >
+                Sign in
+              </button>
+            ) : null}
+          </div>
         }
       />
       <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center px-6 py-14 md:py-20">
@@ -1751,7 +1855,49 @@ function AuditInputPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-background p-6 shadow-[var(--shadow-card)]">
-            <ApiKeyInput value={apiKey} onChange={setApiKey} />
+            {savedKeys.length > 0 && (
+              <div className="mb-3 flex flex-col gap-1.5">
+                <label
+                  htmlFor="saved-miromind-key"
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  MiroMind API key
+                </label>
+                <select
+                  id="saved-miromind-key"
+                  value={selectedKeyId}
+                  onChange={(e) => {
+                    setSelectedKeyId(e.target.value);
+                    setError(null);
+                  }}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                >
+                  {savedKeys.map((key) => (
+                    <option key={key.id} value={key.id}>
+                      {key.label} · ****{key.last4}
+                    </option>
+                  ))}
+                  <option value="paste">Paste a different key</option>
+                </select>
+              </div>
+            )}
+
+            {selectedKeyId === "paste" && (
+              <>
+                <ApiKeyInput value={apiKey} onChange={setApiKey} />
+                {auth.user && (
+                  <label className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={saveKeyToAccount}
+                      onChange={(e) => setSaveKeyToAccount(e.target.checked)}
+                      className="size-3.5 rounded border-border"
+                    />
+                    <span>Save this key to my account for future audits</span>
+                  </label>
+                )}
+              </>
+            )}
 
             {/* Tab toggle */}
             <div className="mt-4 flex w-full rounded-lg border border-border bg-muted/50 p-0.5">

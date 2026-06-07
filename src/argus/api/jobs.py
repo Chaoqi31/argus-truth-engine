@@ -4,10 +4,12 @@ from __future__ import annotations
 from pathlib import PurePath
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
+from argus.api.auth import AuthContext, AuthUser, auth_context_from_request, require_user
+from argus.api.deps import get_state
 from argus.api.runner import JobRunner, RunnerCapacityError
 from argus.trace_bus.base import TraceEvent
 
@@ -30,6 +32,7 @@ _HTTP_NOT_FOUND = 404
 _HTTP_UNAUTHORIZED = 401
 _HTTP_BAD_REQUEST = 400
 _HTTP_TOO_MANY_REQUESTS = 429
+_HTTP_SERVER_ERROR = 500
 
 
 def _runner(req: Request) -> JobRunner:
@@ -40,13 +43,76 @@ def _runner(req: Request) -> JobRunner:
     return runner
 
 
-def _require_token(request: Request) -> None:
-    token = request.app.state.argus.settings.api_token
-    if not token:
+async def _request_auth(request: Request) -> AuthContext:
+    ctx = await auth_context_from_request(request)
+    if ctx.user is not None and request.app.state.argus.repo is not None:
+        await request.app.state.argus.repo.upsert_user(ctx.user)
+    return ctx
+
+
+async def _require_job_access(
+    request: Request,
+    job_id: str,
+    ctx: AuthContext,
+    *,
+    runner: JobRunner | None = None,
+) -> None:
+    if ctx.service:
         return
-    expected = f"Bearer {token}"
-    if request.headers.get("authorization") != expected:
-        raise HTTPException(status_code=_HTTP_UNAUTHORIZED, detail="unauthorized")
+    settings = request.app.state.argus.settings
+    if ctx.user is None:
+        if settings.auth_required:
+            raise HTTPException(status_code=_HTTP_UNAUTHORIZED, detail="login required")
+        return
+
+    active_runner = runner or _runner(request)
+    record = active_runner.get(job_id)
+    if record is not None:
+        if record.owner_user_id == ctx.user.id:
+            return
+        if record.owner_user_id is not None:
+            raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
+
+    repo = request.app.state.argus.repo
+    if repo is not None:
+        owner = await repo.get_job_owner(job_id)
+        if owner == ctx.user.id:
+            return
+        if owner is not None or settings.auth_required:
+            raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
+
+
+async def _resolve_miromind_key(request: Request, user: AuthUser | None) -> str | None:
+    raw_key = (request.headers.get("x-miromind-key") or "").strip()
+    if raw_key:
+        return raw_key
+
+    key_id = (request.headers.get("x-miromind-key-id") or "").strip() or None
+    state = get_state(request)
+    repo = state.repo
+    cipher = state.key_cipher
+    if user is not None and repo is not None and cipher is not None:
+        found = await repo.get_api_key_ciphertext(user_id=user.id, key_id=key_id)
+        if found is not None:
+            encrypted_key, _resolved_id = found
+            return cipher.decrypt(encrypted_key)
+        if key_id is not None:
+            raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="saved API key not found")
+
+    server_key = (state.settings.miromind_api_key or "").strip()
+    return server_key or None
+
+
+def _require_miromind_key(api_key: str | None) -> str:
+    if api_key:
+        return api_key
+    raise HTTPException(
+        status_code=_HTTP_BAD_REQUEST,
+        detail=(
+            "MiroMind API key required. Paste a key, save one to your account, "
+            "or configure ARGUS_MIROMIND_API_KEY on the server."
+        ),
+    )
 
 
 def _safe_filename(filename: str | None) -> str:
@@ -135,13 +201,26 @@ def _apply_claim_progress(state: dict[str, Any], payload: dict[str, Any]) -> Non
             state["current_claim"] = None
 
 
+@router.get("")
+async def list_jobs(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> dict[str, list[dict[str, Any]]]:
+    user = await require_user(request)
+    repo = request.app.state.argus.repo
+    if repo is None:
+        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
+    rows = await repo.list_job_summaries(owner_user_id=user.id, limit=limit)
+    return {"jobs": [row.__dict__ for row in rows]}
+
+
 @router.post("", status_code=202)
 async def submit_job(
     request: Request,
     pdf: UploadFile = File(..., description="PDF to audit"),  # noqa: B008
     content_domain: str = Form("general"),
 ) -> dict[str, str]:
-    _require_token(request)
+    ctx = await _request_auth(request)
     if (pdf.content_type or "").lower() != "application/pdf":
         raise HTTPException(status_code=_HTTP_UNSUPPORTED, detail="expected application/pdf")
     max_bytes = request.app.state.argus.settings.max_upload_bytes
@@ -150,26 +229,15 @@ async def submit_job(
         raise HTTPException(status_code=_HTTP_PAYLOAD_TOO_LARGE, detail="pdf too large")
     if not blob.startswith(b"%PDF"):
         raise HTTPException(status_code=_HTTP_UNSUPPORTED, detail="expected PDF file")
-    # BYOK: per-request MiroMind key takes precedence over server config so the
-    # public demo never burns the operator's credits. Strip whitespace because
-    # browsers + clipboard managers love to add it.
-    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
-    server_key = (request.app.state.argus.settings.miromind_api_key or "").strip()
-    if not api_key_header and not server_key:
-        raise HTTPException(
-            status_code=_HTTP_BAD_REQUEST,
-            detail=(
-                "MiroMind API key required. Pass it via the X-Miromind-Key "
-                "request header, or configure ARGUS_MIROMIND_API_KEY on the server."
-            ),
-        )
+    api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
     runner = _runner(request)
     try:
         job_id = await runner.submit(
             blob,
             _safe_filename(pdf.filename),
-            api_key_override=api_key_header or None,
+            api_key_override=api_key,
             content_domain=content_domain,
+            owner_user_id=ctx.user.id if ctx.user else None,
         )
     except RunnerCapacityError as exc:
         raise HTTPException(
@@ -184,24 +252,16 @@ async def submit_text_job(
     request: Request,
     body: TextSubmission,
 ) -> dict[str, str]:
-    _require_token(request)
-    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
-    server_key = (request.app.state.argus.settings.miromind_api_key or "").strip()
-    if not api_key_header and not server_key:
-        raise HTTPException(
-            status_code=_HTTP_BAD_REQUEST,
-            detail=(
-                "MiroMind API key required. Pass it via the X-Miromind-Key "
-                "request header, or configure ARGUS_MIROMIND_API_KEY on the server."
-            ),
-        )
+    ctx = await _request_auth(request)
+    api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
     runner = _runner(request)
     try:
         job_id = await runner.submit_text(
             body.text,
-            api_key_override=api_key_header or None,
+            api_key_override=api_key,
             auto_review=body.auto_review,
             content_domain=body.content_domain,
+            owner_user_id=ctx.user.id if ctx.user else None,
         )
     except RunnerCapacityError as exc:
         raise HTTPException(
@@ -217,24 +277,14 @@ async def select_claims(
     job_id: str,
     body: ClaimSelection,
 ) -> dict[str, Any]:
-    _require_token(request)
-    # BYOK: thread the caller's key through so Phase B resume uses their
-    # credits, not the operator's. Fall back to a server key for local/CLI.
-    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
-    server_key = (request.app.state.argus.settings.miromind_api_key or "").strip()
-    if not api_key_header and not server_key:
-        raise HTTPException(
-            status_code=_HTTP_BAD_REQUEST,
-            detail=(
-                "MiroMind API key required. Pass it via the X-Miromind-Key "
-                "request header, or configure ARGUS_MIROMIND_API_KEY on the server."
-            ),
-        )
+    ctx = await _request_auth(request)
     runner = _runner(request)
+    await _require_job_access(request, job_id, ctx, runner=runner)
+    api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
     try:
         resumed = await runner.resume(
             job_id=job_id, selected_claim_ids=body.selected_claim_ids,
-            api_key_override=api_key_header or None,
+            api_key_override=api_key,
         )
     except RunnerCapacityError as exc:
         raise HTTPException(
@@ -259,13 +309,14 @@ async def resume_job(
     Used after worker restart (Phase 6.2 marks abandoned jobs), or when
     HITL timeout left the job paused without a claim selection.
     """
-    _require_token(request)
-    api_key_header = (request.headers.get("x-miromind-key") or "").strip()
+    ctx = await _request_auth(request)
     runner = _runner(request)
+    await _require_job_access(request, job_id, ctx, runner=runner)
+    api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
     try:
         resumed = await runner.resume(
             job_id=job_id, selected_claim_ids=None,
-            api_key_override=api_key_header or None,
+            api_key_override=api_key,
         )
     except RunnerCapacityError as exc:
         raise HTTPException(
@@ -282,8 +333,9 @@ async def resume_job(
 
 @router.get("/{job_id}/pdf")
 async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
-    _require_token(request)
+    ctx = await _request_auth(request)
     runner = _runner(request)
+    await _require_job_access(request, job_id, ctx, runner=runner)
     record = runner.get(job_id)
     if record is None or not record.pdf_key:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="pdf not found")
@@ -295,8 +347,9 @@ async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
 
 @router.get("/{job_id}/report.pdf")
 async def get_job_report_pdf(request: Request, job_id: str) -> Response:
-    _require_token(request)
+    ctx = await _request_auth(request)
     runner = _runner(request)
+    await _require_job_access(request, job_id, ctx, runner=runner)
     record = runner.get(job_id)
     if record is None or record.result is None:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not ready")
@@ -312,8 +365,9 @@ async def get_job_report_pdf(request: Request, job_id: str) -> Response:
 
 @router.get("/{job_id}")
 async def get_job(request: Request, job_id: str) -> dict[str, Any]:
-    _require_token(request)
+    ctx = await _request_auth(request)
     runner = _runner(request)
+    await _require_job_access(request, job_id, ctx, runner=runner)
     record = runner.get(job_id)
     if record is None:
         repo = request.app.state.argus.repo

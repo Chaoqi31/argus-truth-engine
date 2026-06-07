@@ -1,4 +1,5 @@
 import type { Job } from "@/lib/types";
+import { authHeaders } from "@/lib/account";
 
 const API_BASE = "/api/argus";
 
@@ -41,20 +42,39 @@ export interface UploadResponse {
   status: string;
 }
 
+export interface ApiRequestOptions {
+  accessToken?: string | null;
+  apiKeyId?: string | null;
+}
+
+function withAuthHeaders(options?: ApiRequestOptions): Record<string, string> {
+  return authHeaders(options?.accessToken);
+}
+
+function addApiKeyHeaders(
+  headers: Record<string, string>,
+  apiKey?: string | null,
+  apiKeyId?: string | null,
+) {
+  if (apiKey?.trim()) {
+    headers["X-Miromind-Key"] = apiKey.trim();
+  } else if (apiKeyId?.trim()) {
+    headers["X-Miromind-Key-Id"] = apiKeyId.trim();
+  }
+}
+
 export async function uploadPdf(
   file: File,
   apiKey?: string,
-  options?: { contentDomain?: ContentDomain },
+  options?: { contentDomain?: ContentDomain } & ApiRequestOptions,
 ): Promise<UploadResponse> {
   const form = new FormData();
   form.append("pdf", file);
   form.append("content_domain", options?.contentDomain ?? "general");
   // BYOK: pass the visitor's own MiroMind key via header. The backend will
   // 400 if neither this header nor a server-side fallback key is present.
-  const headers: HeadersInit = {};
-  if (apiKey && apiKey.trim()) {
-    headers["X-Miromind-Key"] = apiKey.trim();
-  }
+  const headers: Record<string, string> = withAuthHeaders(options);
+  addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
   const resp = await fetch(`${API_BASE}/jobs`, {
     method: "POST",
     body: form,
@@ -87,12 +107,13 @@ export type ContentDomain =
 export async function submitText(
   text: string,
   apiKey?: string,
-  options?: { contentDomain?: ContentDomain },
+  options?: { contentDomain?: ContentDomain } & ApiRequestOptions,
 ): Promise<UploadResponse> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (apiKey?.trim()) {
-    headers["X-Miromind-Key"] = apiKey.trim();
-  }
+  const headers: Record<string, string> = {
+    ...withAuthHeaders(options),
+    "Content-Type": "application/json",
+  };
+  addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
   const resp = await fetch(`${API_BASE}/jobs/text`, {
     method: "POST",
     body: JSON.stringify({
@@ -120,11 +141,13 @@ export async function submitClaimSelection(
   jobId: string,
   selectedClaimIds: string[],
   apiKey?: string | null,
+  options?: ApiRequestOptions,
 ): Promise<void> {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (apiKey?.trim()) {
-    headers["X-Miromind-Key"] = apiKey.trim();
-  }
+  const headers: Record<string, string> = {
+    ...withAuthHeaders(options),
+    "Content-Type": "application/json",
+  };
+  addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
   const resp = await fetch(
     `${API_BASE}/jobs/${encodeURIComponent(jobId)}/claims/select`,
     {
@@ -142,8 +165,10 @@ export async function submitClaimSelection(
   }
 }
 
-export async function getJob(jobId: string): Promise<Job> {
-  const resp = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
+export async function getJob(jobId: string, options?: ApiRequestOptions): Promise<Job> {
+  const resp = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`, {
+    headers: withAuthHeaders(options),
+  });
   if (resp.status === 404) {
     throw new JobNotFoundError(jobId);
   }
@@ -153,9 +178,13 @@ export async function getJob(jobId: string): Promise<Job> {
   return (await resp.json()) as Job;
 }
 
-export async function downloadReport(jobId: string, apiKey: string | null): Promise<Blob> {
-  const headers: HeadersInit = {};
-  if (apiKey) headers["X-Miromind-Key"] = apiKey;
+export async function downloadReport(
+  jobId: string,
+  apiKey: string | null,
+  options?: ApiRequestOptions,
+): Promise<Blob> {
+  const headers: Record<string, string> = withAuthHeaders(options);
+  addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
   const resp = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/report.pdf`, { headers });
   if (!resp.ok) {
     throw new ArgusApiError(resp.status, `download failed: ${resp.status}`);

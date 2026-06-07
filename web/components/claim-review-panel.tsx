@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useArgusStore } from "@/lib/store";
 import { submitClaimSelection } from "@/lib/api";
 import type { ReviewClaim } from "@/lib/types";
+import { useAuthSession } from "@/lib/use-auth-session";
 
 const TYPE_LABELS: Record<string, string> = {
   citation: "Citation",
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function ClaimReviewPanel({ jobId }: Props) {
+  const auth = useAuthSession();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reviewClaims = useArgusStore((s) => s.reviewClaims);
@@ -55,7 +57,13 @@ export function ClaimReviewPanel({ jobId }: Props) {
     try {
       setSubmitting(true);
       setError(null);
-      await submitClaimSelection(jobId, ids, apiKey);
+      if (auth.accessToken) {
+        await submitClaimSelection(jobId, ids, apiKey, {
+          accessToken: auth.accessToken,
+        });
+      } else {
+        await submitClaimSelection(jobId, ids, apiKey);
+      }
       setRunStatus("verifying");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

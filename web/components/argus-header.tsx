@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArgusMark } from "@/components/argus-mark";
+import { AuthButton } from "@/components/auth-button";
 
 interface Props {
   rightSlot?: React.ReactNode;
@@ -21,7 +22,7 @@ export function ArgusHeader({ rightSlot }: Props) {
           <Link href="/for-teams" className="hover:text-foreground">For teams</Link>
         </nav>
       </div>
-      {rightSlot}
+      {rightSlot ?? <AuthButton />}
     </header>
   );
 }

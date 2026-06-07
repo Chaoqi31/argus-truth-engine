@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from argus.config import Settings
 from argus.db.repository import JobRepository
+from argus.security.api_keys import ApiKeyCipher
 from argus.storage.base import Storage
 from argus.trace_bus.base import TraceBus
 
@@ -28,6 +29,8 @@ class AppState:
     storage: Storage
     trace_bus: TraceBus
     db_engine: AsyncEngine | None = None
+    auth_verifier: Any | None = None
+    key_cipher: ApiKeyCipher | None = None
     # Pre-built in FastAPI lifespan and reused for every audit_* call.
     # None when running without a DB (e.g. ad-hoc test setup) — entry
     # functions fall back to building their own per-call.

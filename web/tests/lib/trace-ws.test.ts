@@ -101,6 +101,19 @@ describe("subscribeTrace", () => {
     disconnect();
   });
 
+  it("includes an access token query param when provided", async () => {
+    trackSubscribe(
+      "job_secure",
+      { onEvent: () => {} },
+      { wsHost: "localhost:8080", accessToken: "jwt_1" },
+    );
+
+    await flush();
+    expect(FakeSocket.instances[0].url).toBe(
+      "ws://localhost:8080/ws/jobs/job_secure/trace?after=0&token=jwt_1",
+    );
+  });
+
   it("reconnects with ?after=<lastSeq> on abnormal close, no reconnect after terminal", async () => {
     const events: TraceEvent[] = [];
     const closeReports: boolean[] = [];

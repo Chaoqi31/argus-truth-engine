@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_token: str = ""
 
+    # User auth. Production should set auth_required=true together with
+    # supabase_url so job URLs are no longer public bearer links.
+    auth_required: bool = False
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_jwt_audience: str = "authenticated"
+    supabase_jwks_cache_ttl_s: float = 300.0
+    api_key_encryption_secret: str = ""
+
     # Cheap LLM for pre-processing (atomizer, checkworthiness).
     # Defaults to DeepSeek; any OpenAI-compatible endpoint works.
     cheap_llm_api_key: str = Field(default="")

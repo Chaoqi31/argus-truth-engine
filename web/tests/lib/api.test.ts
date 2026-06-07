@@ -61,6 +61,27 @@ describe("uploadPdf", () => {
     expect(form.get("content_domain")).toBe("finance");
   });
 
+  it("can submit a PDF with auth and a saved API key id", async () => {
+    const captured: { init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (_, init) => {
+      captured.init = init;
+      return new Response(JSON.stringify({ job_id: "job_abc", status: "running" }), {
+        status: 202,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "x.pdf", {
+      type: "application/pdf",
+    });
+    await uploadPdf(file, undefined, { accessToken: "jwt_1", apiKeyId: "key_1" });
+
+    const headers = captured.init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer jwt_1");
+    expect(headers["X-Miromind-Key-Id"]).toBe("key_1");
+    expect(headers["X-Miromind-Key"]).toBeUndefined();
+  });
+
   it("throws UnsupportedMediaTypeError on 415", async () => {
     globalThis.fetch = vi.fn(
       async () =>
@@ -154,5 +175,22 @@ describe("getJob", () => {
   it("throws JobNotFoundError on 404", async () => {
     globalThis.fetch = vi.fn(async () => new Response("", { status: 404 }));
     await expect(getJob("nope")).rejects.toBeInstanceOf(JobNotFoundError);
+  });
+
+  it("includes Authorization when loading an authenticated job", async () => {
+    const captured: { init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (_, init) => {
+      captured.init = init;
+      return new Response(
+        JSON.stringify({ id: "job_abc", pdf_path: "", status: "done", findings: [] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    await getJob("job_abc", { accessToken: "jwt_1" });
+
+    expect((captured.init?.headers as Record<string, string>).Authorization).toBe(
+      "Bearer jwt_1",
+    );
   });
 });

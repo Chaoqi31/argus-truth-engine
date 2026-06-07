@@ -26,6 +26,7 @@ export interface TraceSubscribeOptions {
   wsHost?: string;
   reconnectDelayMs?: number;
   maxReconnectAttempts?: number;
+  accessToken?: string | null;
 }
 
 const TERMINAL_KINDS: ReadonlySet<TraceEventKind> = new Set(["finished", "failed"]);
@@ -61,7 +62,9 @@ export function subscribeTrace(
     if (disposed || terminated) return;
     const protocol =
       typeof window !== "undefined" && window.location.protocol === "https:" ? "wss" : "ws";
-    const url = `${protocol}://${host}/ws/jobs/${encodeURIComponent(jobId)}/trace?after=${lastSeq}`;
+    const params = new URLSearchParams({ after: String(lastSeq) });
+    if (opts.accessToken) params.set("token", opts.accessToken);
+    const url = `${protocol}://${host}/ws/jobs/${encodeURIComponent(jobId)}/trace?${params.toString()}`;
     const ws = new WebSocket(url);
     socket = ws;
 

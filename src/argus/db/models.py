@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from argus.models.domain import (
@@ -38,6 +38,46 @@ class Base(DeclarativeBase):
     """Declarative base for all Argus DB models."""
 
 
+# --- UserRow + UserApiKeyRow ---------------------------------------------
+
+
+class UserRow(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    email: Mapped[str] = mapped_column(String, index=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    jobs: Mapped[list[JobRow]] = relationship(back_populates="owner")
+    api_keys: Mapped[list[UserApiKeyRow]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class UserApiKeyRow(Base):
+    __tablename__ = "user_api_keys"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), index=True)
+    provider: Mapped[str] = mapped_column(String, default="miromind")
+    label: Mapped[str] = mapped_column(String, default="MiroMind API key")
+    encrypted_key: Mapped[str] = mapped_column(Text)
+    fingerprint: Mapped[str] = mapped_column(String(64), index=True)
+    last4: Mapped[str] = mapped_column(String(8))
+    is_default: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped[UserRow] = relationship(back_populates="api_keys")
+
+
 # --- JobRow ---------------------------------------------------------------
 
 
@@ -45,15 +85,29 @@ class JobRow(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    owner_user_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+    visibility: Mapped[str] = mapped_column(String, default="private")
     pdf_path: Mapped[str] = mapped_column(String)
+    input_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    input_mode: Mapped[str] = mapped_column(String, default="pdf")
+    content_domain: Mapped[str] = mapped_column(String, default="general")
+    auto_review: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    claims_total: Mapped[int] = mapped_column(Integer, default=0)
+    claims_audited: Mapped[int] = mapped_column(Integer, default=0)
     audit_report_md: Mapped[str | None] = mapped_column(String, nullable=True)
     stages: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
 
+    owner: Mapped[UserRow | None] = relationship(back_populates="jobs")
     claims: Mapped[list[ClaimRow]] = relationship(
         back_populates="job",
         cascade="all, delete-orphan",
@@ -76,15 +130,29 @@ class JobRow(Base):
     )
 
     @classmethod
-    def from_domain(cls, m: Job) -> JobRow:
+    def from_domain(
+        cls,
+        m: Job,
+        *,
+        owner_user_id: str | None = None,
+        visibility: str = "private",
+    ) -> JobRow:
         return cls(
             id=m.id,
+            owner_user_id=owner_user_id,
+            visibility=visibility,
             pdf_path=m.pdf_path,
+            input_text=m.input_text,
+            input_mode=m.input_mode,
+            content_domain=m.content_domain.value,
+            auto_review=m.auto_review,
             status=m.status,
             created_at=m.created_at,
             completed_at=m.completed_at,
             cost_usd=m.cost_usd,
             total_tokens=m.total_tokens,
+            claims_total=m.claims_total,
+            claims_audited=m.claims_audited,
             audit_report_md=m.audit_report_md,
             stages=[s.model_dump() for s in m.stages],
             claims=[ClaimRow.from_domain(c, job_id=m.id) for c in m.claims],
@@ -97,11 +165,17 @@ class JobRow(Base):
         return Job(
             id=self.id,
             pdf_path=self.pdf_path,
+            input_text=self.input_text,
+            input_mode=self.input_mode or "pdf",
+            content_domain=self.content_domain or "general",
+            auto_review=bool(self.auto_review),
             status=self.status,
             created_at=self.created_at,
             completed_at=self.completed_at,
             cost_usd=self.cost_usd,
             total_tokens=self.total_tokens,
+            claims_total=self.claims_total or 0,
+            claims_audited=self.claims_audited or 0,
             audit_report_md=self.audit_report_md,
             stages=[Stage.model_validate(s) for s in (self.stages or [])],
             claims=[c.to_domain() for c in self.claims],

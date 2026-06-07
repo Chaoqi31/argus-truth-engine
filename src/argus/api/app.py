@@ -8,6 +8,8 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from argus.api.account import router as account_router
+from argus.api.auth import SupabaseJwtVerifier
 from argus.api.deps import AppState
 from argus.api.jobs import router as jobs_router
 from argus.api.ws import router as ws_router
@@ -15,6 +17,7 @@ from argus.config import Settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
 from argus.orchestrator.checkpointer import build_checkpointer
+from argus.security.api_keys import ApiKeyCipher
 from argus.storage.local_fs import LocalFsStorage
 from argus.trace_bus.base import TraceBus
 from argus.trace_bus.in_process import InProcessBus
@@ -42,6 +45,11 @@ def _build_state(settings: Settings) -> AppState:
             history_ttl_s=settings.trace_history_ttl_s,
         )
     )
+    key_cipher = (
+        ApiKeyCipher(settings.api_key_encryption_secret)
+        if settings.api_key_encryption_secret
+        else None
+    )
 
     return AppState(
         settings=settings,
@@ -49,6 +57,8 @@ def _build_state(settings: Settings) -> AppState:
         storage=storage,
         trace_bus=trace_bus,
         db_engine=engine,
+        auth_verifier=SupabaseJwtVerifier(settings) if settings.supabase_url else None,
+        key_cipher=key_cipher,
     )
 
 
@@ -106,6 +116,7 @@ def create_app(*, settings: Settings) -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(jobs_router)
+    app.include_router(account_router)
     app.include_router(ws_router)
 
     return app

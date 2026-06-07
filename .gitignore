@@ -64,5 +64,6 @@ web/out/
 web/.env.local
 web/coverage/
 local.db
+local-auth.db*
 .vercel
 .env*

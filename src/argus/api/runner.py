@@ -43,6 +43,7 @@ class JobRecord:
     result: Job | None = None
     error: str | None = None
     pdf_key: str = ""
+    owner_user_id: str | None = None
 
 
 @dataclass
@@ -79,12 +80,29 @@ class JobRunner:
         filename: str,
         api_key_override: str | None = None,
         content_domain: str = "general",
+        owner_user_id: str | None = None,
     ) -> str:
         job_id = f"job_{uuid4().hex[:12]}"
         key = f"{job_id}/{filename}"
-        record = JobRecord(job_id=job_id, status="running", pdf_key=key)
+        record = JobRecord(
+            job_id=job_id,
+            status="running",
+            pdf_key=key,
+            owner_user_id=owner_user_id,
+        )
         await self._reserve(record)
         await self.state.storage.put(key, pdf_bytes, content_type="application/pdf")
+        if self.state.repo is not None:
+            await self.state.repo.save_job(
+                Job(
+                    id=job_id,
+                    pdf_path=str(self.state.storage.path_for(key)),
+                    input_mode="pdf",
+                    content_domain=content_domain,
+                    status="queued",
+                ),
+                owner_user_id=owner_user_id,
+            )
 
         # BYOK: when the caller supplies their own MiroMind key (via the
         # X-Miromind-Key header), bake it into a per-job Settings + Client so
@@ -130,12 +148,25 @@ class JobRunner:
         api_key_override: str | None = None,
         auto_review: bool = False,
         content_domain: str = "general",
+        owner_user_id: str | None = None,
     ) -> str:
         job_id = f"job_{uuid4().hex[:12]}"
         key = f"{job_id}/input.txt"
-        record = JobRecord(job_id=job_id, status="running")
+        record = JobRecord(job_id=job_id, status="running", owner_user_id=owner_user_id)
         await self._reserve(record)
         await self.state.storage.put(key, text.encode(), content_type="text/plain")
+        if self.state.repo is not None:
+            await self.state.repo.save_job(
+                Job(
+                    id=job_id,
+                    input_text=text,
+                    input_mode="text",
+                    content_domain=content_domain,
+                    auto_review=auto_review,
+                    status="queued",
+                ),
+                owner_user_id=owner_user_id,
+            )
 
         per_job_settings = self.state.settings
         per_job_client: MiromindClient | None = None
