@@ -268,6 +268,22 @@
   40%           { opacity: 1; }
 }
 
+/* Account navigation: quick, restrained feedback for login state changes. */
+@keyframes auth-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); filter: blur(5px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes auth-toast-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.985); filter: blur(5px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes auth-status-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(20, 158, 97, 0.26); }
+  50%      { box-shadow: 0 0 0 5px rgba(20, 158, 97, 0); }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .animate-row-in {
     animation: argus-fade-in-up 280ms ease-out both;
@@ -322,6 +338,19 @@
   .frontier-dot {
     animation: argus-dot-blink 1.4s ease-in-out infinite;
   }
+
+  .auth-menu-enter {
+    transform-origin: top right;
+    animation: auth-menu-in 220ms var(--ease-enter) both;
+  }
+
+  .auth-toast-enter {
+    animation: auth-toast-in 320ms var(--ease-enter) both;
+  }
+
+  .auth-status-dot {
+    animation: auth-status-pulse 1800ms ease-out infinite;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -340,7 +369,10 @@
   .cc-float,
   .trace-panel-enter,
   .chip-pop,
-  .frontier-dot {
+  .frontier-dot,
+  .auth-menu-enter,
+  .auth-toast-enter,
+  .auth-status-dot {
     animation: none;
   }
 }

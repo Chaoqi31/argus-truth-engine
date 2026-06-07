@@ -110,11 +110,6 @@ export function ApiKeyInput({ value, onChange }: Props) {
         />
         <span>Remember key on this device for claim-review resume</span>
       </label>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Not stored unless you choose to remember it. Sent to the Argus backend
-        on each audit as <code className="font-mono">X-Miromind-Key</code>.
-        Not persisted by Argus or written to app logs.
-      </p>
     </div>
   );
 }

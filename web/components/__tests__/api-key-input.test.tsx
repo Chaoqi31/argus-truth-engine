@@ -10,11 +10,11 @@ describe("ApiKeyInput", () => {
     window.sessionStorage.removeItem(STORAGE_KEY);
   });
 
-  it("explains BYOK handling without claiming the operator cannot see the key", () => {
+  it("does not show low-level transport/storage copy under the key field", () => {
     render(<ApiKeyInput value="" onChange={vi.fn()} />);
 
-    expect(screen.getByText(/Not stored unless you choose to remember it/i)).toBeInTheDocument();
-    expect(screen.getByText(/not persisted by Argus/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Not stored unless you choose to remember it/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/X-Miromind-Key/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/operator of this demo never sees it/i)).not.toBeInTheDocument();
   });
 

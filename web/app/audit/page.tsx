@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, Suspense, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -42,6 +42,7 @@ import CountUp from "@/components/react-bits/CountUp";
 import BlurText from "@/components/react-bits/BlurText";
 import { createSavedApiKey, listSavedApiKeys, type SavedApiKey } from "@/lib/account";
 import { useAuthSession } from "@/lib/use-auth-session";
+import { AuthButton } from "@/components/auth-button";
 
 // pdf.js references browser-only globals (DOMMatrix, etc.) that fail under SSR.
 // Force the PdfViewer to client-only.
@@ -60,6 +61,51 @@ const PdfViewer = dynamic(
 
 const DEMO_START_LINK =
   "group relative inline-flex items-center justify-center overflow-hidden rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-[transform,border-color,background-color,box-shadow,color] duration-300 ease-enter before:pointer-events-none before:absolute before:-inset-y-6 before:-left-1/2 before:w-1/3 before:rotate-12 before:bg-gradient-to-r before:from-transparent before:via-primary/12 before:to-transparent before:opacity-0 before:transition-[transform,opacity] before:duration-500 before:ease-enter hover:-translate-y-0.5 hover:border-primary/35 hover:bg-background hover:text-primary hover:shadow-[0_14px_32px_rgba(16,24,40,0.11)] hover:before:translate-x-[430%] hover:before:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transform-none motion-reduce:transition-none motion-reduce:before:hidden";
+
+function auditNextFromParams(paramsString: string): string {
+  const clean = new URLSearchParams(paramsString);
+  clean.delete("signedIn");
+  const qs = clean.toString();
+  return `/audit${qs ? `?${qs}` : ""}`;
+}
+
+function getAuthUserLabel(user: NonNullable<ReturnType<typeof useAuthSession>["user"]>): string {
+  const fullName = user.user_metadata?.full_name;
+  if (typeof fullName === "string" && fullName.trim()) return fullName.trim();
+  const name = user.user_metadata?.name;
+  if (typeof name === "string" && name.trim()) return name.trim();
+  return user.email ?? "Your account";
+}
+
+function SignedInNotice({ userLabel }: { userLabel: string | null }) {
+  return (
+    <div
+      role="status"
+      className="auth-toast-enter fixed right-6 top-16 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-[12px] border border-success/25 bg-background px-4 py-3 shadow-[0_18px_48px_rgba(16,24,40,0.16)]"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="mt-1 inline-flex size-2.5 rounded-full bg-success ring-4 ring-success/15"
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">
+            Signed in{userLabel ? ` as ${userLabel}` : ""}
+          </p>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            Your personal center and audit history are now available.
+          </p>
+          <Link
+            href="/app"
+            className="mt-2 inline-flex text-xs font-semibold text-primary underline-offset-2 hover:underline"
+          >
+            Open personal center
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** Global ⌘K / Ctrl+K listener that toggles the command palette. */
 function useCommandPaletteHotkey() {
@@ -135,8 +181,10 @@ export default function AuditPage() {
 function AuditPageContent() {
   const router = useRouter();
   const params = useSearchParams();
+  const paramsString = params.toString();
   const liveId = params.get("id");
   const demo = params.get("demo");
+  const currentAuditNext = auditNextFromParams(paramsString);
   const auth = useAuthSession();
 
   const job = useArgusStore((s) => s.job);
@@ -164,6 +212,7 @@ function AuditPageContent() {
   const [hintOpen, setHintOpen] = useState(false);
   const [docW, setDocW] = useState(COCKPIT_DOC_DEFAULT);
   const [consoleW, setConsoleW] = useState(COCKPIT_CONSOLE_DEFAULT);
+  const [showSignedInNotice, setShowSignedInNotice] = useState(false);
 
   // Demo playback: the fixture is loaded but HELD (not pushed to the store) so
   // we can show an idle "input + Run" screen first, then stream it through the
@@ -180,6 +229,23 @@ function AuditPageContent() {
 
   useFindingKeyboardNav(() => setHintOpen((v) => !v));
   useCommandPaletteHotkey();
+
+  useEffect(() => {
+    const browserParams = new URLSearchParams(window.location.search);
+    if (browserParams.get("signedIn") !== "1") return;
+    const cleanNext = auditNextFromParams(browserParams.toString());
+    window.history.replaceState(window.history.state, "", cleanNext);
+    const showTimer = window.setTimeout(() => setShowSignedInNotice(true), 0);
+    const hideTimer = window.setTimeout(() => setShowSignedInNotice(false), 5200);
+    return () => {
+      window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
+    };
+  }, []);
+
+  const signedInNotice = showSignedInNotice && (auth.loading || auth.user) ? (
+    <SignedInNotice userLabel={auth.user ? getAuthUserLabel(auth.user) : null} />
+  ) : null;
 
   const onExport = async (fmt: ExportFormat) => {
     if (!job) return;
@@ -602,6 +668,7 @@ function AuditPageContent() {
         onSkipToResults={finishDemoNow}
         scenario={scenario}
         onScenarioChange={setScenario}
+        signedInNotice={signedInNotice}
       />
     );
   }
@@ -636,9 +703,11 @@ function AuditPageContent() {
               )}
               <PaletteHint />
               <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
+              <AuthButton next={currentAuditNext} />
             </div>
           }
         />
+        {signedInNotice}
         <RunBanner
           runStatus={runStatus}
           steps={liveSteps.length}
@@ -712,7 +781,7 @@ function AuditPageContent() {
   // No live job and no demo flag → always show the input page, even if a
   // previous demo/live result is still present in the client store.
   if (!liveId && !demo) {
-    return <AuditInputPage />;
+    return <AuditInputPage signedInNotice={signedInNotice} />;
   }
 
   if (!job) return null;
@@ -766,9 +835,11 @@ function AuditPageContent() {
             )}
             <PaletteHint />
             <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
+            <AuthButton next={currentAuditNext} />
           </div>
         }
       />
+      {signedInNotice}
       {demo === "1" && job?.scenario_label && job?.persona && (
         <ScenarioBanner label={job.scenario_label} persona={job.persona} />
       )}
@@ -1481,12 +1552,14 @@ function DemoIdleScreen({
   onSkipToResults,
   scenario,
   onScenarioChange,
+  signedInNotice,
 }: {
   job: Job;
   onRun: () => void;
   onSkipToResults: () => void;
   scenario: Scenario;
   onScenarioChange: (s: Scenario) => void;
+  signedInNotice?: ReactNode;
 }) {
   const [starting, setStarting] = useState(false);
   const clearStore = useArgusStore((s) => s.clear);
@@ -1495,11 +1568,15 @@ function DemoIdleScreen({
     <div className="cockpit cc-backdrop min-h-screen">
       <ArgusHeader
         rightSlot={
-          <Link href="/audit" onClick={clearStore} className={DEMO_START_LINK}>
-            Start auditing
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/audit" onClick={clearStore} className={DEMO_START_LINK}>
+              Start auditing
+            </Link>
+            <AuthButton next="/audit?demo=1" />
+          </div>
         }
       />
+      {signedInNotice}
       {job.scenario_label && job.persona && (
         <ScenarioBanner label={job.scenario_label} persona={job.persona} />
       )}
@@ -1682,7 +1759,7 @@ function ColumnResizeHandle({
 /* ====================================================================== */
 /*  AUDIT INPUT PAGE — clean form shown at /audit (no job id)             */
 /* ====================================================================== */
-function AuditInputPage() {
+function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode }) {
   const router = useRouter();
   const auth = useAuthSession();
   const resetLive = useArgusStore((s) => s.resetLive);
@@ -1820,18 +1897,11 @@ function AuditInputPage() {
             >
               See a sample audit
             </Link>
-            {auth.configured && !auth.loading && !auth.user ? (
-              <button
-                type="button"
-                onClick={() => auth.signIn("/audit")}
-                className="rounded-[10px] bg-primary px-3 py-1.5 text-xs font-semibold text-white"
-              >
-                Sign in
-              </button>
-            ) : null}
+            <AuthButton next="/audit" />
           </div>
         }
       />
+      {signedInNotice}
       <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center px-6 py-14 md:py-20">
         <div className="w-full max-w-2xl">
           <div className="mb-7 text-center">

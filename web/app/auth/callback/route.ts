@@ -12,9 +12,9 @@ export async function GET(request: Request) {
     if (!error) {
       const forwardedHost = request.headers.get("x-forwarded-host");
       if (process.env.NODE_ENV !== "development" && forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+        return NextResponse.redirect(withSignedInFlag(`https://${forwardedHost}`, next));
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(withSignedInFlag(origin, next));
     }
   }
 
@@ -24,4 +24,10 @@ export async function GET(request: Request) {
 function safeNext(value: string | null): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/app";
   return value;
+}
+
+function withSignedInFlag(origin: string, next: string): string {
+  const url = new URL(next, origin);
+  url.searchParams.set("signedIn", "1");
+  return url.toString();
 }

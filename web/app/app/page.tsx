@@ -137,7 +137,7 @@ export default function AppHomePage() {
             </Link>
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-lg border border-border bg-background">
+          <div id="history" className="mt-6 scroll-mt-20 overflow-hidden rounded-lg border border-border bg-background">
             <div className="border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold">Audit history</h2>
             </div>
