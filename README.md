@@ -30,14 +30,6 @@ Argus returns **every factual claim**, a **verdict** on each, and a
 **Argus won Best Technical Implementation** in the Deep Research track of the
 **UCWS Singapore 2026 × MiroMind** Hackathon.
 
-> *"Our judging panel was highly impressed by your project's depth, methodology,
-> and strong performance in this specialized dimension."*
-
-The award recognized the engineering depth of the pipeline — the LangGraph
-two-phase state machine, MiroMind-powered autonomous verification with a
-confidence-gated skeptic pass, live WebSocket trace streaming, and the
-reliability controls (hard budget cap, idempotency keys, resumable SSE streams).
-
 <div align="center">
 
 <img src="docs/assets/award-best-technical-implementation.png" alt="UCWS Singapore 2026 Hackathon — Best Technical Implementation award notification for Argus" width="720" />
