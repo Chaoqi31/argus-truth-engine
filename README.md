@@ -11,6 +11,7 @@ Upload an AI-generated research note, legal brief, or governance memo.
 Argus returns **every factual claim**, a **verdict** on each, and a
 **reviewer-ready reasoning trail** you can click through and verify.
 
+[![Award](https://img.shields.io/badge/🏆%20UCWS%20Singapore%202026-Best%20Technical%20Implementation-f5a623)](#-award)
 [![Website](https://img.shields.io/badge/website-live-7132f5)](https://argus-truth-engine.vercel.app)
 [![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -19,6 +20,27 @@ Argus returns **every factual claim**, a **verdict** on each, and a
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Website](https://argus-truth-engine.vercel.app)** · **[Demo video](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
+
+</div>
+
+---
+
+## 🏆 Award
+
+**Argus won Best Technical Implementation** in the Deep Research track of the
+**UCWS Singapore 2026 × MiroMind** Hackathon.
+
+> *"Our judging panel was highly impressed by your project's depth, methodology,
+> and strong performance in this specialized dimension."*
+
+The award recognized the engineering depth of the pipeline — the LangGraph
+two-phase state machine, MiroMind-powered autonomous verification with a
+confidence-gated skeptic pass, live WebSocket trace streaming, and the
+reliability controls (hard budget cap, idempotency keys, resumable SSE streams).
+
+<div align="center">
+
+<img src="docs/assets/award-best-technical-implementation.png" alt="UCWS Singapore 2026 Hackathon — Best Technical Implementation award notification for Argus" width="720" />
 
 </div>
 
