@@ -57,6 +57,9 @@ docs/superpowers/
 # Local Claude Code guidance (not shipped)
 CLAUDE.md
 
+# Demo video workspace (large .mov + build output, not shipped)
+video/
+
 # Frontend
 web/node_modules/
 web/.next/
