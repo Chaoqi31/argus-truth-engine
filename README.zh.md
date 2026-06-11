@@ -10,6 +10,7 @@
 上传一份 AI 生成的研究报告、法律诉状或治理备忘录。Argus 还给你
 **每一个事实性声明**、**每条声明的判决**，以及一条**可逐步点开核实的推理链**。
 
+[![Award](https://img.shields.io/badge/🏆%20Award-Best%20Technical%20Implementation-f5a623)](#-获奖)
 [![Website](https://img.shields.io/badge/website-live-7132f5)](https://argus-truth-engine.vercel.app)
 [![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -18,6 +19,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[项目网站](https://argus-truth-engine.vercel.app)** · **[演示视频](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
+
+<br/>
+
+<img src="docs/assets/argus-cockpit.png" alt="Argus 审计驾驶舱 —— 顶部判决计数、左侧 claim 级发现、右侧完整推理 trace" width="860" />
+
+</div>
+
+---
+
+## 🏆 获奖
+
+**Argus 荣获 Best Technical Implementation（最佳技术实现）奖** —— UCWS Singapore
+2026 × MiroMind 黑客松 Deep Research 赛道。
+
+<div align="center">
+
+<img src="docs/assets/award-best-technical-implementation.png" alt="UCWS Singapore 2026 黑客松 —— Argus 最佳技术实现获奖通知" width="720" />
 
 </div>
 
@@ -30,8 +48,9 @@ AI 治理团队和买方分析师。你交给它一份 PDF 或粘贴一段文本
 自主深度研究逐条验证，并为每条声明返回判决、置信度、引用证据和可读的推理 trace。它的
 产出不只是一个分数 —— 而是一条人能读懂、能质疑、能归档的证据链。
 
-现在就试：打开 **[项目网站](https://argus-truth-engine.vercel.app)**，点击
-**See a sample audit** —— 它会回放一次真实录制的审计，无需 API key。
+> [!TIP]
+> 打开 **[项目网站](https://argus-truth-engine.vercel.app)**，点击
+> **See a sample audit** —— 它会回放一次真实录制的审计，无需 API key。
 
 ## 我们要解决什么
 
@@ -204,8 +223,10 @@ cd web && pnpm install && pnpm dev
 ```
 
 前端默认把 `/api/argus/*` 代理到 `http://localhost:8080`（可用 `ARGUS_API_HOST` 覆盖）。
-macOS 上导出 PDF 需要把 Homebrew 的 Pango/Cairo 放到动态库路径：
-`DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve …`。
+
+> [!NOTE]
+> macOS 上导出 PDF 需要把 Homebrew 的 Pango/Cairo 放到动态库路径：
+> `DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve …`。
 
 ## 技术栈
 

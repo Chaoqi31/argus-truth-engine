@@ -11,7 +11,7 @@ Upload an AI-generated research note, legal brief, or governance memo.
 Argus returns **every factual claim**, a **verdict** on each, and a
 **reviewer-ready reasoning trail** you can click through and verify.
 
-[![Award](https://img.shields.io/badge/🏆%20UCWS%20Singapore%202026-Best%20Technical%20Implementation-f5a623)](#-award)
+[![Award](https://img.shields.io/badge/🏆%20Award-Best%20Technical%20Implementation-f5a623)](#-award)
 [![Website](https://img.shields.io/badge/website-live-7132f5)](https://argus-truth-engine.vercel.app)
 [![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -20,6 +20,10 @@ Argus returns **every factual claim**, a **verdict** on each, and a
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Website](https://argus-truth-engine.vercel.app)** · **[Demo video](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
+
+<br/>
+
+<img src="docs/assets/argus-cockpit.png" alt="Argus audit cockpit — verdict counts up top, claim-level findings on the left, the full reasoning trace on the right" width="860" />
 
 </div>
 
@@ -47,8 +51,9 @@ with autonomous deep research, and returns a verdict, confidence score, cited
 evidence, and a readable reasoning trace. The output is not just a score — it is
 a chain of evidence a human can read, challenge, and file.
 
-Try it: open the **[website](https://argus-truth-engine.vercel.app)** and hit
-**See a sample audit** — it replays a real recorded audit, no API key needed.
+> [!TIP]
+> Open the **[website](https://argus-truth-engine.vercel.app)** and hit
+> **See a sample audit** — it replays a real recorded audit, no API key needed.
 
 ## The problem
 
@@ -236,9 +241,11 @@ cd web && pnpm install && pnpm dev
 ```
 
 The frontend proxies `/api/argus/*` to `http://localhost:8080` (override with
-`ARGUS_API_HOST`). On macOS, WeasyPrint needs Homebrew's Pango/Cairo on the loader
-path for PDF export:
-`DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve …`.
+`ARGUS_API_HOST`).
+
+> [!NOTE]
+> On macOS, WeasyPrint needs Homebrew's Pango/Cairo on the loader path for PDF
+> export: `DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve …`.
 
 ## Stack
 
