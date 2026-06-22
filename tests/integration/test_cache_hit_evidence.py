@@ -90,7 +90,7 @@ async def test_cache_hit_rebinds_evidence_into_job(test_sessionmaker) -> None:
     findings = result["findings"]
     evidences = result["evidences"]
     assert len(findings) == 1
-    f = findings[0]
+    f = next(iter(findings.values()))
     assert f.from_cache is True
     assert f.job_id == "job_new"
     assert f.claim_id == "a_1"

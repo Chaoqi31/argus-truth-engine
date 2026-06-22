@@ -84,5 +84,8 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
             summary=f"{len(new_findings)} cross-claim issue(s) found",
             metrics={"n_findings": len(new_findings)},
         )
-        return {"findings": new_findings, "traces": {trace.id: trace}}
+        return {
+            "findings": {f.id: f for f in new_findings},
+            "traces": {trace.id: trace},
+        }
     return node

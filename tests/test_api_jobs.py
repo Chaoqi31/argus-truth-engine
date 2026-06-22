@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from argus.api.app import create_app
-from argus.api.jobs import _derive_progress
+from argus.api.job_progress import derive_progress
 from argus.config import Settings
 from argus.models.domain import Job
 from argus.trace_bus.base import TraceEvent
@@ -45,7 +45,7 @@ def app_under_test(tmp_path: Path) -> FastAPI:
 
 
 def test_derive_progress_from_trace_history() -> None:
-    progress = _derive_progress([
+    progress = derive_progress([
         _trace_event("stage", 1, {"status": "finished", "key": "parse"}),
         _trace_event("stage", 2, {"status": "started", "key": "verify", "name": "Verify"}),
         _trace_event(

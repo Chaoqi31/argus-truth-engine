@@ -61,15 +61,18 @@ async def _run_finalize(final_state: _State, tmp_path: Path) -> Job:
 async def test_finalize_full_coverage_audited_equals_total(tmp_path: Path) -> None:
     """All Phase-B claims got a verdict → claims_audited == claims_total."""
     claims = [_claim("a_1"), _claim("a_2"), _claim("a_3")]
+    f1 = _verifier_finding("a_1", FindingVerdict.OK)
+    f2 = _verifier_finding("a_2", FindingVerdict.FABRICATED)
+    f3 = _verifier_finding("a_3", FindingVerdict.UNCERTAIN)
+    fc1 = _consistency_finding("a_1")
     final_state: _State = {
         "claims": claims,
-        "findings": [
-            _verifier_finding("a_1", FindingVerdict.OK),
-            _verifier_finding("a_2", FindingVerdict.FABRICATED),
-            _verifier_finding("a_3", FindingVerdict.UNCERTAIN),
-            # A Consistency finding must NOT count toward audited coverage.
-            _consistency_finding("a_1"),
-        ],
+        "findings": {
+            f1.id: f1,
+            f2.id: f2,
+            f3.id: f3,
+            fc1.id: fc1,
+        },
     }
     job = await _run_finalize(final_state, tmp_path)
     assert job.claims_total == 3
@@ -80,14 +83,16 @@ async def test_finalize_full_coverage_audited_equals_total(tmp_path: Path) -> No
 async def test_finalize_partial_coverage_on_abort(tmp_path: Path) -> None:
     """Budget abort left 1 of 3 claims unverified → audited < total."""
     claims = [_claim("a_1"), _claim("a_2"), _claim("a_3")]
+    f1 = _verifier_finding("a_1", FindingVerdict.OK)
+    f2 = _verifier_finding("a_2", FindingVerdict.INACCURATE)
     final_state: _State = {
         "claims": claims,
         "aborted": True,
         "abort_reason": "job budget exceeded",
-        "findings": [
-            _verifier_finding("a_1", FindingVerdict.OK),
-            _verifier_finding("a_2", FindingVerdict.INACCURATE),
-        ],
+        "findings": {
+            f1.id: f1,
+            f2.id: f2,
+        },
     }
     job = await _run_finalize(final_state, tmp_path)
     assert job.status == "failed"

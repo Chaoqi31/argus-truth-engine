@@ -111,11 +111,12 @@ async def test_node_caps_and_flags_single_source_finding() -> None:
                  evidence_ids=["e1"])
     evs = [_ev("e1", "https://reuters.com/a")]  # 1 distinct source
     node = _confidence_node(_ctx())
-    await node({"findings": [f], "evidences": evs})
+    result = await node({"findings": {f.id: f}, "evidences": evs})
 
-    assert f.confidence == 0.6  # capped from 0.95
-    assert any("single source" in fl for fl in f.flags)
-    assert f.confidence_breakdown is not None
+    updated = result["findings"][f.id]
+    assert updated.confidence == 0.6  # capped from 0.95
+    assert any("single source" in fl for fl in updated.flags)
+    assert updated.confidence_breakdown is not None
 
 
 @pytest.mark.asyncio
@@ -126,7 +127,8 @@ async def test_node_leaves_well_sourced_finding_untouched() -> None:
            _ev("e2", "https://sec.gov/x"),
            _ev("e3", "https://arxiv.org/y")]  # 3 distinct sources
     node = _confidence_node(_ctx())
-    await node({"findings": [f], "evidences": evs})
+    result = await node({"findings": {f.id: f}, "evidences": evs})
 
-    assert f.confidence == 0.9  # untouched
-    assert f.flags == []
+    updated = result["findings"][f.id]
+    assert updated.confidence == 0.9  # untouched
+    assert updated.flags == []

@@ -98,7 +98,7 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
         )
 
         findings = [
-            f for f in state.get("findings", [])
+            f for f in state.get("findings", {}).values()
             if f.agent == "UnifiedVerifier"
             and f.verdict in _HIGH_RISK_VERDICTS
             and f.confidence < ctx.settings.skeptic_confidence_threshold
@@ -225,6 +225,6 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                 "n_inconclusive": n_inconclusive,
             },
         )
-        return {"traces": traces}
+        return {"findings": {f.id: f for f in reviewed}, "traces": traces}
 
     return node

@@ -368,7 +368,7 @@ async def _finalize(
         await cheap_client.close()
 
     job.claims = list(final_state.get("claims", []))
-    job.findings = list(final_state.get("findings", []))
+    job.findings = list(final_state.get("findings", {}).values())
     job.traces = list(final_state.get("traces", {}).values())
     job.evidences = list(final_state.get("evidences", []))
     job.audit_report_md = final_state.get("audit_report_md")

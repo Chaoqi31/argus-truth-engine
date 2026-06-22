@@ -252,7 +252,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 return {
                     "aborted": True,
                     "abort_reason": str(exc),
-                    "findings": new_findings,
+                    "findings": {f.id: f for f in new_findings},
                     "traces": new_traces,
                     "evidences": new_evidences,
                 }
@@ -316,7 +316,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             },
         )
         return {
-            "findings": new_findings,
+            "findings": {f.id: f for f in new_findings},
             "traces": new_traces,
             "evidences": new_evidences,
         }

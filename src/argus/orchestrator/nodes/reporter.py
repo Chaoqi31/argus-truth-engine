@@ -14,7 +14,7 @@ from argus.orchestrator.context import _charge_result, _Ctx, _State
 
 def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        findings = state.get("findings", [])
+        findings = list(state.get("findings", {}).values())
         await ctx.publisher.stage(
             status="started",
             key="reporter",
