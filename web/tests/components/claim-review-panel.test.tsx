@@ -6,6 +6,11 @@ import { useArgusStore } from "@/lib/store";
 import type { ReviewClaim } from "@/lib/types";
 
 vi.mock("@/lib/api", () => ({
+  DEFAULT_MIROMIND_MODEL: "mirothinker-1-7-deepresearch-mini",
+  MIROMIND_MODEL_STORAGE_KEY: "argus-miromind-model",
+  isMiroMindModel: (value: unknown) =>
+    value === "mirothinker-1-7-deepresearch" ||
+    value === "mirothinker-1-7-deepresearch-mini",
   submitClaimSelection: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -30,6 +35,8 @@ describe("ClaimReviewPanel", () => {
     vi.mocked(submitClaimSelection).mockResolvedValue(undefined);
     window.localStorage.removeItem("argus-miromind-key");
     window.sessionStorage.removeItem("argus-miromind-key");
+    window.localStorage.removeItem("argus-miromind-model");
+    window.sessionStorage.removeItem("argus-miromind-model");
     useArgusStore.getState().clear();
     useArgusStore.getState().setReviewReady(claims, []);
   });
@@ -74,6 +81,7 @@ describe("ClaimReviewPanel", () => {
       "job_1",
       ["c1", "c2"],
       "session-key",
+      { miromindModel: "mirothinker-1-7-deepresearch-mini" },
     );
   });
 

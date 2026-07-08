@@ -64,6 +64,13 @@ class ShareLinkSummary:
     revoked_at: datetime | None
 
 
+class _UnsetOwnerFilter:
+    pass
+
+
+_UNSET_OWNER_FILTER = _UnsetOwnerFilter()
+
+
 class JobRepository:
     """High-level Job persistence built on JobRow."""
 
@@ -139,7 +146,7 @@ class JobRepository:
             ).scalar_one_or_none()
             return row
 
-    async def delete_job_for_user(self, *, job_id: str, owner_user_id: str) -> bool:
+    async def delete_job_for_user(self, *, job_id: str, owner_user_id: str | None) -> bool:
         async with self._smaker() as session, session.begin():
             row = (
                 await session.execute(
@@ -188,10 +195,15 @@ class JobRepository:
             # typed as Result[Any] generically.
             return int(getattr(result, "rowcount", 0) or 0)
 
-    async def list_jobs(self, *, limit: int = 20, owner_user_id: str | None = None) -> list[Job]:
+    async def list_jobs(
+        self,
+        *,
+        limit: int = 20,
+        owner_user_id: str | None | _UnsetOwnerFilter = _UNSET_OWNER_FILTER,
+    ) -> list[Job]:
         async with self._smaker() as session:
             stmt = select(JobRow).order_by(JobRow.created_at.desc()).limit(limit)
-            if owner_user_id is not None:
+            if not isinstance(owner_user_id, _UnsetOwnerFilter):
                 stmt = stmt.where(JobRow.owner_user_id == owner_user_id)
             rows = (await session.execute(stmt)).scalars().all()
             return [r.to_domain() for r in rows]
@@ -199,22 +211,24 @@ class JobRepository:
     async def list_job_summaries(
         self,
         *,
-        owner_user_id: str,
+        owner_user_id: str | None | _UnsetOwnerFilter = _UNSET_OWNER_FILTER,
         limit: int = 50,
     ) -> list[JobSummary]:
         async with self._smaker() as session:
             now = datetime.utcnow()
-            rows = (
-                await session.execute(
-                    select(JobRow)
-                    .options(
-                        selectinload(JobRow.findings),
-                        selectinload(JobRow.share_links),
-                    )
-                    .where(JobRow.owner_user_id == owner_user_id)
-                    .order_by(JobRow.created_at.desc())
-                    .limit(limit)
+            stmt = (
+                select(JobRow)
+                .options(
+                    selectinload(JobRow.findings),
+                    selectinload(JobRow.share_links),
                 )
+                .order_by(JobRow.created_at.desc())
+                .limit(limit)
+            )
+            if not isinstance(owner_user_id, _UnsetOwnerFilter):
+                stmt = stmt.where(JobRow.owner_user_id == owner_user_id)
+            rows = (
+                await session.execute(stmt)
             ).scalars().all()
             return [
                 JobSummary(

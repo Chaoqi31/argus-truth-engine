@@ -29,6 +29,7 @@ export function TraceStreamView({ job, liveMode = false, liveSteps = [], activeF
 
 function LiveTrace({ steps }: { steps: Step[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const autoFollowRef = useRef(true);
   const [now, setNow] = useState(() => Date.now());
   const reviewClaims = useArgusStore((s) => s.reviewClaims);
   const heartbeat = useArgusStore((s) => s.liveHeartbeat);
@@ -44,10 +45,8 @@ function LiveTrace({ steps }: { steps: Step[] }) {
     if (steps.length > 0 && startedAt === null) setStartedAt(Date.now());
   }, [steps.length, startedAt]);
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    if (!autoFollowRef.current) return;
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [steps.length]);
   // Tick once per second for the elapsed clock. Must NOT depend on steps.length:
   // re-running on every streamed step clears the interval before it can fire,
@@ -106,7 +105,14 @@ function LiveTrace({ steps }: { steps: Step[] }) {
           )}
         </div>
       )}
-      <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2">
+      <div
+        ref={scrollRef}
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          autoFollowRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+        }}
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2"
+      >
         {steps.length === 0 ? (
           <p className="text-xs text-muted-foreground">Waiting for first step…</p>
         ) : (

@@ -66,7 +66,11 @@ describe("AuditPage PDF upload", () => {
     });
 
     await waitFor(() =>
-      expect(uploadPdf).toHaveBeenCalledWith(file, "test-key"),
+      expect(uploadPdf).toHaveBeenCalledWith(
+        file,
+        "test-key",
+        expect.objectContaining({ miromindModel: "mirothinker-1-7-deepresearch-mini" }),
+      ),
     );
     expect(push).toHaveBeenCalledWith("/audit?id=job_pdf");
   });

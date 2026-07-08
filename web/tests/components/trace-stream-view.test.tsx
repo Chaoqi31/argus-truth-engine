@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import type { Job, ReasoningTrace, Step } from "@/lib/types";
 
@@ -155,6 +155,37 @@ function makeStep(
 }
 
 describe("TraceStreamView", () => {
+  it("does not force live trace back to the bottom after the user scrolls up", () => {
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: scrollTo,
+    });
+
+    const { container, rerender } = render(
+      <TraceStreamView job={null} liveMode liveSteps={[makeStep("live", 1, "thinking", "First")]} />,
+    );
+    const scroller = container.querySelector(".overflow-y-auto") as HTMLDivElement;
+    Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 1000 });
+    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 300 });
+    Object.defineProperty(scroller, "scrollTop", { configurable: true, value: 100 });
+
+    const callsBeforeManualScroll = scrollTo.mock.calls.length;
+    fireEvent.scroll(scroller);
+    rerender(
+      <TraceStreamView
+        job={null}
+        liveMode
+        liveSteps={[
+          makeStep("live", 1, "thinking", "First"),
+          makeStep("live", 2, "web_search", "Second"),
+        ]}
+      />,
+    );
+
+    expect(scrollTo).toHaveBeenCalledTimes(callsBeforeManualScroll);
+  });
+
   it("opens the MiroMind verify walkthrough on the evidence-backed issue first", () => {
     const { container } = render(<TraceStreamView job={loadSampleJob()} />);
 

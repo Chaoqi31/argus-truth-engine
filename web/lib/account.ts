@@ -139,7 +139,7 @@ export async function deleteSavedApiKey(
   await assertOk(resp, "delete key failed");
 }
 
-export async function listJobSummaries(accessToken: string): Promise<JobSummary[]> {
+export async function listJobSummaries(accessToken?: string | null): Promise<JobSummary[]> {
   const resp = await accountFetch(`${API_BASE}/jobs`, { headers: authHeaders(accessToken) });
   await assertOk(resp, "history failed");
   const body = (await resp.json()) as { jobs: JobSummary[] };
@@ -176,7 +176,10 @@ export async function revokeAuditShareLink(
   await assertOk(resp, "revoke share failed");
 }
 
-export async function deleteAuditJob(accessToken: string, jobId: string): Promise<void> {
+export async function deleteAuditJob(
+  accessToken: string | null | undefined,
+  jobId: string,
+): Promise<void> {
   const resp = await accountFetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`, {
     method: "DELETE",
     headers: authHeaders(accessToken),

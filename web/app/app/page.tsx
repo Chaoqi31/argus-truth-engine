@@ -42,6 +42,7 @@ function AppHomeContent() {
   const auth = useAuthSession();
   const router = useRouter();
   const params = useSearchParams();
+  const selfHosted = process.env.NEXT_PUBLIC_ARGUS_SELF_HOSTED === "1";
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [keys, setKeys] = useState<SavedApiKey[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,13 +64,13 @@ function AppHomeContent() {
   const accessToken = auth.accessToken;
 
   const loadWorkspace = useCallback(async () => {
-    if (!accessToken) return;
+    if (!accessToken && !selfHosted) return;
     setLoading(true);
     setSessionExpired(false);
     try {
       const [nextJobs, nextKeys] = await Promise.all([
         listJobSummaries(accessToken),
-        listSavedApiKeys(accessToken),
+        accessToken ? listSavedApiKeys(accessToken) : Promise.resolve([]),
       ]);
       setJobs(nextJobs);
       setKeys(nextKeys);
@@ -79,7 +80,7 @@ function AppHomeContent() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, selfHosted]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -105,13 +106,14 @@ function AppHomeContent() {
   }, [accessToken, params, router]);
 
   const userLabel = useMemo(() => {
+    if (selfHosted && !auth.user) return "Local workspace";
     if (!auth.user) return "";
     const fullName = auth.user.user_metadata?.full_name;
     if (typeof fullName === "string" && fullName.trim()) return fullName.trim();
     const name = auth.user.user_metadata?.name;
     if (typeof name === "string" && name.trim()) return name.trim();
     return auth.user.email ?? "Your account";
-  }, [auth.user]);
+  }, [auth.user, selfHosted]);
 
   const stats = useMemo(() => getStats(jobs, keys), [jobs, keys]);
   const filteredJobs = useMemo(
@@ -119,6 +121,8 @@ function AppHomeContent() {
     [jobs, query, statusFilter, modeFilter],
   );
   const defaultKey = keys.find((key) => key.is_default) ?? null;
+  const canManageAccount = Boolean(accessToken);
+  const canDeleteHistory = canManageAccount || selfHosted;
 
   async function saveKey() {
     if (!accessToken || !apiKey.trim()) return;
@@ -278,7 +282,7 @@ function AppHomeContent() {
   }
 
   async function deleteJob(jobId: string) {
-    if (!accessToken) return;
+    if (!accessToken && !selfHosted) return;
     if (!window.confirm("Delete this audit record from your workspace?")) return;
     setJobBusy(`delete-${jobId}`);
     try {
@@ -308,7 +312,7 @@ function AppHomeContent() {
     }
   }
 
-  if (!auth.configured) {
+  if (!auth.configured && !selfHosted) {
     return (
       <>
         <ArgusHeader />
@@ -320,7 +324,7 @@ function AppHomeContent() {
     );
   }
 
-  if (auth.loading) {
+  if (auth.loading && !selfHosted) {
     return (
       <>
         <ArgusHeader />
@@ -329,7 +333,7 @@ function AppHomeContent() {
     );
   }
 
-  if (!auth.user) {
+  if (!auth.user && !selfHosted) {
     return (
       <>
         <ArgusHeader />
@@ -356,11 +360,13 @@ function AppHomeContent() {
               <div className="min-w-0">
                 <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-2.5 py-1 text-xs font-semibold text-success-foreground">
                   <span aria-hidden className="size-2 rounded-full bg-success" />
-                  Signed in
+                  {canManageAccount ? "Signed in" : "Local"}
                 </div>
                 <h1 className="mt-3 text-2xl font-semibold tracking-tight">{userLabel}</h1>
                 <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Your saved audits, encrypted MiroMind API keys, and private sharing controls are available here.
+                  {canManageAccount
+                    ? "Your saved audits, encrypted MiroMind API keys, and private sharing controls are available here."
+                    : "Saved audits from this self-hosted instance are available here."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -412,7 +418,11 @@ function AppHomeContent() {
             </section>
           )}
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div
+            className={`mt-6 grid gap-6 ${
+              canManageAccount ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""
+            }`}
+          >
             <section
               id="history"
               className="min-w-0 rounded-lg border border-border bg-background shadow-[var(--shadow-card)]"
@@ -422,7 +432,9 @@ function AppHomeContent() {
                   <div>
                     <h2 className="text-base font-semibold">Audit history</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Reopen, rerun, share, or delete previous audit runs.
+                      {canManageAccount
+                        ? "Reopen, rerun, share, or delete previous audit runs."
+                        : "Reopen or delete previous audit runs."}
                     </p>
                   </div>
                   {jobs[0] && (
@@ -478,6 +490,8 @@ function AppHomeContent() {
                       key={job.id}
                       job={job}
                       busy={jobBusy}
+                      canManage={canManageAccount}
+                      canDelete={canDeleteHistory}
                       onRerun={() => rerunJob(job.id)}
                       onShare={() => shareJob(job.id)}
                       onCopyShare={copyShareLink}
@@ -489,7 +503,8 @@ function AppHomeContent() {
               )}
             </section>
 
-            <aside className="grid min-w-0 gap-6">
+            {canManageAccount && (
+              <aside className="grid min-w-0 gap-6">
               <section className="rounded-lg border border-border bg-background p-4 shadow-[var(--shadow-card)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -673,7 +688,8 @@ function AppHomeContent() {
                   {keyBusy === "delete-account" ? "Deleting..." : "Delete account data"}
                 </button>
               </section>
-            </aside>
+              </aside>
+            )}
           </div>
         </div>
       </main>
@@ -684,6 +700,8 @@ function AppHomeContent() {
 function JobRow({
   job,
   busy,
+  canManage,
+  canDelete,
   onRerun,
   onShare,
   onCopyShare,
@@ -692,6 +710,8 @@ function JobRow({
 }: {
   job: JobSummary;
   busy: string | null;
+  canManage: boolean;
+  canDelete: boolean;
   onRerun: () => void;
   onShare: () => void;
   onCopyShare: (token: string) => void;
@@ -722,7 +742,7 @@ function JobRow({
             {formatDate(job.created_at)} - {job.findings_count} findings - {job.claims_audited}/
             {job.claims_total} claims - ${job.cost_usd.toFixed(3)}
           </p>
-          {shareUrl && (
+          {shareUrl && canManage && (
             <div className="mt-3 grid gap-2 rounded-[10px] border border-primary/15 bg-primary-soft/45 p-3 md:grid-cols-[minmax(0,1fr)_auto]">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-primary">Read-only share link active</p>
@@ -761,30 +781,36 @@ function JobRow({
           >
             Open
           </Link>
-          <button
-            type="button"
-            onClick={onRerun}
-            disabled={busy === `rerun-${job.id}`}
-            className="rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50"
-          >
-            {busy === `rerun-${job.id}` ? "Starting..." : "Rerun"}
-          </button>
-          <button
-            type="button"
-            onClick={onShare}
-            disabled={busy === `share-${job.id}`}
-            className="rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50"
-          >
-            {busy === `share-${job.id}` ? "Sharing..." : "Share"}
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={busy === `delete-${job.id}`}
-            className="rounded-[8px] border border-destructive/25 bg-background px-2.5 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/10 disabled:opacity-50"
-          >
-            Delete
-          </button>
+          {canManage && (
+            <>
+              <button
+                type="button"
+                onClick={onRerun}
+                disabled={busy === `rerun-${job.id}`}
+                className="rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+              >
+                {busy === `rerun-${job.id}` ? "Starting..." : "Rerun"}
+              </button>
+              <button
+                type="button"
+                onClick={onShare}
+                disabled={busy === `share-${job.id}`}
+                className="rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+              >
+                {busy === `share-${job.id}` ? "Sharing..." : "Share"}
+              </button>
+            </>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={busy === `delete-${job.id}`}
+              className="rounded-[8px] border border-destructive/25 bg-background px-2.5 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/10 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </li>
@@ -800,7 +826,7 @@ function EmptyHistory({ hasJobs }: { hasJobs: boolean }) {
       <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
         {hasJobs
           ? "Change the filters or search term to see more records."
-          : "Run a text or PDF audit while signed in and the result will appear here."}
+          : "Run a text or PDF audit and the result will appear here."}
       </p>
       {!hasJobs && (
         <Link

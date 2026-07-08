@@ -10,6 +10,8 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from alembic.ddl.impl import DefaultImpl
+from sqlalchemy import Column, MetaData, PrimaryKeyConstraint, String, Table
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -21,6 +23,31 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+
+def _version_table_impl(
+    self: DefaultImpl,
+    *,
+    version_table: str,
+    version_table_schema: str | None,
+    version_table_pk: bool,
+    **_kw: object,
+) -> Table:
+    """Argus revision ids are longer than Alembic's default varchar(32)."""
+    vt = Table(
+        version_table,
+        MetaData(),
+        Column("version_num", String(128), nullable=False),
+        schema=version_table_schema,
+    )
+    if version_table_pk:
+        vt.append_constraint(
+            PrimaryKeyConstraint("version_num", name=f"{version_table}_pkc")
+        )
+    return vt
+
+
+DefaultImpl.version_table_impl = _version_table_impl  # type: ignore[method-assign]
 
 
 def _resolved_db_url() -> str:

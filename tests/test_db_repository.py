@@ -111,11 +111,35 @@ async def test_list_jobs_returns_recent_first(sqlite_engine: object) -> None:
     j1 = _independent_sample_job("first")
     j2 = _independent_sample_job("second")
     await repo.save_job(j1)
-    await repo.save_job(j2)
+    await repo.save_job(j2, owner_user_id="u_a")
 
     listed = await repo.list_jobs(limit=10)
     ids = [j.id for j in listed]
     assert set(ids) == {"j_first", "j_second"}
+
+    local = await repo.list_jobs(limit=10, owner_user_id=None)
+    assert [j.id for j in local] == ["j_first"]
+
+
+async def test_save_jobs_allows_reused_nested_ids(sqlite_engine: object) -> None:
+    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
+    repo = JobRepository(smaker)
+
+    first = _sample_job_for_job_id("j_first")
+    second = _sample_job_for_job_id("j_second")
+    await repo.save_job(first)
+    await repo.save_job(second)
+
+    loaded = await repo.get_job("j_second")
+
+    assert loaded is not None
+    assert loaded.claims[0].id == "c1"
+    assert loaded.findings[0].id == "f1"
+    assert loaded.findings[0].evidence_ids == ["e1"]
+    assert loaded.findings[0].reasoning_trace_id == "t1"
+    assert loaded.traces[0].id == "t1"
+    assert loaded.traces[0].steps[0].id == "s1"
+    assert loaded.evidences[0].id == "e1"
 
 
 async def test_save_job_is_upsert(sqlite_engine: object) -> None:
@@ -202,4 +226,19 @@ def _independent_sample_job(suffix: str) -> Job:
         findings=[finding],
         traces=[trace],
         evidences=[evidence],
+    )
+
+
+def _sample_job_for_job_id(job_id: str) -> Job:
+    job = _sample_job()
+    return job.model_copy(
+        update={
+            "id": job_id,
+            "findings": [
+                finding.model_copy(update={"job_id": job_id}) for finding in job.findings
+            ],
+            "traces": [
+                trace.model_copy(update={"job_id": job_id}) for trace in job.traces
+            ],
+        }
     )

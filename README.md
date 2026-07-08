@@ -146,49 +146,7 @@ WebSocket; the sample audits replay the same recorded trace.
 A 10-stage LangGraph state machine runs the pipeline in two phases, split by a
 human-in-the-loop review gate:
 
-```
-                      ┌─────────────────────────────┐
-                      │   📄 Ingest (PDF or text)     │
-                      └──────────────┬──────────────┘
-                                     ▼
-        Phase A — claim extraction (DeepSeek + deterministic, no web)
-        ┌────────────────────────────────────────────────────────────┐
-        │  parse → 🧠 planner → atomizer → 🎯 checkworthiness           │
-        │  → typed atomic claims; opinions / trivia dropped            │
-        └──────────────────────────┬─────────────────────────────────┘
-                                     ▼
-                      ┌─────────────────────────────┐
-                      │  🚦 Review gate (HITL pause)  │  human picks which
-                      │  dedupe + cost cap + select   │  claims to verify
-                      └──────────────┬──────────────┘
-                                     │  fan-out — selected claims, in parallel
-        Phase B — verification       │
-                      ┌──────────────┴──────────────┐
-                      ▼                             ▼
-            ┌────────────────────┐        ┌─────────────────────┐
-            │ 🔬 UnifiedVerifier   │        │ 🧩 Consistency       │
-            │  ★ MiroMind ★       │        │    Checker           │
-            │  live web research  │        │  (DeepSeek, no web)  │
-            │  one call / claim   │        │  cross-claim         │
-            └─────────┬──────────┘        └─────────┬───────────┘
-                      ▼                             │
-            ┌────────────────────┐                 │
-            │ 🥊 Skeptic           │                 │  challenges only
-            │  ★ MiroMind ★       │                 │  low-confidence
-            │  2nd-opinion pass   │                 │  high-risk verdicts
-            └─────────┬──────────┘                 │
-                      └──────────┬─────────────────┘
-                                 ▼
-                      ┌─────────────────────────────┐
-                      │ 📊 Confidence (deterministic) │  3 measured factors
-                      │                               │  + soft ≥2-source flag
-                      └──────────────┬──────────────┘
-                                     ▼
-                      ┌─────────────────────────────┐
-                      │  📋 Reporter (DeepSeek)       │
-                      │  → executive summary + PDF    │
-                      └─────────────────────────────┘
-```
+<img src="./docs/assets/argus-architecture.svg" alt="Argus project architecture diagram" width="100%">
 
 **UnifiedVerifier and Skeptic are the two steps that call MiroMind.** The verifier
 has full autonomy over its strategy — which sources, which tools (search / fetch /
@@ -226,11 +184,33 @@ WebSocket — `InProcessBus` for single-instance, Redis pub/sub for multi-instan
 
 ## Quickstart
 
+### Local self-hosting
+
+The public website is a demo. For real audits, run Argus locally with your own
+API keys:
+
+```bash
+cp .env.example .env
+# edit .env and set ARGUS_MIROMIND_API_KEY
+# ARGUS_MIROMIND_MODEL defaults to mirothinker-1-7-deepresearch-mini
+docker compose -f docker-compose.selfhost.yml up --build
+```
+
+Open `http://localhost:3000`. It goes straight to the audit workspace in
+self-hosted mode; if `.env` sets `ARGUS_MIROMIND_API_KEY`, the UI does not ask
+you to paste the same key again. `http://localhost:3000/app` shows persistent
+local history, including delete controls for old runs.
+See [docs/self-host.md](docs/self-host.md) for storage, teardown, and
+from-source commands.
+
+### From source
+
 ```bash
 # Backend — fill ARGUS_MIROMIND_API_KEY in .env, or skip (the UI accepts BYOK)
 cp .env.example .env
 docker compose up -d postgres   # required if you keep ARGUS_DB_URL from .env.example
 uv sync
+uv run alembic upgrade head
 uv run argus serve --host 127.0.0.1 --port 8080
 
 # Frontend
@@ -251,7 +231,7 @@ The frontend proxies `/api/argus/*` to `http://localhost:8080` (override with
 
 | Layer | Choice |
 |---|---|
-| **Models** | MiroMind `mirothinker-1-7-deepresearch` (per-claim verifier + skeptic — the steps that touch the live web) + DeepSeek `deepseek-chat` (planner / atomizer / checkworthiness / consistency / reporter) |
+| **Models** | MiroMind `mirothinker-1-7-deepresearch-mini` by default, switchable to `mirothinker-1-7-deepresearch` per run (per-claim verifier + skeptic — the steps that touch the live web) + DeepSeek `deepseek-chat` (planner / atomizer / checkworthiness / consistency / reporter) |
 | **Orchestration** | LangGraph 1.x StateGraph — parallel fan-out + reducer fan-in |
 | **Backend** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + raw SSE |
 | **Persistence** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |

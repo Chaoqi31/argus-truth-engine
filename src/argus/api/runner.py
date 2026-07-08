@@ -79,6 +79,7 @@ class JobRunner:
         pdf_bytes: bytes,
         filename: str,
         api_key_override: str | None = None,
+        miromind_model: str | None = None,
         content_domain: str = "general",
         owner_user_id: str | None = None,
     ) -> str:
@@ -110,10 +111,13 @@ class JobRunner:
         # we fall back to the server's configured key (used for local/CLI).
         per_job_settings = self.state.settings
         per_job_client: MiromindClient | None = None
+        settings_update: dict[str, str] = {}
         if api_key_override:
-            per_job_settings = self.state.settings.model_copy(
-                update={"miromind_api_key": api_key_override}
-            )
+            settings_update["miromind_api_key"] = api_key_override
+        if miromind_model:
+            settings_update["miromind_model"] = miromind_model
+        if settings_update:
+            per_job_settings = self.state.settings.model_copy(update=settings_update)
             per_job_client = MiromindClient(per_job_settings)
 
         async def _run() -> None:
@@ -146,6 +150,7 @@ class JobRunner:
         self,
         text: str,
         api_key_override: str | None = None,
+        miromind_model: str | None = None,
         auto_review: bool = False,
         content_domain: str = "general",
         owner_user_id: str | None = None,
@@ -170,10 +175,13 @@ class JobRunner:
 
         per_job_settings = self.state.settings
         per_job_client: MiromindClient | None = None
+        settings_update: dict[str, str] = {}
         if api_key_override:
-            per_job_settings = self.state.settings.model_copy(
-                update={"miromind_api_key": api_key_override}
-            )
+            settings_update["miromind_api_key"] = api_key_override
+        if miromind_model:
+            settings_update["miromind_model"] = miromind_model
+        if settings_update:
+            per_job_settings = self.state.settings.model_copy(update=settings_update)
             per_job_client = MiromindClient(per_job_settings)
 
         async def _run() -> None:
@@ -209,6 +217,7 @@ class JobRunner:
         job_id: str,
         selected_claim_ids: list[str] | None,
         api_key_override: str | None = None,
+        miromind_model: str | None = None,
     ) -> str | None:
         """Resume an interrupted job. Returns job_id on success, None if not found."""
         repo = self.state.repo
@@ -230,10 +239,13 @@ class JobRunner:
         # credits) so prod — which has no server MiroMind key — can resume.
         # Falls back to the server key for local/CLI resume.
         per_job_settings = self.state.settings
+        settings_update: dict[str, str] = {}
         if api_key_override:
-            per_job_settings = self.state.settings.model_copy(
-                update={"miromind_api_key": api_key_override}
-            )
+            settings_update["miromind_api_key"] = api_key_override
+        if miromind_model:
+            settings_update["miromind_model"] = miromind_model
+        if settings_update:
+            per_job_settings = self.state.settings.model_copy(update=settings_update)
         per_job_client = MiromindClient(per_job_settings)
 
         async def _run() -> None:

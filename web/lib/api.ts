@@ -3,6 +3,32 @@ import { authHeaders } from "@/lib/account";
 
 const API_BASE = "/api/argus";
 const READ_TIMEOUT_MS = 12_000;
+const DEFAULT_MIROMIND_MODEL_ID = "mirothinker-1-7-deepresearch-mini";
+
+export const MIROMIND_MODEL_STORAGE_KEY = "argus-miromind-model";
+export const MIROMIND_MODELS = [
+  {
+    id: "mirothinker-1-7-deepresearch-mini",
+    label: "Deep Research Mini",
+  },
+  {
+    id: "mirothinker-1-7-deepresearch",
+    label: "Deep Research",
+  },
+] as const;
+
+export type MiroMindModel = (typeof MIROMIND_MODELS)[number]["id"];
+
+export function isMiroMindModel(value: unknown): value is MiroMindModel {
+  return typeof value === "string" && MIROMIND_MODELS.some((model) => model.id === value);
+}
+
+const configuredDefaultMiroMindModel = process.env.NEXT_PUBLIC_ARGUS_MIROMIND_MODEL;
+export const DEFAULT_MIROMIND_MODEL: MiroMindModel = isMiroMindModel(
+  configuredDefaultMiroMindModel,
+)
+  ? configuredDefaultMiroMindModel
+  : DEFAULT_MIROMIND_MODEL_ID;
 
 async function responseMessage(resp: Response): Promise<string> {
   const text = await resp.text().catch(() => "");
@@ -46,6 +72,7 @@ export interface UploadResponse {
 export interface ApiRequestOptions {
   accessToken?: string | null;
   apiKeyId?: string | null;
+  miromindModel?: MiroMindModel | null;
 }
 
 function withAuthHeaders(options?: ApiRequestOptions): Record<string, string> {
@@ -72,6 +99,7 @@ export async function uploadPdf(
   const form = new FormData();
   form.append("pdf", file);
   form.append("content_domain", options?.contentDomain ?? "general");
+  if (options?.miromindModel) form.append("miromind_model", options.miromindModel);
   // BYOK: pass the visitor's own MiroMind key via header. The backend will
   // 400 if neither this header nor a server-side fallback key is present.
   const headers: Record<string, string> = withAuthHeaders(options);
@@ -121,6 +149,7 @@ export async function submitText(
       text,
       auto_review: false,
       content_domain: options?.contentDomain ?? "general",
+      miromind_model: options?.miromindModel,
     }),
     headers,
   });
@@ -154,7 +183,10 @@ export async function submitClaimSelection(
     {
       method: "POST",
       headers,
-      body: JSON.stringify({ selected_claim_ids: selectedClaimIds }),
+      body: JSON.stringify({
+        selected_claim_ids: selectedClaimIds,
+        miromind_model: options?.miromindModel,
+      }),
     },
   );
   if (!resp.ok) {

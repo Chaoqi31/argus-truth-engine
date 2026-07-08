@@ -86,6 +86,41 @@ async def test_job_history_lists_only_current_user(auth_app: FastAPI) -> None:
     assert [item["id"] for item in resp.json()["jobs"]] == ["job_a"]
 
 
+async def test_self_hosted_history_lists_local_jobs_without_login(tmp_path: Path) -> None:
+    app = create_app(
+        settings=Settings(
+            auth_required=False,
+            self_hosted=True,
+            miromind_api_key="sk_server",
+            db_url=f"sqlite+aiosqlite:///{tmp_path / 'selfhost.db'}",
+            redis_url=None,
+            storage_root=str(tmp_path / "uploads"),
+        )
+    )
+    assert app.state.argus.db_engine is not None
+    async with app.state.argus.db_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    repo = app.state.argus.repo
+    assert repo is not None
+    await repo.save_job(Job(id="job_local", status="done", input_mode="text"))
+    await repo.save_job(
+        Job(id="job_owned", status="done", input_mode="text"),
+        owner_user_id="u_a",
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/jobs")
+        deleted = await client.delete("/jobs/job_local")
+        after_delete = await client.get("/jobs")
+
+    assert resp.status_code == 200
+    assert [item["id"] for item in resp.json()["jobs"]] == ["job_local"]
+    assert deleted.status_code == 204
+    assert after_delete.status_code == 200
+    assert after_delete.json()["jobs"] == []
+
+
 async def test_saved_api_key_is_encrypted_and_not_returned(auth_app: FastAPI) -> None:
     async with AsyncClient(transport=ASGITransport(app=auth_app), base_url="http://test") as client:
         created = await client.post(

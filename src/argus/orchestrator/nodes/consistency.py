@@ -8,6 +8,7 @@ from argus.agents.base import JsonRepairFailed
 from argus.agents.consistency import check_consistency
 from argus.engineering import BudgetExceeded
 from argus.log import log
+from argus.models.domain import Finding, FindingVerdict
 from argus.orchestrator.assemblers import (
     _build_trace,
     _contradictions_to_findings,
@@ -16,6 +17,33 @@ from argus.orchestrator.assemblers import (
     _step_payload,
 )
 from argus.orchestrator.context import _charge_result, _Ctx, _State
+
+_REDUNDANT_LOGICAL_VERDICTS = {
+    FindingVerdict.UNSUPPORTED_INFERENCE,
+    FindingVerdict.OVERREACH,
+}
+
+
+def _drop_redundant_logical_findings(
+    existing: list[Finding],
+    logical_findings: list[Finding],
+) -> list[Finding]:
+    covered_claim_ids = {
+        f.claim_id
+        for f in existing
+        if f.agent == "UnifiedVerifier"
+        and f.verdict not in {FindingVerdict.OK, FindingVerdict.UNCERTAIN}
+    }
+    return [
+        f
+        for f in logical_findings
+        if not (
+            f.agent == "Consistency"
+            and f.verdict in _REDUNDANT_LOGICAL_VERDICTS
+            and f.claim_id in covered_claim_ids
+            and not f.evidence_ids
+        )
+    ]
 
 
 def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -67,11 +95,15 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
             agent="Consistency",
             stream=result.final,
         )
+        existing_findings = list(state.get("findings", {}).values())
         new_findings = _contradictions_to_findings(
             job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
         )
-        new_findings += _logical_flaws_to_findings(
+        logical_findings = _logical_flaws_to_findings(
             job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
+        )
+        new_findings += _drop_redundant_logical_findings(
+            existing_findings, logical_findings
         )
         await ctx.publisher.publish("step", _step_payload(trace))
         for finding in new_findings:

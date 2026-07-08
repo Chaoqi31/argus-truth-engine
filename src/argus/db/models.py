@@ -33,6 +33,29 @@ from argus.models.domain import (
     StepType,
 )
 
+_ROW_ID_SEP = "::"
+
+
+def _row_id(job_id: str, domain_id: str | None) -> str | None:
+    if domain_id is None:
+        return None
+    prefix = f"{job_id}{_ROW_ID_SEP}"
+    return domain_id if domain_id.startswith(prefix) else f"{prefix}{domain_id}"
+
+
+def _domain_id(job_id: str, row_id: str | None) -> str | None:
+    if row_id is None:
+        return None
+    return row_id.removeprefix(f"{job_id}{_ROW_ID_SEP}")
+
+
+def _row_ids(job_id: str, domain_ids: list[str]) -> list[str]:
+    return [item for item in (_row_id(job_id, value) for value in domain_ids) if item]
+
+
+def _domain_ids(job_id: str, row_ids: list[str]) -> list[str]:
+    return [item for item in (_domain_id(job_id, value) for value in row_ids) if item]
+
 
 class Base(DeclarativeBase):
     """Declarative base for all Argus DB models."""
@@ -253,7 +276,7 @@ class ClaimRow(Base):
     @classmethod
     def from_domain(cls, m: Claim, *, job_id: str) -> ClaimRow:
         return cls(
-            id=m.id,
+            id=_row_id(job_id, m.id),
             job_id=job_id,
             text=m.text,
             page=m.page,
@@ -266,7 +289,7 @@ class ClaimRow(Base):
     def to_domain(self) -> Claim:
         start, end = self.span
         return Claim(
-            id=self.id,
+            id=_domain_id(self.job_id, self.id) or self.id,
             text=self.text,
             page=self.page,
             span=(int(start), int(end)),
@@ -310,7 +333,7 @@ class FindingRow(Base):
     @classmethod
     def from_domain(cls, m: Finding) -> FindingRow:
         return cls(
-            id=m.id,
+            id=_row_id(m.job_id, m.id),
             job_id=m.job_id,
             claim_id=m.claim_id,
             agent=m.agent,
@@ -321,9 +344,9 @@ class FindingRow(Base):
                 m.confidence_breakdown.model_dump() if m.confidence_breakdown else None
             ),
             summary=m.summary,
-            evidence_ids=list(m.evidence_ids),
-            reasoning_trace_id=m.reasoning_trace_id,
-            related_finding_ids=list(m.related_finding_ids),
+            evidence_ids=_row_ids(m.job_id, list(m.evidence_ids)),
+            reasoning_trace_id=_row_id(m.job_id, m.reasoning_trace_id),
+            related_finding_ids=_row_ids(m.job_id, list(m.related_finding_ids)),
             created_at=m.created_at,
             why_wrong=m.why_wrong,
             correct_info_value=m.correct_information.value if m.correct_information else None,
@@ -352,7 +375,7 @@ class FindingRow(Base):
                 retrieved_date=self.correct_info_retrieved_date,
             )
         return Finding(
-            id=self.id,
+            id=_domain_id(self.job_id, self.id) or self.id,
             job_id=self.job_id,
             claim_id=self.claim_id,
             agent=self.agent,
@@ -365,9 +388,12 @@ class FindingRow(Base):
                 else None
             ),
             summary=self.summary,
-            evidence_ids=list(self.evidence_ids or []),
-            reasoning_trace_id=self.reasoning_trace_id,
-            related_finding_ids=list(self.related_finding_ids or []),
+            evidence_ids=_domain_ids(self.job_id, list(self.evidence_ids or [])),
+            reasoning_trace_id=_domain_id(self.job_id, self.reasoning_trace_id)
+            or self.reasoning_trace_id,
+            related_finding_ids=_domain_ids(
+                self.job_id, list(self.related_finding_ids or [])
+            ),
             created_at=self.created_at,
             why_wrong=self.why_wrong,
             correct_information=corrected,
@@ -419,7 +445,7 @@ class ReasoningTraceRow(Base):
     @classmethod
     def from_domain(cls, m: ReasoningTrace) -> ReasoningTraceRow:
         return cls(
-            id=m.id,
+            id=_row_id(m.job_id, m.id),
             job_id=m.job_id,
             claim_id=m.claim_id,
             agent=m.agent,
@@ -429,13 +455,13 @@ class ReasoningTraceRow(Base):
             total_tokens=m.total_tokens,
             reasoning_tokens=m.reasoning_tokens,
             num_search_queries=m.num_search_queries,
-            final_verdict_step_id=m.final_verdict_step_id,
-            steps=[StepRow.from_domain(s) for s in m.steps],
+            final_verdict_step_id=_row_id(m.job_id, m.final_verdict_step_id),
+            steps=[StepRow.from_domain(s, job_id=m.job_id) for s in m.steps],
         )
 
     def to_domain(self) -> ReasoningTrace:
         return ReasoningTrace(
-            id=self.id,
+            id=_domain_id(self.job_id, self.id) or self.id,
             job_id=self.job_id,
             claim_id=self.claim_id,
             agent=self.agent,
@@ -445,8 +471,8 @@ class ReasoningTraceRow(Base):
             total_tokens=self.total_tokens,
             reasoning_tokens=self.reasoning_tokens,
             num_search_queries=self.num_search_queries,
-            final_verdict_step_id=self.final_verdict_step_id,
-            steps=[s.to_domain() for s in self.steps],
+            final_verdict_step_id=_domain_id(self.job_id, self.final_verdict_step_id),
+            steps=[s.to_domain(job_id=self.job_id) for s in self.steps],
         )
 
 
@@ -466,29 +492,30 @@ class StepRow(Base):
     trace: Mapped[ReasoningTraceRow] = relationship(back_populates="steps")
 
     @classmethod
-    def from_domain(cls, m: Step) -> StepRow:
+    def from_domain(cls, m: Step, *, job_id: str) -> StepRow:
         return cls(
-            id=m.id,
-            trace_id=m.trace_id,
+            id=_row_id(job_id, m.id),
+            trace_id=_row_id(job_id, m.trace_id),
             sequence=m.sequence,
             type=m.type.value,
             summary=m.summary,
             content=m.content,
-            evidence_ids=list(m.evidence_ids),
-            parent_step_id=m.parent_step_id,
+            evidence_ids=_row_ids(job_id, list(m.evidence_ids)),
+            parent_step_id=_row_id(job_id, m.parent_step_id),
             created_at=m.created_at,
         )
 
-    def to_domain(self) -> Step:
+    def to_domain(self, *, job_id: str | None = None) -> Step:
+        resolved_job_id = job_id or self.trace_id.split(_ROW_ID_SEP, 1)[0]
         return Step(
-            id=self.id,
-            trace_id=self.trace_id,
+            id=_domain_id(resolved_job_id, self.id) or self.id,
+            trace_id=_domain_id(resolved_job_id, self.trace_id) or self.trace_id,
             sequence=self.sequence,
             type=StepType(self.type),
             summary=self.summary,
             content=self.content or {},
-            evidence_ids=list(self.evidence_ids or []),
-            parent_step_id=self.parent_step_id,
+            evidence_ids=_domain_ids(resolved_job_id, list(self.evidence_ids or [])),
+            parent_step_id=_domain_id(resolved_job_id, self.parent_step_id),
             created_at=self.created_at,
         )
 
@@ -526,7 +553,7 @@ class EvidenceRow(Base):
     @classmethod
     def from_domain(cls, m: Evidence, *, job_id: str) -> EvidenceRow:
         return cls(
-            id=m.id,
+            id=_row_id(job_id, m.id),
             job_id=job_id,
             source_type=m.source_type.value,
             url=m.url,
@@ -534,17 +561,18 @@ class EvidenceRow(Base):
             snippet=m.snippet,
             full_content_ref=m.full_content_ref,
             retrieved_at=m.retrieved_at,
-            retrieved_by_step_id=m.retrieved_by_step_id,
+            retrieved_by_step_id=_row_id(job_id, m.retrieved_by_step_id),
         )
 
     def to_domain(self) -> Evidence:
         return Evidence(
-            id=self.id,
+            id=_domain_id(self.job_id, self.id) or self.id,
             source_type=EvidenceSource(self.source_type),
             url=self.url,
             citation=self.citation,
             snippet=self.snippet,
             full_content_ref=self.full_content_ref,
             retrieved_at=self.retrieved_at,
-            retrieved_by_step_id=self.retrieved_by_step_id,
+            retrieved_by_step_id=_domain_id(self.job_id, self.retrieved_by_step_id)
+            or self.retrieved_by_step_id,
         )

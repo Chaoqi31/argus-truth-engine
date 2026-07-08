@@ -108,6 +108,19 @@ describe("account API helpers", () => {
     expect(calls.every((call) => hasBearer(call.init))).toBe(true);
   });
 
+  it("can delete a self-hosted local audit without auth", async () => {
+    const captured: { init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (_, init) => {
+      captured.init = init;
+      return new Response(null, { status: 204 });
+    });
+
+    await deleteAuditJob(null, "job_local");
+
+    expect(captured.init?.method).toBe("DELETE");
+    expect((captured.init?.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+
   it("records product events without requiring auth", async () => {
     const captured: { init?: RequestInit } = {};
     globalThis.fetch = vi.fn(async (_, init) => {

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from secrets import token_urlsafe
 from typing import Any
 
@@ -15,6 +15,7 @@ from argus.api.auth import AuthContext, AuthUser, auth_context_from_request, req
 from argus.api.deps import get_state
 from argus.api.job_query import RunningJobSnapshot, get_job_for_api
 from argus.api.runner import JobRunner, RunnerCapacityError
+from argus.config import MIROMIND_ALLOWED_MODELS
 from argus.models.domain import Job
 
 
@@ -23,10 +24,12 @@ class TextSubmission(BaseModel):
     auto_review: bool = False
     # general|academic|medical|legal|finance|technology|news|science
     content_domain: str = "general"
+    miromind_model: str | None = None
 
 
 class ClaimSelection(BaseModel):
     selected_claim_ids: list[str]
+    miromind_model: str | None = None
 
 
 class ShareCreate(BaseModel):
@@ -99,6 +102,21 @@ def _require_miromind_key(api_key: str | None) -> str:
     )
 
 
+def _resolve_miromind_model(model: str | None) -> str | None:
+    selected = (model or "").strip()
+    if not selected:
+        return None
+    if selected not in MIROMIND_ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=_HTTP_BAD_REQUEST,
+            detail=(
+                "Unsupported MiroMind model. Choose one of: "
+                + ", ".join(sorted(MIROMIND_ALLOWED_MODELS))
+            ),
+        )
+    return selected
+
+
 def _safe_filename(filename: str | None) -> str:
     name = PurePath((filename or "upload.pdf").replace("\\", "/")).name
     return name or "upload.pdf"
@@ -109,11 +127,20 @@ async def list_jobs(
     request: Request,
     limit: int = Query(default=50, ge=1, le=100),
 ) -> dict[str, list[dict[str, Any]]]:
-    user = await require_user(request)
+    ctx = await _request_auth(request)
+    settings = request.app.state.argus.settings
+    owner_user_id: str | None
+    if ctx.user is not None:
+        owner_user_id = ctx.user.id
+    elif settings.self_hosted and not settings.auth_required:
+        owner_user_id = None
+    else:
+        user = await require_user(request)
+        owner_user_id = user.id
     repo = request.app.state.argus.repo
     if repo is None:
         raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
-    rows = await repo.list_job_summaries(owner_user_id=user.id, limit=limit)
+    rows = await repo.list_job_summaries(owner_user_id=owner_user_id, limit=limit)
     return {"jobs": [row.__dict__ for row in rows]}
 
 
@@ -122,6 +149,7 @@ async def submit_job(
     request: Request,
     pdf: UploadFile = File(..., description="PDF to audit"),  # noqa: B008
     content_domain: str = Form("general"),
+    miromind_model: str | None = Form(None),
 ) -> dict[str, str]:
     ctx = await _request_auth(request)
     if (pdf.content_type or "").lower() != "application/pdf":
@@ -133,12 +161,14 @@ async def submit_job(
     if not blob.startswith(b"%PDF"):
         raise HTTPException(status_code=_HTTP_UNSUPPORTED, detail="expected PDF file")
     api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
+    selected_model = _resolve_miromind_model(miromind_model)
     runner = _runner(request)
     try:
         job_id = await runner.submit(
             blob,
             _safe_filename(pdf.filename),
             api_key_override=api_key,
+            miromind_model=selected_model,
             content_domain=content_domain,
             owner_user_id=ctx.user.id if ctx.user else None,
         )
@@ -157,11 +187,13 @@ async def submit_text_job(
 ) -> dict[str, str]:
     ctx = await _request_auth(request)
     api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
+    selected_model = _resolve_miromind_model(body.miromind_model)
     runner = _runner(request)
     try:
         job_id = await runner.submit_text(
             body.text,
             api_key_override=api_key,
+            miromind_model=selected_model,
             auto_review=body.auto_review,
             content_domain=body.content_domain,
             owner_user_id=ctx.user.id if ctx.user else None,
@@ -184,10 +216,12 @@ async def select_claims(
     runner = _runner(request)
     await require_job_access(request, job_id, ctx, runner=runner)
     api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
+    selected_model = _resolve_miromind_model(body.miromind_model)
     try:
         resumed = await runner.resume(
             job_id=job_id, selected_claim_ids=body.selected_claim_ids,
             api_key_override=api_key,
+            miromind_model=selected_model,
         )
     except RunnerCapacityError as exc:
         raise HTTPException(
@@ -220,6 +254,7 @@ async def resume_job(
         resumed = await runner.resume(
             job_id=job_id, selected_claim_ids=None,
             api_key_override=api_key,
+            miromind_model=None,
         )
     except RunnerCapacityError as exc:
         raise HTTPException(
@@ -324,11 +359,18 @@ async def revoke_share_link(request: Request, job_id: str, token: str) -> None:
 
 @router.delete("/{job_id}", status_code=204)
 async def delete_job(request: Request, job_id: str) -> None:
-    user = await require_user(request)
+    ctx = await _request_auth(request)
     repo = request.app.state.argus.repo
     if repo is None:
         raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
-    deleted = await repo.delete_job_for_user(job_id=job_id, owner_user_id=user.id)
+    settings = request.app.state.argus.settings
+    if ctx.user is not None:
+        owner_user_id = ctx.user.id
+    elif settings.self_hosted and not settings.auth_required:
+        owner_user_id = None
+    else:
+        raise HTTPException(status_code=_HTTP_UNAUTHORIZED, detail="login required")
+    deleted = await repo.delete_job_for_user(job_id=job_id, owner_user_id=owner_user_id)
     if not deleted:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
 
@@ -339,10 +381,14 @@ async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
     runner = _runner(request)
     await require_job_access(request, job_id, ctx, runner=runner)
     record = runner.get(job_id)
-    if record is None or not record.pdf_key:
-        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="pdf not found")
-    path = runner.state.storage.path_for(record.pdf_key)
-    if not path.exists():
+    path: Path | None = None
+    if record is not None and record.pdf_key:
+        path = runner.state.storage.path_for(record.pdf_key)
+    elif request.app.state.argus.repo is not None:
+        job = await request.app.state.argus.repo.get_job(job_id)
+        if job is not None and job.input_mode == "pdf" and job.pdf_path:
+            path = Path(job.pdf_path)
+    if path is None or not path.exists():
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="pdf not found")
     return FileResponse(path, media_type="application/pdf", filename=path.name)
 
@@ -352,12 +398,17 @@ async def get_job_report_pdf(request: Request, job_id: str) -> Response:
     ctx = await _request_auth(request)
     runner = _runner(request)
     await require_job_access(request, job_id, ctx, runner=runner)
-    record = runner.get(job_id)
-    if record is None or record.result is None:
+    resolved = await get_job_for_api(
+        job_id,
+        runner=runner,
+        repo=request.app.state.argus.repo,
+        trace_bus=request.app.state.argus.trace_bus,
+    )
+    if not isinstance(resolved, Job) or resolved.status != "done":
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not ready")
     from argus.reporting.pdf import render_job_pdf
 
-    pdf_bytes = render_job_pdf(record.result)
+    pdf_bytes = render_job_pdf(resolved)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

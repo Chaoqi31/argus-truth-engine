@@ -4,6 +4,13 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+MIROMIND_ALLOWED_MODELS = frozenset(
+    {
+        "mirothinker-1-7-deepresearch",
+        "mirothinker-1-7-deepresearch-mini",
+    }
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -42,6 +49,7 @@ class Settings(BaseSettings):
     # working by default without exposing wildcard CORS in production.
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_token: str = ""
+    self_hosted: bool = False
 
     # User auth. Production should set auth_required=true together with
     # supabase_url so job URLs are no longer public bearer links.

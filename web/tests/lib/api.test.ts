@@ -6,6 +6,7 @@ import {
   getJob,
   getSharedJob,
   submitClaimSelection,
+  submitText,
   uploadPdf,
 } from "@/lib/api";
 
@@ -56,10 +57,33 @@ describe("uploadPdf", () => {
     const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "x.pdf", {
       type: "application/pdf",
     });
-    await uploadPdf(file, "test-key", { contentDomain: "finance" });
+    await uploadPdf(file, "test-key", {
+      contentDomain: "finance",
+      miromindModel: "mirothinker-1-7-deepresearch-mini",
+    });
 
     const form = captured.init?.body as FormData;
     expect(form.get("content_domain")).toBe("finance");
+    expect(form.get("miromind_model")).toBe("mirothinker-1-7-deepresearch-mini");
+  });
+
+  it("posts text audits with the selected MiroMind model", async () => {
+    const captured: { init?: RequestInit } = {};
+    globalThis.fetch = vi.fn(async (_, init) => {
+      captured.init = init;
+      return new Response(JSON.stringify({ job_id: "job_text", status: "running" }), {
+        status: 202,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    await submitText("This is a sufficiently long text input for an audit.", "test-key", {
+      miromindModel: "mirothinker-1-7-deepresearch",
+    });
+
+    expect(JSON.parse(captured.init?.body as string)).toMatchObject({
+      miromind_model: "mirothinker-1-7-deepresearch",
+    });
   });
 
   it("can submit a PDF with auth and a saved API key id", async () => {
@@ -131,10 +155,15 @@ describe("submitClaimSelection", () => {
       return new Response(null, { status: 200 });
     });
 
-    await submitClaimSelection("job_abc", ["c1"], "my-test-key");
+    await submitClaimSelection("job_abc", ["c1"], "my-test-key", {
+      miromindModel: "mirothinker-1-7-deepresearch-mini",
+    });
 
     expect((captured.init?.headers as Record<string, string>)["X-Miromind-Key"]).toBe(
       "my-test-key",
+    );
+    expect(JSON.parse(captured.init?.body as string).miromind_model).toBe(
+      "mirothinker-1-7-deepresearch-mini",
     );
   });
 

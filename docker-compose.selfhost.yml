@@ -1,0 +1,77 @@
+# One-command local self-hosting for Argus.
+#
+# Usage:
+#   cp .env.example .env
+#   # edit .env and set ARGUS_MIROMIND_API_KEY
+#   docker compose -f docker-compose.selfhost.yml up --build
+#
+# Open http://localhost:3000. The self-hosted root redirects to /audit.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: argus-selfhost-postgres
+    environment:
+      POSTGRES_USER: argus
+      POSTGRES_PASSWORD: argus
+      POSTGRES_DB: argus
+    volumes:
+      - argus_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U argus -d argus"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: argus-selfhost-backend
+    environment:
+      ARGUS_MIROMIND_API_KEY: ${ARGUS_MIROMIND_API_KEY:-}
+      ARGUS_MIROMIND_MODEL: ${ARGUS_MIROMIND_MODEL:-mirothinker-1-7-deepresearch-mini}
+      ARGUS_CHEAP_LLM_API_KEY: ${ARGUS_CHEAP_LLM_API_KEY:-}
+      ARGUS_CHEAP_LLM_BASE_URL: ${ARGUS_CHEAP_LLM_BASE_URL:-https://api.deepseek.com}
+      ARGUS_CHEAP_LLM_MODEL: ${ARGUS_CHEAP_LLM_MODEL:-deepseek-chat}
+      ARGUS_DB_URL: postgresql+asyncpg://argus:argus@postgres:5432/argus
+      ARGUS_STORAGE_ROOT: /data/uploads
+      ARGUS_CORS_ALLOW_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      ARGUS_SELF_HOSTED: "true"
+      ARGUS_AUTH_REQUIRED: "false"
+      ARGUS_REDIS_URL: ""
+      ARGUS_JOB_BUDGET_USD: ${ARGUS_JOB_BUDGET_USD:-50}
+      ARGUS_MAX_CLAIMS_TO_VERIFY: ${ARGUS_MAX_CLAIMS_TO_VERIFY:-25}
+      PORT: "8080"
+    command: sh -c "alembic upgrade head && argus serve --host 0.0.0.0 --port 8080"
+    ports:
+      - "8080:8080"
+    volumes:
+      - argus_uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        ARGUS_API_HOST: http://backend:8080
+        NEXT_PUBLIC_ARGUS_SELF_HOSTED: "1"
+        NEXT_PUBLIC_ARGUS_MIROMIND_MODEL: ${ARGUS_MIROMIND_MODEL:-mirothinker-1-7-deepresearch-mini}
+    container_name: argus-selfhost-web
+    environment:
+      ARGUS_API_HOST: http://backend:8080
+      ARGUS_SELF_HOSTED: "1"
+      NEXT_PUBLIC_ARGUS_SELF_HOSTED: "1"
+      NEXT_PUBLIC_ARGUS_MIROMIND_MODEL: ${ARGUS_MIROMIND_MODEL:-mirothinker-1-7-deepresearch-mini}
+      NEXT_PUBLIC_ARGUS_WS_HOST: localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  argus_pgdata:
+  argus_uploads:

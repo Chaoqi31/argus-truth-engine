@@ -4,10 +4,15 @@ import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  DEFAULT_MIROMIND_MODEL,
+  MIROMIND_MODEL_STORAGE_KEY,
+  MIROMIND_MODELS,
   uploadPdf,
   submitText,
   UnsupportedMediaTypeError,
   ArgusApiError,
+  isMiroMindModel,
+  type MiroMindModel,
 } from "@/lib/api";
 import { useArgusStore } from "@/lib/store";
 import { ArgusHeader } from "@/components/argus-header";
@@ -27,6 +32,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
   const resetLive = useArgusStore((s) => s.resetLive);
   const clearStore = useArgusStore((s) => s.clear);
   const [apiKey, setApiKey] = useState("");
+  const [miromindModel, setMiromindModel] = useState<MiroMindModel>(DEFAULT_MIROMIND_MODEL);
   const [savedKeys, setSavedKeys] = useState<SavedApiKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<string>("paste");
   const [saveKeyToAccount, setSaveKeyToAccount] = useState(false);
@@ -34,6 +40,14 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
   const [textInput, setTextInput] = useState("");
   const [loading, setLoading] = useState<"upload" | "sample" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored =
+      window.sessionStorage.getItem(MIROMIND_MODEL_STORAGE_KEY) ??
+      window.localStorage.getItem(MIROMIND_MODEL_STORAGE_KEY);
+    if (isMiroMindModel(stored)) setMiromindModel(stored);
+  }, []);
 
   useEffect(() => {
     if (!auth.accessToken) {
@@ -60,7 +74,15 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
   }, [auth.accessToken]);
 
   const usingSavedKey = selectedKeyId !== "paste";
-  const hasRunnableKey = usingSavedKey || apiKey.trim().length > 0;
+  const selfHosted = process.env.NEXT_PUBLIC_ARGUS_SELF_HOSTED === "1";
+  const hasServerKey = selfHosted;
+  const hasRunnableKey = hasServerKey || usingSavedKey || apiKey.trim().length > 0;
+
+  const rememberModel = (model: MiroMindModel) => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(MIROMIND_MODEL_STORAGE_KEY, model);
+    window.localStorage.setItem(MIROMIND_MODEL_STORAGE_KEY, model);
+  };
 
   const submitOptions = async () => {
     let apiKeyId = usingSavedKey ? selectedKeyId : null;
@@ -78,12 +100,10 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
       rawApiKey = undefined;
       setSaveKeyToAccount(false);
     }
+    rememberModel(miromindModel);
     return {
       rawApiKey,
-      options:
-        auth.accessToken || apiKeyId
-          ? { accessToken: auth.accessToken, apiKeyId }
-          : undefined,
+      options: { accessToken: auth.accessToken, apiKeyId, miromindModel },
     };
   };
 
@@ -106,9 +126,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
     setError(null);
     try {
       const { rawApiKey, options } = await submitOptions();
-      const { job_id } = options
-        ? await submitText(textInput, rawApiKey, options)
-        : await submitText(textInput, rawApiKey);
+      const { job_id } = await submitText(textInput, rawApiKey, options);
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}&mode=text`);
     } catch (e) {
@@ -131,9 +149,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
     setError(null);
     try {
       const { rawApiKey, options } = await submitOptions();
-      const { job_id } = options
-        ? await uploadPdf(file, rawApiKey, options)
-        : await uploadPdf(file, rawApiKey);
+      const { job_id } = await uploadPdf(file, rawApiKey, options);
       resetLive();
       router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
@@ -150,6 +166,14 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
       <ArgusHeader
         rightSlot={
           <div className="flex items-center gap-2">
+            {selfHosted && (
+              <Link
+                href="/app"
+                className="inline-flex items-center justify-center rounded-[10px] border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                History
+              </Link>
+            )}
             <Link
               href="/audit?demo=1"
               onClick={prepareSampleLink}
@@ -212,7 +236,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
               </div>
             )}
 
-            {selectedKeyId === "paste" && (
+            {selectedKeyId === "paste" && !selfHosted && (
               <>
                 <ApiKeyInput value={apiKey} onChange={setApiKey} />
                 {auth.user && (
@@ -228,6 +252,32 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
                 )}
               </>
             )}
+
+            <div className="mt-4 flex flex-col gap-1.5">
+              <label
+                htmlFor="miromind-model"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                MiroMind model
+              </label>
+              <select
+                id="miromind-model"
+                value={miromindModel}
+                onChange={(e) => {
+                  if (!isMiroMindModel(e.target.value)) return;
+                  setMiromindModel(e.target.value);
+                  rememberModel(e.target.value);
+                  setError(null);
+                }}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                {MIROMIND_MODELS.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="mt-4 flex w-full rounded-lg border border-border bg-muted/50 p-0.5">
               <button

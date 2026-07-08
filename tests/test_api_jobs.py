@@ -23,6 +23,7 @@ FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 
 HTTP_OK = 200
 HTTP_ACCEPTED = 202
+HTTP_BAD_REQUEST = 400
 HTTP_PAYLOAD_TOO_LARGE = 413
 HTTP_NOT_FOUND = 404
 HTTP_UNSUPPORTED = 415
@@ -147,6 +148,46 @@ async def test_post_jobs_passes_content_domain_to_pdf_pipeline(app_under_test: F
             assert got is not None
             assert got.status_code == HTTP_OK
             assert got.json()["content_domain"] == "finance"
+
+
+async def test_post_text_passes_miromind_model_to_pipeline(app_under_test: FastAPI) -> None:
+    captured: dict[str, str] = {}
+
+    async def _fake_audit(**kw: Any) -> Job:
+        captured["model"] = kw["settings"].miromind_model
+        return Job(id=kw["job_id"], status="done", input_text=kw["text"], input_mode="text")
+
+    body = {
+        "text": "This is a sufficiently long text input for live audit testing.",
+        "miromind_model": "mirothinker-1-7-deepresearch-mini",
+    }
+    with patch("argus.api.runner.audit_text", new=_fake_audit):
+        async with AsyncClient(
+            transport=ASGITransport(app=app_under_test), base_url="http://test"
+        ) as client:
+            resp = await client.post("/jobs/text", json=body)
+            assert resp.status_code == HTTP_ACCEPTED, resp.text
+
+        for _ in range(20):
+            if "model" in captured:
+                break
+            await asyncio.sleep(0.05)
+    assert captured["model"] == "mirothinker-1-7-deepresearch-mini"
+
+
+async def test_post_text_rejects_unknown_miromind_model(app_under_test: FastAPI) -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=app_under_test), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/jobs/text",
+            json={
+                "text": "This is a sufficiently long text input for live audit testing.",
+                "miromind_model": "not-a-real-model",
+            },
+        )
+    assert resp.status_code == HTTP_BAD_REQUEST
+    assert "Unsupported MiroMind model" in resp.text
 
 
 async def test_get_missing_job_returns_404(app_under_test: FastAPI) -> None:

@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useArgusStore } from "@/lib/store";
-import { submitClaimSelection } from "@/lib/api";
+import {
+  DEFAULT_MIROMIND_MODEL,
+  MIROMIND_MODEL_STORAGE_KEY,
+  isMiroMindModel,
+  submitClaimSelection,
+} from "@/lib/api";
 import type { ReviewClaim } from "@/lib/types";
 import { useAuthSession } from "@/lib/use-auth-session";
 
@@ -54,15 +59,24 @@ export function ClaimReviewPanel({ jobId }: Props) {
         ? window.sessionStorage.getItem("argus-miromind-key") ??
           window.localStorage.getItem("argus-miromind-key")
         : null;
+    const storedModel =
+      typeof window !== "undefined"
+        ? window.sessionStorage.getItem(MIROMIND_MODEL_STORAGE_KEY) ??
+          window.localStorage.getItem(MIROMIND_MODEL_STORAGE_KEY)
+        : null;
+    const miromindModel = isMiroMindModel(storedModel)
+      ? storedModel
+      : DEFAULT_MIROMIND_MODEL;
     try {
       setSubmitting(true);
       setError(null);
       if (auth.accessToken) {
         await submitClaimSelection(jobId, ids, apiKey, {
           accessToken: auth.accessToken,
+          miromindModel,
         });
       } else {
-        await submitClaimSelection(jobId, ids, apiKey);
+        await submitClaimSelection(jobId, ids, apiKey, { miromindModel });
       }
       setRunStatus("verifying");
     } catch (err) {

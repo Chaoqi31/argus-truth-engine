@@ -133,49 +133,7 @@ Trace 使用**渐进披露**：每个 claim 先以一行展示（verdict + 步�
 
 一个 10-stage LangGraph 状态机分两个阶段编排流水线，中间由一道人在环（HITL）审核闸门分隔：
 
-```
-                      ┌─────────────────────────────┐
-                      │   📄 输入（PDF 或文本）        │
-                      └──────────────┬──────────────┘
-                                     ▼
-        阶段 A —— 抽取声明（DeepSeek + 确定性，不联网）
-        ┌────────────────────────────────────────────────────────────┐
-        │  parse → 🧠 planner → atomizer → 🎯 checkworthiness          │
-        │  → 类型化的原子声明；观点 / 琐碎信息被丢弃                      │
-        └──────────────────────────┬─────────────────────────────────┘
-                                     ▼
-                      ┌─────────────────────────────┐
-                      │  🚦 审核闸门（HITL 暂停）      │  人工挑选要
-                      │  去重 + 成本上限 + 选择        │  验证哪些声明
-                      └──────────────┬──────────────┘
-                                     │  fan-out —— 选中的声明，并行
-        阶段 B —— 验证                │
-                      ┌──────────────┴──────────────┐
-                      ▼                             ▼
-            ┌────────────────────┐        ┌─────────────────────┐
-            │ 🔬 UnifiedVerifier   │        │ 🧩 一致性检查器       │
-            │  ★ MiroMind ★       │        │  （DeepSeek,不联网） │
-            │  实时联网深度研究     │        │  跨声明矛盾检测       │
-            │  每条声明一次调用     │        │                     │
-            └─────────┬──────────┘        └─────────┬───────────┘
-                      ▼                             │
-            ┌────────────────────┐                 │
-            │ 🥊 Skeptic 复核      │                 │  仅复核低置信度
-            │  ★ MiroMind ★       │                 │  的高风险判决
-            │  二次对抗式质疑       │                 │
-            └─────────┬──────────┘                 │
-                      └──────────┬─────────────────┘
-                                 ▼
-                      ┌─────────────────────────────┐
-                      │ 📊 置信度（确定性）           │  3 个度量因子
-                      │                               │  + 软 ≥2 来源标记
-                      └──────────────┬──────────────┘
-                                     ▼
-                      ┌─────────────────────────────┐
-                      │  📋 Reporter（DeepSeek）      │
-                      │  → 执行摘要 + PDF             │
-                      └─────────────────────────────┘
-```
+<img src="./docs/assets/argus-architecture.svg" alt="Argus 项目架构图" width="100%">
 
 **只有 UnifiedVerifier 和 Skeptic 这两步调用 MiroMind。** UnifiedVerifier 对自己的验证
 策略拥有完全自主权 —— 核查哪些来源、用哪些工具（搜索 / 抓取 / 代码）、走多少步；我们只
@@ -209,11 +167,30 @@ SQLAlchemy 2.0 异步 ORM（开发/测试用 aiosqlite，生产用 asyncpg + Pos
 
 ## 快速开始
 
+### 本地自部署
+
+公开网站用于演示。真实审计建议在本地运行，并使用你自己的 API key：
+
+```bash
+cp .env.example .env
+# 编辑 .env，填 ARGUS_MIROMIND_API_KEY
+# ARGUS_MIROMIND_MODEL 默认是 mirothinker-1-7-deepresearch-mini
+docker compose -f docker-compose.selfhost.yml up --build
+```
+
+打开 `http://localhost:3000`。本地自部署模式会直接进入审计工作台，而不是首页介绍；
+如果 `.env` 已配置 `ARGUS_MIROMIND_API_KEY`，使用页不需要再粘贴同一个 key。
+打开 `http://localhost:3000/app` 可以查看本地持久化历史记录，也可以删除旧运行。
+更多说明见 [docs/self-host.md](docs/self-host.md)。
+
+### 从源码运行
+
 ```bash
 # 后端 —— 在 .env 里填 ARGUS_MIROMIND_API_KEY，或跳过（UI 支持 BYOK 自带 key）
 cp .env.example .env
 docker compose up -d postgres   # 如果保留 .env.example 里的 ARGUS_DB_URL，需要先启动
 uv sync
+uv run alembic upgrade head
 uv run argus serve --host 127.0.0.1 --port 8080
 
 # 前端
@@ -232,7 +209,7 @@ cd web && pnpm install && pnpm dev
 
 | 层 | 选型 |
 |---|---|
-| **模型** | MiroMind `mirothinker-1-7-deepresearch`（per-claim 验证器 + Skeptic 复核 —— 联网的两步）+ DeepSeek `deepseek-chat`（planner / atomizer / checkworthiness / 一致性 / reporter） |
+| **模型** | MiroMind 默认 `mirothinker-1-7-deepresearch-mini`，每次运行前可切换到 `mirothinker-1-7-deepresearch`（per-claim 验证器 + Skeptic 复核 —— 联网的两步）+ DeepSeek `deepseek-chat`（planner / atomizer / checkworthiness / 一致性 / reporter） |
 | **编排** | LangGraph 1.x StateGraph —— 并行 fan-out + reducer fan-in |
 | **后端** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + 原生 SSE |
 | **持久化** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
