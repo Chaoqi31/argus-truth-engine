@@ -2,6 +2,6 @@ packages:
   - "."
 overrides:
   postcss: 8.5.15
-ignoredBuiltDependencies:
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
