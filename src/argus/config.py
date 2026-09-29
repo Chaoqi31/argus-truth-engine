@@ -32,8 +32,6 @@ class Settings(BaseSettings):
     db_url: str | None = None
 
     # API server
-    api_host: str = "127.0.0.1"
-    api_port: int = 8080
     max_active_jobs: int = 2
 
     trace_history_max_events: int = 5000
