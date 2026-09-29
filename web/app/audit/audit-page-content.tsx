@@ -12,9 +12,9 @@ import { EvidenceTab } from "@/components/evidence-tab";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import { ShortcutsHint } from "@/components/shortcuts-hint";
 import { ScenarioBanner } from "@/components/scenario-banner";
-import { ExportMenu, type ExportFormat } from "@/components/export-menu";
+import { ExportMenu } from "@/components/export-menu";
 import { useFindingKeyboardNav } from "@/lib/use-keyboard-nav";
-import { buildAuditPackMarkdown, buildEvidenceStationJson } from "@/lib/audit-pack";
+import { downloadAuditExport, type ExportFormat } from "@/lib/audit-pack";
 import { sortFindingsForReview } from "@/lib/findings";
 import { TextViewer } from "@/components/text-viewer";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
@@ -37,7 +37,6 @@ import {
   COCKPIT_DOC_MAX,
   COCKPIT_DOC_MIN,
   DEMO_START_LINK,
-  downloadText,
 } from "./lib/constants";
 import {
   getAuthUserLabel,
@@ -133,28 +132,8 @@ export function AuditPageContent() {
     <SignedInNotice userLabel={auth.user ? getAuthUserLabel(auth.user) : null} />
   ) : null;
 
-  const onExport = async (fmt: ExportFormat) => {
-    if (!job) return;
-    const exportId = liveId ?? job.id ?? "demo";
-    if (fmt === "audit_pack") {
-      downloadText(
-        `argus-audit-pack-${exportId}.md`,
-        buildAuditPackMarkdown(job, findingReviews),
-        "text/markdown",
-      );
-    } else if (fmt === "json") {
-      downloadText(
-        `argus-evidence-station-${exportId}.json`,
-        buildEvidenceStationJson(job, findingReviews),
-        "application/json",
-      );
-    } else {
-      downloadText(
-        `argus-executive-summary-${exportId}.md`,
-        job.audit_report_md ?? "",
-        "text/markdown",
-      );
-    }
+  const onExport = (fmt: ExportFormat) => {
+    if (job) downloadAuditExport(fmt, job, findingReviews, liveId ?? job.id);
   };
 
   const isTextMode = params.get("mode") === "text" || job?.input_mode === "text";

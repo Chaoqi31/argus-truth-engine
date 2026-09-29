@@ -1,5 +1,23 @@
 import type { Finding, FindingVerdict, Severity } from "@/lib/types";
 
+export const VERDICT_LABEL: Record<FindingVerdict, string> = {
+  ok: "OK",
+  fabricated: "Fabricated",
+  inaccurate: "Inaccurate",
+  outdated: "Outdated",
+  misrepresented: "Misrepresented",
+  uncertain: "Uncertain",
+  contradiction: "Contradiction",
+  "unsupported-inference": "Unsupported inference",
+  overreach: "Overreach",
+};
+
+export const SEVERITY_LABEL: Record<Severity, string> = {
+  critical: "Critical",
+  major: "Major",
+  minor: "Minor",
+};
+
 const SEVERITY_RANK: Record<Severity, number> = {
   critical: 0,
   major: 1,

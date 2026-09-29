@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-
-export type ExportFormat = "audit_pack" | "json" | "markdown";
+import type { ExportFormat } from "@/lib/audit-pack";
 
 interface Props {
   onSelect: (format: ExportFormat) => void | Promise<void>;

@@ -626,3 +626,49 @@ export function buildAuditPackMarkdown(
     evidenceAppendix,
   ]);
 }
+
+export type ExportFormat = "audit_pack" | "json" | "markdown";
+
+function exportFile(
+  format: ExportFormat,
+  job: Job,
+  reviews: Record<string, FindingReview>,
+  exportId: string,
+): { filename: string; text: string; type: string } {
+  switch (format) {
+    case "audit_pack":
+      return {
+        filename: `argus-audit-pack-${exportId}.md`,
+        text: buildAuditPackMarkdown(job, reviews),
+        type: "text/markdown",
+      };
+    case "json":
+      return {
+        filename: `argus-evidence-station-${exportId}.json`,
+        text: buildEvidenceStationJson(job, reviews),
+        type: "application/json",
+      };
+    case "markdown":
+      return {
+        filename: `argus-executive-summary-${exportId}.md`,
+        text: job.audit_report_md ?? "",
+        type: "text/markdown",
+      };
+  }
+}
+
+/** Build one export of the audit and hand it to the browser as a download. */
+export function downloadAuditExport(
+  format: ExportFormat,
+  job: Job,
+  reviews: Record<string, FindingReview>,
+  exportId: string = job.id,
+) {
+  const { filename, text, type } = exportFile(format, job, reviews, exportId);
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
