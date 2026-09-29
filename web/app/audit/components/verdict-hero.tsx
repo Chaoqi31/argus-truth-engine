@@ -23,11 +23,9 @@ export function VerdictHero({
   const verdicts = new Set(job.findings.map((f) => f.verdict));
   const flags: string[] = [];
   if (verdicts.has("fabricated")) flags.push("fabricated citations");
-  if (verdicts.has("mismatch") || verdicts.has("misrepresented")) {
-    flags.push("misaligned quotes");
-  }
+  if (verdicts.has("misrepresented")) flags.push("misaligned quotes");
   if (verdicts.has("inaccurate")) flags.push("incorrect facts");
-  if (verdicts.has("outdated") || verdicts.has("stale") || verdicts.has("superseded")) flags.push("stale data");
+  if (verdicts.has("outdated")) flags.push("stale data");
   if (verdicts.has("contradiction")) flags.push("internal contradictions");
   if (verdicts.has("unsupported-inference") || verdicts.has("overreach")) {
     flags.push("unsupported reasoning");

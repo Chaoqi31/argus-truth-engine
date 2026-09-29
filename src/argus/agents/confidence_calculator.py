@@ -135,10 +135,7 @@ _NEGATIVE_VERDICTS = {
     FindingVerdict.FABRICATED,
     FindingVerdict.INACCURATE,
     FindingVerdict.OUTDATED,
-    FindingVerdict.MISMATCH,
     FindingVerdict.MISREPRESENTED,
-    FindingVerdict.STALE,
-    FindingVerdict.SUPERSEDED,
     FindingVerdict.CONTRADICTION,
 }
 

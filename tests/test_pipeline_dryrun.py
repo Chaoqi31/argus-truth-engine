@@ -106,7 +106,7 @@ MOCK_VERIFIER_JSON = json.dumps({
 })
 
 MOCK_FRESHNESS_JSON = json.dumps({
-    "verdict": "stale",
+    "verdict": "outdated",
     "confidence": 0.9,
     "summary": "US unemployment was 3.4% in March 2025 but has been revised to 3.6% in April 2025.",
     "why_wrong": "Unemployment figure has been revised upward in April 2025 release.",

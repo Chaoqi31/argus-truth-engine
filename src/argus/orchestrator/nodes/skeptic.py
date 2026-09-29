@@ -28,9 +28,6 @@ _HIGH_RISK_VERDICTS = {
     FindingVerdict.INACCURATE,
     FindingVerdict.OUTDATED,
     FindingVerdict.MISREPRESENTED,
-    FindingVerdict.MISMATCH,
-    FindingVerdict.STALE,
-    FindingVerdict.SUPERSEDED,
 }
 
 

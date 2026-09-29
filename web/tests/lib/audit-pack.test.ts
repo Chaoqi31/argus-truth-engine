@@ -574,7 +574,7 @@ describe("buildAuditPackMarkdown", () => {
         job.findings[0],
         { ...job.findings[0], id: "f2", claim_id: "c2", verdict: "ok", severity: "minor" },
         { ...job.findings[0], id: "f3", claim_id: "c3", verdict: "uncertain", severity: "minor" },
-        { ...job.findings[0], id: "f4", claim_id: "c4", verdict: "mismatch", severity: "major" },
+        { ...job.findings[0], id: "f4", claim_id: "c4", verdict: "misrepresented", severity: "major" },
       ],
       traces: [
         {

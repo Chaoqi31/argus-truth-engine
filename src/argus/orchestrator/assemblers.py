@@ -35,10 +35,6 @@ _UNIFIED_SEVERITY: dict[FindingVerdict, Severity] = {
     FindingVerdict.INACCURATE: Severity.MAJOR,
     FindingVerdict.OUTDATED: Severity.MAJOR,
     FindingVerdict.MISREPRESENTED: Severity.CRITICAL,
-    FindingVerdict.STALE: Severity.MAJOR,
-    FindingVerdict.SUPERSEDED: Severity.CRITICAL,
-    FindingVerdict.PARTIAL_MATCH: Severity.MINOR,
-    FindingVerdict.MISMATCH: Severity.MAJOR,
     FindingVerdict.OK: Severity.MINOR,
     FindingVerdict.UNCERTAIN: Severity.MINOR,
     # Document-internal flaws: a self-contradiction or an unsupported leap is a

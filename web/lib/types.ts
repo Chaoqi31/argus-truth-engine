@@ -12,11 +12,7 @@ export type Severity = "critical" | "major" | "minor";
 export type FindingVerdict =
   | "ok"
   | "fabricated"
-  | "partial-match"
-  | "mismatch"
   | "misrepresented"
-  | "stale"
-  | "superseded"
   | "contradiction"
   | "inaccurate"
   | "outdated"

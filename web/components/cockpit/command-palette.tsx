@@ -69,11 +69,7 @@ function searchMatchScore(haystack: string, needle: string): number | null {
 const VERDICT_LABELS: Record<string, string> = {
   ok: "OK",
   fabricated: "Fabricated",
-  "partial-match": "Partial match",
-  mismatch: "Mismatch",
   misrepresented: "Misrepresented",
-  stale: "Stale",
-  superseded: "Superseded",
   contradiction: "Contradiction",
   uncertain: "Uncertain",
 };
@@ -86,10 +82,7 @@ const SEVERITY_LABELS: Record<string, string> = {
 
 function verdictClass(verdict: string): string {
   if (verdict === "ok") return "verdict-ok";
-  if (verdict === "fabricated" || verdict === "mismatch" || verdict === "misrepresented")
-    return "verdict-danger";
-  if (verdict === "stale" || verdict === "superseded" || verdict === "partial-match")
-    return "verdict-warn";
+  if (verdict === "fabricated" || verdict === "misrepresented") return "verdict-danger";
   return "verdict-muted";
 }
 

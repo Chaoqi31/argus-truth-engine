@@ -30,44 +30,31 @@ class Severity(StrEnum):
 
 
 class FindingVerdict(StrEnum):
-    """The verdict a verifier assigns to a single claim.
+    """The verdict on a single claim.
 
-    The distinctions matter — they drive severity and the report copy:
+    The UnifiedVerifier judges a claim against outside evidence:
 
     - OK: the claim checks out against the evidence.
-    - FABRICATED: the cited source/reference does not exist (or the event never
-      happened) — nothing real to point at.
-    - INACCURATE: the source exists but the claim states it wrong (factual error).
-    - MISMATCH / MISREPRESENTED: the claim contradicts or misstates what the
-      cited source actually says (the source exists and was consulted).
-    - STALE: the claim was true but has simply aged out / gone out of date.
-    - SUPERSEDED: the claim has been explicitly replaced by a newer fact.
-    - OUTDATED: newer data exists than the figure the claim cites.
-    - CONTRADICTION: the document contradicts *itself* (two claims can't both
-      hold) — a document-internal flaw, not an external-evidence mismatch.
-    - UNSUPPORTED_INFERENCE / OVERREACH: the stated conclusion is not supported
-      by the document's own premises (a logical leap), again document-internal.
-    - PARTIAL_MATCH: the claim is only partially supported by the evidence.
-    - UNCERTAIN: the verifier could not determine the truth of the claim.
+    - FABRICATED: the cited source or event does not exist.
+    - INACCURATE: the source exists but the claim states it wrong.
+    - OUTDATED: newer data supersedes the figure the claim cites.
+    - MISREPRESENTED: the claim distorts what its cited source says.
+    - UNCERTAIN: the claim could not be verified either way.
 
-    Note: the UnifiedVerifier prompt currently emits only OK / FABRICATED /
-    INACCURATE / OUTDATED / MISREPRESENTED / UNCERTAIN; CONTRADICTION,
-    UNSUPPORTED_INFERENCE and OVERREACH come from the consistency checker.
-    PARTIAL_MATCH, MISMATCH, STALE and SUPERSEDED are defined here but are not
-    currently produced by any prompt.
+    The consistency checker judges the document against itself:
+
+    - CONTRADICTION: two claims in the document cannot both hold.
+    - UNSUPPORTED_INFERENCE: a conclusion does not follow from its premises.
+    - OVERREACH: a conclusion claims more than its cited data supports.
     """
 
     OK = "ok"
     FABRICATED = "fabricated"
-    PARTIAL_MATCH = "partial-match"
-    MISMATCH = "mismatch"
-    MISREPRESENTED = "misrepresented"
-    STALE = "stale"
-    SUPERSEDED = "superseded"
-    CONTRADICTION = "contradiction"
     INACCURATE = "inaccurate"
     OUTDATED = "outdated"
+    MISREPRESENTED = "misrepresented"
     UNCERTAIN = "uncertain"
+    CONTRADICTION = "contradiction"
     UNSUPPORTED_INFERENCE = "unsupported-inference"
     OVERREACH = "overreach"
 

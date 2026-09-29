@@ -14,12 +14,8 @@ const VERDICT_RANK: Record<FindingVerdict, number> = {
   contradiction: 4,
   "unsupported-inference": 5,
   overreach: 6,
-  mismatch: 7,
-  superseded: 8,
-  stale: 9,
-  "partial-match": 10,
-  uncertain: 11,
-  ok: 12,
+  uncertain: 7,
+  ok: 8,
 };
 
 function reviewPriority(finding: Finding): number {

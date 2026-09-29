@@ -77,7 +77,7 @@ def _verifier_fabricated() -> str:
 def _verifier_stale() -> str:
     return json.dumps(
         {
-            "verdict": "stale",
+            "verdict": "outdated",
             "confidence": 0.9,
             "summary": "Q3 release supersedes.",
             "why_wrong": "GDP figure has been revised upward in Q3 release.",
