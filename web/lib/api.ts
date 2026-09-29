@@ -1,34 +1,9 @@
 import type { Job } from "@/lib/types";
 import { authHeaders } from "@/lib/account";
+import type { MiroMindModel } from "@/lib/byok";
 
 const API_BASE = "/api/argus";
 const READ_TIMEOUT_MS = 12_000;
-const DEFAULT_MIROMIND_MODEL_ID = "mirothinker-1-7-deepresearch-mini";
-
-export const MIROMIND_MODEL_STORAGE_KEY = "argus-miromind-model";
-export const MIROMIND_MODELS = [
-  {
-    id: "mirothinker-1-7-deepresearch-mini",
-    label: "Deep Research Mini",
-  },
-  {
-    id: "mirothinker-1-7-deepresearch",
-    label: "Deep Research",
-  },
-] as const;
-
-export type MiroMindModel = (typeof MIROMIND_MODELS)[number]["id"];
-
-export function isMiroMindModel(value: unknown): value is MiroMindModel {
-  return typeof value === "string" && MIROMIND_MODELS.some((model) => model.id === value);
-}
-
-const configuredDefaultMiroMindModel = process.env.NEXT_PUBLIC_ARGUS_MIROMIND_MODEL;
-export const DEFAULT_MIROMIND_MODEL: MiroMindModel = isMiroMindModel(
-  configuredDefaultMiroMindModel,
-)
-  ? configuredDefaultMiroMindModel
-  : DEFAULT_MIROMIND_MODEL_ID;
 
 async function responseMessage(resp: Response): Promise<string> {
   const text = await resp.text().catch(() => "");

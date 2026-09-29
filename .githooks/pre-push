@@ -49,8 +49,8 @@ uv run pytest -q || fail "pytest failed"
 
 # Frontend gates, only if web/ has been installed locally.
 if [[ -d "web/node_modules" ]]; then
-  log "web: vitest"
-  (cd web && pnpm test --run) || fail "frontend tests failed"
+  log "web: eslint, tsc, vitest"
+  (cd web && pnpm lint && pnpm typecheck && pnpm test) || fail "frontend gates failed"
 else
   log "web/node_modules not present — skipping frontend gates (run 'cd web && pnpm install' to enable)"
 fi

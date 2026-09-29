@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppHomePage from "@/app/app/page";
-import { useAuthSession, type AuthSessionState } from "@/lib/use-auth-session";
+import { useAuthSession } from "@/lib/use-auth-session";
 import { listJobSummaries, listSavedApiKeys } from "@/lib/account";
 
 const replace = vi.fn();
@@ -38,9 +38,13 @@ describe("AppHomePage", () => {
       loading: false,
       accessToken: "jwt_1",
       user: {
+        id: "user_ada",
+        aud: "authenticated",
+        app_metadata: {},
+        created_at: "2026-01-01T00:00:00Z",
         email: "ada@example.com",
         user_metadata: { full_name: "Ada Lovelace" },
-      } as AuthSessionState["user"],
+      },
       signIn: vi.fn(async () => undefined),
       signOut: vi.fn(async () => undefined),
     });

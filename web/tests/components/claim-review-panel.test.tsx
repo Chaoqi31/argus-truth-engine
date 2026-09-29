@@ -6,11 +6,6 @@ import { useArgusStore } from "@/lib/store";
 import type { ReviewClaim } from "@/lib/types";
 
 vi.mock("@/lib/api", () => ({
-  DEFAULT_MIROMIND_MODEL: "mirothinker-1-7-deepresearch-mini",
-  MIROMIND_MODEL_STORAGE_KEY: "argus-miromind-model",
-  isMiroMindModel: (value: unknown) =>
-    value === "mirothinker-1-7-deepresearch" ||
-    value === "mirothinker-1-7-deepresearch-mini",
   submitClaimSelection: vi.fn().mockResolvedValue(undefined),
 }));
 

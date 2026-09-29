@@ -2,12 +2,8 @@
 
 import { useState } from "react";
 import { useArgusStore } from "@/lib/store";
-import {
-  DEFAULT_MIROMIND_MODEL,
-  MIROMIND_MODEL_STORAGE_KEY,
-  isMiroMindModel,
-  submitClaimSelection,
-} from "@/lib/api";
+import { submitClaimSelection } from "@/lib/api";
+import { storedApiKey, storedMiroMindModel } from "@/lib/byok";
 import type { ReviewClaim } from "@/lib/types";
 import { useAuthSession } from "@/lib/use-auth-session";
 
@@ -53,20 +49,8 @@ export function ClaimReviewPanel({ jobId }: Props) {
   async function handleSubmit() {
     if (submitting || nSelected === 0) return;
     const ids = Array.from(selectedClaimIds);
-    // BYOK: re-send the key on resume — the backend never persists it.
-    const apiKey =
-      typeof window !== "undefined"
-        ? window.sessionStorage.getItem("argus-miromind-key") ??
-          window.localStorage.getItem("argus-miromind-key")
-        : null;
-    const storedModel =
-      typeof window !== "undefined"
-        ? window.sessionStorage.getItem(MIROMIND_MODEL_STORAGE_KEY) ??
-          window.localStorage.getItem(MIROMIND_MODEL_STORAGE_KEY)
-        : null;
-    const miromindModel = isMiroMindModel(storedModel)
-      ? storedModel
-      : DEFAULT_MIROMIND_MODEL;
+    const apiKey = storedApiKey();
+    const miromindModel = storedMiroMindModel();
     try {
       setSubmitting(true);
       setError(null);
