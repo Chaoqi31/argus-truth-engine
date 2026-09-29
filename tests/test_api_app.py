@@ -16,7 +16,6 @@ def app_under_test(tmp_path: Any) -> FastAPI:
     settings = Settings(
         miromind_api_key="sk_test",
         db_url=None,
-        redis_url=None,
         storage_root=str(tmp_path / "storage"),
     )
     return create_app(settings=settings)

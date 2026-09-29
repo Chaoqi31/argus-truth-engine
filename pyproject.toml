@@ -22,7 +22,6 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "python-multipart>=0.0.9",
-    "redis[hiredis]>=5.0",
     "sqlalchemy>=2.0",
     "structlog>=24.1",
     "tenacity>=8.5",

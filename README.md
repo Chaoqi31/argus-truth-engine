@@ -179,8 +179,8 @@ the open web.
 ### Storage & live bus
 
 SQLAlchemy 2.0 async ORM (aiosqlite in dev/tests, asyncpg + Postgres in prod;
-shared Alembic migrations). A pluggable `TraceBus` ships live agent events over
-WebSocket — `InProcessBus` for single-instance, Redis pub/sub for multi-instance.
+shared Alembic migrations). An in-process trace bus ships live agent events over
+WebSocket.
 
 ## Quickstart
 
@@ -232,7 +232,7 @@ The frontend proxies `/api/argus/*` to `http://localhost:8080` (override with
 | **Backend** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + raw SSE |
 | **Persistence** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
 | **Exports** | In-browser Markdown audit pack and JSON evidence bundle |
-| **Live bus** | WebSocket · pluggable `TraceBus` (in-process / Redis pub/sub) |
+| **Live bus** | WebSocket · in-process trace bus with replayable history |
 | **Frontend** | Next.js 16 · React 19 · TypeScript 5 · Tailwind v4 · Zustand · react-pdf · @xyflow/react |
 
 ## Testing

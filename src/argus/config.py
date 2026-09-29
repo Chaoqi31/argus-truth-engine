@@ -36,8 +36,6 @@ class Settings(BaseSettings):
     api_port: int = 8080
     max_active_jobs: int = 2
 
-    # Optional Redis URL. When None, the in-process bus is used.
-    redis_url: str | None = None
     trace_history_max_events: int = 5000
     trace_history_ttl_s: float = 86400.0
 

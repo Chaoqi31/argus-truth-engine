@@ -162,8 +162,7 @@ Trace 使用**渐进披露**：每个 claim 先以一行展示（verdict + 步�
 ### 存储与实时事件流
 
 SQLAlchemy 2.0 异步 ORM（开发/测试用 aiosqlite，生产用 asyncpg + Postgres；共享 Alembic
-迁移）。可插拔的 `TraceBus` 通过 WebSocket 推送实时 agent 事件 —— 单实例用 `InProcessBus`，
-多实例用 Redis pub/sub。
+迁移）。进程内的 trace bus 通过 WebSocket 推送实时 agent 事件。
 
 ## 快速开始
 
@@ -210,7 +209,7 @@ cd web && pnpm install && pnpm dev
 | **后端** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + 原生 SSE |
 | **持久化** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
 | **导出** | 浏览器端生成 Markdown 审计包与 JSON 证据包 |
-| **实时总线** | WebSocket · 可插拔 `TraceBus`（in-process / Redis pub/sub） |
+| **实时总线** | WebSocket · 进程内 trace bus，支持历史回放 |
 | **前端** | Next.js 16 · React 19 · TypeScript 5 · Tailwind v4 · Zustand · react-pdf · @xyflow/react |
 
 ## 测试

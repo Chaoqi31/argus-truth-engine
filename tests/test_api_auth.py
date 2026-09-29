@@ -33,7 +33,6 @@ async def auth_app(tmp_path: Path) -> FastAPI:
             api_key_encryption_secret="test-secret",
             miromind_api_key="sk_server",
             db_url=f"sqlite+aiosqlite:///{tmp_path / 'auth.db'}",
-            redis_url=None,
             storage_root=str(tmp_path / "uploads"),
         )
     )
@@ -93,7 +92,6 @@ async def test_self_hosted_history_lists_local_jobs_without_login(tmp_path: Path
             self_hosted=True,
             miromind_api_key="sk_server",
             db_url=f"sqlite+aiosqlite:///{tmp_path / 'selfhost.db'}",
-            redis_url=None,
             storage_root=str(tmp_path / "uploads"),
         )
     )

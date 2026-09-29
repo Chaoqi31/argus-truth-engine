@@ -21,9 +21,7 @@ from argus.db.session import create_engine_from_url, sessionmaker_from_engine
 from argus.orchestrator.checkpointer import build_checkpointer
 from argus.security.api_keys import ApiKeyCipher
 from argus.storage.local_fs import LocalFsStorage
-from argus.trace_bus.base import TraceBus
 from argus.trace_bus.in_process import InProcessBus
-from argus.trace_bus.redis_pubsub import RedisPubSubBus
 
 
 def _build_state(settings: Settings) -> AppState:
@@ -35,17 +33,9 @@ def _build_state(settings: Settings) -> AppState:
         engine = create_engine_from_url(settings.db_url)
         repo = JobRepository(sessionmaker_from_engine(engine))
 
-    trace_bus: TraceBus = (
-        RedisPubSubBus(
-            settings.redis_url,
-            max_history_events=settings.trace_history_max_events,
-            history_ttl_s=settings.trace_history_ttl_s,
-        )
-        if settings.redis_url
-        else InProcessBus(
-            max_history_events=settings.trace_history_max_events,
-            history_ttl_s=settings.trace_history_ttl_s,
-        )
+    trace_bus = InProcessBus(
+        max_history_events=settings.trace_history_max_events,
+        history_ttl_s=settings.trace_history_ttl_s,
     )
     key_cipher = (
         ApiKeyCipher(settings.api_key_encryption_secret)
@@ -82,12 +72,9 @@ def create_app(*, settings: Settings) -> FastAPI:
             # Register the rest of the teardowns on the same exit stack so
             # they fire regardless of where startup might raise (mark-zombie
             # below, lifespan body, or shutdown). LIFO order at exit:
-            #   db_engine.dispose() → trace_bus.close() → checkpointer.__aexit__()
+            #   db_engine.dispose() → checkpointer.__aexit__()
             if state.db_engine is not None:
                 stack.push_async_callback(state.db_engine.dispose)
-            close_bus = getattr(state.trace_bus, "close", None)
-            if close_bus is not None:
-                stack.push_async_callback(close_bus)
 
             # Startup: mark abandoned jobs (worker died mid-flight) as interrupted
             if state.repo is not None:
