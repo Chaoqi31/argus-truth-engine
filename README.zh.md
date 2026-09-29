@@ -201,10 +201,6 @@ cd web && pnpm install && pnpm dev
 
 前端默认把 `/api/argus/*` 代理到 `http://localhost:8080`（可用 `ARGUS_API_HOST` 覆盖）。
 
-> [!NOTE]
-> macOS 上导出 PDF 需要把 Homebrew 的 Pango/Cairo 放到动态库路径：
-> `DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve …`。
-
 ## 技术栈
 
 | 层 | 选型 |
@@ -213,7 +209,7 @@ cd web && pnpm install && pnpm dev
 | **编排** | LangGraph 1.x StateGraph —— 并行 fan-out + reducer fan-in |
 | **后端** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + 原生 SSE |
 | **持久化** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
-| **报告** | Jinja2 + WeasyPrint（HTML→PDF） |
+| **导出** | 浏览器端生成 Markdown 审计包与 JSON 证据包 |
 | **实时总线** | WebSocket · 可插拔 `TraceBus`（in-process / Redis pub/sub） |
 | **前端** | Next.js 16 · React 19 · TypeScript 5 · Tailwind v4 · Zustand · react-pdf · @xyflow/react |
 

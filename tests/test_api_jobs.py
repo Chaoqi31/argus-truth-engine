@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -247,41 +244,3 @@ async def test_post_rejects_oversized_upload(app_under_test: FastAPI) -> None:
             files={"pdf": ("sample-report.pdf", b"%PDF-1.4", "application/pdf")},
         )
     assert resp.status_code == HTTP_PAYLOAD_TOO_LARGE
-
-
-def test_app_factory_import_does_not_require_weasyprint(tmp_path: Path) -> None:
-    """Health/API startup should not fail just because PDF export deps are absent."""
-    script = f"""
-import builtins
-
-original_import = builtins.__import__
-
-def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-    if name == "weasyprint":
-        raise OSError("cannot load library 'pango-1.0-0'")
-    return original_import(name, globals, locals, fromlist, level)
-
-builtins.__import__ = guarded_import
-
-from argus.api.app import create_app
-from argus.config import Settings
-
-app = create_app(settings=Settings(
-    miromind_api_key="sk_test",
-    db_url=None,
-    redis_url=None,
-    storage_root={str(tmp_path / "uploads")!r},
-))
-assert app.title == "Argus API"
-"""
-    env = os.environ.copy()
-    src = str(Path(__file__).resolve().parents[1] / "src")
-    env["PYTHONPATH"] = f"{src}{os.pathsep}{env.get('PYTHONPATH', '')}"
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        check=False,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    assert result.returncode == 0, result.stderr or result.stdout

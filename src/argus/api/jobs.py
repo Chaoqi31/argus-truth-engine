@@ -7,7 +7,7 @@ from secrets import token_urlsafe
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from argus.api.access import require_job_access
@@ -391,29 +391,6 @@ async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
     if path is None or not path.exists():
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="pdf not found")
     return FileResponse(path, media_type="application/pdf", filename=path.name)
-
-
-@router.get("/{job_id}/report.pdf")
-async def get_job_report_pdf(request: Request, job_id: str) -> Response:
-    ctx = await _request_auth(request)
-    runner = _runner(request)
-    await require_job_access(request, job_id, ctx, runner=runner)
-    resolved = await get_job_for_api(
-        job_id,
-        runner=runner,
-        repo=request.app.state.argus.repo,
-        trace_bus=request.app.state.argus.trace_bus,
-    )
-    if not isinstance(resolved, Job) or resolved.status != "done":
-        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not ready")
-    from argus.reporting.pdf import render_job_pdf
-
-    pdf_bytes = render_job_pdf(resolved)
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"content-disposition": f'attachment; filename="argus-audit-{job_id}.pdf"'},
-    )
 
 
 @router.get("/{job_id}")

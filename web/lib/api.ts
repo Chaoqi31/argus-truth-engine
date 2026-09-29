@@ -237,17 +237,3 @@ async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): P
     clearTimeout(timeout);
   }
 }
-
-export async function downloadReport(
-  jobId: string,
-  apiKey: string | null,
-  options?: ApiRequestOptions,
-): Promise<Blob> {
-  const headers: Record<string, string> = withAuthHeaders(options);
-  addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
-  const resp = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/report.pdf`, { headers });
-  if (!resp.ok) {
-    throw new ArgusApiError(resp.status, `download failed: ${resp.status}`);
-  }
-  return await resp.blob();
-}

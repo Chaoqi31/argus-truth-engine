@@ -223,10 +223,6 @@ cd web && pnpm install && pnpm dev
 The frontend proxies `/api/argus/*` to `http://localhost:8080` (override with
 `ARGUS_API_HOST`).
 
-> [!NOTE]
-> On macOS, WeasyPrint needs Homebrew's Pango/Cairo on the loader path for PDF
-> export: `DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve …`.
-
 ## Stack
 
 | Layer | Choice |
@@ -235,7 +231,7 @@ The frontend proxies `/api/argus/*` to `http://localhost:8080` (override with
 | **Orchestration** | LangGraph 1.x StateGraph — parallel fan-out + reducer fan-in |
 | **Backend** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + raw SSE |
 | **Persistence** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
-| **Reports** | Jinja2 + WeasyPrint (HTML→PDF) |
+| **Exports** | In-browser Markdown audit pack and JSON evidence bundle |
 | **Live bus** | WebSocket · pluggable `TraceBus` (in-process / Redis pub/sub) |
 | **Frontend** | Next.js 16 · React 19 · TypeScript 5 · Tailwind v4 · Zustand · react-pdf · @xyflow/react |
 
