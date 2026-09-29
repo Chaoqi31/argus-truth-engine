@@ -110,20 +110,11 @@ export interface CorrectedInfo {
   retrieved_date?: string | null;
 }
 
-export interface ReasoningStep {
-  step: string;
-  content: string;
-  evidence_ref?: string | null;
-  confidence_delta?: number;
-}
-
 export interface VerificationStep {
   action: string;
   observation: string;
   reasoning: string;
 }
-
-export type FindingReasoningStep = ReasoningStep | VerificationStep;
 
 export interface EvidenceQuality {
   evidence_id: string;
@@ -197,7 +188,7 @@ export interface Finding {
   /** What the right answer is, with an authoritative source. */
   correct_information?: CorrectedInfo | null;
   /** Structured explanation returned by the verifier before the raw trace. */
-  reasoning_chain?: FindingReasoningStep[];
+  reasoning_chain?: VerificationStep[];
   evidence_quality?: EvidenceQuality[];
   coverage?: ClaimCoverage[];
   skeptic_review?: SkepticReview | null;

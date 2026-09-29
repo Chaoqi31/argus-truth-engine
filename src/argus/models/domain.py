@@ -159,15 +159,6 @@ class ReasoningTrace(_Base):
     steps: list[Step] = Field(default_factory=list)
 
 
-class ReasoningStep(_Base):
-    """One step in a structured reasoning chain — makes verification transparent."""
-
-    step: str  # e.g. "premise", "search", "evidence_found", "comparison", "inference"
-    content: str  # human-readable description
-    evidence_ref: str | None = None  # link to evidence ID or URL
-    confidence_delta: float = 0.0  # how this step affected confidence (+/-)
-
-
 class CorrectedInfo(_Base):
     """What the correct information actually is, with authoritative source."""
 
@@ -275,7 +266,7 @@ class Finding(_Base):
     summary: str
     why_wrong: str | None = None
     correct_information: CorrectedInfo | None = None
-    reasoning_chain: list[ReasoningStep | VerificationStep] = Field(default_factory=list)
+    reasoning_chain: list[VerificationStep] = Field(default_factory=list)
     evidence_quality: list[EvidenceQuality] = Field(default_factory=list)
     coverage: list[ClaimCoverage] = Field(default_factory=list)
     skeptic_review: SkepticReview | None = None

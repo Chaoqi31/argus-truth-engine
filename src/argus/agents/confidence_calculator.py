@@ -194,7 +194,7 @@ def count_distinct_sources(finding: Finding, evidences: list[Evidence]) -> int:
     for step in finding.reasoning_chain:
         text = " ".join(
             str(getattr(step, attr, "") or "")
-            for attr in ("action", "observation", "reasoning", "content", "evidence_ref")
+            for attr in ("action", "observation", "reasoning")
         )
         for url in _URL_RE.findall(text):
             d = _domain(url)

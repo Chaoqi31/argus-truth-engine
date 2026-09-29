@@ -45,12 +45,11 @@ async def test_bounded_runner_caps_concurrency() -> None:
 # --- BudgetTracker --------------------------------------------------------
 
 
-def test_budget_tracker_accumulates_and_reports_remaining() -> None:
+def test_budget_tracker_accumulates() -> None:
     b = BudgetTracker(max_usd=1.00)
     b.charge(0.30)
     b.charge(0.40)
     assert b.spent_usd == pytest.approx(0.70)
-    assert b.remaining_usd == pytest.approx(0.30)
 
 
 def test_budget_tracker_raises_when_exceeded() -> None:

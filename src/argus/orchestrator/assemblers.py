@@ -23,7 +23,6 @@ from argus.models.domain import (
     EvidenceSource,
     Finding,
     FindingVerdict,
-    ReasoningStep,
     ReasoningTrace,
     Severity,
     Step,
@@ -74,56 +73,6 @@ def _surrounding_text(doc: ParsedDoc | None, claim: Claim) -> str:
     start = max(0, claim.span[0] - _CONTEXT_WINDOW_CHARS)
     end = min(len(page.text), claim.span[1] + _CONTEXT_WINDOW_CHARS)
     return page.text[start:end]
-
-
-def _make_finding(
-    *,
-    job_id: str,
-    claim: Claim,
-    parsed: Any,
-    trace: ReasoningTrace,
-    agent_name: str,
-    severity_map: dict[FindingVerdict, Severity],
-) -> tuple[Finding, list[Evidence]]:
-    evidence_records: list[Evidence] = []
-    evidence_ids: list[str] = []
-    for ev in parsed.evidence:
-        e = Evidence(
-            id=f"ev_{uuid4().hex[:12]}",
-            source_type=ev.source_type,
-            url=ev.url,
-            citation=ev.url or f"{ev.source_type} query",
-            snippet=ev.snippet,
-            retrieved_by_step_id=trace.steps[-1].id if trace.steps else "n/a",
-        )
-        evidence_records.append(e)
-        evidence_ids.append(e.id)
-
-    # Extract reasoning chain from specialist output if present
-    reasoning_chain: list[ReasoningStep] = []
-    if hasattr(parsed, "reasoning_chain") and parsed.reasoning_chain:
-        for rs in parsed.reasoning_chain:
-            reasoning_chain.append(ReasoningStep(
-                step=rs.step,
-                content=rs.content,
-                evidence_ref=rs.evidence_ref,
-                confidence_delta=rs.confidence_delta,
-            ))
-
-    finding = Finding(
-        id=f"f_{uuid4().hex[:12]}",
-        job_id=job_id,
-        claim_id=claim.id,
-        agent=agent_name,
-        verdict=parsed.verdict,
-        severity=severity_map.get(parsed.verdict, Severity.MINOR),
-        confidence=parsed.confidence,
-        summary=parsed.summary,
-        reasoning_chain=reasoning_chain,
-        evidence_ids=evidence_ids,
-        reasoning_trace_id=trace.id,
-    )
-    return finding, evidence_records
 
 
 def _make_unified_finding(
@@ -387,8 +336,6 @@ def _live_step_payload(*, agent: str, claim_id: str, step: Step) -> dict[str, An
 
 
 def _finding_payload(finding: Finding) -> dict[str, Any]:
-    from argus.models.domain import VerificationStep
-
     payload: dict[str, Any] = {
         "finding_id": finding.id,
         "claim_id": finding.claim_id,
@@ -408,22 +355,9 @@ def _finding_payload(finding: Finding) -> dict[str, Any]:
             "retrieved_date": ci.retrieved_date,
         }
     if finding.reasoning_chain:
-        chain: list[dict[str, Any]] = []
-        for rs in finding.reasoning_chain:
-            if isinstance(rs, VerificationStep):
-                chain.append({
-                    "action": rs.action,
-                    "observation": rs.observation,
-                    "reasoning": rs.reasoning,
-                })
-            else:
-                chain.append({
-                    "step": rs.step,
-                    "content": rs.content,
-                    "evidence_ref": rs.evidence_ref,
-                    "confidence_delta": rs.confidence_delta,
-                })
-        payload["reasoning_chain"] = chain
+        payload["reasoning_chain"] = [
+            rs.model_dump(mode="json") for rs in finding.reasoning_chain
+        ]
     if finding.evidence_quality:
         payload["evidence_quality"] = [
             q.model_dump(mode="json") for q in finding.evidence_quality

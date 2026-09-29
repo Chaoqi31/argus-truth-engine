@@ -447,12 +447,10 @@ export function buildAuditPackMarkdown(
       .map((e) => `- ${e.citation}${e.url ? ` (${e.url})` : ""}${e.snippet ? `: ${e.snippet}` : ""}`)
       .join("\n");
     const reasoning = (f.reasoning_chain ?? [])
-      .map((step, i) => {
-        if ("action" in step) {
-          return `${i + 1}. ${step.action} Observation: ${step.observation} Reasoning: ${step.reasoning}`;
-        }
-        return `${i + 1}. ${step.step}: ${step.content}`;
-      })
+      .map(
+        (step, i) =>
+          `${i + 1}. ${step.action} Observation: ${step.observation} Reasoning: ${step.reasoning}`,
+      )
       .join("\n");
     const coverageLines = (f.coverage ?? [])
       .map((row) => {

@@ -24,7 +24,6 @@ PAIRED_TYPES = (
     "ReasoningTrace",
     "ConfidenceBreakdown",
     "CorrectedInfo",
-    "ReasoningStep",
     "VerificationStep",
     "EvidenceQuality",
     "ClaimCoverage",

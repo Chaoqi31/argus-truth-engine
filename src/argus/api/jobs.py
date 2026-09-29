@@ -365,12 +365,7 @@ async def get_job(request: Request, job_id: str) -> dict[str, Any]:
     ctx = await _request_auth(request)
     runner = _runner(request)
     await require_job_access(request, job_id, ctx, runner=runner)
-    resolved = await get_job_for_api(
-        job_id,
-        runner=runner,
-        repo=request.app.state.argus.repo,
-        trace_bus=request.app.state.argus.trace_bus,
-    )
+    resolved = await get_job_for_api(job_id, runner=runner, repo=request.app.state.argus.repo)
     if resolved is None:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
 
@@ -389,7 +384,6 @@ async def get_job(request: Request, job_id: str) -> dict[str, Any]:
             "job_id": resolved.job_id,
             "status": resolved.status,
             "error": resolved.error,
-            "progress": resolved.progress,
         }
 
     dumped: dict[str, Any] = resolved.model_dump(mode="json")

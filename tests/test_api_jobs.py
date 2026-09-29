@@ -11,10 +11,8 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from argus.api.app import create_app
-from argus.api.job_progress import derive_progress
 from argus.config import Settings
 from argus.models.domain import Job
-from argus.trace_bus.base import TraceEvent
 
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 
@@ -27,10 +25,6 @@ HTTP_UNSUPPORTED = 415
 HTTP_TOO_MANY_REQUESTS = 429
 
 
-def _trace_event(kind: str, sequence: int, payload: dict[str, Any]) -> TraceEvent:
-    return TraceEvent(job_id="job_1", sequence=sequence, kind=kind, payload=payload)
-
-
 @pytest.fixture
 def app_under_test(tmp_path: Path) -> FastAPI:
     settings = Settings(
@@ -39,37 +33,6 @@ def app_under_test(tmp_path: Path) -> FastAPI:
         storage_root=str(tmp_path / "uploads"),
     )
     return create_app(settings=settings)
-
-
-def test_derive_progress_from_trace_history() -> None:
-    progress = derive_progress([
-        _trace_event("stage", 1, {"status": "finished", "key": "parse"}),
-        _trace_event("stage", 2, {"status": "started", "key": "verify", "name": "Verify"}),
-        _trace_event(
-            "claim",
-            3,
-            {
-                "status": "started",
-                "claim_id": "c1",
-                "text": "Claim one.",
-                "index": 1,
-                "total": 2,
-            },
-        ),
-        _trace_event(
-            "heartbeat",
-            4,
-            {"stage": "verify", "agent": "UnifiedVerifier", "elapsed_s": 12},
-        ),
-    ])
-
-    assert progress["finished_stages"] == ["parse"]
-    assert progress["current_stage"]["key"] == "verify"
-    assert progress["claims_started"] == 1
-    assert progress["claims_finished"] == 0
-    assert progress["claims_total"] == 2
-    assert progress["current_claim"]["claim_id"] == "c1"
-    assert progress["last_heartbeat"]["elapsed_s"] == 12
 
 
 async def test_post_jobs_accepts_pdf_and_returns_job_id(app_under_test: FastAPI) -> None:

@@ -2,15 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from argus.api.job_progress import progress_from_trace
 from argus.models.domain import Job
 
 if TYPE_CHECKING:
     from argus.api.runner import JobRunner
     from argus.db.repository import JobRepository
-    from argus.trace_bus.base import TraceBus
 
 
 @dataclass(frozen=True)
@@ -18,7 +16,6 @@ class RunningJobSnapshot:
     job_id: str
     status: str
     error: str | None
-    progress: dict[str, Any]
 
 
 async def get_job_for_api(
@@ -26,7 +23,6 @@ async def get_job_for_api(
     *,
     runner: JobRunner,
     repo: JobRepository | None,
-    trace_bus: TraceBus | None = None,
 ) -> Job | RunningJobSnapshot | None:
     """Resolve a job for GET /jobs/{id}.
 
@@ -38,15 +34,7 @@ async def get_job_for_api(
     if record is not None:
         if record.result is not None:
             return record.result
-        progress: dict[str, Any] = {}
-        if trace_bus is not None:
-            progress = await progress_from_trace(trace_bus, job_id)
-        return RunningJobSnapshot(
-            job_id=record.job_id,
-            status=record.status,
-            error=record.error,
-            progress=progress,
-        )
+        return RunningJobSnapshot(job_id=record.job_id, status=record.status, error=record.error)
 
     if repo is not None:
         return await repo.get_job(job_id)

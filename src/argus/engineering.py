@@ -11,7 +11,7 @@ import asyncio
 import hashlib
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Final, TypeVar
 
 import httpx
@@ -62,7 +62,6 @@ class BudgetTracker:
 
     max_usd: float
     spent_usd: float = 0.0
-    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     def charge(self, usd: float) -> None:
         self.spent_usd += usd
@@ -71,14 +70,6 @@ class BudgetTracker:
                 f"job budget exceeded: spent ${self.spent_usd:.2f} > "
                 f"cap ${self.max_usd:.2f}"
             )
-
-    async def acharge(self, usd: float) -> None:
-        async with self._lock:
-            self.charge(usd)
-
-    @property
-    def remaining_usd(self) -> float:
-        return self.max_usd - self.spent_usd
 
 
 # --- Cost model -----------------------------------------------------------

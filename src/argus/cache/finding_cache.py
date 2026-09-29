@@ -94,10 +94,3 @@ class FindingCache:
             except IntegrityError:
                 await session.rollback()
                 log.info("cache.put_lost_race", key=key[:12])
-
-    async def clear(self) -> int:
-        """Admin: drop all cache rows. Returns count cleared."""
-        async with self._sm() as session:
-            result = await session.execute(delete(FindingCacheRow))
-            await session.commit()
-            return int(getattr(result, "rowcount", 0) or 0)

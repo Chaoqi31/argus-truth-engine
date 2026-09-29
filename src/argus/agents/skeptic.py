@@ -7,8 +7,6 @@ from argus.agents.base import AgentResult, AgentRunner
 from argus.miromind.client import MiromindClient
 from argus.models.domain import FindingVerdict
 
-SKEPTIC_VERSION = "v1"
-
 SYSTEM_PROMPT = """\
 You are Argus's SKEPTIC REVIEWER. You do NOT produce the primary verdict.
 Your job is to challenge a high-risk verifier conclusion and look for credible

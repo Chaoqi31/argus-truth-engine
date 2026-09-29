@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Finding, FindingReasoningStep, Job, Stage, Step } from "@/lib/types";
+import type { Finding, Job, Stage, Step, VerificationStep } from "@/lib/types";
 import { stepIcon, verdictTone } from "@/lib/colors";
 import { useArgusStore } from "@/lib/store";
 import { sortFindingsForReview } from "@/lib/findings";
@@ -1317,11 +1317,8 @@ function VerdictBrief({ finding }: { finding: Finding }) {
   );
 }
 
-function reasoningBriefText(step: FindingReasoningStep): string {
-  if ("reasoning" in step && step.reasoning) return step.reasoning;
-  if ("content" in step && step.content) return step.content;
-  if ("observation" in step && step.observation) return step.observation;
-  return "";
+function reasoningBriefText(step: VerificationStep): string {
+  return step.reasoning || step.observation;
 }
 
 function pluralizeTraceMetric(label: string, value: number): string {
