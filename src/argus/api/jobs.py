@@ -236,39 +236,6 @@ async def select_claims(
     return {"status": "resumed", "n_selected": len(body.selected_claim_ids)}
 
 
-@router.post("/{job_id}/resume", status_code=202)
-async def resume_job(
-    request: Request,
-    job_id: str,
-) -> dict[str, str]:
-    """Resume a job previously marked interrupted.
-
-    Used after worker restart (Phase 6.2 marks abandoned jobs), or when
-    HITL timeout left the job paused without a claim selection.
-    """
-    ctx = await _request_auth(request)
-    runner = _runner(request)
-    await require_job_access(request, job_id, ctx, runner=runner)
-    api_key = _require_miromind_key(await _resolve_miromind_key(request, ctx.user))
-    try:
-        resumed = await runner.resume(
-            job_id=job_id, selected_claim_ids=None,
-            api_key_override=api_key,
-            miromind_model=None,
-        )
-    except RunnerCapacityError as exc:
-        raise HTTPException(
-            status_code=_HTTP_TOO_MANY_REQUESTS,
-            detail=str(exc),
-        ) from exc
-    if resumed is None:
-        raise HTTPException(
-            status_code=_HTTP_NOT_FOUND,
-            detail="job not found or not in interrupted state",
-        )
-    return {"job_id": job_id, "status": "running"}
-
-
 @router.post("/{job_id}/rerun", status_code=202)
 async def rerun_job(request: Request, job_id: str) -> dict[str, str]:
     ctx = await _request_auth(request)

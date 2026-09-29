@@ -215,7 +215,7 @@ class JobRunner:
         self,
         *,
         job_id: str,
-        selected_claim_ids: list[str] | None,
+        selected_claim_ids: list[str],
         api_key_override: str | None = None,
         miromind_model: str | None = None,
     ) -> str | None:

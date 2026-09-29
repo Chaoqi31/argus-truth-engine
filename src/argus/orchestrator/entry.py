@@ -174,7 +174,7 @@ async def audit_text(
 async def audit_resume(
     *,
     job_id: str,
-    selected_claim_ids: list[str] | None,
+    selected_claim_ids: list[str],
     settings: Settings,
     client: MiromindClient,
     budget_usd: float,
@@ -183,12 +183,7 @@ async def audit_resume(
     output_path: Path,
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> Job:
-    """Resume an interrupted job from its checkpointer state.
-
-    ``selected_claim_ids``:
-      * list — submitted from HITL review; passes as resume value
-      * None — generic "continue from where you left off"
-    """
+    """Resume a job paused at the review gate with the claims the reviewer kept."""
     from langgraph.types import Command
 
     job = await repo.get_job(job_id)
@@ -209,12 +204,7 @@ async def audit_resume(
 
         phase_a = _build_phase_a(ctx, checkpointer=cp, auto_review=False)
 
-        if selected_claim_ids is not None:
-            resumed_state = await phase_a.ainvoke(
-                Command(resume=selected_claim_ids), config,
-            )
-        else:
-            resumed_state = await phase_a.ainvoke(None, config)
+        resumed_state = await phase_a.ainvoke(Command(resume=selected_claim_ids), config)
 
         phase_b = _build_phase_b(ctx, checkpointer=cp)
         raised_exc: Exception | None = None
