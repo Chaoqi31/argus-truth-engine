@@ -1,3 +1,5 @@
+import { apiFetch, authHeaders, ensureOk } from "@/lib/http";
+
 export interface AccountUser {
   id: string;
   email: string | null;
@@ -49,241 +51,166 @@ export interface RerunResponse {
   status: string;
 }
 
-export class AccountApiError extends Error {
-  status: number;
+const TIMEOUT_MS = 30_000;
 
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "AccountApiError";
-    this.status = status;
-  }
+function jsonAuthHeaders(accessToken: string | null | undefined): Record<string, string> {
+  return { ...authHeaders(accessToken), "Content-Type": "application/json" };
 }
 
-const API_BASE = "/api/argus";
-const REQUEST_TIMEOUT_MS = 30_000;
-
-export async function getAccount(accessToken: string): Promise<AccountUser> {
-  const resp = await accountFetch(`${API_BASE}/me`, { headers: authHeaders(accessToken) });
-  await assertOk(resp, "account failed");
-  return (await resp.json()) as AccountUser;
+async function call<T>(path: string, init: RequestInit, fallback: string): Promise<T> {
+  const resp = await apiFetch(path, init, TIMEOUT_MS);
+  await ensureOk(resp, fallback);
+  return (await resp.json()) as T;
 }
 
-export async function listSavedApiKeys(accessToken: string): Promise<SavedApiKey[]> {
-  const resp = await accountFetch(`${API_BASE}/me/api-keys`, {
-    headers: authHeaders(accessToken),
-  });
-  await assertOk(resp, "api keys failed");
-  return (await resp.json()) as SavedApiKey[];
+/** A DELETE that treats "already gone" (404) as done. */
+async function remove(path: string, accessToken: string | null | undefined, fallback: string) {
+  const resp = await apiFetch(path, { method: "DELETE", headers: authHeaders(accessToken) }, TIMEOUT_MS);
+  if (resp.status === 404) return;
+  await ensureOk(resp, fallback);
 }
 
-export async function createSavedApiKey(
+export function getAccount(accessToken: string): Promise<AccountUser> {
+  return call("/me", { headers: authHeaders(accessToken) }, "account failed");
+}
+
+export function listSavedApiKeys(accessToken: string): Promise<SavedApiKey[]> {
+  return call("/me/api-keys", { headers: authHeaders(accessToken) }, "api keys failed");
+}
+
+export function createSavedApiKey(
   accessToken: string,
   apiKey: string,
   label = "MiroMind API key",
   makeDefault = true,
 ): Promise<SavedApiKey> {
-  const resp = await accountFetch(`${API_BASE}/me/api-keys`, {
-    method: "POST",
-    headers: {
-      ...authHeaders(accessToken),
-      "Content-Type": "application/json",
+  return call(
+    "/me/api-keys",
+    {
+      method: "POST",
+      headers: jsonAuthHeaders(accessToken),
+      body: JSON.stringify({ api_key: apiKey, label, make_default: makeDefault }),
     },
-    body: JSON.stringify({ api_key: apiKey, label, make_default: makeDefault }),
-  });
-  await assertOk(resp, "save key failed");
-  return (await resp.json()) as SavedApiKey;
+    "save key failed",
+  );
 }
 
-export async function updateSavedApiKey(
+export function updateSavedApiKey(
   accessToken: string,
   keyId: string,
   patch: { label?: string; makeDefault?: boolean },
 ): Promise<SavedApiKey> {
-  const resp = await accountFetch(`${API_BASE}/me/api-keys/${encodeURIComponent(keyId)}`, {
-    method: "PATCH",
-    headers: jsonAuthHeaders(accessToken),
-    body: JSON.stringify({
-      label: patch.label,
-      make_default: patch.makeDefault,
-    }),
-  });
-  await assertOk(resp, "update key failed");
-  return (await resp.json()) as SavedApiKey;
+  return call(
+    `/me/api-keys/${encodeURIComponent(keyId)}`,
+    {
+      method: "PATCH",
+      headers: jsonAuthHeaders(accessToken),
+      body: JSON.stringify({ label: patch.label, make_default: patch.makeDefault }),
+    },
+    "update key failed",
+  );
 }
 
-export async function testSavedApiKey(
+export function testSavedApiKey(
   accessToken: string,
   body: { apiKey?: string; keyId?: string },
 ): Promise<ApiKeyTestResult> {
-  const resp = await accountFetch(`${API_BASE}/me/api-keys/test`, {
-    method: "POST",
-    headers: jsonAuthHeaders(accessToken),
-    body: JSON.stringify({
-      api_key: body.apiKey,
-      key_id: body.keyId,
-    }),
-  });
-  await assertOk(resp, "test key failed");
-  return (await resp.json()) as ApiKeyTestResult;
+  return call(
+    "/me/api-keys/test",
+    {
+      method: "POST",
+      headers: jsonAuthHeaders(accessToken),
+      body: JSON.stringify({ api_key: body.apiKey, key_id: body.keyId }),
+    },
+    "test key failed",
+  );
 }
 
-export async function deleteSavedApiKey(
-  accessToken: string,
-  keyId: string,
-): Promise<void> {
-  const resp = await accountFetch(`${API_BASE}/me/api-keys/${encodeURIComponent(keyId)}`, {
-    method: "DELETE",
-    headers: authHeaders(accessToken),
-  });
-  if (resp.status === 404) return;
-  await assertOk(resp, "delete key failed");
+export function deleteSavedApiKey(accessToken: string, keyId: string): Promise<void> {
+  return remove(`/me/api-keys/${encodeURIComponent(keyId)}`, accessToken, "delete key failed");
 }
 
 export async function listJobSummaries(accessToken?: string | null): Promise<JobSummary[]> {
-  const resp = await accountFetch(`${API_BASE}/jobs`, { headers: authHeaders(accessToken) });
-  await assertOk(resp, "history failed");
-  const body = (await resp.json()) as { jobs: JobSummary[] };
+  const body = await call<{ jobs: JobSummary[] }>(
+    "/jobs",
+    { headers: authHeaders(accessToken) },
+    "history failed",
+  );
   return body.jobs;
 }
 
-export async function createAuditShareLink(
+export function createAuditShareLink(
   accessToken: string,
   jobId: string,
   expiresInDays = 30,
 ): Promise<ShareLinkSummary> {
-  const resp = await accountFetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/share`, {
-    method: "POST",
-    headers: jsonAuthHeaders(accessToken),
-    body: JSON.stringify({ expires_in_days: expiresInDays }),
-  });
-  await assertOk(resp, "share failed");
-  return (await resp.json()) as ShareLinkSummary;
+  return call(
+    `/jobs/${encodeURIComponent(jobId)}/share`,
+    {
+      method: "POST",
+      headers: jsonAuthHeaders(accessToken),
+      body: JSON.stringify({ expires_in_days: expiresInDays }),
+    },
+    "share failed",
+  );
 }
 
-export async function revokeAuditShareLink(
+export function revokeAuditShareLink(
   accessToken: string,
   jobId: string,
   token: string,
 ): Promise<void> {
-  const resp = await accountFetch(
-    `${API_BASE}/jobs/${encodeURIComponent(jobId)}/share/${encodeURIComponent(token)}`,
-    {
-      method: "DELETE",
-      headers: authHeaders(accessToken),
-    },
+  return remove(
+    `/jobs/${encodeURIComponent(jobId)}/share/${encodeURIComponent(token)}`,
+    accessToken,
+    "revoke share failed",
   );
-  if (resp.status === 404) return;
-  await assertOk(resp, "revoke share failed");
 }
 
-export async function deleteAuditJob(
-  accessToken: string | null | undefined,
-  jobId: string,
-): Promise<void> {
-  const resp = await accountFetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`, {
-    method: "DELETE",
-    headers: authHeaders(accessToken),
-  });
-  if (resp.status === 404) return;
-  await assertOk(resp, "delete audit failed");
+export function deleteAuditJob(accessToken: string | null | undefined, jobId: string): Promise<void> {
+  return remove(`/jobs/${encodeURIComponent(jobId)}`, accessToken, "delete audit failed");
 }
 
-export async function rerunAuditJob(
-  accessToken: string,
-  jobId: string,
-): Promise<RerunResponse> {
-  const resp = await accountFetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/rerun`, {
-    method: "POST",
-    headers: authHeaders(accessToken),
-  });
-  await assertOk(resp, "rerun failed");
-  return (await resp.json()) as RerunResponse;
+export function rerunAuditJob(accessToken: string, jobId: string): Promise<RerunResponse> {
+  return call(
+    `/jobs/${encodeURIComponent(jobId)}/rerun`,
+    { method: "POST", headers: authHeaders(accessToken) },
+    "rerun failed",
+  );
 }
 
 export async function deleteAccountData(accessToken: string): Promise<void> {
-  const resp = await accountFetch(`${API_BASE}/me`, {
-    method: "DELETE",
-    headers: authHeaders(accessToken),
-  });
-  await assertOk(resp, "delete account failed");
+  const resp = await apiFetch(
+    "/me",
+    { method: "DELETE", headers: authHeaders(accessToken) },
+    TIMEOUT_MS,
+  );
+  await ensureOk(resp, "delete account failed");
 }
 
 export async function recordEvent(
   accessToken: string | null | undefined,
   eventName: string,
-  options?: {
-    path?: string;
-    properties?: Record<string, unknown>;
-    authRequired?: boolean;
-  },
+  options?: { path?: string; properties?: Record<string, unknown> },
 ): Promise<void> {
-  const resp = await accountFetch(`${API_BASE}/events`, {
-    method: "POST",
-    headers: {
-      ...jsonHeaders(),
-      ...authHeaders(accessToken),
+  const resp = await apiFetch(
+    "/events",
+    {
+      method: "POST",
+      headers: jsonAuthHeaders(accessToken),
+      body: JSON.stringify({
+        event_name: eventName,
+        path: options?.path,
+        properties: options?.properties ?? {},
+      }),
     },
-    body: JSON.stringify({
-      event_name: eventName,
-      path: options?.path,
-      properties: options?.properties ?? {},
-      auth_required: options?.authRequired ?? false,
-    }),
-  });
-  await assertOk(resp, "event failed");
+    TIMEOUT_MS,
+  );
+  await ensureOk(resp, "event failed");
 }
 
 export function buildShareUrl(token: string): string {
   const path = `/share/${encodeURIComponent(token)}`;
   if (typeof window === "undefined") return path;
   return new URL(path, window.location.origin).toString();
-}
-
-export function authHeaders(accessToken: string | null | undefined): Record<string, string> {
-  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-}
-
-function jsonAuthHeaders(accessToken: string): Record<string, string> {
-  return {
-    ...authHeaders(accessToken),
-    ...jsonHeaders(),
-  };
-}
-
-function jsonHeaders(): Record<string, string> {
-  return { "Content-Type": "application/json" };
-}
-
-async function assertOk(resp: Response, fallback: string): Promise<void> {
-  if (resp.ok) return;
-  const message = await responseMessage(resp);
-  throw new AccountApiError(resp.status, message || `${fallback} (${resp.status})`);
-}
-
-async function responseMessage(resp: Response): Promise<string> {
-  const text = await resp.text().catch(() => "");
-  if (!text) return "";
-  try {
-    const parsed = JSON.parse(text) as { detail?: unknown; message?: unknown };
-    if (typeof parsed.detail === "string") return parsed.detail;
-    if (typeof parsed.message === "string") return parsed.message;
-  } catch {
-    return text;
-  }
-  return text;
-}
-
-async function accountFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(input, { ...init, signal: init?.signal ?? controller.signal });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new AccountApiError(504, "Request timed out. Please retry.");
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeout);
-  }
 }

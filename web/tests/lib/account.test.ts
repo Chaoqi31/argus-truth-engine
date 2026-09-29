@@ -137,7 +137,6 @@ describe("account API helpers", () => {
       event_name: "workspace_viewed",
       path: "/app",
       properties: { signed_in: false },
-      auth_required: false,
     });
   });
 

@@ -1,29 +1,8 @@
 import type { Job } from "@/lib/types";
-import { authHeaders } from "@/lib/account";
 import type { MiroMindModel } from "@/lib/byok";
+import { apiFetch, ArgusApiError, authHeaders, errorMessage } from "@/lib/http";
 
-const API_BASE = "/api/argus";
 const READ_TIMEOUT_MS = 12_000;
-
-async function responseMessage(resp: Response): Promise<string> {
-  const text = await resp.text().catch(() => "");
-  if (!text) return "";
-  try {
-    const parsed = JSON.parse(text) as { detail?: unknown };
-    return typeof parsed.detail === "string" ? parsed.detail : text;
-  } catch {
-    return text;
-  }
-}
-
-export class ArgusApiError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "ArgusApiError";
-    this.status = status;
-  }
-}
 
 export class UnsupportedMediaTypeError extends ArgusApiError {
   constructor(message = "unsupported media type") {
@@ -79,7 +58,7 @@ export async function uploadPdf(
   // 400 if neither this header nor a server-side fallback key is present.
   const headers: Record<string, string> = withAuthHeaders(options);
   addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
-  const resp = await fetch(`${API_BASE}/jobs`, {
+  const resp = await apiFetch("/jobs", {
     method: "POST",
     body: form,
     headers,
@@ -88,11 +67,11 @@ export async function uploadPdf(
     throw new UnsupportedMediaTypeError();
   }
   if (resp.status === 400) {
-    const text = await responseMessage(resp);
+    const text = await errorMessage(resp);
     throw new ArgusApiError(400, text || "MiroMind API key required.");
   }
   if (!resp.ok) {
-    const text = await responseMessage(resp);
+    const text = await errorMessage(resp);
     throw new ArgusApiError(resp.status, text || `upload failed (${resp.status})`);
   }
   return (await resp.json()) as UploadResponse;
@@ -118,7 +97,7 @@ export async function submitText(
     "Content-Type": "application/json",
   };
   addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
-  const resp = await fetch(`${API_BASE}/jobs/text`, {
+  const resp = await apiFetch("/jobs/text", {
     method: "POST",
     body: JSON.stringify({
       text,
@@ -129,14 +108,14 @@ export async function submitText(
     headers,
   });
   if (resp.status === 400) {
-    const msg = await responseMessage(resp);
+    const msg = await errorMessage(resp);
     throw new ArgusApiError(400, msg || "MiroMind API key required.");
   }
   if (resp.status === 422) {
     throw new ArgusApiError(422, "Text too short (minimum 50 characters).");
   }
   if (!resp.ok) {
-    const text = await responseMessage(resp);
+    const text = await errorMessage(resp);
     throw new ArgusApiError(resp.status, text || `submit failed (${resp.status})`);
   }
   return (await resp.json()) as UploadResponse;
@@ -153,8 +132,8 @@ export async function submitClaimSelection(
     "Content-Type": "application/json",
   };
   addApiKeyHeaders(headers, apiKey, options?.apiKeyId);
-  const resp = await fetch(
-    `${API_BASE}/jobs/${encodeURIComponent(jobId)}/claims/select`,
+  const resp = await apiFetch(
+    `/jobs/${encodeURIComponent(jobId)}/claims/select`,
     {
       method: "POST",
       headers,
@@ -165,7 +144,7 @@ export async function submitClaimSelection(
     },
   );
   if (!resp.ok) {
-    const text = await responseMessage(resp);
+    const text = await errorMessage(resp);
     throw new ArgusApiError(
       resp.status,
       text || `claim selection failed (${resp.status})`,
@@ -174,7 +153,7 @@ export async function submitClaimSelection(
 }
 
 export async function getJob(jobId: string, options?: ApiRequestOptions): Promise<Job> {
-  const resp = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`, {
+  const resp = await apiFetch(`/jobs/${encodeURIComponent(jobId)}`, {
     headers: withAuthHeaders(options),
   });
   if (resp.status === 404) {
@@ -187,28 +166,13 @@ export async function getJob(jobId: string, options?: ApiRequestOptions): Promis
 }
 
 export async function getSharedJob(token: string): Promise<Job> {
-  const resp = await fetchWithTimeout(`${API_BASE}/share/${encodeURIComponent(token)}`);
+  const resp = await apiFetch(`/share/${encodeURIComponent(token)}`, {}, READ_TIMEOUT_MS);
   if (resp.status === 404) {
     throw new JobNotFoundError(token);
   }
   if (!resp.ok) {
-    const text = await responseMessage(resp);
+    const text = await errorMessage(resp);
     throw new ArgusApiError(resp.status, text || `get shared audit failed (${resp.status})`);
   }
   return (await resp.json()) as Job;
-}
-
-async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), READ_TIMEOUT_MS);
-  try {
-    return await fetch(input, { ...init, signal: init?.signal ?? controller.signal });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new ArgusApiError(504, "Request timed out. Please retry.");
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeout);
-  }
 }

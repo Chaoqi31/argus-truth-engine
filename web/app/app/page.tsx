@@ -6,7 +6,6 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ArgusHeader } from "@/components/argus-header";
 import { AuthButton } from "@/components/auth-button";
 import {
-  AccountApiError,
   buildShareUrl,
   createAuditShareLink,
   createSavedApiKey,
@@ -25,6 +24,7 @@ import {
   type SavedApiKey,
   type ShareLinkSummary,
 } from "@/lib/account";
+import { ArgusApiError } from "@/lib/http";
 import { useAuthSession } from "@/lib/use-auth-session";
 
 type StatusFilter = "all" | "active" | "done" | "failed";
@@ -926,7 +926,7 @@ function handleError(
   setError: (value: string | null) => void,
   setSessionExpired: (value: boolean) => void,
 ) {
-  if (err instanceof AccountApiError && err.status === 401) {
+  if (err instanceof ArgusApiError && err.status === 401) {
     setSessionExpired(true);
     setError("Your session expired.");
     return;

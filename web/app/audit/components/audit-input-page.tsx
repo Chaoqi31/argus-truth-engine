@@ -3,7 +3,8 @@
 import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { uploadPdf, submitText, UnsupportedMediaTypeError, ArgusApiError } from "@/lib/api";
+import { uploadPdf, submitText, UnsupportedMediaTypeError } from "@/lib/api";
+import { ArgusApiError } from "@/lib/http";
 import {
   MIROMIND_MODELS,
   isMiroMindModel,

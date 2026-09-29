@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ArgusApiError } from "@/lib/http";
 import {
-  ArgusApiError,
   JobNotFoundError,
   UnsupportedMediaTypeError,
   getJob,
