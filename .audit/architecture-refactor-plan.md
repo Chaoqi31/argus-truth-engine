@@ -111,4 +111,24 @@ Frontend (`web`):
 
 ## Status
 
-Phase 0 in progress.
+- Phase 0 done (d0442ce): fake LLM server, three goldens, strict xfail
+  restart test.
+- Phase 1 done: PDF report, Redis bus, /resume endpoint, dead code, four
+  unused verdicts deleted (f6d22cd..59176b5).
+- Web units landed early while the arena ran: lib/byok.ts, one export path
+  and verdict vocabulary, lib/http.ts, tsc + eslint in CI.
+- Phase 2 (arena) running with two native lanes; codex and grok are out of
+  quota (402).
+
+Noted for the pipeline phase:
+- The skeptic loop is sequential, so skeptic_concurrency does nothing;
+  consistency_concurrency builds a semaphore nobody acquires.
+- api_host/api_port settings are unused (serve has --host/--port), and
+  ARGUS_API_HOST means "backend URL" to the web but "bind host" in the
+  backend .env.
+- Web: stage blurbs and stageLedger are duplicated between
+  trace-stream-view.tsx and audit-pack.ts; deriveStages is a fallback for
+  jobs without stages. Settle after the backend Stage shape.
+- Type generation prototype works (json-schema-to-typescript 16) given a
+  schema generator without field titles, serialization defaults required,
+  and tuple prefixItems rewritten to items.
