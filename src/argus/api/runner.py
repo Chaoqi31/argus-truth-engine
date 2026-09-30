@@ -137,12 +137,18 @@ class Runner:
         """Verify the claims the reviewer kept on a job paused for review.
         Raises `JobNotFound`, `NotAwaitingReview`, `UnknownClaims`, `JobBusy`,
         or `CapacityError`."""
+        live = self._live.get(job_id)
+        if live is not None:
+            if live.run.job.status != "awaiting_review":
+                raise JobBusy(job_id)
+            # The run paused and is storing its job. Its `review_ready` frame
+            # reached the client before that write, so a reviewer who answers
+            # at once waits here rather than reading the run's earlier state.
+            await asyncio.gather(live.task, return_exceptions=True)
         job = await self._repo.get_job(job_id)
         if job is None:
             raise JobNotFound(job_id)
         job.check_selection(claim_ids)
-        if job_id in self._live:
-            raise JobBusy(job_id)
         self.check_capacity()
 
         async def selected(run: Run) -> None:
