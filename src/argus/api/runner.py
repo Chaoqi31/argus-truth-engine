@@ -134,7 +134,6 @@ class JobRunner:
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
                     content_domain=content_domain,
-                    checkpointer=self.state.checkpointer,
                 )
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status
@@ -199,7 +198,6 @@ class JobRunner:
                     job_id=job_id,
                     auto_review=auto_review,
                     content_domain=content_domain,
-                    checkpointer=self.state.checkpointer,
                 )
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status
@@ -259,7 +257,6 @@ class JobRunner:
                     repo=repo,
                     trace_bus=self.state.trace_bus,
                     output_path=output_path,
-                    checkpointer=self.state.checkpointer,
                 )
                 self.records[job_id].result = job
                 self.records[job_id].status = job.status

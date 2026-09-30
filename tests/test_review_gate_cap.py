@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from argus.config import Settings
-from argus.models.domain import Claim, ClaimType
+from argus.models.domain import Claim, ClaimType, Stage
 from argus.orchestrator.context import _Ctx
 from argus.orchestrator.nodes.review_gate import _review_gate_node
 
@@ -29,6 +29,10 @@ class _RecordingPublisher:
 
     async def stage(self, **payload: Any) -> None:
         self.events.append(("stage", payload))
+
+    async def finish(self, stage: Stage) -> Stage:
+        self.events.append(("stage", {"status": "finished", **stage.model_dump()}))
+        return stage
 
 
 def _claim(
@@ -144,7 +148,7 @@ async def test_distinct_claims_not_merged() -> None:
     node = _review_gate_node(ctx, auto_review=True)
     result = await node({"claims": claims})
     assert [c.id for c in result["claims"]] == ["a1", "a2"]
-    assert result["stage_summaries"]["review_gate"]["n_verifying"] == 2
+    assert result["stages"][0].metrics["n_verifying"] == 2
     assert not [p for k, p in pub.events if k == "claims_deduped"]
 
 
@@ -162,5 +166,5 @@ async def test_under_cap_unchanged_no_event() -> None:
     result = await node({"claims": claims})
 
     assert [c.id for c in result["claims"]] == ["c1", "c2"]
-    assert result["stage_summaries"]["review_gate"]["n_verifying"] == 2
+    assert result["stages"][0].metrics["n_verifying"] == 2
     assert not [p for k, p in pub.events if k == "claims_capped"]

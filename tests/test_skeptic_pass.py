@@ -114,9 +114,7 @@ async def test_skeptic_counterevidence_downgrades_high_risk_verdict(
     assert len(skeptic_traces) == 1
 
     stage_by_key = {stage.key: stage for stage in job.stages}
-    assert stage_by_key["skeptic"].summary == (
-        "Challenged 1 high-risk finding(s) · 1 counterevidence found"
-    )
+    assert stage_by_key["skeptic"].summary == "Challenged 1 high-risk finding(s)"
     assert stage_by_key["skeptic"].metrics == {
         "n_reviewed": 1,
         "n_cleared": 0,

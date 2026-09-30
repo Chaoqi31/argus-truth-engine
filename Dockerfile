@@ -34,7 +34,6 @@ RUN apt-get update \
         libgomp1 \
         ca-certificates \
         curl \
-        libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \

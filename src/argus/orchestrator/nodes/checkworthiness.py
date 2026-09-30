@@ -6,7 +6,23 @@ from typing import Any
 
 from argus.agents.checkworthiness import run_checkworthiness
 from argus.log import log
+from argus.models.domain import Stage, StageFilteredClaim
 from argus.orchestrator.context import _Ctx, _State
+
+
+def _stage(
+    n_checkworthy: int,
+    summary: str,
+    filtered: list[StageFilteredClaim] | None = None,
+) -> Stage:
+    return Stage(
+        key="checkworthiness",
+        name="Check-worthiness",
+        engine="deepseek",
+        summary=summary,
+        metrics={"n_checkworthy": n_checkworthy, "n_filtered": len(filtered or [])},
+        filtered_claims=filtered,
+    )
 
 
 def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -21,40 +37,18 @@ def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, A
             engine="deepseek",
         )
         if not claims or not ctx.cheap_client:
-            await ctx.publisher.stage(
-                status="finished",
-                key="checkworthiness",
-                name="Check-worthiness",
-                engine="deepseek",
-                summary=f"{len(claims)} check-worthy · none filtered",
-                metrics={"n_checkworthy": len(claims), "n_filtered": 0},
+            stage = await ctx.publisher.finish(
+                _stage(len(claims), f"{len(claims)} check-worthy · none filtered")
             )
-            return {
-                "stage_summaries": {
-                    "checkworthiness": {
-                        "n_checkworthy": len(claims), "n_filtered": 0,
-                    }
-                }
-            }
+            return {"stages": [stage]}
         try:
             checkworthy, filtered = await run_checkworthiness(ctx.cheap_client, claims)
         except Exception as exc:
             log.warning("orchestrator.checkworthiness_failed", error=str(exc)[:300])
-            await ctx.publisher.stage(
-                status="finished",
-                key="checkworthiness",
-                name="Check-worthiness",
-                engine="deepseek",
-                summary=f"{len(claims)} check-worthy · filter fallback",
-                metrics={"n_checkworthy": len(claims), "n_filtered": 0},
+            stage = await ctx.publisher.finish(
+                _stage(len(claims), f"{len(claims)} check-worthy · filter fallback")
             )
-            return {
-                "stage_summaries": {
-                    "checkworthiness": {
-                        "n_checkworthy": len(claims), "n_filtered": 0,
-                    }
-                }
-            }
+            return {"stages": [stage]}
         filtered_data = [
             {"claim_id": c.id, "text": c.text, "reason": reason}
             for c, reason in filtered
@@ -70,21 +64,12 @@ def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, A
             if not filtered
             else f"{len(checkworthy)} check-worthy · {len(filtered)} filtered out"
         )
-        await ctx.publisher.stage(
-            status="finished",
-            key="checkworthiness",
-            name="Check-worthiness",
-            engine="deepseek",
-            summary=summary,
-            metrics={"n_checkworthy": len(checkworthy), "n_filtered": len(filtered)},
+        stage = await ctx.publisher.finish(
+            _stage(
+                len(checkworthy),
+                summary,
+                [StageFilteredClaim(**f) for f in filtered_data] if filtered_data else None,
+            )
         )
-        return {
-            "claims": checkworthy,
-            "filtered_claims": filtered_data,
-            "stage_summaries": {
-                "checkworthiness": {
-                    "n_checkworthy": len(checkworthy), "n_filtered": len(filtered),
-                }
-            },
-        }
+        return {"claims": checkworthy, "filtered_claims": filtered_data, "stages": [stage]}
     return node

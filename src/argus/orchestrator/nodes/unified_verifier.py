@@ -14,7 +14,15 @@ from argus.agents.unified_verifier import VERIFIER_VERSION, verify_claim
 from argus.cache.key import claim_cache_key
 from argus.engineering import BudgetExceeded, make_idempotency_key
 from argus.log import log
-from argus.models.domain import Claim, ClaimType, Evidence, Finding, FindingVerdict, ReasoningTrace
+from argus.models.domain import (
+    Claim,
+    ClaimType,
+    Evidence,
+    Finding,
+    FindingVerdict,
+    ReasoningTrace,
+    Stage,
+)
 from argus.orchestrator.assemblers import (
     _build_trace,
     _finding_payload,
@@ -297,25 +305,27 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             1 for t in new_traces.values() for step in t.steps
             if step.type.value == "web_search"
         )
-        await ctx.publisher.stage(
-            status="finished",
-            key="verify",
-            name="Verify",
-            engine="miromind",
-            summary=(
-                f"Deep-researched {len(new_findings)} claim(s) · "
-                f"{n_steps} steps · {n_searches} web searches"
-            ),
-            metrics={
-                "n_claims": len(new_findings),
-                "n_steps": n_steps,
-                "n_searches": n_searches,
-            },
+        stage = await ctx.publisher.finish(
+            Stage(
+                key="verify",
+                name="Verify",
+                engine="miromind",
+                summary=(
+                    f"Deep-researched {len(new_findings)} claim(s) · "
+                    f"{n_steps} steps · {n_searches} web searches"
+                ),
+                metrics={
+                    "n_claims": len(new_findings),
+                    "n_steps": n_steps,
+                    "n_searches": n_searches,
+                },
+            )
         )
         return {
             "findings": {f.id: f for f in new_findings},
             "traces": new_traces,
             "evidences": new_evidences,
+            "stages": [stage],
         }
     return node
 

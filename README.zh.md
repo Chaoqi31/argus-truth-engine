@@ -15,7 +15,6 @@
 [![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[项目网站](https://argus-truth-engine.vercel.app)** · **[演示视频](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
@@ -131,7 +130,7 @@ Trace 使用**渐进披露**：每个 claim 先以一行展示（verdict + 步�
 
 ## 工作原理
 
-一个 10-stage LangGraph 状态机分两个阶段编排流水线，中间由一道人在环（HITL）审核闸门分隔：
+一条 10-stage 的 async 流水线分两个阶段运行，中间由一道人在环（HITL）审核闸门分隔：
 
 <img src="./docs/assets/argus-architecture.svg" alt="Argus 项目架构图" width="100%">
 
@@ -205,7 +204,7 @@ cd web && pnpm install && pnpm dev
 | 层 | 选型 |
 |---|---|
 | **模型** | MiroMind 默认 `mirothinker-1-7-deepresearch-mini`，每次运行前可切换到 `mirothinker-1-7-deepresearch`（per-claim 验证器 + Skeptic 复核 —— 联网的两步）+ DeepSeek `deepseek-chat`（planner / atomizer / checkworthiness / 一致性 / reporter） |
-| **编排** | LangGraph 1.x StateGraph —— 并行 fan-out + reducer fan-in |
+| **编排** | 纯 asyncio —— 一致性检查与验证并行；审核暂停是持久化的 job 状态 |
 | **后端** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + 原生 SSE |
 | **持久化** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
 | **导出** | 浏览器端生成 Markdown 审计包与 JSON 证据包 |
@@ -229,4 +228,3 @@ cd web && pnpm test       # 前端测试
 
 - **[MiroMind](https://www.miromind.ai/)** 提供 `mirothinker-1-7-deepresearch` 模型
 - **[UCWS Singapore](https://www.ucws.sg/)** 主办本次黑客松
-- **[LangGraph](https://github.com/langchain-ai/langgraph)** 提供 agent 编排原语

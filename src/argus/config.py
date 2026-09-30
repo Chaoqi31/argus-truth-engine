@@ -92,9 +92,6 @@ class Settings(BaseSettings):
     cache_enabled: bool = True
     cache_ttl_days: int = 30
     cache_ttl_time_sensitive_days: int = 3
-    # NOTE: there is no HITL timeout setting. LangGraph's interrupt() pauses
-    # indefinitely until Command(resume=...) arrives. If a polling-based
-    # timeout job is ever introduced, add the setting then.
 
 
 def settings() -> Settings:

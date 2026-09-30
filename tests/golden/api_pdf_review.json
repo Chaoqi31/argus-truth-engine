@@ -778,7 +778,7 @@
         },
         "name": "Review gate",
         "strategy": null,
-        "summary": "1 claim(s) sent to verification (from 2 after dedup/cap)"
+        "summary": "1 claim(s) sent to verification"
       },
       {
         "engine": "miromind",
@@ -786,12 +786,12 @@
         "key": "verify",
         "metrics": {
           "n_claims": 1,
-          "n_searches": 2,
-          "n_steps": 4
+          "n_searches": 1,
+          "n_steps": 2
         },
         "name": "Verify",
         "strategy": null,
-        "summary": "Deep-researched 1 claim(s) · 4 steps · 2 web searches"
+        "summary": "Deep-researched 1 claim(s) · 2 steps · 1 web searches"
       },
       {
         "engine": "miromind",
@@ -805,7 +805,7 @@
         },
         "name": "Skeptic challenge",
         "strategy": null,
-        "summary": "Challenged 1 high-risk finding(s) · 0 counterevidence found · 1 inconclusive"
+        "summary": "Challenged 1 high-risk finding(s)"
       },
       {
         "engine": "deepseek",
@@ -816,7 +816,7 @@
         },
         "name": "Consistency",
         "strategy": null,
-        "summary": "0 cross-claim issue(s) found"
+        "summary": "Skipped consistency check — fewer than 2 claims"
       },
       {
         "engine": "deterministic",

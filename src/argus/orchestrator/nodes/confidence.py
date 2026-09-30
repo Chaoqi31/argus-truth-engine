@@ -9,8 +9,18 @@ from argus.agents.confidence_calculator import (
     count_distinct_sources,
     evaluate_sourcing,
 )
-from argus.models.domain import Finding
+from argus.models.domain import Finding, Stage
 from argus.orchestrator.context import _Ctx, _State
+
+
+def _stage(summary: str, n_scored: int) -> Stage:
+    return Stage(
+        key="confidence",
+        name="Confidence",
+        engine="deterministic",
+        summary=summary,
+        metrics={"n_scored": n_scored},
+    )
 
 
 def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -25,15 +35,10 @@ def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]
             engine="deterministic",
         )
         if not findings:
-            await ctx.publisher.stage(
-                status="finished",
-                key="confidence",
-                name="Confidence",
-                engine="deterministic",
-                summary="No findings needed confidence scoring",
-                metrics={"n_scored": 0},
+            stage = await ctx.publisher.finish(
+                _stage("No findings needed confidence scoring", 0)
             )
-            return {}
+            return {"stages": [stage]}
         all_evidences = state.get("evidences", [])
         updated: dict[str, Finding] = {}
         for f in findings:
@@ -57,16 +62,12 @@ def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]
                     "confidence": confidence,
                 }
             )
-        await ctx.publisher.stage(
-            status="finished",
-            key="confidence",
-            name="Confidence",
-            engine="deterministic",
-            summary=(
+        stage = await ctx.publisher.finish(
+            _stage(
                 f"Scored {len(findings)} finding(s) on 3 factors "
-                "(authority · freshness · agreement)"
-            ),
-            metrics={"n_scored": len(findings)},
+                "(authority · freshness · agreement)",
+                len(findings),
+            )
         )
-        return {"findings": updated}
+        return {"findings": updated, "stages": [stage]}
     return node

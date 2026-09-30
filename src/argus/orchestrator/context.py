@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 import asyncio
-import operator
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Any
 
 from typing_extensions import TypedDict
 
@@ -21,7 +20,7 @@ from argus.engineering import (
 from argus.llm.cheap_client import CheapLLMClient
 from argus.log import log
 from argus.miromind.client import MiromindClient
-from argus.models.domain import Claim, Evidence, Finding, ReasoningTrace
+from argus.models.domain import Claim, Evidence, Finding, ReasoningTrace, Stage
 from argus.models.miromind import Usage
 from argus.pdf.parser import ParsedDoc
 from argus.trace_bus.base import TraceBus, TraceEvent
@@ -29,24 +28,22 @@ from argus.trace_bus.base import TraceBus, TraceEvent
 _CONTEXT_WINDOW_CHARS = 200
 
 
-def _dict_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
-    return {**a, **b}
-
-
 class _State(TypedDict, total=False):
+    """What the pipeline stages pass along. See `pipeline._merge` for how a
+    stage's returned update is folded in: findings and traces merge by id,
+    evidences and stages append, every other key is replaced."""
+
     job_id: str
     pdf_path: Path
     text: str | None
     input_mode: str
     doc: ParsedDoc | None
     claims: list[Claim]
-    # Phase A outputs — preserved for UI display
-    original_claims: list[Claim]
     filtered_claims: list[dict[str, str]]  # [{"claim_id","text","reason"}]
-    findings: Annotated[dict[str, Finding], _dict_merge]
-    traces: Annotated[dict[str, ReasoningTrace], _dict_merge]
-    stage_summaries: Annotated[dict[str, dict[str, Any]], _dict_merge]
-    evidences: Annotated[list[Evidence], operator.add]
+    findings: dict[str, Finding]
+    traces: dict[str, ReasoningTrace]
+    stages: list[Stage]
+    evidences: list[Evidence]
     audit_report_md: str | None
     aborted: bool
     abort_reason: str
@@ -65,7 +62,6 @@ class _Ctx:
         cheap_client: CheapLLMClient | None = None,
         content_domain: str = "general",
         cache: FindingCache | None = None,
-        is_resuming: bool = False,
     ) -> None:
         self.client = client
         self.settings = settings
@@ -76,12 +72,6 @@ class _Ctx:
         self.cheap_client = cheap_client
         self.content_domain = content_domain
         self.cache = cache
-        # True when this _Ctx was constructed for audit_resume. Nodes that
-        # publish "first-time" events (e.g. review_ready) check this to avoid
-        # re-emitting on graph replay — the events were already published on
-        # the original audit_pdf/audit_text call and trace_bus history serves
-        # them to reconnecting clients.
-        self.is_resuming = is_resuming
 
 
 class _Publisher:
@@ -136,6 +126,19 @@ class _Publisher:
                 "metrics": metrics or {},
             },
         )
+
+    async def finish(self, stage: Stage) -> Stage:
+        """Publish a finished stage and return it for the job's stage list, so
+        the live event and the stored record are the same value."""
+        await self.stage(
+            status="finished",
+            key=stage.key,
+            name=stage.name,
+            engine=stage.engine,
+            summary=stage.summary,
+            metrics=stage.metrics,
+        )
+        return stage
 
     async def claim(
         self,

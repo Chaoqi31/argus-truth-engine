@@ -16,7 +16,6 @@ Argus returns **every factual claim**, a **verdict** on each, and a
 [![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Website](https://argus-truth-engine.vercel.app)** · **[Demo video](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
@@ -143,8 +142,8 @@ WebSocket; the sample audits replay the same recorded trace.
 
 ## How it works
 
-A 10-stage LangGraph state machine runs the pipeline in two phases, split by a
-human-in-the-loop review gate:
+A 10-stage async pipeline runs in two phases, split by a human-in-the-loop
+review gate:
 
 <img src="./docs/assets/argus-architecture.svg" alt="Argus project architecture diagram" width="100%">
 
@@ -228,7 +227,7 @@ The frontend proxies `/api/argus/*` to `http://localhost:8080` (override with
 | Layer | Choice |
 |---|---|
 | **Models** | MiroMind `mirothinker-1-7-deepresearch-mini` by default, switchable to `mirothinker-1-7-deepresearch` per run (per-claim verifier + skeptic — the steps that touch the live web) + DeepSeek `deepseek-chat` (planner / atomizer / checkworthiness / consistency / reporter) |
-| **Orchestration** | LangGraph 1.x StateGraph — parallel fan-out + reducer fan-in |
+| **Orchestration** | Plain asyncio — the consistency check runs alongside verification; the review pause is a stored job status |
 | **Backend** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + raw SSE |
 | **Persistence** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
 | **Exports** | In-browser Markdown audit pack and JSON evidence bundle |
@@ -252,4 +251,3 @@ cd web && pnpm test       # frontend tests
 
 - **[MiroMind](https://www.miromind.ai/)** for the `mirothinker-1-7-deepresearch` model
 - **[UCWS Singapore](https://www.ucws.sg/)** for hosting the hackathon
-- **[LangGraph](https://github.com/langchain-ai/langgraph)** for the orchestration primitives

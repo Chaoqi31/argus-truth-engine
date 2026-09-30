@@ -1,11 +1,9 @@
-"""HITL pause node — uses LangGraph interrupt() to halt Phase A → B transition.
+"""Review gate: the last extraction stage before paid verification.
 
-When invoked, publishes a ``review_ready`` event listing the checkworthy
-claims, then calls ``interrupt(...)``. The graph pauses; the checkpointer
-persists state. The HTTP layer resumes via ``Command(resume=selected_ids)``.
-
-If ``auto_review`` is True (no human in the loop — e.g. CLI mode), this
-node is a no-op pass-through.
+Dedupes the candidate claims, caps how many go on to verification, attaches
+each claim's surrounding text, and announces the shortlist for human review
+with a ``review_ready`` event unless ``auto_review`` is set. Whether the run
+pauses for that review is the pipeline's decision, not this node's.
 """
 from __future__ import annotations
 
@@ -13,10 +11,8 @@ import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from langgraph.types import interrupt
-
 from argus.log import log
-from argus.models.domain import Claim, ClaimType
+from argus.models.domain import Claim, ClaimType, Stage
 from argus.orchestrator.assemblers import _surrounding_text
 from argus.orchestrator.context import _Ctx, _State
 
@@ -69,21 +65,18 @@ def _review_gate_node(
             return {}
         claims = state.get("claims", [])
         n_before = len(claims)
-        publish_stage = not ctx.is_resuming
-        if publish_stage:
-            await ctx.publisher.stage(
-                status="started",
-                key="review_gate",
-                name="Review gate",
-                engine="deterministic",
-            )
+        await ctx.publisher.stage(
+            status="started",
+            key="review_gate",
+            name="Review gate",
+            engine="deterministic",
+        )
 
         # Dedupe before the paid verification step. The atomizer can emit atoms
         # that duplicate existing claims verbatim and nothing downstream
         # dedupes, so each duplicate would otherwise cost its own MiroMind call.
         deduped = _dedupe_claims(claims)
-        dedup_applied = len(deduped) < len(claims)
-        if dedup_applied:
+        if len(deduped) < len(claims):
             log.info("orchestrator.claims_deduped",
                      n_before=len(claims), n_after=len(deduped))
             await ctx.publisher.publish(
@@ -97,8 +90,7 @@ def _review_gate_node(
         # paid MiroMind deep-research call. Rank and keep only the top N.
         cap = ctx.settings.max_claims_to_verify
         n_extracted = len(claims)
-        capped_applied = n_extracted > cap
-        if capped_applied:
+        if n_extracted > cap:
             ranked = sorted(
                 enumerate(claims),
                 key=lambda ic: (
@@ -121,52 +113,20 @@ def _review_gate_node(
         doc = state.get("doc")
         claims = [c.model_copy(update={"context": _surrounding_text(doc, c)}) for c in claims]
 
-        # Per-stage summary for the UI. `claims` here is the post-dedup,
-        # post-cap list that actually goes to verification.
-        review_summary = {
-            "review_gate": {
-                "n_before": n_before,
-                "n_after": len(deduped),
-                "n_verifying": len(claims),
-            }
-        }
-        review_stage_payload = review_summary["review_gate"]
-        stage_finished = False
-
-        async def finish_stage(n_verifying: int) -> None:
-            nonlocal stage_finished
-            if not publish_stage:
-                return
-            if stage_finished:
-                return
-            stage_finished = True
-            await ctx.publisher.stage(
-                status="finished",
+        stage = await ctx.publisher.finish(
+            Stage(
                 key="review_gate",
                 name="Review gate",
                 engine="deterministic",
-                summary=f"{n_verifying} claim(s) sent to verification",
+                summary=f"{len(claims)} claim(s) sent to verification",
                 metrics={
                     "n_before": n_before,
                     "n_after": len(deduped),
-                    "n_verifying": n_verifying,
+                    "n_verifying": len(claims),
                 },
             )
-
-        if auto_review or not claims:
-            # Pass-through. If a cap was applied we MUST return the capped list
-            # — returning {} would leave the full claim list in state.
-            await finish_stage(review_stage_payload["n_verifying"])
-            return {"claims": claims, "stage_summaries": review_summary}
-
-        # LangGraph interrupt() is replay-based: when Command(resume=...)
-        # arrives, this node body re-executes from the top. The original
-        # invocation (audit_pdf/audit_text) already published
-        # "review_ready" once; trace_bus history serves it to
-        # reconnecting clients. Skip the re-publish on resume to avoid
-        # the duplicate arriving AFTER the user has already submitted.
-        if not ctx.is_resuming:
-            await finish_stage(len(claims))
+        )
+        if not auto_review and claims:
             await ctx.publisher.publish("review_ready", {
                 "claims": [
                     {"id": c.id, "text": c.text, "type": c.type.value,
@@ -177,31 +137,5 @@ def _review_gate_node(
                 "filtered": state.get("filtered_claims", []),
                 "n_checkworthy": len(claims),
             })
-
-        # interrupt() raises an internal signal LangGraph catches; the
-        # graph pauses and the checkpointer persists state. Resume via
-        # Command(resume=selected_ids).
-        selected_ids: list[str] | None = interrupt({"awaiting": "review"})
-
-        if selected_ids is not None:
-            selected_set = set(selected_ids)
-            filtered = [c for c in claims if c.id in selected_set]
-            await ctx.publisher.publish("review_submitted",
-                                        {"n_selected": len(filtered)})
-            await finish_stage(len(filtered))
-            return {
-                "claims": filtered,
-                "stage_summaries": {
-                    "review_gate": {
-                        "n_before": n_before,
-                        "n_after": len(deduped),
-                        "n_verifying": len(filtered),
-                    }
-                },
-            }
-        await ctx.publisher.publish("review_submitted",
-                                    {"n_selected": len(claims), "auto": True})
-        # No selection → keep all (already-capped) claims.
-        await finish_stage(review_stage_payload["n_verifying"])
-        return {"claims": claims, "stage_summaries": review_summary}
+        return {"claims": claims, "stages": [stage]}
     return node

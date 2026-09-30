@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" role="img" aria-labelledby="title desc">
   <title id="title">Argus project architecture</title>
-  <desc id="desc">Argus local self-host architecture from the Next.js audit workspace through FastAPI, LangGraph, model calls, persistence, and the live WebSocket trace.</desc>
+  <desc id="desc">Argus local self-host architecture from the Next.js audit workspace through FastAPI, the async audit pipeline, model calls, persistence, and the live WebSocket trace.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b33d6" />
@@ -56,7 +56,7 @@
 
   <rect class="panel" x="40" y="290" width="1040" height="375" rx="16" />
   <text class="tag" x="64" y="320">ORCHESTRATION</text>
-  <text class="h" x="64" y="344">LangGraph 10-stage pipeline</text>
+  <text class="h" x="64" y="344">Async 10-stage pipeline</text>
 
   <rect class="phase" x="72" y="374" width="250" height="218" rx="12" />
   <text class="tag" x="96" y="404">PHASE A</text>

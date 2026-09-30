@@ -1,18 +1,16 @@
 """HITL resume round-trip, fully offline.
 
-Stage 1: audit_text(auto_review=False) with a checkpointer → review_gate calls
-interrupt() → graph pauses → job persisted as "interrupted" with NO Phase B.
-Stage 2: audit_resume(selected=["c1"]) → only c1 is verified, status "done".
-
-Proves the review gate gates (Fix A): a single shared MemorySaver + the SAME
-mock client across both calls (so the router's deques carry over).
+Stage 1: audit_text(auto_review=False) with a repository pauses after the
+review gate: the job is persisted as "interrupted" with NO verification.
+Stage 2: audit_resume(selected=["c1"]) loads the stored job and verifies only
+c1, status "done". The SAME mock client serves both calls (so the router's
+deques carry over).
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from langgraph.checkpoint.memory import MemorySaver
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from argus.config import Settings
@@ -72,7 +70,6 @@ async def test_phase_a_pauses_at_review_then_resumes(
     router.add("consistency", [msg(_consistency()), completed(tokens=20)])  # defensive
     router.add("reporter", [msg(_reporter()), completed(tokens=20)])
 
-    cp = MemorySaver()
     # Same client instance across both stages: the router's deques carry over.
     client = router.make_client()
     settings = Settings(
@@ -95,7 +92,6 @@ async def test_phase_a_pauses_at_review_then_resumes(
         job_id="job_t",
         auto_review=False,
         content_domain="general",
-        checkpointer=cp,
     )
     assert job1.status == "interrupted"
     assert len(job1.claims) == 2
@@ -111,7 +107,6 @@ async def test_phase_a_pauses_at_review_then_resumes(
         repo=repo,
         trace_bus=None,
         output_path=out,
-        checkpointer=cp,
     )
     assert job2.status == "done"
     verifier_findings = [f for f in job2.findings if f.agent == "UnifiedVerifier"]

@@ -9,9 +9,11 @@ On a budget abort, claims_audited < claims_total signals partial coverage.
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
+from argus.config import Settings
 from argus.engineering import BudgetTracker
 from argus.models.domain import (
     Claim,
@@ -20,7 +22,7 @@ from argus.models.domain import (
     FindingVerdict,
     Job,
 )
-from argus.orchestrator.context import _Publisher, _State
+from argus.orchestrator.context import _Ctx, _Publisher, _State
 from argus.orchestrator.pipeline import _finalize
 
 
@@ -48,13 +50,15 @@ def _consistency_finding(claim_id: str) -> Finding:
 
 
 async def _run_finalize(final_state: _State, tmp_path: Path) -> Job:
-    job = Job(id="job_x")
-    budget = BudgetTracker(max_usd=10.0)
-    publisher = _Publisher(job_id="job_x", bus=None)  # no-op
-    return await _finalize(
-        job, final_state, budget, publisher, tmp_path / "out.json",
-        None, None, None,
+    ctx = _Ctx(
+        client=AsyncMock(),
+        settings=Settings(miromind_api_key="x"),
+        budget=BudgetTracker(max_usd=10.0),
+        runners={},
+        job_id="job_x",
+        publisher=_Publisher(job_id="job_x", bus=None),
     )
+    return await _finalize(ctx, Job(id="job_x"), final_state, tmp_path / "out.json", None, None)
 
 
 @pytest.mark.asyncio

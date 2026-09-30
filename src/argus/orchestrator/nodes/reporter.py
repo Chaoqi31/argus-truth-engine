@@ -8,8 +8,18 @@ from argus.agents.base import JsonRepairFailed
 from argus.agents.reporter import run_reporter
 from argus.engineering import BudgetExceeded
 from argus.log import log
+from argus.models.domain import Stage
 from argus.orchestrator.assemblers import _build_trace, _step_payload
 from argus.orchestrator.context import _charge_result, _Ctx, _State
+
+
+def _stage(ctx: _Ctx, summary: str) -> Stage:
+    return Stage(
+        key="reporter",
+        name="Reporter",
+        engine="deepseek" if ctx.cheap_client else "miromind",
+        summary=summary,
+    )
 
 
 def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -22,15 +32,8 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             engine="deepseek" if ctx.cheap_client else "miromind",
         )
         if not findings:
-            await ctx.publisher.stage(
-                status="finished",
-                key="reporter",
-                name="Reporter",
-                engine="deepseek" if ctx.cheap_client else "miromind",
-                summary="No report generated",
-                metrics={},
-            )
-            return {}
+            stage = await ctx.publisher.finish(_stage(ctx, "No report generated"))
+            return {"stages": [stage]}
         try:
             result = await run_reporter(
                 state.get("claims", []),
@@ -40,15 +43,10 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             )
         except JsonRepairFailed as exc:
             log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
-            await ctx.publisher.stage(
-                status="finished",
-                key="reporter",
-                name="Reporter",
-                engine="deepseek" if ctx.cheap_client else "miromind",
-                summary="Reporter could not parse a result",
-                metrics={},
+            stage = await ctx.publisher.finish(
+                _stage(ctx, "Reporter could not parse a result")
             )
-            return {}
+            return {"stages": [stage]}
 
         try:
             _charge_result(ctx, result)
@@ -63,16 +61,10 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             stream=result.final,
         )
         await ctx.publisher.publish("step", _step_payload(trace))
-        await ctx.publisher.stage(
-            status="finished",
-            key="reporter",
-            name="Reporter",
-            engine="deepseek" if ctx.cheap_client else "miromind",
-            summary="Executive summary generated",
-            metrics={},
-        )
+        stage = await ctx.publisher.finish(_stage(ctx, "Executive summary generated"))
         return {
             "audit_report_md": result.parsed.executive_summary_md,
             "traces": {trace.id: trace},
+            "stages": [stage],
         }
     return node

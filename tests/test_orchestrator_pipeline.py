@@ -1,4 +1,4 @@
-"""End-to-end test of the LangGraph orchestrator with the shared StreamRouter."""
+"""End-to-end test of the orchestrator with the shared StreamRouter."""
 from __future__ import annotations
 
 import json
@@ -122,7 +122,7 @@ def _build_router_for_two_claims() -> StreamRouter:
     return router
 
 
-async def test_langgraph_runs_all_five_agents_with_parallel_fan_in(tmp_path: Path) -> None:
+async def test_pipeline_runs_all_five_agents_with_parallel_fan_in(tmp_path: Path) -> None:
     router = _build_router_for_two_claims()
     client = router.make_client()
     out = tmp_path / "findings.json"
@@ -154,7 +154,7 @@ async def test_langgraph_runs_all_five_agents_with_parallel_fan_in(tmp_path: Pat
     assert saved["audit_report_md"] is not None
 
 
-async def test_langgraph_aborts_on_budget_breach(tmp_path: Path) -> None:
+async def test_pipeline_aborts_on_budget_breach(tmp_path: Path) -> None:
     """Budget breach during planner aborts the run before specialists fire."""
     router = StreamRouter()
     # Planner returns a huge token count to force a breach.
@@ -180,7 +180,7 @@ async def test_langgraph_aborts_on_budget_breach(tmp_path: Path) -> None:
     assert job.status == "failed"
 
 
-async def test_langgraph_specialists_are_independent(tmp_path: Path) -> None:
+async def test_pipeline_specialists_are_independent(tmp_path: Path) -> None:
     """A failed specialist must not block the others or the Reporter."""
     router = StreamRouter()
     router.add("planner", [msg(_planner_json()), completed(tokens=120)])

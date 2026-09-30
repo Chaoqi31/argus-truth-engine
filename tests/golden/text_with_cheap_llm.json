@@ -2187,7 +2187,7 @@
         },
         "name": "Review gate",
         "strategy": null,
-        "summary": "6 claim(s) sent to verification (from 8 after dedup/cap)"
+        "summary": "6 claim(s) sent to verification"
       },
       {
         "engine": "miromind",
@@ -2195,12 +2195,12 @@
         "key": "verify",
         "metrics": {
           "n_claims": 6,
-          "n_searches": 6,
-          "n_steps": 12
+          "n_searches": 5,
+          "n_steps": 10
         },
         "name": "Verify",
         "strategy": null,
-        "summary": "Deep-researched 6 claim(s) · 12 steps · 6 web searches"
+        "summary": "Deep-researched 6 claim(s) · 10 steps · 5 web searches"
       },
       {
         "engine": "miromind",
@@ -2214,7 +2214,7 @@
         },
         "name": "Skeptic challenge",
         "strategy": null,
-        "summary": "Challenged 1 high-risk finding(s) · 1 counterevidence found"
+        "summary": "Challenged 1 high-risk finding(s)"
       },
       {
         "engine": "deepseek",

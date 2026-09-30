@@ -8,7 +8,7 @@ from argus.agents.base import JsonRepairFailed
 from argus.agents.consistency import check_consistency
 from argus.engineering import BudgetExceeded
 from argus.log import log
-from argus.models.domain import Finding, FindingVerdict
+from argus.models.domain import Finding, FindingVerdict, Stage
 from argus.orchestrator.assemblers import (
     _build_trace,
     _contradictions_to_findings,
@@ -46,6 +46,16 @@ def _drop_redundant_logical_findings(
     ]
 
 
+def _stage(ctx: _Ctx, summary: str, n_findings: int) -> Stage:
+    return Stage(
+        key="consistency",
+        name="Consistency",
+        engine="deepseek" if ctx.cheap_client else "miromind",
+        summary=summary,
+        metrics={"n_findings": n_findings},
+    )
+
+
 def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
         if state.get("aborted"):
@@ -58,30 +68,20 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
             engine="deepseek" if ctx.cheap_client else "miromind",
         )
         if len(claims) < 2:
-            await ctx.publisher.stage(
-                status="finished",
-                key="consistency",
-                name="Consistency",
-                engine="deepseek" if ctx.cheap_client else "miromind",
-                summary="Skipped consistency check — fewer than 2 claims",
-                metrics={"n_findings": 0},
+            stage = await ctx.publisher.finish(
+                _stage(ctx, "Skipped consistency check — fewer than 2 claims", 0)
             )
-            return {}
+            return {"stages": [stage]}
         try:
             result = await check_consistency(
                 claims, cheap_client=ctx.cheap_client, miromind_client=ctx.client
             )
         except JsonRepairFailed as exc:
             log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
-            await ctx.publisher.stage(
-                status="finished",
-                key="consistency",
-                name="Consistency",
-                engine="deepseek" if ctx.cheap_client else "miromind",
-                summary="Consistency check could not parse a result",
-                metrics={"n_findings": 0},
+            stage = await ctx.publisher.finish(
+                _stage(ctx, "Consistency check could not parse a result", 0)
             )
-            return {}
+            return {"stages": [stage]}
 
         try:
             _charge_result(ctx, result)
@@ -108,16 +108,12 @@ def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]
         await ctx.publisher.publish("step", _step_payload(trace))
         for finding in new_findings:
             await ctx.publisher.publish("finding", _finding_payload(finding))
-        await ctx.publisher.stage(
-            status="finished",
-            key="consistency",
-            name="Consistency",
-            engine="deepseek" if ctx.cheap_client else "miromind",
-            summary=f"{len(new_findings)} cross-claim issue(s) found",
-            metrics={"n_findings": len(new_findings)},
+        stage = await ctx.publisher.finish(
+            _stage(ctx, f"{len(new_findings)} cross-claim issue(s) found", len(new_findings))
         )
         return {
             "findings": {f.id: f for f in new_findings},
             "traces": {trace.id: trace},
+            "stages": [stage],
         }
     return node
