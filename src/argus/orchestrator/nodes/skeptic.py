@@ -1,10 +1,11 @@
 """Phase B node: independently challenge high-risk verifier findings."""
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from argus.agents.base import JsonRepairFailed
+from argus.agents.base import AgentResult
 from argus.agents.skeptic import run_skeptic
 from argus.agents.unified_verifier import VERIFIER_VERSION
 from argus.cache.key import claim_cache_key
@@ -72,16 +73,20 @@ def _to_domain_review(parsed: Any) -> SkepticReview:
     )
 
 
-def _apply_skeptic_effect(finding: Finding, review: SkepticReview) -> None:
-    finding.skeptic_review = review
+def _apply_skeptic_effect(finding: Finding, review: SkepticReview) -> Finding:
     if review.status != "counterevidence_found":
-        return
-    finding.verdict = FindingVerdict.UNCERTAIN
-    finding.severity = Severity.MINOR
-    finding.confidence = min(finding.confidence, 0.5)
-    finding.summary = f"{finding.summary}  [Skeptic review found credible counterevidence.]"
-    if "skeptic counterevidence found" not in finding.flags:
-        finding.flags.append("skeptic counterevidence found")
+        return finding.model_copy(update={"skeptic_review": review})
+    flag = "skeptic counterevidence found"
+    return finding.model_copy(
+        update={
+            "skeptic_review": review,
+            "verdict": FindingVerdict.UNCERTAIN,
+            "severity": Severity.MINOR,
+            "confidence": min(finding.confidence, 0.5),
+            "summary": f"{finding.summary}  [Skeptic review found credible counterevidence.]",
+            "flags": finding.flags if flag in finding.flags else [*finding.flags, flag],
+        }
+    )
 
 
 def _stage(summary: str, reviewed: list[Finding]) -> Stage:
@@ -128,15 +133,11 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
         claims_by_id: dict[str, Claim] = {c.id: c for c in state.get("claims", [])}
         evidences = state.get("evidences", [])
         runner = ctx.runners["skeptic"]
-        traces: dict[str, ReasoningTrace] = {}
 
-        for finding in findings:
-            claim = claims_by_id.get(finding.claim_id)
-            if claim is None:
-                continue
+        async def challenge(finding: Finding, claim: Claim) -> AgentResult[Any] | None:
             async with runner.acquire():
                 try:
-                    result = await run_skeptic(
+                    return await run_skeptic(
                         ctx.client,
                         claim=claim.text,
                         verdict=finding.verdict.value,
@@ -148,13 +149,6 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                             ctx.job_id, "Skeptic", finding.id
                         ),
                     )
-                except JsonRepairFailed as exc:
-                    log.warning(
-                        "orchestrator.skeptic_failed",
-                        finding_id=finding.id,
-                        error=str(exc)[:300],
-                    )
-                    continue
                 except BudgetExceeded:
                     raise
                 except Exception as exc:
@@ -164,13 +158,28 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                         error_type=type(exc).__name__,
                         error=str(exc)[:300],
                     )
-                    continue
+                    return None
 
+        candidates = [
+            (f, claims_by_id[f.claim_id]) for f in findings if f.claim_id in claims_by_id
+        ]
+        results = await asyncio.gather(*(challenge(f, c) for f, c in candidates))
+
+        revised: dict[str, Finding] = {}
+        traces: dict[str, ReasoningTrace] = {}
+        for (finding, claim), result in zip(candidates, results, strict=True):
+            if result is None:
+                continue
             try:
                 _charge_result(ctx, result)
             except BudgetExceeded as exc:
                 log.warning("orchestrator.budget_exceeded_at_skeptic", error=str(exc))
-                return {"aborted": True, "abort_reason": str(exc)}
+                return {
+                    "aborted": True,
+                    "abort_reason": str(exc),
+                    "findings": revised,
+                    "traces": traces,
+                }
 
             trace = _build_trace(
                 job_id=ctx.job_id,
@@ -179,10 +188,10 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                 stream=result.final,
             )
             traces[trace.id] = trace
-            review = _to_domain_review(result.parsed)
-            _apply_skeptic_effect(finding, review)
+            challenged = _apply_skeptic_effect(finding, _to_domain_review(result.parsed))
+            revised[challenged.id] = challenged
             await ctx.publisher.publish("step", _step_payload(trace))
-            await ctx.publisher.publish("finding", _finding_payload(finding))
+            await ctx.publisher.publish("finding", _finding_payload(challenged))
 
             if ctx.cache is not None:
                 key = claim_cache_key(
@@ -190,14 +199,14 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                 )
                 await ctx.cache.put(
                     key,
-                    finding=finding,
-                    evidences=[e for e in evidences if e.id in finding.evidence_ids],
+                    finding=challenged,
+                    evidences=[e for e in evidences if e.id in challenged.evidence_ids],
                     verifier_version=VERIFIER_VERSION,
                     content_domain=ctx.content_domain,
                     time_sensitive=(claim.type.value == "time-sensitive"),
                 )
 
-        reviewed = [f for f in findings if f.skeptic_review is not None]
+        reviewed = list(revised.values())
         stage = await ctx.publisher.finish(
             _stage(
                 f"Challenged {len(reviewed)} high-risk finding(s)"
@@ -206,6 +215,6 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                 reviewed,
             )
         )
-        return {"findings": {f.id: f for f in reviewed}, "traces": traces, "stages": [stage]}
+        return {"findings": revised, "traces": traces, "stages": [stage]}
 
     return node

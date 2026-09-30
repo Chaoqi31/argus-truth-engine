@@ -40,20 +40,6 @@
         }
       }
     ],
-    "claim:c1:Consistency": [
-      {
-        "kind": "finding",
-        "payload": {
-          "agent": "Consistency",
-          "claim_id": "c1",
-          "finding_id": "finding:Consistency:c1",
-          "severity": "major",
-          "summary": "Growth is presented as a trend from a single year.",
-          "verdict": "overreach",
-          "why_wrong": "Multi-year growth data."
-        }
-      }
-    ],
     "claim:c1:Skeptic": [
       {
         "kind": "step",
@@ -1131,7 +1117,7 @@
           "claims_audited": 6,
           "claims_total": 6,
           "cost_usd": 0.62375,
-          "n_findings": 8,
+          "n_findings": 7,
           "n_timeout_findings": 0,
           "partial_coverage": false,
           "status": "done",
@@ -1211,11 +1197,11 @@
           "engine": "deterministic",
           "key": "confidence",
           "metrics": {
-            "n_scored": 8
+            "n_scored": 7
           },
           "name": "Confidence",
           "status": "finished",
-          "summary": "Scored 8 finding(s) on 3 factors (authority · freshness · agreement)"
+          "summary": "Scored 7 finding(s) on 3 factors (authority · freshness · agreement)"
         }
       }
     ],
@@ -1237,11 +1223,11 @@
           "engine": "miromind",
           "key": "consistency",
           "metrics": {
-            "n_findings": 2
+            "n_findings": 1
           },
           "name": "Consistency",
           "status": "finished",
-          "summary": "2 cross-claim issue(s) found"
+          "summary": "1 cross-claim issue(s) found"
         }
       }
     ],
@@ -1603,35 +1589,6 @@
       }
     ],
     "findings": [
-      {
-        "agent": "Consistency",
-        "claim_id": "c1",
-        "computation_check": null,
-        "confidence": 0.7,
-        "confidence_breakdown": {
-          "evidence_freshness": 0.5,
-          "reasoning": "Low-authority sources, limited corroboration.",
-          "source_agreement": 0.3,
-          "source_authority": 0.5
-        },
-        "correct_information": null,
-        "coverage": [],
-        "created_at": "<ts>",
-        "evidence_ids": [],
-        "evidence_quality": [],
-        "flags": [],
-        "from_cache": false,
-        "id": "finding:Consistency:c1",
-        "job_id": "JOB",
-        "reasoning_chain": [],
-        "reasoning_trace_id": "trace:Consistency:(consistency)",
-        "related_finding_ids": [],
-        "severity": "major",
-        "skeptic_review": null,
-        "summary": "Growth is presented as a trend from a single year.",
-        "verdict": "overreach",
-        "why_wrong": "Multi-year growth data."
-      },
       {
         "agent": "Consistency",
         "claim_id": "c5",
@@ -2174,22 +2131,22 @@
         "filtered_claims": null,
         "key": "consistency",
         "metrics": {
-          "n_findings": 2
+          "n_findings": 1
         },
         "name": "Consistency",
         "strategy": null,
-        "summary": "2 cross-claim issue(s) found"
+        "summary": "1 cross-claim issue(s) found"
       },
       {
         "engine": "deterministic",
         "filtered_claims": null,
         "key": "confidence",
         "metrics": {
-          "n_scored": 8
+          "n_scored": 7
         },
         "name": "Confidence",
         "strategy": null,
-        "summary": "Scored 8 finding(s) on 3 factors (authority · freshness · agreement)"
+        "summary": "Scored 7 finding(s) on 3 factors (authority · freshness · agreement)"
       },
       {
         "engine": "miromind",
@@ -2661,7 +2618,6 @@
     67,
     68,
     69,
-    70,
-    71
+    70
   ]
 }

@@ -1,14 +1,14 @@
-"""Phase B node: check cross-claim consistency and produce contradiction findings."""
+"""Phase B: check cross-claim consistency and produce contradiction findings."""
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 
 from argus.agents.base import JsonRepairFailed
-from argus.agents.consistency import check_consistency
+from argus.agents.consistency import ConsistencyOutput, check_consistency
 from argus.engineering import BudgetExceeded
 from argus.log import log
-from argus.models.domain import Finding, FindingVerdict, Stage
+from argus.models.domain import Claim, Finding, FindingVerdict, ReasoningTrace, Stage
 from argus.orchestrator.assemblers import (
     _build_trace,
     _contradictions_to_findings,
@@ -16,7 +16,7 @@ from argus.orchestrator.assemblers import (
     _logical_flaws_to_findings,
     _step_payload,
 )
-from argus.orchestrator.context import _charge_result, _Ctx, _State
+from argus.orchestrator.context import _charge_result, _Ctx
 
 _REDUNDANT_LOGICAL_VERDICTS = {
     FindingVerdict.UNSUPPORTED_INFERENCE,
@@ -56,64 +56,74 @@ def _stage(ctx: _Ctx, summary: str, n_findings: int) -> Stage:
     )
 
 
-def _consistency_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
-    async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
-            return {}
-        claims = state.get("claims", [])
-        await ctx.publisher.stage(
-            status="started",
-            key="consistency",
-            name="Consistency",
-            engine="deepseek" if ctx.cheap_client else "miromind",
-        )
-        if len(claims) < 2:
-            stage = await ctx.publisher.finish(
-                _stage(ctx, "Skipped consistency check — fewer than 2 claims", 0)
-            )
-            return {"stages": [stage]}
-        try:
-            result = await check_consistency(
-                claims, cheap_client=ctx.cheap_client, miromind_client=ctx.client
-            )
-        except JsonRepairFailed as exc:
-            log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
-            stage = await ctx.publisher.finish(
-                _stage(ctx, "Consistency check could not parse a result", 0)
-            )
-            return {"stages": [stage]}
+@dataclass(frozen=True)
+class ConsistencyCheck:
+    """What the consistency call produced, kept until the verifier's verdicts
+    are final. Without a parsed result, `summary` says why."""
 
-        try:
-            _charge_result(ctx, result)
-        except BudgetExceeded as exc:
-            log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
-            return {"aborted": True, "abort_reason": str(exc)}
+    parsed: ConsistencyOutput | None = None
+    trace: ReasoningTrace | None = None
+    summary: str = ""
+    abort_reason: str = ""
 
-        trace = _build_trace(
-            job_id=ctx.job_id,
-            claim_id="(consistency)",
-            agent="Consistency",
-            stream=result.final,
+
+async def check_consistency_of(ctx: _Ctx, claims: list[Claim]) -> ConsistencyCheck:
+    """Run the consistency check. It reads only the claims, so it can run
+    while the verifier and the skeptic work."""
+    await ctx.publisher.stage(
+        status="started",
+        key="consistency",
+        name="Consistency",
+        engine="deepseek" if ctx.cheap_client else "miromind",
+    )
+    if len(claims) < 2:
+        return ConsistencyCheck(summary="Skipped consistency check — fewer than 2 claims")
+    try:
+        result = await check_consistency(
+            claims, cheap_client=ctx.cheap_client, miromind_client=ctx.client
         )
-        existing_findings = list(state.get("findings", {}).values())
-        new_findings = _contradictions_to_findings(
-            job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
-        )
-        logical_findings = _logical_flaws_to_findings(
-            job_id=ctx.job_id, parsed=result.parsed, trace_id=trace.id
-        )
-        new_findings += _drop_redundant_logical_findings(
-            existing_findings, logical_findings
-        )
-        await ctx.publisher.publish("step", _step_payload(trace))
-        for finding in new_findings:
-            await ctx.publisher.publish("finding", _finding_payload(finding))
-        stage = await ctx.publisher.finish(
-            _stage(ctx, f"{len(new_findings)} cross-claim issue(s) found", len(new_findings))
-        )
-        return {
-            "findings": {f.id: f for f in new_findings},
-            "traces": {trace.id: trace},
-            "stages": [stage],
-        }
-    return node
+    except JsonRepairFailed as exc:
+        log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
+        return ConsistencyCheck(summary="Consistency check could not parse a result")
+    try:
+        _charge_result(ctx, result)
+    except BudgetExceeded as exc:
+        log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
+        return ConsistencyCheck(abort_reason=str(exc))
+    trace = _build_trace(
+        job_id=ctx.job_id,
+        claim_id="(consistency)",
+        agent="Consistency",
+        stream=result.final,
+    )
+    return ConsistencyCheck(parsed=result.parsed, trace=trace)
+
+
+async def record_consistency(
+    ctx: _Ctx, check: ConsistencyCheck, findings: dict[str, Finding]
+) -> dict[str, Any]:
+    """Turn the check into findings against the final verifier verdicts, so a
+    logical flaw on a claim the verifier already flagged is dropped."""
+    if check.abort_reason:
+        return {"aborted": True, "abort_reason": check.abort_reason}
+    if check.parsed is None or check.trace is None:
+        stage = await ctx.publisher.finish(_stage(ctx, check.summary, 0))
+        return {"stages": [stage]}
+    trace = check.trace
+    new_findings = _contradictions_to_findings(
+        job_id=ctx.job_id, parsed=check.parsed, trace_id=trace.id
+    ) + _drop_redundant_logical_findings(
+        list(findings.values()),
+        _logical_flaws_to_findings(job_id=ctx.job_id, parsed=check.parsed, trace_id=trace.id),
+    )
+    await ctx.publisher.publish("step", _step_payload(trace))
+    for finding in new_findings:
+        await ctx.publisher.publish("finding", _finding_payload(finding))
+    stage = await ctx.publisher.finish(
+        _stage(ctx, f"{len(new_findings)} cross-claim issue(s) found", len(new_findings))
+    )
+    return {
+        "findings": {f.id: f for f in new_findings},
+        "traces": {trace.id: trace},
+        "stages": [stage],
+    }

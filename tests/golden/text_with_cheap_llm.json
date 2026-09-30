@@ -215,20 +215,6 @@
         }
       }
     ],
-    "claim:a_2:Consistency": [
-      {
-        "kind": "finding",
-        "payload": {
-          "agent": "Consistency",
-          "claim_id": "a_2",
-          "finding_id": "finding:Consistency:a_2",
-          "severity": "major",
-          "summary": "Growth is presented as a trend from a single year.",
-          "verdict": "overreach",
-          "why_wrong": "Multi-year growth data."
-        }
-      }
-    ],
     "claim:a_2:UnifiedVerifier": [
       {
         "kind": "claim",
@@ -1113,7 +1099,7 @@
           "claims_audited": 6,
           "claims_total": 6,
           "cost_usd": 0.57425,
-          "n_findings": 9,
+          "n_findings": 8,
           "n_timeout_findings": 0,
           "partial_coverage": false,
           "status": "done",
@@ -1193,11 +1179,11 @@
           "engine": "deterministic",
           "key": "confidence",
           "metrics": {
-            "n_scored": 9
+            "n_scored": 8
           },
           "name": "Confidence",
           "status": "finished",
-          "summary": "Scored 9 finding(s) on 3 factors (authority · freshness · agreement)"
+          "summary": "Scored 8 finding(s) on 3 factors (authority · freshness · agreement)"
         }
       }
     ],
@@ -1219,11 +1205,11 @@
           "engine": "deepseek",
           "key": "consistency",
           "metrics": {
-            "n_findings": 3
+            "n_findings": 2
           },
           "name": "Consistency",
           "status": "finished",
-          "summary": "3 cross-claim issue(s) found"
+          "summary": "2 cross-claim issue(s) found"
         }
       }
     ],
@@ -1623,35 +1609,6 @@
         "summary": "The revenue figure is presented without its reporting basis.",
         "verdict": "unsupported-inference",
         "why_wrong": "The accounting basis (GAAP or adjusted) for the revenue figure."
-      },
-      {
-        "agent": "Consistency",
-        "claim_id": "a_2",
-        "computation_check": null,
-        "confidence": 0.7,
-        "confidence_breakdown": {
-          "evidence_freshness": 0.5,
-          "reasoning": "Low-authority sources, limited corroboration.",
-          "source_agreement": 0.3,
-          "source_authority": 0.5
-        },
-        "correct_information": null,
-        "coverage": [],
-        "created_at": "<ts>",
-        "evidence_ids": [],
-        "evidence_quality": [],
-        "flags": [],
-        "from_cache": false,
-        "id": "finding:Consistency:a_2",
-        "job_id": "JOB",
-        "reasoning_chain": [],
-        "reasoning_trace_id": "trace:Consistency:(consistency)",
-        "related_finding_ids": [],
-        "severity": "major",
-        "skeptic_review": null,
-        "summary": "Growth is presented as a trend from a single year.",
-        "verdict": "overreach",
-        "why_wrong": "Multi-year growth data."
       },
       {
         "agent": "Consistency",
@@ -2221,22 +2178,22 @@
         "filtered_claims": null,
         "key": "consistency",
         "metrics": {
-          "n_findings": 3
+          "n_findings": 2
         },
         "name": "Consistency",
         "strategy": null,
-        "summary": "3 cross-claim issue(s) found"
+        "summary": "2 cross-claim issue(s) found"
       },
       {
         "engine": "deterministic",
         "filtered_claims": null,
         "key": "confidence",
         "metrics": {
-          "n_scored": 9
+          "n_scored": 8
         },
         "name": "Confidence",
         "strategy": null,
-        "summary": "Scored 9 finding(s) on 3 factors (authority · freshness · agreement)"
+        "summary": "Scored 8 finding(s) on 3 factors (authority · freshness · agreement)"
       },
       {
         "engine": "deepseek",
@@ -2666,7 +2623,6 @@
     69,
     70,
     71,
-    72,
-    73
+    72
   ]
 }

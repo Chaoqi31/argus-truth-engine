@@ -27,7 +27,7 @@ from argus.orchestrator.context import _Ctx, _Publisher, _State
 from argus.orchestrator.nodes.atomizer import _atomizer_node
 from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
 from argus.orchestrator.nodes.confidence import _confidence_node
-from argus.orchestrator.nodes.consistency import _consistency_node
+from argus.orchestrator.nodes.consistency import check_consistency_of, record_consistency
 from argus.orchestrator.nodes.parse import _parse_node
 from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.reporter import _reporter_node
@@ -139,18 +139,19 @@ async def _verify(ctx: _Ctx, state: _State) -> _State:
         verified = _merge(state, await _unified_verifier_node(ctx)(state))
         return _merge(verified, await _skeptic_node(ctx)(verified))
 
-    async def checked_for_consistency() -> dict[str, Any]:
-        return await _consistency_node(ctx)(state)
-
-    # The consistency check reads only the claims, so it runs alongside the
-    # verifier. A failure in either branch cancels the other.
+    # The consistency check reads only the claims, so its call runs alongside
+    # the verifier; its findings are built after the skeptic, against the final
+    # verdicts. A failure in either branch cancels the other.
     try:
         async with asyncio.TaskGroup() as group:
             challenged = group.create_task(verified_and_challenged())
-            consistency = group.create_task(checked_for_consistency())
+            consistency = group.create_task(check_consistency_of(ctx, state.get("claims", [])))
     except ExceptionGroup as failed:
         raise failed.exceptions[0] from failed
-    state = _merge(challenged.result(), consistency.result())
+    state = challenged.result()
+    state = _merge(
+        state, await record_consistency(ctx, consistency.result(), state.get("findings", {}))
+    )
     state = _merge(state, await _confidence_node(ctx)(state))
     return _merge(state, await _reporter_node(ctx)(state))
 
