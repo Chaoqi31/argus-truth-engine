@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import pytest
 import websockets
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -116,13 +115,6 @@ async def test_pdf_audit_with_claim_review_matches_golden(tmp_path: Path) -> Non
     assert_golden("api_pdf_review", snapshot(job, events, fake))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "the 6-table mapping drops reasoning_chain, flags and parent_claim_id and "
-        "rewrites step.trace_id; fixed by the document store"
-    ),
-)
 async def test_finished_audit_reads_back_identically_after_restart(tmp_path: Path) -> None:
     with fake_llm_server() as (llm_url, _):
         settings = _settings(tmp_path, llm_url)

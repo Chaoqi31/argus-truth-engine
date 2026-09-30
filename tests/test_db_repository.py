@@ -1,4 +1,4 @@
-"""JobRepository round-trip + listing."""
+"""JobRepository stores each audit as one document."""
 from __future__ import annotations
 
 import datetime as _dt
@@ -21,224 +21,151 @@ from argus.models.domain import (
     StageFilteredClaim,
     Step,
     StepType,
+    VerificationStep,
 )
 
-# Re-use the helper from test_db_models to avoid duplication.
-from tests.test_db_models import _sample_job
 
-
-async def test_save_then_get(sqlite_engine: object) -> None:
-    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
-    repo = JobRepository(smaker)
-    job = _sample_job()
-
-    await repo.save_job(job)
-    loaded = await repo.get_job(job.id)
-
-    assert loaded is not None
-    assert loaded.id == job.id
-    assert len(loaded.findings) == 1
-    assert loaded.findings[0].verdict == job.findings[0].verdict
-
-
-async def test_confidence_breakdown_round_trips(sqlite_engine: object) -> None:
-    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
-    repo = JobRepository(smaker)
-
-    job = _sample_job()
-    breakdown = ConfidenceBreakdown(
-        source_agreement=0.8,
-        source_authority=0.6,
-        evidence_freshness=0.4,
-        reasoning="Authoritative sources broadly agree.",
+def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None = None) -> Job:
+    """A job with every nested collection populated, nested ids reused across jobs."""
+    started = _dt.datetime(2026, 5, 20, 1, minute)
+    return Job(
+        id=job_id,
+        pdf_path="" if text else f"/data/uploads/{job_id}/report.pdf",
+        input_text=text,
+        input_mode="text" if text else "pdf",
+        status=status,
+        created_at=started,
+        cost_usd=0.42,
+        total_tokens=100,
+        claims_total=1,
+        claims_audited=1,
+        audit_report_md="**1 issue** found.",
+        claims=[
+            Claim(
+                id="c1",
+                text="Smith (2021) on widgets.",
+                span=(0, 22),
+                type=ClaimType.CITATION,
+                importance="high",
+                extracted_metadata={"authors": ["Smith"], "year": 2021},
+                parent_claim_id="c0",
+            )
+        ],
+        traces=[
+            ReasoningTrace(
+                id="t1",
+                job_id=job_id,
+                claim_id="c1",
+                agent="UnifiedVerifier",
+                miromind_response_id="resp_1",
+                started_at=started,
+                steps=[
+                    Step(
+                        id="s1",
+                        trace_id="t1",
+                        sequence=1,
+                        type=StepType.WEB_SEARCH,
+                        summary="Searched Crossref.",
+                        content={"query": "Smith 2021 widgets"},
+                        created_at=started,
+                    )
+                ],
+            )
+        ],
+        evidences=[
+            Evidence(
+                id="e1",
+                source_type=EvidenceSource.CROSSREF,
+                url="https://api.crossref.org/works?x=1",
+                citation="Crossref query",
+                retrieved_at=started,
+                retrieved_by_step_id="s1",
+            )
+        ],
+        findings=[
+            Finding(
+                id="f1",
+                job_id=job_id,
+                claim_id="c1",
+                agent="UnifiedVerifier",
+                verdict=FindingVerdict.FABRICATED,
+                severity=Severity.MAJOR,
+                confidence=0.9,
+                confidence_breakdown=ConfidenceBreakdown(source_agreement=0.8),
+                summary="Not found.",
+                reasoning_chain=[
+                    VerificationStep(action="search", observation="no match", reasoning="absent")
+                ],
+                evidence_ids=["e1"],
+                reasoning_trace_id="t1",
+                created_at=started,
+                flags=["single source — verify manually"],
+            )
+        ],
+        stages=[
+            Stage(
+                key="checkworthiness",
+                name="Check-worthiness",
+                engine="deepseek",
+                summary="Kept 1 checkworthy, dropped 1",
+                metrics={"n_checkworthy": 1, "n_filtered": 1},
+                filtered_claims=[StageFilteredClaim(text="Opinion.", reason="not checkable")],
+            )
+        ],
     )
-    job.findings[0].confidence_breakdown = breakdown
-
-    await repo.save_job(job)
-    loaded = await repo.get_job(job.id)
-
-    assert loaded is not None
-    restored = loaded.findings[0].confidence_breakdown
-    assert restored == breakdown
 
 
-async def test_stages_round_trip(sqlite_engine: object) -> None:
-    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
-    repo = JobRepository(smaker)
+async def test_saved_jobs_read_back_identically(sqlite_engine: object) -> None:
+    repo = JobRepository(async_sessionmaker(sqlite_engine, expire_on_commit=False))
+    first, second = _job("j_first"), _job("j_second")
 
-    job = _sample_job()
-    job.stages = [
-        Stage(
-            key="filtering",
-            name="Triage",
-            engine="deepseek",
-            summary="Dropped 2 non-checkable claims.",
-            metrics={"in": 5, "out": 3},
-            strategy="keep numeric + citation claims",
-            filtered_claims=[
-                StageFilteredClaim(
-                    claim_id="c9", text="Opinion sentence.", reason="not checkable"
-                ),
-            ],
-        ),
-    ]
-
-    await repo.save_job(job)
-    loaded = await repo.get_job(job.id)
-
-    assert loaded is not None
-    assert len(loaded.stages) == 1
-    stage = loaded.stages[0]
-    assert stage.key == "filtering"
-    assert stage.engine == "deepseek"
-    assert stage.metrics == {"in": 5, "out": 3}
-    assert stage.filtered_claims is not None
-    assert stage.filtered_claims[0].claim_id == "c9"
-    assert stage.filtered_claims[0].reason == "not checkable"
-
-
-async def test_get_missing_returns_none(sqlite_engine: object) -> None:
-    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
-    repo = JobRepository(smaker)
-    assert await repo.get_job("nope") is None
-
-
-async def test_list_jobs_returns_recent_first(sqlite_engine: object) -> None:
-    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
-    repo = JobRepository(smaker)
-
-    # Build two independent jobs (don't share nested-row IDs).
-    j1 = _independent_sample_job("first")
-    j2 = _independent_sample_job("second")
-    await repo.save_job(j1)
-    await repo.save_job(j2, owner_user_id="u_a")
-
-    listed = await repo.list_jobs(limit=10)
-    ids = [j.id for j in listed]
-    assert set(ids) == {"j_first", "j_second"}
-
-    local = await repo.list_jobs(limit=10, owner_user_id=None)
-    assert [j.id for j in local] == ["j_first"]
-
-
-async def test_save_jobs_allows_reused_nested_ids(sqlite_engine: object) -> None:
-    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
-    repo = JobRepository(smaker)
-
-    first = _sample_job_for_job_id("j_first")
-    second = _sample_job_for_job_id("j_second")
     await repo.save_job(first)
     await repo.save_job(second)
 
-    loaded = await repo.get_job("j_second")
-
-    assert loaded is not None
-    assert loaded.claims[0].id == "c1"
-    assert loaded.findings[0].id == "f1"
-    assert loaded.findings[0].evidence_ids == ["e1"]
-    assert loaded.findings[0].reasoning_trace_id == "t1"
-    assert loaded.traces[0].id == "t1"
-    assert loaded.traces[0].steps[0].id == "s1"
-    assert loaded.evidences[0].id == "e1"
+    assert await repo.get_job("j_first") == first
+    assert await repo.get_job("j_second") == second
+    assert await repo.get_job("nope") is None
 
 
-async def test_save_job_is_upsert(sqlite_engine: object) -> None:
-    smaker = async_sessionmaker(sqlite_engine, expire_on_commit=False)
-    repo = JobRepository(smaker)
+async def test_save_overwrites_the_document_and_keeps_the_owner(sqlite_engine: object) -> None:
+    repo = JobRepository(async_sessionmaker(sqlite_engine, expire_on_commit=False))
+    job = _job("j1", status="verifying")
+    await repo.save_job(job, owner_user_id="u_a")
 
-    job = _sample_job()
-    await repo.save_job(job)
+    done = job.model_copy(update={"status": "done", "audit_report_md": "Aborted."})
+    await repo.save_job(done)
 
-    updated = job.model_copy(update={"status": "failed", "audit_report_md": "Aborted."})
-    await repo.save_job(updated)
-
-    loaded = await repo.get_job(job.id)
-    assert loaded is not None
-    assert loaded.status == "failed"
-    assert loaded.audit_report_md == "Aborted."
+    assert await repo.get_job("j1") == done
+    assert await repo.get_job_owner("j1") == "u_a"
 
 
-def _independent_sample_job(suffix: str) -> Job:
-    """Sample Job whose ALL nested IDs are namespaced by `suffix`."""
-    job_id = f"j_{suffix}"
-    claim = Claim(
-        id=f"c1_{suffix}",
-        text="Smith (2021) on widgets.",
-        page=1,
-        span=(0, 22),
-        type=ClaimType.CITATION,
-        importance="high",
-        extracted_metadata={},
-    )
-    step = Step(
-        id=f"s1_{suffix}",
-        trace_id=f"t1_{suffix}",
-        sequence=1,
-        type=StepType.THINKING,
-        summary="thinking",
-        content={"thought": "..."},
-        evidence_ids=[],
-        parent_step_id=None,
-    )
-    trace = ReasoningTrace(
-        id=f"t1_{suffix}",
-        job_id=job_id,
-        claim_id=f"c1_{suffix}",
-        agent="CitationVerifier",
-        miromind_response_id=f"resp_{suffix}",
-        started_at=_dt.datetime(2026, 5, 20, 1, 0, 0),
-        completed_at=None,
-        total_tokens=100,
-        reasoning_tokens=40,
-        num_search_queries=1,
-        steps=[step],
-    )
-    evidence = Evidence(
-        id=f"e1_{suffix}",
-        source_type=EvidenceSource.CROSSREF,
-        url="https://example.com/x",
-        citation="Crossref query",
-        snippet="",
-        full_content_ref=None,
-        retrieved_by_step_id=f"s1_{suffix}",
-    )
-    finding = Finding(
-        id=f"f1_{suffix}",
-        job_id=job_id,
-        claim_id=f"c1_{suffix}",
-        agent="CitationVerifier",
-        verdict=FindingVerdict.FABRICATED,
-        severity=Severity.MAJOR,
-        confidence=0.9,
-        summary="Not found.",
-        evidence_ids=[f"e1_{suffix}"],
-        reasoning_trace_id=f"t1_{suffix}",
-        related_finding_ids=[],
-    )
-    return Job(
-        id=job_id,
-        pdf_path="x.pdf",
-        status="done",
-        cost_usd=0.1,
-        total_tokens=100,
-        audit_report_md=None,
-        claims=[claim],
-        findings=[finding],
-        traces=[trace],
-        evidences=[evidence],
-    )
+async def test_summaries_are_scoped_to_the_owner_newest_first(sqlite_engine: object) -> None:
+    repo = JobRepository(async_sessionmaker(sqlite_engine, expire_on_commit=False))
+    await repo.save_job(_job("j_old", minute=1))
+    await repo.save_job(_job("j_new", minute=2, text="  Acme   grew 12%\nin 2025. "))
+    await repo.save_job(_job("j_other", minute=3), owner_user_id="u_a")
+
+    local = await repo.list_job_summaries(owner_user_id=None)
+
+    assert [(s.id, s.title, s.input_mode) for s in local] == [
+        ("j_new", "Acme grew 12% in 2025.", "text"),
+        ("j_old", "report.pdf", "pdf"),
+    ]
+    assert (local[0].findings_count, local[0].claims_audited, local[0].cost_usd) == (1, 1, 0.42)
+    assert [s.id for s in await repo.list_job_summaries(owner_user_id="u_a")] == ["j_other"]
 
 
-def _sample_job_for_job_id(job_id: str) -> Job:
-    job = _sample_job()
-    return job.model_copy(
-        update={
-            "id": job_id,
-            "findings": [
-                finding.model_copy(update={"job_id": job_id}) for finding in job.findings
-            ],
-            "traces": [
-                trace.model_copy(update={"job_id": job_id}) for trace in job.traces
-            ],
-        }
-    )
+async def test_startup_marks_unfinished_jobs_interrupted(sqlite_engine: object) -> None:
+    repo = JobRepository(async_sessionmaker(sqlite_engine, expire_on_commit=False))
+    await repo.save_job(_job("j_running", status="verifying", minute=1))
+    await repo.save_job(_job("j_done", status="done", minute=2))
+
+    assert await repo.mark_running_as_interrupted() == 1
+
+    running, done = await repo.get_job("j_running"), await repo.get_job("j_done")
+    assert running is not None and running.status == "interrupted"
+    assert done is not None and done.status == "done"
+    assert [s.status for s in await repo.list_job_summaries(owner_user_id=None)] == [
+        "done",
+        "interrupted",
+    ]
