@@ -2,7 +2,8 @@
 
 A real uvicorn server runs the app against a SQLite file and the fake LLM
 server, so the test exercises upload, the claim review pause, resume,
-persistence, and trace replay the way the web UI does.
+persistence, and the live job socket the way the web UI does: one connection
+opened before the pause stays open across it.
 """
 
 from __future__ import annotations
@@ -37,32 +38,19 @@ def _settings(tmp_path: Path, llm_url: str, db_url: str) -> Settings:
     )
 
 
-async def _read_trace(
-    host: str, job_id: str, *, until: str, after: int = 0
-) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
-    url = f"ws://{host}/ws/jobs/{job_id}/trace?after={after}"
-    async with asyncio.timeout(30), websockets.connect(url) as ws:
-        async for raw in ws:
-            event = json.loads(raw)
-            events.append(event)
-            if event["kind"] == until:
-                break
-    return events
+async def _next_event(ws: Any, frames: list[dict[str, Any]], kind: str) -> dict[str, Any]:
+    """Read frames until one carries an event of ``kind``."""
+    while True:
+        frame = json.loads(await ws.recv())
+        assert frame["type"] == "event", frame
+        frames.append(frame)
+        if frame["event"]["type"] == kind:
+            return frame["event"]
 
 
-async def _settled_status(http: httpx.AsyncClient, job_id: str) -> str:
-    """The job status once the runner has recorded the pause."""
-    async with asyncio.timeout(10):
-        while True:
-            status: str = (await http.get(f"/jobs/{job_id}")).json()["status"]
-            if status != "running":
-                return status
-            await asyncio.sleep(0.05)
-
-
-async def _audit_with_review(host: str) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
+async def _audit_with_review(host: str) -> tuple[str, dict[str, Any]]:
     """Upload the fixture PDF, keep only the first claim at review, run to completion."""
+    frames: list[dict[str, Any]] = []
     async with httpx.AsyncClient(base_url=f"http://{host}", timeout=30) as http:
         with FIXTURE_PDF.open("rb") as fh:
             resp = await http.post(
@@ -71,19 +59,25 @@ async def _audit_with_review(host: str) -> tuple[str, list[dict[str, Any]], dict
         assert resp.status_code == 202, resp.text
         job_id = resp.json()["job_id"]
 
-        before_review = await _read_trace(host, job_id, until="review_ready")
-        review = before_review[-1]["payload"]
-        assert [c["text"] for c in review["claims"]] == [PDF_C1, PDF_C2]
+        url = f"ws://{host}/ws/jobs/{job_id}"
+        async with asyncio.timeout(60), websockets.connect(url) as ws:
+            snapshot_frame = json.loads(await ws.recv())
+            assert snapshot_frame["type"] == "snapshot"
+            assert snapshot_frame["job"]["id"] == job_id
 
-        paused = await _settled_status(http, job_id)
-        assert paused == "awaiting_review"
+            paused = snapshot_frame["job"]
+            if paused["status"] != "awaiting_review":
+                paused = await _next_event(ws, frames, "review_ready")
+            claims = paused["claims"]
+            assert [c["text"] for c in claims] == [PDF_C1, PDF_C2]
 
-        keep = review["claims"][0]["id"]
-        resp = await http.post(
-            f"/jobs/{job_id}/claims/select", json={"selected_claim_ids": [keep]}, headers=KEY
-        )
-        assert resp.status_code == 200, resp.text
-        await _read_trace(host, job_id, until="finished", after=before_review[-1]["sequence"])
+            keep = claims[0]["id"]
+            resp = await http.post(
+                f"/jobs/{job_id}/claims/select", json={"selected_claim_ids": [keep]}, headers=KEY
+            )
+            assert resp.status_code == 200, resp.text
+            # The same connection carries the run that resumes the job.
+            await _next_event(ws, frames, "finished")
 
         job = (await http.get(f"/jobs/{job_id}")).json()
         assert job["status"] == "done"
@@ -94,15 +88,15 @@ async def _audit_with_review(host: str) -> tuple[str, list[dict[str, Any]], dict
         pdf = await http.get(f"/jobs/{job_id}/pdf")
         assert pdf.content.startswith(b"%PDF")
 
-    return job_id, await _read_trace(host, job_id, until="finished"), job
+    return job_id, job
 
 
 async def test_pdf_audit_with_claim_review_matches_golden(tmp_path: Path, db_url: str) -> None:
     with fake_llm_server() as (llm_url, fake):
         settings = _settings(tmp_path, llm_url, db_url)
         with serve(create_app(settings=settings)) as host:
-            _, events, job = await _audit_with_review(host)
-    assert_golden("api_pdf_review", snapshot(job, events, fake))
+            _, job = await _audit_with_review(host)
+    assert_golden("api_pdf_review", snapshot(job, None, fake))
 
 
 async def test_finished_audit_reads_back_identically_after_restart(
@@ -111,7 +105,7 @@ async def test_finished_audit_reads_back_identically_after_restart(
     with fake_llm_server() as (llm_url, _):
         settings = _settings(tmp_path, llm_url, db_url)
         with serve(create_app(settings=settings)) as host:
-            job_id, _, live = await _audit_with_review(host)
+            job_id, live = await _audit_with_review(host)
         with serve(create_app(settings=settings)) as host:
             async with httpx.AsyncClient(base_url=f"http://{host}") as http:
                 stored = (await http.get(f"/jobs/{job_id}")).json()

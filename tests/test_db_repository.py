@@ -5,26 +5,32 @@ import datetime as _dt
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from argus.api.runner import Runner
+from argus.config import Settings
 from argus.db.repository import JobRepository
+from argus.llm import Transports
 from argus.models.domain import (
+    Agent,
     Claim,
     ClaimType,
     ConfidenceBreakdown,
+    Engine,
     Evidence,
     EvidenceSource,
-    FailureKind,
     Finding,
     FindingVerdict,
-    Job,
     ReasoningTrace,
     Severity,
     Stage,
     StageFilteredClaim,
+    StageKey,
+    StageStatus,
     Step,
     StepType,
     Usage,
     VerificationStep,
 )
+from argus.models.job import FailureKind, Job
 
 
 def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None = None) -> Job:
@@ -53,15 +59,13 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
             ReasoningTrace(
                 id="t1",
                 claim_id="c1",
-                agent="verifier",
-                engine="miromind",
+                agent=Agent.VERIFIER,
+                engine=Engine.MIROMIND,
                 started_at=started,
                 usage=Usage(response_ids=("resp_1",), total_tokens=100, cost_usd=0.42),
                 steps=[
                     Step(
                         id="s1",
-                        trace_id="t1",
-                        sequence=1,
                         type=StepType.WEB_SEARCH,
                         summary="Searched Crossref.",
                         content={"query": "Smith 2021 widgets"},
@@ -84,7 +88,7 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
             Finding(
                 id="f1",
                 claim_id="c1",
-                agent="verifier",
+                agent=Agent.VERIFIER,
                 verdict=FindingVerdict.FABRICATED,
                 severity=Severity.MAJOR,
                 confidence=0.9,
@@ -101,12 +105,12 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
         ],
         stages=[
             Stage(
-                key="checkworthiness",
-                name="Check-worthiness",
-                engine="deepseek",
+                key=StageKey.CHECKWORTHINESS,
+                engine=Engine.DEEPSEEK,
+                status=StageStatus.DONE,
                 summary="Kept 1 checkworthy, dropped 1",
                 metrics={"n_checkworthy": 1, "n_filtered": 1},
-                filtered_claims=[StageFilteredClaim(text="Opinion.", reason="not checkable")],
+                filtered_claims=(StageFilteredClaim(text="Opinion.", reason="not checkable"),),
             )
         ],
     )
@@ -157,8 +161,11 @@ async def test_startup_fails_runs_a_restart_cut_off(sqlite_engine: object) -> No
     await repo.save_job(_job("j_running", status="running", minute=1))
     await repo.save_job(_job("j_review", status="awaiting_review", minute=2))
     await repo.save_job(_job("j_done", status="done", minute=3))
+    settings = Settings(miromind_api_key="fake", cache_enabled=False)
+    transports = Transports(settings)
 
-    assert await repo.fail_interrupted_runs() == 1
+    await Runner(repo=repo, transports=transports, settings=settings).recover()
+    await transports.aclose()
 
     running = await repo.get_job("j_running")
     assert running is not None and running.status == "failed"

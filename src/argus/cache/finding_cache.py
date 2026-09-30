@@ -35,13 +35,7 @@ class CachedVerdict(Frozen):
                 "claim_id": claim_id,
                 "usage": Usage(response_ids=self.trace.usage.response_ids),
                 "steps": tuple(
-                    step.model_copy(
-                        update={
-                            "id": steps[step.id],
-                            "parent_step_id": steps.get(step.parent_step_id or ""),
-                        }
-                    )
-                    for step in self.trace.steps
+                    step.model_copy(update={"id": steps[step.id]}) for step in self.trace.steps
                 ),
             }
         )

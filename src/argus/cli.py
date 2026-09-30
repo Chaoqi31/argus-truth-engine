@@ -7,13 +7,15 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
+from argus.audit import Run, extract, verify
 from argus.config import settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine, upgrade_schema
 from argus.llm import Transports
 from argus.llm.miromind import MiroMindAccess
 from argus.log import configure_logging
-from argus.orchestrator import audit_pdf
+from argus.models.domain import new_id
+from argus.models.job import Job
 
 app = typer.Typer(
     add_completion=False,
@@ -62,19 +64,28 @@ def audit(
 
     repo = None
     if db_url:
+        upgrade_schema(db_url)
         engine = create_engine_from_url(db_url)
         repo = JobRepository(sessionmaker_from_engine(engine))
 
     async def _go() -> None:
+        # No reviewer here: every candidate claim is verified.
+        job = Job(id=new_id("job"), pdf_path=str(pdf), input_mode="pdf")
         async with Transports(s) as transports:
-            job = await audit_pdf(
-                pdf_path=pdf,
-                output_path=output,
-                settings=s,
+            run = Run(
+                job,
                 llm=transports.for_job(MiroMindAccess.from_settings(s)),
+                cache=None,
+                settings=s,
                 budget_usd=budget_usd,
-                repo=repo,
+                emit=lambda _frame: None,
             )
+            await extract(run)
+            if job.status == "awaiting_review":
+                await verify(run, [c.id for c in job.claims])
+        output.write_text(job.model_dump_json(indent=2))
+        if repo is not None:
+            await repo.save_job(job)
         console.print(
             f"[green]✓[/green] {len(job.findings)} findings written to "
             f"[bold]{output}[/bold] "

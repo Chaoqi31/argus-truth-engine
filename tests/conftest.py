@@ -19,7 +19,7 @@ def _hermetic_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     A developer's shell or local .env may set live-product config (API keys,
     auth enforcement, or a database URL). If those leak into Settings()
     during tests, anonymous API tests start returning 401s and offline
-    orchestrator tests can pause for review. Force hermetic values
+    pipeline tests can pause for review. Force hermetic values
     here; tests that need a setting pass one explicitly (init kwargs override env).
     """
     monkeypatch.setenv("ARGUS_MIROMIND_API_KEY", "")

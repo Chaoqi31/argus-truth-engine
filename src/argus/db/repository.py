@@ -18,7 +18,7 @@ from argus.db.models import (
     UserApiKeyRow,
     UserRow,
 )
-from argus.models.domain import Failure, FailureKind, Job
+from argus.models.job import Job
 
 
 class UserIdentity(Protocol):
@@ -133,29 +133,21 @@ class JobRepository:
             await session.delete(row)
             return True
 
-    async def fail_interrupted_runs(self) -> int:
-        """Fail the jobs a dead process left running. Called on startup; jobs
-        awaiting review had nothing running and keep waiting. Returns how many
-        jobs were failed."""
-        failure = Failure(
-            kind=FailureKind.INTERRUPTED,
-            message="The server restarted while this audit was running.",
-        )
+    async def update_job(self, job: Job) -> bool:
+        """Overwrite a stored job. False when it is no longer stored."""
         async with self._smaker() as session, session.begin():
+            row = await session.get(JobRow, job.id)
+            if row is None:
+                return False
+            row.write(job)
+            return True
+
+    async def running_jobs(self) -> list[Job]:
+        async with self._smaker() as session:
             rows = (
                 await session.execute(select(JobRow).where(JobRow.status == "running"))
             ).scalars().all()
-            for row in rows:
-                row.write(
-                    row.job().model_copy(
-                        update={
-                            "status": "failed",
-                            "failure": failure,
-                            "completed_at": datetime.utcnow(),
-                        }
-                    )
-                )
-            return len(rows)
+            return [row.job() for row in rows]
 
     async def list_job_summaries(
         self,

@@ -1,582 +1,4 @@
 {
-  "events": {
-    "claim:-:planner": [
-      {
-        "kind": "step",
-        "payload": {
-          "agent": "planner",
-          "claim_id": null,
-          "n_claims": 2,
-          "num_search_queries": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0,
-          "trace_id": "trace:planner:-"
-        }
-      }
-    ],
-    "claim:-:reporter": [
-      {
-        "kind": "step",
-        "payload": {
-          "agent": "reporter",
-          "claim_id": null,
-          "num_search_queries": 0,
-          "reasoning_tokens": 0,
-          "total_tokens": 0,
-          "trace_id": "trace:reporter:-"
-        }
-      }
-    ],
-    "claim:a_1:skeptic": [
-      {
-        "kind": "step",
-        "payload": {
-          "agent": "skeptic",
-          "claim_id": "a_1",
-          "num_search_queries": 0,
-          "reasoning_tokens": 200,
-          "total_tokens": 1500,
-          "trace_id": "trace:skeptic:a_1"
-        }
-      }
-    ],
-    "claim:a_1:verifier": [
-      {
-        "kind": "claim",
-        "payload": {
-          "agent": "verifier",
-          "claim_id": "a_1",
-          "index": 1,
-          "status": "started",
-          "text": "It mentions Smith (2021) and (Doe et al., 2019).",
-          "total": 1
-        }
-      },
-      {
-        "kind": "step",
-        "payload": {
-          "agent": "verifier",
-          "claim_id": "a_1",
-          "sequence": 3,
-          "step": {
-            "content": {
-              "thought": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'."
-            },
-            "created_at": "<ts>",
-            "id": "trace:verifier:a_1/step0",
-            "parent_step_id": null,
-            "sequence": 3,
-            "summary": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'.",
-            "trace_id": "trace:verifier:a_1/response",
-            "type": "thinking"
-          },
-          "step_type": "thinking",
-          "summary": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'.",
-          "trace_id": "trace:verifier:a_1/response"
-        }
-      },
-      {
-        "kind": "step",
-        "payload": {
-          "agent": "verifier",
-          "claim_id": "a_1",
-          "sequence": 4,
-          "step": {
-            "content": {
-              "arguments": "{\"q\": \"It mentions Smith (2021) and (Doe et al., 2019).\"}",
-              "id": "resp_verifier_0f03835801_search",
-              "name": "google_search",
-              "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
-              "status": "completed",
-              "type": "tool_call"
-            },
-            "created_at": "<ts>",
-            "id": "trace:verifier:a_1/step1",
-            "parent_step_id": null,
-            "sequence": 4,
-            "summary": "search: It mentions Smith (2021) and (Doe et al., 2019).",
-            "trace_id": "trace:verifier:a_1/response",
-            "type": "web_search"
-          },
-          "step_type": "web_search",
-          "summary": "search: It mentions Smith (2021) and (Doe et al., 2019).",
-          "trace_id": "trace:verifier:a_1/response"
-        }
-      },
-      {
-        "kind": "step",
-        "payload": {
-          "agent": "verifier",
-          "claim_id": "a_1",
-          "num_search_queries": 2,
-          "reasoning_tokens": 200,
-          "total_tokens": 1500,
-          "trace_id": "trace:verifier:a_1"
-        }
-      },
-      {
-        "kind": "finding",
-        "payload": {
-          "agent": "verifier",
-          "claim_id": "a_1",
-          "coverage": [
-            {
-              "claim_fragment": "Neither Smith (2021) nor Doe et al",
-              "evidence_ids": [
-                "finding:verifier:a_1/evidence0",
-                "finding:verifier:a_1/evidence1"
-              ],
-              "reason": "The cited sources address this fragment.",
-              "relation": "refutes"
-            }
-          ],
-          "evidence_quality": [
-            {
-              "authority": 0.9,
-              "directness": 0.9,
-              "evidence_id": "finding:verifier:a_1/evidence0",
-              "freshness": 0.7,
-              "independence": 0.8,
-              "rationale": "Source 1 addresses the claim directly.",
-              "role": "primary_source"
-            },
-            {
-              "authority": 0.9,
-              "directness": 0.9,
-              "evidence_id": "finding:verifier:a_1/evidence1",
-              "freshness": 0.7,
-              "independence": 0.8,
-              "rationale": "Source 2 addresses the claim directly.",
-              "role": "secondary_source"
-            }
-          ],
-          "finding_id": "finding:verifier:a_1",
-          "reasoning_chain": [
-            {
-              "action": "Searched primary sources for the claim",
-              "observation": "Found 2 relevant source(s)",
-              "reasoning": "Compared the claim with what the sources state."
-            },
-            {
-              "action": "Cross-checked the figures",
-              "observation": "Neither Smith (2021) nor Doe et al. (2019) could be located.",
-              "reasoning": "Verdict: fabricated."
-            }
-          ],
-          "severity": "major",
-          "summary": "Neither Smith (2021) nor Doe et al. (2019) could be located.",
-          "verdict": "fabricated",
-          "why_wrong": "Both citations appear invented."
-        }
-      },
-      {
-        "kind": "claim",
-        "payload": {
-          "agent": "verifier",
-          "claim_id": "a_1",
-          "index": 1,
-          "severity": "major",
-          "status": "finished",
-          "text": "It mentions Smith (2021) and (Doe et al., 2019).",
-          "total": 1,
-          "verdict": "fabricated"
-        }
-      },
-      {
-        "kind": "finding",
-        "payload": {
-          "agent": "verifier",
-          "claim_id": "a_1",
-          "coverage": [
-            {
-              "claim_fragment": "Neither Smith (2021) nor Doe et al",
-              "evidence_ids": [
-                "finding:verifier:a_1/evidence0",
-                "finding:verifier:a_1/evidence1"
-              ],
-              "reason": "The cited sources address this fragment.",
-              "relation": "refutes"
-            }
-          ],
-          "evidence_quality": [
-            {
-              "authority": 0.9,
-              "directness": 0.9,
-              "evidence_id": "finding:verifier:a_1/evidence0",
-              "freshness": 0.7,
-              "independence": 0.8,
-              "rationale": "Source 1 addresses the claim directly.",
-              "role": "primary_source"
-            },
-            {
-              "authority": 0.9,
-              "directness": 0.9,
-              "evidence_id": "finding:verifier:a_1/evidence1",
-              "freshness": 0.7,
-              "independence": 0.8,
-              "rationale": "Source 2 addresses the claim directly.",
-              "role": "secondary_source"
-            }
-          ],
-          "finding_id": "finding:verifier:a_1",
-          "reasoning_chain": [
-            {
-              "action": "Searched primary sources for the claim",
-              "observation": "Found 2 relevant source(s)",
-              "reasoning": "Compared the claim with what the sources state."
-            },
-            {
-              "action": "Cross-checked the figures",
-              "observation": "Neither Smith (2021) nor Doe et al. (2019) could be located.",
-              "reasoning": "Verdict: fabricated."
-            }
-          ],
-          "severity": "major",
-          "skeptic_review": {
-            "counterevidence": [],
-            "recommended_verdict": null,
-            "status": "inconclusive",
-            "summary": "Could not rule out a regional journal."
-          },
-          "summary": "Neither Smith (2021) nor Doe et al. (2019) could be located.",
-          "verdict": "fabricated",
-          "why_wrong": "Both citations appear invented."
-        }
-      }
-    ],
-    "global": [
-      {
-        "kind": "started",
-        "payload": {
-          "input_mode": "pdf"
-        }
-      },
-      {
-        "kind": "atomized",
-        "payload": {
-          "n_atoms": 2,
-          "n_original": 2
-        }
-      },
-      {
-        "kind": "filtered",
-        "payload": {
-          "n_checkworthy": 2,
-          "n_filtered": 0
-        }
-      },
-      {
-        "kind": "review_ready",
-        "payload": {
-          "claims": [
-            {
-              "id": "a_1",
-              "importance": "high",
-              "parent_claim_id": "c1",
-              "text": "It mentions Smith (2021) and (Doe et al., 2019).",
-              "type": "citation"
-            },
-            {
-              "id": "a_2",
-              "importance": "medium",
-              "parent_claim_id": "c2",
-              "text": "Global widget shipments grew 4.2% YoY in 2024 (Source: WidgetWorld, 2025).",
-              "type": "numerical-data"
-            }
-          ],
-          "filtered": [],
-          "n_checkworthy": 2
-        }
-      },
-      {
-        "kind": "review_submitted",
-        "payload": {
-          "n_selected": 1
-        }
-      },
-      {
-        "kind": "finished",
-        "payload": {
-          "claims_audited": 1,
-          "claims_total": 1,
-          "cost_usd": 0.12475,
-          "n_findings": 1,
-          "n_timeout_findings": 0,
-          "partial_coverage": false,
-          "status": "done",
-          "timed_out_claim_ids": []
-        }
-      }
-    ],
-    "stage:atomizer": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "atomizer",
-          "metrics": {},
-          "name": "Atomizer",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "atomizer",
-          "metrics": {
-            "n_atoms": 2,
-            "n_original": 2
-          },
-          "name": "Atomizer",
-          "status": "finished",
-          "summary": "Normalised 2 claim(s) — no splitting needed"
-        }
-      }
-    ],
-    "stage:checkworthiness": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "checkworthiness",
-          "metrics": {},
-          "name": "Check-worthiness",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "checkworthiness",
-          "metrics": {
-            "n_checkworthy": 2,
-            "n_filtered": 0
-          },
-          "name": "Check-worthiness",
-          "status": "finished",
-          "summary": "2 check-worthy · none filtered"
-        }
-      }
-    ],
-    "stage:confidence": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deterministic",
-          "key": "confidence",
-          "metrics": {},
-          "name": "Confidence",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deterministic",
-          "key": "confidence",
-          "metrics": {
-            "n_scored": 1
-          },
-          "name": "Confidence",
-          "status": "finished",
-          "summary": "Scored 1 finding(s) on 3 factors (authority · freshness · agreement)"
-        }
-      }
-    ],
-    "stage:consistency": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "consistency",
-          "metrics": {},
-          "name": "Consistency",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "consistency",
-          "metrics": {
-            "n_findings": 0
-          },
-          "name": "Consistency",
-          "status": "finished",
-          "summary": "Skipped consistency check — fewer than 2 claims"
-        }
-      }
-    ],
-    "stage:parse": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deterministic",
-          "key": "parse",
-          "metrics": {},
-          "name": "Parse",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deterministic",
-          "key": "parse",
-          "metrics": {
-            "chars": 444,
-            "pages": 4
-          },
-          "name": "Parse",
-          "status": "finished",
-          "summary": "Parsed 4 page(s) · 444 chars"
-        }
-      }
-    ],
-    "stage:planner": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "planner",
-          "metrics": {},
-          "name": "Planner",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "planner",
-          "metrics": {
-            "n_claims": 2
-          },
-          "name": "Planner",
-          "status": "finished",
-          "summary": "Extracted 2 candidate claim(s)"
-        }
-      }
-    ],
-    "stage:reporter": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "reporter",
-          "metrics": {},
-          "name": "Reporter",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deepseek",
-          "key": "reporter",
-          "metrics": {},
-          "name": "Reporter",
-          "status": "finished",
-          "summary": "Executive summary generated"
-        }
-      }
-    ],
-    "stage:review_gate": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deterministic",
-          "key": "review_gate",
-          "metrics": {},
-          "name": "Review gate",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "deterministic",
-          "key": "review_gate",
-          "metrics": {
-            "n_after": 2,
-            "n_before": 2,
-            "n_verifying": 2
-          },
-          "name": "Review gate",
-          "status": "finished",
-          "summary": "2 claim(s) sent to verification"
-        }
-      }
-    ],
-    "stage:skeptic": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "miromind",
-          "key": "skeptic",
-          "metrics": {},
-          "name": "Skeptic challenge",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "miromind",
-          "key": "skeptic",
-          "metrics": {
-            "n_cleared": 0,
-            "n_counterevidence_found": 0,
-            "n_inconclusive": 1,
-            "n_reviewed": 1
-          },
-          "name": "Skeptic challenge",
-          "status": "finished",
-          "summary": "Challenged 1 high-risk finding(s)"
-        }
-      }
-    ],
-    "stage:verify": [
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "miromind",
-          "key": "verify",
-          "metrics": {},
-          "name": "Verify",
-          "status": "started",
-          "summary": ""
-        }
-      },
-      {
-        "kind": "stage",
-        "payload": {
-          "engine": "miromind",
-          "key": "verify",
-          "metrics": {
-            "n_claims": 1,
-            "n_searches": 1,
-            "n_steps": 2
-          },
-          "name": "Verify",
-          "status": "finished",
-          "summary": "Deep-researched 1 claim(s) · 2 steps · 1 web searches"
-        }
-      }
-    ]
-  },
   "job": {
     "audit_report_md": "**Two figures are wrong.** Revenue growth was 12%, not 18%, and the operating margin was 30%. The Smith and Lee citation could not be confirmed. The FY2024 revenue figure checks out.",
     "auto_review": false,
@@ -723,7 +145,7 @@
           "chars": 444,
           "pages": 4
         },
-        "name": "Parse",
+        "status": "done",
         "summary": "Parsed 4 page(s) · 444 chars"
       },
       {
@@ -733,7 +155,7 @@
         "metrics": {
           "n_claims": 2
         },
-        "name": "Planner",
+        "status": "done",
         "summary": "Extracted 2 candidate claim(s)"
       },
       {
@@ -744,7 +166,7 @@
           "n_atoms": 2,
           "n_original": 2
         },
-        "name": "Atomizer",
+        "status": "done",
         "summary": "Normalised 2 claim(s) — no splitting needed"
       },
       {
@@ -755,20 +177,31 @@
           "n_checkworthy": 2,
           "n_filtered": 0
         },
-        "name": "Check-worthiness",
+        "status": "done",
         "summary": "2 check-worthy · none filtered"
       },
       {
         "engine": "deterministic",
         "filtered_claims": [],
-        "key": "review_gate",
+        "key": "shortlist",
         "metrics": {
           "n_after": 2,
           "n_before": 2,
-          "n_verifying": 1
+          "n_shortlisted": 2
         },
-        "name": "Review gate",
-        "summary": "1 claim(s) sent to verification"
+        "status": "done",
+        "summary": "2 claim(s) shortlisted for review"
+      },
+      {
+        "engine": "deterministic",
+        "filtered_claims": [],
+        "key": "review",
+        "metrics": {
+          "n_candidates": 2,
+          "n_selected": 1
+        },
+        "status": "done",
+        "summary": "1 of 2 claim(s) selected"
       },
       {
         "engine": "miromind",
@@ -779,7 +212,7 @@
           "n_searches": 1,
           "n_steps": 2
         },
-        "name": "Verify",
+        "status": "done",
         "summary": "Deep-researched 1 claim(s) · 2 steps · 1 web searches"
       },
       {
@@ -792,7 +225,7 @@
           "n_inconclusive": 1,
           "n_reviewed": 1
         },
-        "name": "Skeptic challenge",
+        "status": "done",
         "summary": "Challenged 1 high-risk finding(s)"
       },
       {
@@ -802,7 +235,7 @@
         "metrics": {
           "n_findings": 0
         },
-        "name": "Consistency",
+        "status": "done",
         "summary": "Skipped consistency check — fewer than 2 claims"
       },
       {
@@ -812,7 +245,7 @@
         "metrics": {
           "n_scored": 1
         },
-        "name": "Confidence",
+        "status": "done",
         "summary": "Scored 1 finding(s) on 3 factors (authority · freshness · agreement)"
       },
       {
@@ -820,13 +253,49 @@
         "filtered_claims": [],
         "key": "reporter",
         "metrics": {},
-        "name": "Reporter",
+        "status": "done",
         "summary": "Executive summary generated"
       }
     ],
     "status": "done",
     "total_tokens": 3000,
     "traces": [
+      {
+        "agent": "atomizer",
+        "claim_id": null,
+        "completed_at": "<ts>",
+        "engine": "deepseek",
+        "id": "trace:atomizer:-",
+        "started_at": "<ts>",
+        "steps": [],
+        "usage": {
+          "cost_usd": 0.0,
+          "num_search_queries": 0,
+          "reasoning_tokens": 0,
+          "response_ids": [
+            "trace:atomizer:-/response"
+          ],
+          "total_tokens": 0
+        }
+      },
+      {
+        "agent": "checkworthiness",
+        "claim_id": null,
+        "completed_at": "<ts>",
+        "engine": "deepseek",
+        "id": "trace:checkworthiness:-",
+        "started_at": "<ts>",
+        "steps": [],
+        "usage": {
+          "cost_usd": 0.0,
+          "num_search_queries": 0,
+          "reasoning_tokens": 0,
+          "response_ids": [
+            "trace:checkworthiness:-/response"
+          ],
+          "total_tokens": 0
+        }
+      },
       {
         "agent": "planner",
         "claim_id": null,
@@ -877,10 +346,7 @@
             },
             "created_at": "<ts>",
             "id": "trace:skeptic:a_1/step0",
-            "parent_step_id": null,
-            "sequence": 3,
             "summary": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'.",
-            "trace_id": "trace:skeptic:a_1/response",
             "type": "thinking"
           },
           {
@@ -894,10 +360,7 @@
             },
             "created_at": "<ts>",
             "id": "trace:skeptic:a_1/step1",
-            "parent_step_id": "trace:skeptic:a_1/step0",
-            "sequence": 4,
             "summary": "search: It mentions Smith (2021) and (Doe et al., 2019).",
-            "trace_id": "trace:skeptic:a_1/response",
             "type": "web_search"
           }
         ],
@@ -925,10 +388,7 @@
             },
             "created_at": "<ts>",
             "id": "trace:verifier:a_1/step0",
-            "parent_step_id": null,
-            "sequence": 3,
             "summary": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'.",
-            "trace_id": "trace:verifier:a_1/response",
             "type": "thinking"
           },
           {
@@ -942,10 +402,7 @@
             },
             "created_at": "<ts>",
             "id": "trace:verifier:a_1/step1",
-            "parent_step_id": "trace:verifier:a_1/step0",
-            "sequence": 4,
             "summary": "search: It mentions Smith (2021) and (Doe et al., 2019).",
-            "trace_id": "trace:verifier:a_1/response",
             "type": "web_search"
           }
         ],
@@ -959,7 +416,8 @@
           "total_tokens": 1500
         }
       }
-    ]
+    ],
+    "version": 45
   },
   "llm_calls": {
     "chat:atomizer": 1,
@@ -968,43 +426,5 @@
     "chat:reporter": 1,
     "responses:skeptic": 1,
     "responses:verifier": 1
-  },
-  "sequences": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21
-  ]
+  }
 }

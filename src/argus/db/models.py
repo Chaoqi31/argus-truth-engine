@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from argus.models.domain import Job
+from argus.models.job import Job
 
 
 class Base(DeclarativeBase):

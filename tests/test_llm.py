@@ -55,9 +55,6 @@ async def _ask(
 ) -> tuple[Answered[UnifiedVerifierOutput] | Failed, list[Step]]:
     streamed: list[Step] = []
 
-    async def on_step(step: Step) -> None:
-        streamed.append(step)
-
     with fake_llm_server(fake) as (base_url, _):
         settings = audit_settings(base_url, cheap_llm=cheap_llm, **overrides)
         async with Transports(settings) as transports:
@@ -67,7 +64,7 @@ async def _ask(
             answer = await llm.ask(
                 task,
                 build_verifier_input(claim, "", ""),
-                on_step=on_step,
+                on_step=streamed.append,
                 idempotency_key=idempotency_key,
             )
     return answer, streamed
@@ -79,7 +76,6 @@ async def test_ask_streams_steps_and_prices_the_response() -> None:
     assert isinstance(answer, Answered)
     assert answer.output.verdict == FindingVerdict.INACCURATE
     assert [s.type for s in streamed] == [StepType.THINKING, StepType.WEB_SEARCH]
-    assert list(answer.steps) == streamed
     assert streamed[1].content["result"]
     assert len(answer.usage.response_ids) == 1
     assert answer.usage.cost_usd == pytest.approx(
@@ -98,7 +94,7 @@ def _item(kind: str, seq: int, item: dict[str, object]) -> dict[str, object]:
 
 def test_steps_come_out_in_the_order_their_items_began() -> None:
     search = {"type": "tool_call", "id": "t1", "name": "google_search", "arguments": "{}"}
-    steps = _Steps("resp_1", "verifier")
+    steps = _Steps("verifier")
     thought = {"type": "response.reasoning_text.delta", "sequence_number": 2, "delta": "hm"}
 
     assert steps.feed(_item("added", 1, search)) == []
@@ -111,7 +107,7 @@ def test_steps_come_out_in_the_order_their_items_began() -> None:
 
 
 def test_steps_behind_a_call_that_never_completes_come_out_at_the_end() -> None:
-    steps = _Steps("resp_1", "verifier")
+    steps = _Steps("verifier")
     steps.feed(_item("added", 1, {"type": "tool_call", "id": "t1", "name": "google_search"}))
     steps.feed({"type": "response.reasoning_text.delta", "sequence_number": 2, "delta": "hm"})
     steps.feed(_item("done", 3, {"type": "reasoning", "id": "r1"}))
@@ -121,12 +117,12 @@ def test_steps_behind_a_call_that_never_completes_come_out_at_the_end() -> None:
 
 async def test_ask_repairs_broken_output_once_under_a_fresh_idempotency_key() -> None:
     fake = FakeLLM(malformed_once=frozenset({S5}))
-    answer, _ = await _ask(fake, VERIFY, S5, idempotency_key="k1")
+    answer, streamed = await _ask(fake, VERIFY, S5, idempotency_key="k1")
 
     assert isinstance(answer, Answered)
     assert answer.output.verdict == FindingVerdict.INACCURATE
     assert len(answer.usage.response_ids) == 2
-    assert len(answer.steps) == 4
+    assert len(streamed) == 4
     assert [r["idempotency_key"] for r in fake.requests] == ["k1", "k1:repair"]
 
 
@@ -141,12 +137,11 @@ async def test_ask_reports_output_that_never_parses() -> None:
 
 async def test_ask_times_out_and_cancels_the_response() -> None:
     fake = FakeLLM(stalled=frozenset({S5}))
-    answer, streamed = await _ask(fake, VERIFY, S5, miromind_response_timeout_s=0.5)
+    answer, _ = await _ask(fake, VERIFY, S5, miromind_response_timeout_s=0.5)
 
     assert isinstance(answer, Failed)
     assert answer.reason == "timeout"
     assert fake.cancelled == list(answer.usage.response_ids)
-    assert list(answer.steps) == streamed
 
 
 async def test_ask_resumes_a_dropped_stream_where_it_broke() -> None:
@@ -225,10 +220,11 @@ async def test_text_tasks_run_on_deepseek_when_it_is_configured() -> None:
         output=UnifiedVerifierOutput,
         max_output_tokens=6000,
     )
-    answer, streamed = await _ask(FakeLLM(), text_task, S5, cheap_llm=True)
+    fake = FakeLLM()
+    answer, streamed = await _ask(fake, text_task, S5, cheap_llm=True)
 
     assert isinstance(answer, Answered)
-    assert answer.engine == "deepseek"
+    assert [r["api"] for r in fake.requests] == ["chat"]
     assert streamed == []
     assert answer.usage.cost_usd == 0.0
 

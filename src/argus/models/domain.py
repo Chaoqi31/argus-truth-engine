@@ -1,11 +1,9 @@
-"""Core domain models for Argus.
+"""The values an audit is made of: documents become claims, claims become
+findings, and every LLM task leaves a trace of the steps it streamed.
 
-These models represent the data flowing through the pipeline: PDFs become Claims,
-Claims become Findings (with attached ReasoningTraces), and the final output is
-the union of all of those plus the per-Step events MiroMind streamed back.
-
-Everything but the `Job` aggregate is an immutable value: a revised finding is
-a copy under the same id, never an edit a concurrent stage could observe.
+All of them are immutable: a revised finding is a copy under the same id,
+never an edit a concurrent stage could observe. The aggregate that collects
+them is `argus.models.job.Job`.
 """
 from __future__ import annotations
 
@@ -14,7 +12,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # --- Enums ----------------------------------------------------------------------------
 
@@ -119,7 +117,8 @@ class StageKey(StrEnum):
     PLANNER = "planner"
     ATOMIZER = "atomizer"
     CHECKWORTHINESS = "checkworthiness"
-    REVIEW_GATE = "review_gate"
+    SHORTLIST = "shortlist"
+    REVIEW = "review"
     VERIFY = "verify"
     SKEPTIC = "skeptic"
     CONSISTENCY = "consistency"
@@ -184,13 +183,13 @@ class Evidence(Frozen):
 
 
 class Step(Frozen):
+    """One thing an LLM did while it worked: a thought, a search, a fetch. A
+    trace's steps are in the order the provider began them."""
+
     id: str
-    trace_id: str
-    sequence: int = Field(ge=0)
     type: StepType
     summary: str
     content: dict[str, Any] = Field(default_factory=dict)
-    parent_step_id: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -216,7 +215,8 @@ class Usage(Frozen):
 
 class ReasoningTrace(Frozen):
     """One LLM task: every step it streamed, what it cost, which engine ran
-    it. `claim_id` is None for tasks over the whole document."""
+    it. `claim_id` is None for tasks over the whole document. A trace without
+    `completed_at` is still running, or was cut off."""
 
     id: str
     agent: Agent
@@ -357,11 +357,17 @@ class StageFilteredClaim(Frozen):
     reason: str
 
 
+class StageStatus(StrEnum):
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"  # the run ended while the stage was running
+
+
 class Stage(Frozen):
     key: StageKey
-    name: str
     engine: Engine
-    summary: str
+    status: StageStatus = StageStatus.RUNNING
+    summary: str = ""
     metrics: dict[str, int] = Field(default_factory=dict)
     filtered_claims: tuple[StageFilteredClaim, ...] = ()
 
@@ -385,71 +391,3 @@ class BenchmarkSpec(Frozen):
 
     name: str
     expected_claims: tuple[BenchmarkExpectedClaim, ...] = ()
-
-
-JobStatus = Literal["running", "awaiting_review", "done", "failed"]
-
-
-class FailureKind(StrEnum):
-    BUDGET = "budget"  # the job's spend cap was reached
-    INTERRUPTED = "interrupted"  # the run was cut off: a restart or a cancel
-    ERROR = "error"  # the input or a provider made the audit impossible
-
-
-class Failure(Frozen):
-    kind: FailureKind
-    message: str
-
-
-class Job(_Base):
-    id: str
-    scenario_label: str | None = None
-    persona: str | None = None
-    pdf_path: str = ""
-    input_text: str | None = None
-    input_mode: Literal["pdf", "text"] = "pdf"
-    content_domain: ContentDomain = ContentDomain.GENERAL
-    auto_review: bool = False
-    status: JobStatus = "running"
-    failure: Failure | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: datetime | None = None
-    audit_report_md: str | None = None
-
-    claims: list[Claim] = Field(default_factory=list)
-    findings: list[Finding] = Field(default_factory=list)
-    traces: list[ReasoningTrace] = Field(default_factory=list)
-    evidences: list[Evidence] = Field(default_factory=list)
-    stages: list[Stage] = Field(default_factory=list)
-    # Demo-fixture-only ground truth; always None on live jobs. See BenchmarkSpec.
-    benchmark: BenchmarkSpec | None = None
-
-    # Derived, so they cannot drift from what they summarise. Sent to the web
-    # and projected into list columns, never stored in the document.
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def cost_usd(self) -> float:
-        return round(sum(t.usage.cost_usd for t in self.traces), 6)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def total_tokens(self) -> int:
-        return sum(t.usage.total_tokens for t in self.traces)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def claims_total(self) -> int:
-        """Claims sent to verification: the reviewer's selection once made."""
-        return len(self.claims)
-
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def claims_audited(self) -> int:
-        """Claims with a verifier verdict, failed ones included. Fewer than
-        `claims_total` means the audit stopped part-way."""
-        return sum(1 for f in self.findings if f.agent == Agent.VERIFIER)
-
-    def document_json(self) -> str:
-        """The stored form: everything but the derived fields."""
-        return self.model_dump_json(exclude_computed_fields=True)

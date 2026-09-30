@@ -1,4 +1,4 @@
-"""WebSocket trace stream — history replay through the InProcessBus."""
+"""WebSocket /ws/jobs/{id}: a snapshot of the job, then every change to it."""
 from __future__ import annotations
 
 import asyncio
@@ -8,10 +8,11 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from argus.api.app import create_app
 from argus.config import Settings
-from argus.trace_bus.base import TraceEvent
+from argus.models.job import Job
 
 
 @pytest.fixture
@@ -24,39 +25,29 @@ def app_under_test(tmp_path: Path, db_url: str) -> FastAPI:
     return create_app(settings=settings)
 
 
-def test_websocket_replays_history_then_closes_on_finished(
-    app_under_test: FastAPI,
-) -> None:
-    bus = app_under_test.state.argus.trace_bus
+def _store(app: FastAPI, job: Job) -> None:
+    asyncio.run(app.state.argus.repo.save_job(job))
 
-    # Publish a complete trace BEFORE connecting; the subscription's history
-    # snapshot covers it, and "finished" terminates the live iterator.
-    async def seed() -> None:
-        await bus.publish(TraceEvent(job_id="j1", sequence=1, kind="started"))
-        await bus.publish(
-            TraceEvent(
-                job_id="j1",
-                sequence=2,
-                kind="step",
-                payload={"agent": "planner"},
-            )
-        )
-        await bus.publish(TraceEvent(job_id="j1", sequence=3, kind="finished"))
 
-    asyncio.run(seed())
+def test_a_finished_job_arrives_as_a_snapshot_and_closes(app_under_test: FastAPI) -> None:
+    _store(app_under_test, Job(id="j1", input_mode="text", input_text="t", status="done"))
 
-    client = TestClient(app_under_test)
-    with client.websocket_connect("/ws/jobs/j1/trace") as ws:
-        events: list[dict[str, object]] = []
-        while True:
-            raw = ws.receive_text()
-            ev = json.loads(raw)
-            events.append(ev)
-            if ev["kind"] == "finished":
-                break
+    with (
+        TestClient(app_under_test) as client,
+        client.websocket_connect("/ws/jobs/j1") as ws,
+        pytest.raises(WebSocketDisconnect),
+    ):
+        frame = json.loads(ws.receive_text())
+        assert frame["type"] == "snapshot"
+        assert (frame["job"]["id"], frame["job"]["status"]) == ("j1", "done")
+        ws.receive_text()
 
-    kinds = [e["kind"] for e in events]
-    assert kinds == ["started", "step", "finished"]
-    seqs = [e["sequence"] for e in events]
-    assert seqs == [1, 2, 3]
-    assert events[1]["payload"] == {"agent": "planner"}
+
+def test_an_unknown_job_closes_with_a_policy_violation(app_under_test: FastAPI) -> None:
+    with (
+        TestClient(app_under_test) as client,
+        client.websocket_connect("/ws/jobs/nope") as ws,
+        pytest.raises(WebSocketDisconnect) as closed,
+    ):
+        ws.receive_text()
+    assert closed.value.code == 1008

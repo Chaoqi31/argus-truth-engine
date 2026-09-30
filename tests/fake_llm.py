@@ -605,6 +605,7 @@ class FakeLLM:
                     "api": "responses",
                     "task": task,
                     "agent": body.get("metadata", {}).get("agent"),
+                    "model": body["model"],
                     "api_key": api_key,
                     "idempotency_key": request.headers.get("idempotency-key"),
                 }

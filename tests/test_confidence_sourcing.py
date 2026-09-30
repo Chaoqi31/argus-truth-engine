@@ -4,24 +4,19 @@ discarding them (MiroThinker under-logs sources, so hard rejection would throw
 away sound, paid verdicts)."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
-import pytest
-
-from argus.agents.confidence_calculator import (
+from argus.audit.confidence import (
     count_distinct_sources,
     evaluate_sourcing,
+    rescored,
 )
-from argus.config import Settings
 from argus.models.domain import (
     Evidence,
     EvidenceSource,
     Finding,
+    FindingFlag,
     FindingVerdict,
     VerificationStep,
 )
-from argus.orchestrator.context import _Ctx
-from argus.orchestrator.nodes.confidence import _confidence_node
 
 
 def _ev(eid: str, url: str | None = None) -> Evidence:
@@ -96,39 +91,28 @@ def test_consistency_finding_not_flagged() -> None:
     assert evaluate_sourcing(f, 0) == (None, None)
 
 
-# --- node wiring ------------------------------------------------------------
-
-def _ctx() -> _Ctx:
-    return _Ctx(
-        llm=AsyncMock(), settings=Settings(miromind_api_key="x"),
-        budget=AsyncMock(), runners={}, job_id="j", publisher=AsyncMock(),
-    )
+# --- rescoring --------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_node_caps_and_flags_single_source_finding() -> None:
-    f = _finding(verdict=FindingVerdict.FABRICATED, confidence=0.95,
-                 evidence_ids=["e1"])
+def test_a_single_source_verdict_is_capped_and_flagged() -> None:
+    f = _finding(verdict=FindingVerdict.FABRICATED, confidence=0.95, evidence_ids=["e1"])
     evs = [_ev("e1", "https://reuters.com/a")]  # 1 distinct source
-    node = _confidence_node(_ctx())
-    result = await node({"findings": {f.id: f}, "evidences": evs})
 
-    updated = result["findings"][f.id]
+    updated = rescored(f, evs)
+
     assert updated.confidence == 0.6  # capped from 0.95
-    assert any("single source" in fl for fl in updated.flags)
+    assert updated.flags == (FindingFlag.SINGLE_SOURCE,)
     assert updated.confidence_breakdown is not None
 
 
-@pytest.mark.asyncio
-async def test_node_leaves_well_sourced_finding_untouched() -> None:
+def test_a_well_sourced_verdict_keeps_its_confidence() -> None:
     f = _finding(verdict=FindingVerdict.FABRICATED, confidence=0.9,
                  evidence_ids=["e1", "e2", "e3"])
     evs = [_ev("e1", "https://reuters.com/a"),
            _ev("e2", "https://sec.gov/x"),
            _ev("e3", "https://arxiv.org/y")]  # 3 distinct sources
-    node = _confidence_node(_ctx())
-    result = await node({"findings": {f.id: f}, "evidences": evs})
 
-    updated = result["findings"][f.id]
-    assert updated.confidence == 0.9  # untouched
+    updated = rescored(f, evs)
+
+    assert updated.confidence == 0.9
     assert updated.flags == ()

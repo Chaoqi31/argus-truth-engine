@@ -10,9 +10,10 @@ from httpx import ASGITransport, AsyncClient
 
 from argus.api.app import create_app
 from argus.api.auth import AuthUser
+from argus.audit import Run
 from argus.config import Settings
 from argus.llm import Transports
-from argus.models.domain import Job
+from argus.models.job import Job
 from tests.golden import fake_llm_server
 
 
@@ -141,11 +142,10 @@ async def test_submit_text_can_use_default_saved_key(
 ) -> None:
     captured: dict[str, Any] = {}
 
-    async def fake_audit_text(**kw: Any) -> Job:
-        captured["api_key"] = kw["llm"].access.api_key.get_secret_value()
-        return Job(id=kw["job_id"], status="done", input_text=kw["text"], input_mode="text")
+    async def fake_audit(run: Run) -> None:
+        captured["api_key"] = run.llm.access.api_key.get_secret_value()
 
-    monkeypatch.setattr("argus.api.runner.audit_text", fake_audit_text)
+    monkeypatch.setattr("argus.api.runner._audit", fake_audit)
 
     async with AsyncClient(transport=ASGITransport(app=auth_app), base_url="http://test") as client:
         key_resp = await client.post(
@@ -302,11 +302,13 @@ async def test_text_job_can_be_rerun_from_history(
     )
     captured: dict[str, object] = {}
 
-    async def fake_submit_text(self: object, **kwargs: object) -> str:
-        captured.update(kwargs)
-        return "job_new"
+    async def fake_start_audit(
+        _request: object, job: Job, _access: object, owner_user_id: str | None
+    ) -> dict[str, str]:
+        captured.update(job=job, owner_user_id=owner_user_id)
+        return {"job_id": job.id, "status": job.status}
 
-    monkeypatch.setattr("argus.api.runner.JobRunner.submit_text", fake_submit_text)
+    monkeypatch.setattr("argus.api.jobs._start_audit", fake_start_audit)
 
     async with AsyncClient(transport=ASGITransport(app=auth_app), base_url="http://test") as client:
         resp = await client.post(
@@ -314,10 +316,11 @@ async def test_text_job_can_be_rerun_from_history(
             headers={"Authorization": "Bearer user-a"},
         )
 
+    rerun = captured["job"]
     assert resp.status_code == 202, resp.text
-    assert resp.json()["job_id"] == "job_new"
-    assert captured["text"] == "This is a sufficiently long previous text audit to rerun."
-    assert captured["content_domain"] == "legal"
+    assert resp.json()["job_id"] == rerun.id != "job_text"
+    assert rerun.input_text == "This is a sufficiently long previous text audit to rerun."
+    assert rerun.content_domain == "legal"
     assert captured["owner_user_id"] == "u_a"
 
 

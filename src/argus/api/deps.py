@@ -1,8 +1,9 @@
 """FastAPI DI helpers.
 
 A single AppState dataclass holds the shared, app-scoped collaborators
-(settings, repo, storage, trace bus, LLM transports). It's attached to ``app.state.argus``
-in ``create_app`` so endpoints can pull it via ``request.app.state.argus``.
+(settings, repo, storage, LLM transports, the job runner). It's attached to
+``app.state.argus`` in ``create_app`` so endpoints can pull it via
+``request.app.state.argus``.
 """
 from __future__ import annotations
 
@@ -12,12 +13,12 @@ from typing import Any
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from argus.api.runner import Runner
 from argus.config import Settings
 from argus.db.repository import JobRepository
 from argus.llm import Transports
 from argus.security.api_keys import ApiKeyCipher
 from argus.storage.base import Storage
-from argus.trace_bus.base import TraceBus
 
 
 @dataclass
@@ -25,8 +26,8 @@ class AppState:
     settings: Settings
     repo: JobRepository
     storage: Storage
-    trace_bus: TraceBus
     transports: Transports
+    runner: Runner
     db_engine: AsyncEngine
     auth_verifier: Any | None = None
     key_cipher: ApiKeyCipher | None = None

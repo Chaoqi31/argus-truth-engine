@@ -24,7 +24,7 @@ def _sample_finding() -> Finding:
     return Finding(
         id="fnd_test",
         claim_id="claim_test",
-        agent="verifier",
+        agent=Agent.VERIFIER,
         verdict=FindingVerdict.OK,
         severity=Severity.MINOR,
         confidence=0.95,
@@ -61,8 +61,6 @@ def _sample_verdict(evidences: tuple[Evidence, ...] = ()) -> CachedVerdict:
             steps=(
                 Step(
                     id="step_test",
-                    trace_id="resp_test",
-                    sequence=1,
                     type=StepType.WEB_SEARCH,
                     summary="search: example",
                 ),

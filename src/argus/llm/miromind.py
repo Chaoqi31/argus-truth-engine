@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Final
@@ -40,7 +40,7 @@ _RETRY_STATUS_CODES: Final = frozenset({408, 425, 429, 500, 502, 503, 504})
 _STREAM_RECONNECTS: Final = 3
 _KEY_CHECK_TIMEOUT_S: Final = 20.0
 
-StepSink = Callable[[Step], Awaitable[None]]
+StepSink = Callable[[Step], None]
 
 
 def price(*, model: str, input_tokens: int, output_tokens: int, web_searches: int) -> float:
@@ -160,7 +160,7 @@ class MiroMind:
             attempts=self._settings.miromind_retry_attempts,
             timeout_s=self._settings.miromind_request_timeout_s,
         )
-        steps = _Steps(response_id, agent)
+        steps = _Steps(agent)
         text: list[str] = []
         usage: dict[str, Any] = {}
         timeout_s = self._settings.miromind_response_timeout_s
@@ -168,7 +168,7 @@ class MiroMind:
             async with asyncio.timeout(timeout_s):
                 async for event in self._events(access, response_id):
                     for step in steps.feed(event):
-                        await on_step(step)
+                        on_step(step)
                     kind = event.get("type")
                     if kind == "response.output_text.delta":
                         text.append(str(event.get("delta", "")))
@@ -179,7 +179,7 @@ class MiroMind:
                         raise MiroMindError(str(detail), response_id=response_id)
         except TimeoutError as exc:
             for step in steps.flush():
-                await on_step(step)
+                on_step(step)
             await asyncio.shield(self._cancel(access, response_id))
             raise MiroMindTimeout(
                 f"{agent} response {response_id} timed out after {timeout_s:g}s",
@@ -371,13 +371,12 @@ class _Steps:
     buffered and become one thinking step when their reasoning item closes.
     """
 
-    def __init__(self, response_id: str, agent: str) -> None:
-        self._response_id = response_id
+    def __init__(self, agent: str) -> None:
         self._agent = agent
         self._thinking: list[str] = []
         self._open_calls: dict[str, int] = {}
         self._done_calls: set[str] = set()
-        self._held: list[Step] = []
+        self._held: list[tuple[int, Step]] = []
         self._unknown_tools: set[str] = set()
 
     def feed(self, event: dict[str, Any]) -> list[Step]:
@@ -428,24 +427,16 @@ class _Steps:
     def _hold(
         self, sequence: int, step_type: StepType, summary: str, content: dict[str, Any]
     ) -> None:
-        self._held.append(
-            Step(
-                id=new_id("step"),
-                trace_id=self._response_id,
-                sequence=sequence,
-                type=step_type,
-                summary=summary,
-                content=content,
-            )
-        )
+        step = Step(id=new_id("step"), type=step_type, summary=summary, content=content)
+        self._held.append((sequence, step))
 
     def _release(self, before: int | None) -> list[Step]:
-        self._held.sort(key=lambda step: step.sequence)
+        self._held.sort(key=lambda held: held[0])
         n = len(self._held) if before is None else sum(
-            1 for step in self._held if step.sequence < before
+            1 for sequence, _ in self._held if sequence < before
         )
         released, self._held = self._held[:n], self._held[n:]
-        return released
+        return [step for _, step in released]
 
 
 def _truncate(s: str, n: int = 140) -> str:

@@ -26,16 +26,12 @@ class Settings(BaseSettings):
     miromind_request_timeout_s: float = 90.0
     miromind_stream_timeout_s: float = 300.0
     miromind_response_timeout_s: float = 600.0
-    trace_heartbeat_interval_s: float = 15.0
     miromind_retry_attempts: int = 3
     miromind_retry_base_delay_s: float = 1.0
     db_url: str = "sqlite+aiosqlite:///./argus.db"
 
     # API server
     max_active_jobs: int = 2
-
-    trace_history_max_events: int = 5000
-    trace_history_ttl_s: float = 86400.0
 
     # Filesystem path where uploaded PDFs are stored.
     storage_root: str = "./uploads"

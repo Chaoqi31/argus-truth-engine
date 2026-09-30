@@ -13,27 +13,22 @@ from argus.api.auth import SupabaseJwtVerifier
 from argus.api.deps import AppState
 from argus.api.events import router as events_router
 from argus.api.jobs import router as jobs_router
+from argus.api.runner import Runner
 from argus.api.share import router as share_router
 from argus.api.ws import router as ws_router
 from argus.config import Settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
 from argus.llm import Transports
-from argus.log import log
 from argus.security.api_keys import ApiKeyCipher
 from argus.storage.local_fs import LocalFsStorage
-from argus.trace_bus.in_process import InProcessBus
 
 
 def _build_state(settings: Settings) -> AppState:
     storage = LocalFsStorage(Path(settings.storage_root))
     engine = create_engine_from_url(settings.db_url)
     repo = JobRepository(sessionmaker_from_engine(engine))
-
-    trace_bus = InProcessBus(
-        max_history_events=settings.trace_history_max_events,
-        history_ttl_s=settings.trace_history_ttl_s,
-    )
+    transports = Transports(settings)
     key_cipher = (
         ApiKeyCipher(settings.api_key_encryption_secret)
         if settings.api_key_encryption_secret
@@ -44,8 +39,8 @@ def _build_state(settings: Settings) -> AppState:
         settings=settings,
         repo=repo,
         storage=storage,
-        trace_bus=trace_bus,
-        transports=Transports(settings),
+        transports=transports,
+        runner=Runner(repo=repo, transports=transports, settings=settings),
         db_engine=engine,
         auth_verifier=SupabaseJwtVerifier(settings) if settings.supabase_url else None,
         key_cipher=key_cipher,
@@ -57,12 +52,11 @@ def create_app(*, settings: Settings) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        await state.runner.recover()
         try:
-            n_failed = await state.repo.fail_interrupted_runs()
-            if n_failed:
-                log.info("startup.interrupted_runs_failed", count=n_failed)
             yield
         finally:
+            await state.runner.shutdown()
             await state.transports.aclose()
             await state.db_engine.dispose()
 

@@ -57,9 +57,7 @@ class Task[T: BaseModel]:
 @dataclass(frozen=True)
 class Answered[T: BaseModel]:
     output: T
-    engine: Engine
     usage: Usage
-    steps: tuple[Step, ...]
 
 
 @dataclass(frozen=True)
@@ -69,9 +67,7 @@ class Failed:
 
     reason: FailureReason
     detail: str
-    engine: Engine
     usage: Usage
-    steps: tuple[Step, ...]
 
 
 type Answer[T: BaseModel] = Answered[T] | Failed
@@ -80,7 +76,6 @@ type Answer[T: BaseModel] = Answered[T] | Failed
 @dataclass
 class _Attempts:
     usage: Usage = field(default_factory=Usage)
-    steps: list[Step] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -116,7 +111,8 @@ class Llm:
 
         Output that does not parse is asked for once more on the same provider,
         with the validation error appended; both attempts count in the returned
-        usage and steps. Timeouts, request failures and output that still does
+        usage, and both stream their steps to ``on_step``. Timeouts, request
+        failures and output that still does
         not parse come back as `Failed`. Only cancellation is raised.
         """
         if not self.can_run(task):
@@ -124,31 +120,30 @@ class Llm:
         engine = self.engine(task)
         attempts = _Attempts()
 
-        async def record(step: Step) -> None:
-            attempts.steps.append(step)
+        def record(step: Step) -> None:
             if on_step is not None:
-                await on_step(step)
+                on_step(step)
 
         attempt_prompt, attempt_key = prompt, idempotency_key
         for attempt in (1, 2):
             try:
                 text = await self._call(engine, task, attempt_prompt, attempt_key, record, attempts)
             except MiroMindTimeout as exc:
-                return self._failed("timeout", exc, engine, attempts)
+                return self._failed("timeout", exc, attempts)
             except (MiroMindError, DeepSeekError) as exc:
-                return self._failed("request_error", exc, engine, attempts)
+                return self._failed("request_error", exc, attempts)
             try:
                 output = parse_output(text, task.output)
             except OutputError as exc:
                 if attempt == 2:
-                    return self._failed("unparseable", exc, engine, attempts)
+                    return self._failed("unparseable", exc, attempts)
                 log.warning("agent.json_invalid", agent=task.agent, error=str(exc)[:500])
                 # The repair sends a different payload, so it must not reuse the
                 # first request's idempotency key.
                 attempt_prompt = repair_prompt(prompt, exc)
                 attempt_key = f"{idempotency_key}:repair" if idempotency_key else None
                 continue
-            return Answered(output, engine, attempts.usage, tuple(attempts.steps))
+            return Answered(output, attempts.usage)
         raise AssertionError("unreachable")
 
     async def _call(
@@ -190,14 +185,13 @@ class Llm:
     def _failed(
         reason: FailureReason,
         exc: Exception,
-        engine: Engine,
         attempts: _Attempts,
     ) -> Failed:
         usage = attempts.usage
         response_id = getattr(exc, "response_id", None)
         if response_id and response_id not in usage.response_ids:
             usage += Usage(response_ids=(response_id,))
-        return Failed(reason, str(exc), engine, usage, tuple(attempts.steps))
+        return Failed(reason, str(exc), usage)
 
 
 class Transports:

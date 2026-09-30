@@ -192,7 +192,7 @@ class PlannerOutput(BaseModel):
 
         Claims with empty ``text`` are dropped (they're worthless to downstream
         agents). Claims with empty ``id`` get an auto-generated stable id so
-        the orchestrator can address them. Spans that are missing, malformed,
+        the pipeline can address them. Spans that are missing, malformed,
         or out of order fall back to ``(0, 0)``.
         """
         out: list[Claim] = []

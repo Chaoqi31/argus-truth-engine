@@ -1,4 +1,4 @@
-"""Algorithmic confidence decomposition.
+"""Confidence: why each finding is as sure as it says, measured.
 
 Computes 3 confidence factors from DATA, not LLM estimation:
   - source_authority: domain reputation scoring (rule-based)
@@ -14,14 +14,18 @@ import re
 from datetime import datetime
 from urllib.parse import urlparse
 
+from argus.audit.run import Run
 from argus.models.domain import (
     Agent,
     ConfidenceBreakdown,
+    Engine,
     Evidence,
     Finding,
     FindingFlag,
     FindingVerdict,
+    StageKey,
 )
+from argus.models.job import FindingRecorded, StageFinished, StageStarted
 
 # --- Domain authority scoring -----------------------------------------------
 
@@ -284,4 +288,52 @@ def compute_confidence_breakdown(
         source_authority=round(source_authority, 3),
         evidence_freshness=round(evidence_freshness, 3),
         reasoning=reasoning,
+    )
+
+
+# --- The stage ------------------------------------------------------------
+
+
+def score_findings(run: Run) -> None:
+    """Explain every finding's confidence, and cap it where the sources are
+    too few. Free, so partial results of a stopped audit are scored too."""
+    run.record(StageStarted(key=StageKey.CONFIDENCE, engine=Engine.DETERMINISTIC))
+    findings = list(run.job.findings)
+    for finding in findings:
+        cited = [e for e in run.job.evidences if e.id in finding.evidence_ids]
+        run.record(FindingRecorded(finding=rescored(finding, cited)))
+    run.record(
+        StageFinished(
+            key=StageKey.CONFIDENCE,
+            summary=(
+                f"Scored {len(findings)} finding(s) on 3 factors "
+                "(authority · freshness · agreement)"
+                if findings
+                else "No findings needed confidence scoring"
+            ),
+            metrics={"n_scored": len(findings)},
+        )
+    )
+
+
+def rescored(finding: Finding, evidences: list[Evidence]) -> Finding:
+    """``finding`` with its confidence breakdown, capped and flagged when its
+    verdict rests on too few independent sources."""
+    source_count = count_distinct_sources(finding, evidences)
+    cap, flag = evaluate_sourcing(finding, source_count)
+    flags = finding.flags
+    confidence = finding.confidence
+    if flag is not None:
+        if flag not in flags:
+            flags = (*flags, flag)
+        if cap is not None:
+            confidence = min(confidence, cap)
+    return finding.model_copy(
+        update={
+            "confidence_breakdown": compute_confidence_breakdown(
+                finding, evidences, source_count=source_count
+            ),
+            "flags": flags,
+            "confidence": confidence,
+        }
     )

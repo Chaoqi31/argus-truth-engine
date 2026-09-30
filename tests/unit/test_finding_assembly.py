@@ -1,24 +1,23 @@
-"""Pin behavior of pure assemblers — these are now stable extraction points."""
+"""How LLM answers become findings: pure functions, no I/O."""
+from datetime import datetime
+
 from argus.agents.consistency import ConsistencyOutput, ContradictionPair, LogicalFlaw
 from argus.agents.unified_verifier import (
     CorrectedInfoOut,
     EvidenceOut,
     UnifiedVerifierOutput,
 )
+from argus.audit.consistency import contradiction_findings, logical_flaw_findings
+from argus.audit.verifier import verdict_finding
 from argus.models.domain import (
+    Agent,
     Claim,
     ClaimType,
+    Engine,
     FindingVerdict,
+    ReasoningTrace,
     Severity,
-    Step,
-    StepType,
     Usage,
-)
-from argus.orchestrator.assemblers import (
-    _build_trace,
-    _contradictions_to_findings,
-    _logical_flaws_to_findings,
-    _make_unified_finding,
 )
 
 
@@ -49,14 +48,8 @@ def test_make_unified_finding_preserves_verdict_and_links_trace():
         ],
         reasoning_chain=[],
     )
-    trace = _build_trace(
-        claim_id="claim_1",
-        agent="verifier",
-        engine="miromind",
-        usage=Usage(response_ids=("resp_test_000",)),
-        steps=(),
-    )
-    finding, _evs = _make_unified_finding(
+    trace = _trace_for()
+    finding, _evs = verdict_finding(
         claim=_sample_claim(),
         parsed=payload,
         trace=trace,
@@ -132,7 +125,7 @@ def test_make_unified_finding_maps_audit_depth_fields_to_real_evidence_ids():
             "rationale": "The computed growth is materially below the claimed rate.",
         },
     )
-    finding, evs = _make_unified_finding(
+    finding, evs = verdict_finding(
         claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
 
@@ -143,53 +136,6 @@ def test_make_unified_finding_maps_audit_depth_fields_to_real_evidence_ids():
     assert finding.computation_check is not None
     assert finding.computation_check.extracted_values[0].source_evidence_id == evs[0].id
     assert finding.computation_check.computed_value == "216.7%"
-
-
-def test_build_trace_links_steps_into_sequential_chain():
-    # Out-of-order sequences on purpose — _build_trace must sort before linking.
-    raw_steps = [
-        Step(id="s_c", trace_id="resp_x", sequence=2, type=StepType.MESSAGE, summary="c"),
-        Step(id="s_a", trace_id="resp_x", sequence=0, type=StepType.THINKING, summary="a"),
-        Step(id="s_b", trace_id="resp_x", sequence=1, type=StepType.WEB_SEARCH, summary="b"),
-    ]
-
-    trace = _build_trace(
-        claim_id="claim_1",
-        agent="verifier",
-        engine="miromind",
-        usage=Usage(response_ids=("resp_x",)),
-        steps=raw_steps,
-    )
-
-    # (a) steps come back sorted ascending by sequence
-    assert [s.sequence for s in trace.steps] == [0, 1, 2]
-    assert [s.id for s in trace.steps] == ["s_a", "s_b", "s_c"]
-
-    # (b) first step has no parent
-    assert trace.steps[0].parent_step_id is None
-
-    # (c) each subsequent step points at the previous step's id
-    for i in range(1, len(trace.steps)):
-        assert trace.steps[i].parent_step_id == trace.steps[i - 1].id
-
-    # (d) original input objects were not mutated in place
-    assert all(s.parent_step_id is None for s in raw_steps)
-
-
-def test_build_trace_keeps_a_repaired_calls_attempts_in_order():
-    first = Step(id="first", trace_id="resp_1", sequence=5, type=StepType.THINKING, summary="")
-    retry = Step(id="retry", trace_id="resp_2", sequence=1, type=StepType.THINKING, summary="")
-
-    trace = _build_trace(
-        claim_id="claim_1",
-        agent="verifier",
-        engine="miromind",
-        usage=Usage(response_ids=("resp_1", "resp_2"), total_tokens=30),
-        steps=[retry, first],
-    )
-
-    assert [s.id for s in trace.steps] == ["first", "retry"]
-    assert trace.usage.response_ids == ("resp_1", "resp_2")
 
 
 def test_logical_flaws_to_findings_maps_unsupported_inference():
@@ -206,7 +152,7 @@ def test_logical_flaws_to_findings_maps_unsupported_inference():
             )
         ],
     )
-    findings = _logical_flaws_to_findings(
+    findings = logical_flaw_findings(
         parsed=parsed, trace_id="trace_abc"
     )
     assert len(findings) == 1
@@ -237,7 +183,7 @@ def test_logical_flaws_to_findings_maps_overreach():
             )
         ],
     )
-    findings = _logical_flaws_to_findings(
+    findings = logical_flaw_findings(
         parsed=parsed, trace_id="trace_def"
     )
     assert len(findings) == 1
@@ -250,7 +196,7 @@ def test_logical_flaws_to_findings_maps_overreach():
 
 def test_logical_flaws_to_findings_empty_returns_no_findings():
     parsed = ConsistencyOutput(contradictions=[], logical_flaws=[])
-    assert _logical_flaws_to_findings(
+    assert logical_flaw_findings(
         parsed=parsed, trace_id="trace_x"
     ) == []
 
@@ -268,7 +214,7 @@ def test_contradiction_pair_makes_one_finding():
             )
         ],
     )
-    findings = _contradictions_to_findings(
+    findings = contradiction_findings(
         parsed=parsed, trace_id="trace_c"
     )
     assert len(findings) == 1
@@ -284,13 +230,14 @@ def _ev(url: str) -> EvidenceOut:
     return EvidenceOut(source_type="web_page", url=url, snippet="...")
 
 
-def _trace_for() -> object:
-    return _build_trace(
+def _trace_for() -> ReasoningTrace:
+    return ReasoningTrace(
+        id="trace_test",
+        agent=Agent.VERIFIER,
         claim_id="claim_1",
-        agent="verifier",
-        engine="miromind",
+        engine=Engine.MIROMIND,
+        started_at=datetime.utcnow(),
         usage=Usage(response_ids=("resp_test_000",)),
-        steps=(),
     )
 
 
@@ -305,7 +252,7 @@ def test_make_unified_finding_downgrades_when_fewer_than_two_sources():
         evidence=[_ev("https://api.crossref.org/x")],
         reasoning_chain=[],
     )
-    finding, evs = _make_unified_finding(
+    finding, evs = verdict_finding(
         claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.UNCERTAIN
@@ -329,7 +276,7 @@ def test_make_unified_finding_caps_confidence_at_existing_when_lower():
         evidence=[_ev("https://example.com/a")],
         reasoning_chain=[],
     )
-    finding, _evs = _make_unified_finding(
+    finding, _evs = verdict_finding(
         claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.UNCERTAIN
@@ -347,7 +294,7 @@ def test_make_unified_finding_keeps_verdict_with_two_sources():
         evidence=[_ev("https://a.example/x"), _ev("https://b.example/y")],
         reasoning_chain=[],
     )
-    finding, evs = _make_unified_finding(
+    finding, evs = verdict_finding(
         claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.OK
@@ -367,7 +314,7 @@ def test_make_unified_finding_uncertain_with_zero_sources_not_double_downgraded(
         evidence=[],
         reasoning_chain=[],
     )
-    finding, evs = _make_unified_finding(
+    finding, evs = verdict_finding(
         claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.UNCERTAIN

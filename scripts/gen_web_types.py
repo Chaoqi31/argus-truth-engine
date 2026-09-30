@@ -1,4 +1,5 @@
-"""Generate the web's TypeScript types from the backend's domain models.
+"""Generate the web's TypeScript types from the backend's models: the `Job`
+and the frames the live WebSocket sends.
 
     uv run python scripts/gen_web_types.py
 
@@ -13,10 +14,11 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from pydantic import TypeAdapter
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaValue
 from pydantic_core import core_schema
 
-from argus.models.domain import Job
+from argus.models.job import Frame
 
 WEB = Path(__file__).resolve().parents[1] / "web"
 OUT = WEB / "lib" / "generated" / "argus.ts"
@@ -46,7 +48,8 @@ def _for_json2ts(node: Any) -> None:
 
 
 def schema() -> JsonSchemaValue:
-    value = Job.model_json_schema(mode="serialization", schema_generator=_Schema)
+    value = TypeAdapter(Frame).json_schema(mode="serialization", schema_generator=_Schema)
+    value["title"] = "Frame"
     _for_json2ts(value)
     return value
 
