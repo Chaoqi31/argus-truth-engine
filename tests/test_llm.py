@@ -7,7 +7,7 @@ from pydantic import BaseModel, SecretStr
 
 from argus.agents.unified_verifier import VERIFY, UnifiedVerifierOutput, build_verifier_input
 from argus.llm import Answered, Failed, Llm, Route, Task, Transports
-from argus.llm.miromind import MiroMindAccess, MiroMindError, price
+from argus.llm.miromind import MiroMindAccess, MiroMindError, _Steps, price
 from argus.llm.output import OutputError, parse_output
 from argus.models.domain import FindingVerdict, Step, StepType
 from tests.fake_llm import S5, S6, FakeLLM
@@ -90,6 +90,33 @@ async def test_ask_streams_steps_and_prices_the_response() -> None:
             web_searches=2,
         )
     )
+
+
+def _item(kind: str, seq: int, item: dict[str, object]) -> dict[str, object]:
+    return {"type": f"response.output_item.{kind}", "sequence_number": seq, "item": item}
+
+
+def test_steps_come_out_in_the_order_their_items_began() -> None:
+    search = {"type": "tool_call", "id": "t1", "name": "google_search", "arguments": "{}"}
+    steps = _Steps("resp_1", "verifier")
+    thought = {"type": "response.reasoning_text.delta", "sequence_number": 2, "delta": "hm"}
+
+    assert steps.feed(_item("added", 1, search)) == []
+    assert steps.feed(thought) == []
+    assert steps.feed(_item("done", 3, {"type": "reasoning", "id": "r1"})) == []
+    released = steps.feed(_item("done", 4, {**search, "status": "completed"}))
+
+    assert [s.type for s in released] == [StepType.WEB_SEARCH, StepType.THINKING]
+    assert steps.feed({"type": "response.completed", "sequence_number": 5}) == []
+
+
+def test_steps_behind_a_call_that_never_completes_come_out_at_the_end() -> None:
+    steps = _Steps("resp_1", "verifier")
+    steps.feed(_item("added", 1, {"type": "tool_call", "id": "t1", "name": "google_search"}))
+    steps.feed({"type": "response.reasoning_text.delta", "sequence_number": 2, "delta": "hm"})
+    steps.feed(_item("done", 3, {"type": "reasoning", "id": "r1"}))
+
+    assert [s.type for s in steps.flush()] == [StepType.THINKING]
 
 
 async def test_ask_repairs_broken_output_once_under_a_fresh_idempotency_key() -> None:

@@ -178,6 +178,8 @@ class MiroMind:
                         detail = event.get("error") or "response.failed"
                         raise MiroMindError(str(detail), response_id=response_id)
         except TimeoutError as exc:
+            for step in steps.flush():
+                await on_step(step)
             await asyncio.shield(self._cancel(access, response_id))
             raise MiroMindTimeout(
                 f"{agent} response {response_id} timed out after {timeout_s:g}s",
@@ -360,25 +362,29 @@ _TOOL_NAME_TO_STEP: Final[dict[str, StepType]] = {
 
 
 class _Steps:
-    """Turns response events into steps.
+    """Turns response events into steps, in the order their items began.
 
     A tool call surfaces twice (``output_item.added`` in progress, then
-    ``output_item.done`` with its result). Its step is built once, when the
-    call completes, at the sequence number where the call began. Reasoning
-    deltas are buffered and become one thinking step when their reasoning
-    item closes.
+    ``output_item.done`` with its result). Its step is built when the call
+    completes but belongs where the call began, so a step that completes
+    while an earlier call is still open waits for it. Reasoning deltas are
+    buffered and become one thinking step when their reasoning item closes.
     """
 
     def __init__(self, response_id: str, agent: str) -> None:
         self._response_id = response_id
         self._agent = agent
         self._thinking: list[str] = []
-        self._tool_started: dict[str, int] = {}
-        self._tool_done: set[str] = set()
+        self._open_calls: dict[str, int] = {}
+        self._done_calls: set[str] = set()
+        self._held: list[Step] = []
         self._unknown_tools: set[str] = set()
 
     def feed(self, event: dict[str, Any]) -> list[Step]:
+        """The steps ``event`` completes that no open call precedes."""
         kind = event.get("type")
+        if kind in ("response.completed", "response.failed"):
+            return self.flush()
         if kind == "response.reasoning_text.delta":
             self._thinking.append(str(event.get("delta", "")))
             return []
@@ -387,47 +393,59 @@ class _Steps:
         item: dict[str, Any] = event.get("item") or {}
         completed = kind == "response.output_item.done" or item.get("status") == "completed"
         item_type = item.get("type", "tool_call")
-        if item_type == "tool_call":
-            return self._tool_call(event, item, completed)
         sequence = int(event.get("sequence_number", 0))
-        if item_type == "reasoning" and self._thinking:
+        if item_type == "tool_call":
+            self._tool_call(sequence, item, completed)
+        elif item_type == "reasoning" and self._thinking:
             thought = "".join(self._thinking)
             self._thinking.clear()
-            step = self._add(sequence, StepType.THINKING, _truncate(thought), {"thought": thought})
-            return [step]
-        return []
+            self._hold(sequence, StepType.THINKING, _truncate(thought), {"thought": thought})
+        return self._release(min(self._open_calls.values(), default=None))
 
-    def _tool_call(
-        self, event: dict[str, Any], item: dict[str, Any], completed: bool
-    ) -> list[Step]:
-        sequence = int(event.get("sequence_number", 0))
+    def flush(self) -> list[Step]:
+        """Every held step: the stream ended, so no open call will complete."""
+        self._open_calls.clear()
+        return self._release(None)
+
+    def _tool_call(self, sequence: int, item: dict[str, Any], completed: bool) -> None:
         item_id = item.get("id")
         if item_id:
-            if item_id in self._tool_done:
-                return []
-            sequence = self._tool_started.setdefault(item_id, sequence)
+            if item_id in self._done_calls:
+                return
+            sequence = self._open_calls.setdefault(item_id, sequence)
         if not completed:
-            return []
+            return
         if item_id:
-            self._tool_done.add(item_id)
+            del self._open_calls[item_id]
+            self._done_calls.add(item_id)
         name = str(item.get("name", ""))
         if name and name not in _TOOL_NAME_TO_STEP and name not in self._unknown_tools:
             self._unknown_tools.add(name)
             log.warning("agent.unknown_tool_name", agent=self._agent, tool_name=name)
         step_type = _TOOL_NAME_TO_STEP.get(name, StepType.TOOL_CALL)
-        return [self._add(sequence, step_type, _tool_call_summary(name, item), item)]
+        self._hold(sequence, step_type, _tool_call_summary(name, item), item)
 
-    def _add(
+    def _hold(
         self, sequence: int, step_type: StepType, summary: str, content: dict[str, Any]
-    ) -> Step:
-        return Step(
-            id=new_id("step"),
-            trace_id=self._response_id,
-            sequence=sequence,
-            type=step_type,
-            summary=summary,
-            content=content,
+    ) -> None:
+        self._held.append(
+            Step(
+                id=new_id("step"),
+                trace_id=self._response_id,
+                sequence=sequence,
+                type=step_type,
+                summary=summary,
+                content=content,
+            )
         )
+
+    def _release(self, before: int | None) -> list[Step]:
+        self._held.sort(key=lambda step: step.sequence)
+        n = len(self._held) if before is None else sum(
+            1 for step in self._held if step.sequence < before
+        )
+        released, self._held = self._held[:n], self._held[n:]
+        return released
 
 
 def _truncate(s: str, n: int = 140) -> str:
