@@ -77,7 +77,6 @@ class Settings(BaseSettings):
     # worth a second MiroMind call; only genuinely uncertain ones are. Raise
     # toward 1.0 to challenge more findings; lower to spend fewer skeptic calls.
     skeptic_confidence_threshold: float = 0.85
-    consistency_concurrency: int = 2
     # Process-wide MiroMind request rate ceiling. Shared across all jobs +
     # all agents. Default 10 req/s gives headroom under MiroMind's
     # documented limits while preventing 429 storms.

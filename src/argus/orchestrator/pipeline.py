@@ -66,9 +66,6 @@ def _build_ctx(
         "skeptic": BoundedRunner(
             max_concurrent=settings.skeptic_concurrency,
         ),
-        "consistency": BoundedRunner(
-            max_concurrent=settings.consistency_concurrency,
-        ),
     }
     publisher = _Publisher(job_id=job.id, bus=trace_bus)
     budget = BudgetTracker(max_usd=budget_usd)
