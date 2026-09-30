@@ -35,8 +35,7 @@ def _initial_state(*, job_id: str, pdf_path: Path, text: str | None) -> _State:
         "stages": [],
         "evidences": [],
         "audit_report_md": None,
-        "aborted": False,
-        "abort_reason": "",
+        "failure": None,
     }
 
 
@@ -62,8 +61,7 @@ async def audit_pdf(
     pdf_path = Path(pdf_path)
     job_id = job_id or f"job_{uuid4().hex[:12]}"
     job = Job(id=job_id, pdf_path=str(pdf_path), input_mode="pdf",
-              content_domain=_domain(content_domain), auto_review=auto_review,
-              status="parsing")
+              content_domain=_domain(content_domain), auto_review=auto_review)
     return await run_audit(
         job=job,
         initial=_initial_state(job_id=job_id, pdf_path=pdf_path, text=None),
@@ -95,7 +93,6 @@ async def audit_text(
     job = Job(
         id=job_id, input_text=text, input_mode="text",
         content_domain=_domain(content_domain), auto_review=auto_review,
-        status="parsing",
     )
     return await run_audit(
         job=job,

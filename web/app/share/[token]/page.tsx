@@ -167,7 +167,6 @@ function StatusPill({ status }: { status: string }) {
     normalized === "done" || normalized === "ok"
       ? "border-success/20 bg-success/10 text-success-foreground"
       : normalized === "failed" ||
-          normalized === "interrupted" ||
           normalized === "fabricated" ||
           normalized === "contradiction"
         ? "border-destructive/20 bg-destructive/10 text-destructive-foreground"

@@ -125,6 +125,7 @@ export function makeJob(fields: Partial<Job> = {}): Job {
     content_domain: "general",
     auto_review: false,
     status: "done",
+    failure: null,
     created_at: T0,
     completed_at: null,
     cost_usd: 0,

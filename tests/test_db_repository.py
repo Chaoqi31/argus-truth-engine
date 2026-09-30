@@ -12,6 +12,7 @@ from argus.models.domain import (
     ConfidenceBreakdown,
     Evidence,
     EvidenceSource,
+    FailureKind,
     Finding,
     FindingVerdict,
     Job,
@@ -129,7 +130,7 @@ async def test_saved_jobs_read_back_identically(sqlite_engine: object) -> None:
 
 async def test_save_overwrites_the_document_and_keeps_the_owner(sqlite_engine: object) -> None:
     repo = JobRepository(async_sessionmaker(sqlite_engine, expire_on_commit=False))
-    job = _job("j1", status="verifying")
+    job = _job("j1", status="running")
     await repo.save_job(job, owner_user_id="u_a")
 
     done = job.model_copy(update={"status": "done", "audit_report_md": "Aborted."})
@@ -155,17 +156,20 @@ async def test_summaries_are_scoped_to_the_owner_newest_first(sqlite_engine: obj
     assert [s.id for s in await repo.list_job_summaries(owner_user_id="u_a")] == ["j_other"]
 
 
-async def test_startup_marks_unfinished_jobs_interrupted(sqlite_engine: object) -> None:
+async def test_startup_fails_runs_a_restart_cut_off(sqlite_engine: object) -> None:
     repo = JobRepository(async_sessionmaker(sqlite_engine, expire_on_commit=False))
-    await repo.save_job(_job("j_running", status="verifying", minute=1))
-    await repo.save_job(_job("j_done", status="done", minute=2))
+    await repo.save_job(_job("j_running", status="running", minute=1))
+    await repo.save_job(_job("j_review", status="awaiting_review", minute=2))
+    await repo.save_job(_job("j_done", status="done", minute=3))
 
-    assert await repo.mark_running_as_interrupted() == 1
+    assert await repo.fail_interrupted_runs() == 1
 
-    running, done = await repo.get_job("j_running"), await repo.get_job("j_done")
-    assert running is not None and running.status == "interrupted"
-    assert done is not None and done.status == "done"
+    running = await repo.get_job("j_running")
+    assert running is not None and running.status == "failed"
+    assert running.failure is not None and running.failure.kind == FailureKind.INTERRUPTED
+    assert running.completed_at is not None
     assert [s.status for s in await repo.list_job_summaries(owner_user_id=None)] == [
         "done",
-        "interrupted",
+        "awaiting_review",
+        "failed",
     ]

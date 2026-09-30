@@ -14,6 +14,8 @@ from argus.log import log
 from argus.models.domain import (
     Claim,
     Evidence,
+    Failure,
+    FailureKind,
     Finding,
     FindingVerdict,
     ReasoningTrace,
@@ -110,7 +112,7 @@ _NOTHING_TO_CHALLENGE = "No high-risk verifier findings required independent cha
 
 def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
+        if state.get("failure"):
             return {}
         await ctx.publisher.stage(
             status="started",
@@ -170,8 +172,7 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             except BudgetExceeded as exc:
                 log.warning("orchestrator.budget_exceeded_at_skeptic", error=str(exc))
                 return {
-                    "aborted": True,
-                    "abort_reason": str(exc),
+                    "failure": Failure(kind=FailureKind.BUDGET, message=str(exc)),
                     "findings": revised,
                     "traces": traces,
                 }

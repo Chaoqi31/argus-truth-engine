@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { getJob, JobNotFoundError } from "@/lib/api";
 import { useArgusStore } from "@/lib/store";
 import { subscribeTrace } from "@/lib/trace-ws";
-import type { FilteredClaim, Job, ReviewClaim, RunStatus, Step } from "@/lib/types";
+import type { Failure, FilteredClaim, Job, ReviewClaim, RunStatus, Step } from "@/lib/types";
 import {
   claimFromPayload,
   claimMarkerStep,
@@ -183,9 +183,8 @@ export function useAuditRun(liveId: string | null, auth: AuthSlice) {
         } else if (ev.kind === "resumed") {
           setRunStatus("verifying");
         } else if (ev.kind === "failed") {
-          const reason =
-            typeof ev.payload.reason === "string" ? ev.payload.reason : "unknown";
-          settle("failed", reason);
+          const failure = ev.payload.failure as Failure | undefined;
+          settle("failed", failure?.message ?? "unknown");
         }
       },
       onError: () => {},

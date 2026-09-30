@@ -863,12 +863,12 @@ function StatusPill({ status }: { status: string }) {
   const cls =
     normalized === "done" || normalized === "default"
       ? "border-success/20 bg-success/10 text-success-foreground"
-      : normalized === "failed" || normalized === "interrupted"
+      : normalized === "failed"
         ? "border-destructive/20 bg-destructive/10 text-destructive-foreground"
         : "border-primary/15 bg-primary-soft text-primary";
   return (
     <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold uppercase ${cls}`}>
-      {status}
+      {status.replace("_", " ")}
     </span>
   );
 }
@@ -894,13 +894,13 @@ function filterJobs(
     if (modeFilter !== "all" && job.input_mode !== modeFilter) return false;
     if (statusFilter === "active") return isActive(job.status);
     if (statusFilter === "done") return job.status === "done";
-    if (statusFilter === "failed") return job.status === "failed" || job.status === "interrupted";
+    if (statusFilter === "failed") return job.status === "failed";
     return true;
   });
 }
 
 function isActive(status: string): boolean {
-  return !["done", "failed", "interrupted"].includes(status);
+  return !["done", "failed"].includes(status);
 }
 
 function activeShareLinks(jobs: JobSummary[], jobId: string): ShareLinkSummary[] {

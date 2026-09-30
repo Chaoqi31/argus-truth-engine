@@ -23,17 +23,6 @@ from argus.models.domain import Job
 from argus.orchestrator import audit_pdf, audit_text
 from argus.orchestrator.entry import audit_resume
 
-_ACTIVE_STATUSES = {
-    "queued",
-    "running",
-    "parsing",
-    "planning",
-    "atomizing",
-    "filtering",
-    "verifying",
-    "reporting",
-}
-
 
 class RunnerCapacityError(RuntimeError):
     """Raised when the process already has too many active audits."""
@@ -42,7 +31,7 @@ class RunnerCapacityError(RuntimeError):
 @dataclass
 class JobRecord:
     job_id: str
-    status: str = "queued"
+    status: str = "running"
     result: Job | None = None
     error: str | None = None
     pdf_key: str = ""
@@ -70,7 +59,7 @@ class JobRunner:
 
     async def _reserve(self, record: JobRecord) -> None:
         async with self.lock:
-            active = sum(1 for r in self.records.values() if r.status in _ACTIVE_STATUSES)
+            active = sum(1 for r in self.records.values() if r.status == "running")
             if active >= self.state.settings.max_active_jobs:
                 raise RunnerCapacityError("Too many active audits; try again later.")
             self.records[record.job_id] = record
@@ -78,9 +67,9 @@ class JobRunner:
     async def _reserve_resume(self, job_id: str) -> JobRecord:
         async with self.lock:
             existing = self.records.get(job_id)
-            if existing is not None and existing.status in _ACTIVE_STATUSES:
+            if existing is not None and existing.status == "running":
                 raise RunnerCapacityError("This audit is already running.")
-            active = sum(1 for r in self.records.values() if r.status in _ACTIVE_STATUSES)
+            active = sum(1 for r in self.records.values() if r.status == "running")
             if active >= self.state.settings.max_active_jobs:
                 raise RunnerCapacityError("Too many active audits; try again later.")
             record = existing or JobRecord(job_id=job_id)
@@ -115,7 +104,6 @@ class JobRunner:
                     pdf_path=str(self.state.storage.path_for(key)),
                     input_mode="pdf",
                     content_domain=content_domain,
-                    status="queued",
                 ),
                 owner_user_id=owner_user_id,
             )
@@ -169,7 +157,6 @@ class JobRunner:
                     input_mode="text",
                     content_domain=content_domain,
                     auto_review=auto_review,
-                    status="queued",
                 ),
                 owner_user_id=owner_user_id,
             )
@@ -210,7 +197,8 @@ class JobRunner:
         api_key_override: str | None = None,
         miromind_model: str | None = None,
     ) -> str | None:
-        """Resume an interrupted job. Returns job_id on success, None if not found."""
+        """Verify the claims a reviewer kept on a job awaiting review. Returns
+        the job id, or None when no such job is awaiting review."""
         repo = self.state.repo
         if repo is None:
             return None
@@ -218,7 +206,7 @@ class JobRunner:
         record = self.records.get(job_id)
         if record is None:
             job = await repo.get_job(job_id)
-            if job is None or job.status != "interrupted":
+            if job is None or job.status != "awaiting_review":
                 return None
         record = await self._reserve_resume(job_id)
 

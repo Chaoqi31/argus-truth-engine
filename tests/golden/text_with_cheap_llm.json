@@ -1580,6 +1580,7 @@
         "url": "https://www.ft.com/acme-margins"
       }
     ],
+    "failure": null,
     "findings": [
       {
         "agent": "Consistency",

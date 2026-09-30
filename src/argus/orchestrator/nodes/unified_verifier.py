@@ -24,6 +24,8 @@ from argus.models.domain import (
     Claim,
     ClaimType,
     Evidence,
+    Failure,
+    FailureKind,
     Finding,
     FindingVerdict,
     ReasoningTrace,
@@ -68,7 +70,7 @@ class _Cached:
 
 def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
+        if state.get("failure"):
             return {}
         claims = state.get("claims", [])
         if not claims:
@@ -255,8 +257,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     error=str(exc),
                 )
                 return {
-                    "aborted": True,
-                    "abort_reason": str(exc),
+                    "failure": Failure(kind=FailureKind.BUDGET, message=str(exc)),
                     "findings": {f.id: f for f in new_findings},
                     "traces": new_traces,
                     "evidences": new_evidences,

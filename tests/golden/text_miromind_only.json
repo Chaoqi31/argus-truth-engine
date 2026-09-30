@@ -1588,6 +1588,7 @@
         "url": "https://www.linkedin.com/company/acme"
       }
     ],
+    "failure": null,
     "findings": [
       {
         "agent": "Consistency",

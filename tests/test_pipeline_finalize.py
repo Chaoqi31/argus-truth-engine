@@ -18,6 +18,8 @@ from argus.engineering import BudgetTracker
 from argus.models.domain import (
     Claim,
     ClaimType,
+    Failure,
+    FailureKind,
     Finding,
     FindingVerdict,
     Job,
@@ -91,8 +93,7 @@ async def test_finalize_partial_coverage_on_abort(tmp_path: Path) -> None:
     f2 = _verifier_finding("a_2", FindingVerdict.INACCURATE)
     final_state: _State = {
         "claims": claims,
-        "aborted": True,
-        "abort_reason": "job budget exceeded",
+        "failure": Failure(kind=FailureKind.BUDGET, message="job budget exceeded"),
         "findings": {
             f1.id: f1,
             f2.id: f2,

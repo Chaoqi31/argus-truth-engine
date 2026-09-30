@@ -632,6 +632,7 @@
         "url": "https://papers.ssrn.com/sol3/results.cfm?q=doe+2019"
       }
     ],
+    "failure": null,
     "findings": [
       {
         "agent": "UnifiedVerifier",

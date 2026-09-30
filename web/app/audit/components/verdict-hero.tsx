@@ -1,9 +1,15 @@
 "use client";
 
-import type { Job } from "@/lib/types";
+import type { FailureKind, Job } from "@/lib/types";
 import CountUp from "@/components/react-bits/CountUp";
 import BlurText from "@/components/react-bits/BlurText";
 import { ReasoningWalkthroughCta } from "@/components/reasoning-walkthrough-cta";
+
+const FAILURE_LABEL: Record<FailureKind, string> = {
+  budget: "Budget reached",
+  interrupted: "Interrupted",
+  error: "Error",
+};
 
 export function VerdictHero({
   job,
@@ -44,7 +50,7 @@ export function VerdictHero({
   const audited = job.claims_audited && job.claims_audited > 0 ? job.claims_audited : job.findings.filter((f) => f.agent === "UnifiedVerifier").length;
   const partial = total > 0 && audited < total;
   const unchecked = Math.max(0, total - audited);
-  const failed = job.status === "failed" || job.status === "interrupted";
+  const failed = job.status === "failed";
   let headline: string;
   if (failed) {
     headline = `Argus stopped before completing ${subject}.`;
@@ -108,6 +114,11 @@ export function VerdictHero({
         {(partial || failed) && (
           <p className="mt-1.5 inline-flex rounded bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning-foreground">
             Partial coverage: review unchecked claims before relying on a clean conclusion.
+          </p>
+        )}
+        {job.failure && (
+          <p className="mt-1.5 text-[11px] text-destructive-foreground">
+            {FAILURE_LABEL[job.failure.kind]}: {job.failure.message}
           </p>
         )}
       </div>

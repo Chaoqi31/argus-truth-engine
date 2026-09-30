@@ -32,7 +32,7 @@ def _stage(
 
 def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
+        if state.get("failure"):
             return {}
         claims = state.get("claims", [])
         await ctx.publisher.stage(

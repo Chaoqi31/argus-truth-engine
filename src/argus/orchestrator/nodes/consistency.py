@@ -12,7 +12,15 @@ from argus.agents.consistency import (
 from argus.engineering import BudgetExceeded
 from argus.llm import Failed, FailureReason
 from argus.log import log
-from argus.models.domain import Claim, Finding, FindingVerdict, ReasoningTrace, Stage
+from argus.models.domain import (
+    Claim,
+    Failure,
+    FailureKind,
+    Finding,
+    FindingVerdict,
+    ReasoningTrace,
+    Stage,
+)
 from argus.orchestrator.assemblers import (
     _build_trace,
     _contradictions_to_findings,
@@ -74,7 +82,7 @@ class ConsistencyCheck:
     parsed: ConsistencyOutput | None = None
     trace: ReasoningTrace | None = None
     summary: str = ""
-    abort_reason: str = ""
+    failure: Failure | None = None
 
 
 async def check_consistency_of(ctx: _Ctx, claims: list[Claim]) -> ConsistencyCheck:
@@ -98,7 +106,7 @@ async def check_consistency_of(ctx: _Ctx, claims: list[Claim]) -> ConsistencyChe
         ctx.budget.charge(answer.usage.cost_usd)
     except BudgetExceeded as exc:
         log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
-        return ConsistencyCheck(abort_reason=str(exc))
+        return ConsistencyCheck(failure=Failure(kind=FailureKind.BUDGET, message=str(exc)))
     trace = _build_trace(
         job_id=ctx.job_id,
         claim_id="(consistency)",
@@ -114,8 +122,8 @@ async def record_consistency(
 ) -> dict[str, Any]:
     """Turn the check into findings against the final verifier verdicts, so a
     logical flaw on a claim the verifier already flagged is dropped."""
-    if check.abort_reason:
-        return {"aborted": True, "abort_reason": check.abort_reason}
+    if check.failure is not None:
+        return {"failure": check.failure}
     if check.parsed is None or check.trace is None:
         stage = await ctx.publisher.finish(_stage(ctx, check.summary, 0))
         return {"stages": [stage]}

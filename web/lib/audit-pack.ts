@@ -513,7 +513,7 @@ export function buildAuditPackMarkdown(
     "# Argus Audit Pack",
     "",
     "## Executive Summary",
-    `- Status: ${unchecked > 0 || job.status === "failed" || job.status === "interrupted" ? "Partial" : "Complete"}`,
+    `- Status: ${unchecked > 0 || job.status === "failed" ? "Partial" : "Complete"}`,
     `- Content domain: ${contentDomain}`,
     `- Checked claims: ${audited}/${total}`,
     `- Material issues: ${materialIssues.length}`,

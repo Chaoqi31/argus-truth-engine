@@ -21,7 +21,7 @@ from argus.config import Settings
 from argus.engineering import BoundedRunner, BudgetTracker
 from argus.llm import Llm
 from argus.log import log
-from argus.models.domain import Job, Stage
+from argus.models.domain import Failure, FailureKind, Job, Stage
 from argus.orchestrator.context import _Ctx, _Publisher, _State
 from argus.orchestrator.nodes.atomizer import _atomizer_node
 from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
@@ -174,10 +174,10 @@ async def run_audit(
         log.error("orchestrator.phase_a_raised", job_id=job.id,
                   error_type=type(exc).__name__, error=str(exc)[:300])
         return await _finalize(ctx, job, initial, output_path, repo, exc)
-    if state.get("aborted"):
+    if state.get("failure"):
         return await _finalize(ctx, job, state, output_path, repo, None)
     if not auto_review and state.get("claims") and repo is not None:
-        return await _persist_interrupted(ctx, job, state, output_path, repo)
+        return await _persist_awaiting_review(job, state, output_path, repo)
     await ctx.publisher.publish("resumed", {})
     return await _verify_and_finalize(ctx, job, state, output_path, repo)
 
@@ -212,8 +212,7 @@ async def resume_audit(
         "stages": [_with_selection(s, len(claims)) for s in job.stages],
         "evidences": [],
         "audit_report_md": None,
-        "aborted": False,
-        "abort_reason": "",
+        "failure": None,
     }
     return await _verify_and_finalize(ctx, job, state, output_path, repo)
 
@@ -269,11 +268,13 @@ async def _finalize(
     job.cost_usd = round(ctx.budget.spent_usd, 6)
     job.total_tokens = sum(t.total_tokens for t in job.traces)
     if raised_exc is not None:
-        job.status = "failed"
-        abort_reason = f"{type(raised_exc).__name__}: {str(raised_exc)[:200]}"
+        job.failure = Failure(
+            kind=FailureKind.ERROR,
+            message=f"{type(raised_exc).__name__}: {str(raised_exc)[:200]}",
+        )
     else:
-        job.status = "failed" if final_state.get("aborted") else "done"
-        abort_reason = final_state.get("abort_reason", "")
+        job.failure = final_state.get("failure")
+    job.status = "failed" if job.failure is not None else "done"
     job.completed_at = datetime.utcnow()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -308,14 +309,13 @@ async def _finalize(
         "n_timeout_findings": len(timeout_findings),
         "timed_out_claim_ids": [f.claim_id for f in timeout_findings],
     }
-    if job.status == "failed":
-        terminal_payload["reason"] = abort_reason
+    if job.failure is not None:
+        terminal_payload["failure"] = job.failure.model_dump(mode="json")
     await ctx.publisher.publish(terminal_kind, terminal_payload)
     return job
 
 
-async def _persist_interrupted(
-    ctx: _Ctx,
+async def _persist_awaiting_review(
     job: Job,
     state: _State,
     output_path: Path,
@@ -332,11 +332,11 @@ async def _persist_interrupted(
     job.claims_total = len(job.claims)
     job.traces = list(state.get("traces", {}).values())
     job.stages = _ordered(state.get("stages", []))
-    job.status = "interrupted"
+    job.status = "awaiting_review"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(job.model_dump_json(indent=2))
-    log.info("orchestrator.interrupted", job_id=job.id, n_claims=len(job.claims))
+    log.info("orchestrator.awaiting_review", job_id=job.id, n_claims=len(job.claims))
     try:
         await repo.save_job(job)
         log.info("orchestrator.persisted", job_id=job.id)

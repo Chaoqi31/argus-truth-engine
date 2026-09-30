@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from argus.db.repository import JobRepository
 from argus.llm import Transports
 from argus.llm.miromind import MiroMindAccess
-from argus.models.domain import Finding, FindingVerdict, Job
+from argus.models.domain import FailureKind, Finding, FindingVerdict, Job
 from argus.orchestrator import audit_pdf, audit_text
 from argus.trace_bus.in_process import InProcessBus
 from tests.fake_llm import AUDIT_TEXT, S5, FakeLLM
@@ -89,7 +89,8 @@ async def test_the_budget_stops_verification_and_keeps_what_finished(tmp_path: P
     assert 1 <= job.claims_audited < job.claims_total
     kind, payload = events[-1]
     assert kind == "failed"
-    assert "budget exceeded" in payload["reason"]
+    assert payload["failure"]["kind"] == FailureKind.BUDGET
+    assert "budget exceeded" in payload["failure"]["message"]
 
 
 async def test_a_provider_outage_fails_the_job(tmp_path: Path) -> None:
@@ -100,7 +101,8 @@ async def test_a_provider_outage_fails_the_job(tmp_path: Path) -> None:
     assert (job.status, job.findings) == ("failed", [])
     kind, payload = events[-1]
     assert kind == "failed"
-    assert "500" in payload["reason"]
+    assert payload["failure"]["kind"] == FailureKind.ERROR
+    assert "500" in payload["failure"]["message"]
 
 
 async def test_an_unreadable_pdf_fails_the_job_with_a_terminal_event(tmp_path: Path) -> None:
@@ -126,7 +128,7 @@ async def test_an_unreadable_pdf_fails_the_job_with_a_terminal_event(tmp_path: P
     assert fake.requests == []
     kind, payload = events[-1]
     assert kind == "failed"
-    assert payload["reason"]
+    assert payload["failure"]["kind"] == FailureKind.ERROR
 
 
 async def test_a_second_audit_reuses_cached_verdicts(

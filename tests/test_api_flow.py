@@ -85,7 +85,7 @@ async def _audit_with_review(host: str) -> tuple[str, list[dict[str, Any]], dict
         assert [c["text"] for c in review["claims"]] == [PDF_C1, PDF_C2]
 
         paused = await _settled_status(http, job_id)
-        assert paused == "interrupted"
+        assert paused == "awaiting_review"
 
         keep = review["claims"][0]["id"]
         resp = await http.post(

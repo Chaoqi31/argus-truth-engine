@@ -61,7 +61,7 @@ def _review_gate_node(
     ctx: _Ctx, *, auto_review: bool,
 ) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
+        if state.get("failure"):
             return {}
         claims = state.get("claims", [])
         n_before = len(claims)

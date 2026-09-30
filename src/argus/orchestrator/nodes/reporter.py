@@ -8,7 +8,7 @@ from argus.agents.reporter import REPORT, build_reporter_input
 from argus.engineering import BudgetExceeded
 from argus.llm import Failed, FailureReason
 from argus.log import log
-from argus.models.domain import Stage
+from argus.models.domain import Failure, FailureKind, Stage
 from argus.orchestrator.assemblers import _build_trace, _step_payload
 from argus.orchestrator.context import _Ctx, _State
 
@@ -54,7 +54,7 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             ctx.budget.charge(answer.usage.cost_usd)
         except BudgetExceeded as exc:
             log.warning("orchestrator.budget_exceeded_at_reporter", error=str(exc))
-            return {"aborted": True, "abort_reason": str(exc)}
+            return {"failure": Failure(kind=FailureKind.BUDGET, message=str(exc))}
 
         trace = _build_trace(
             job_id=ctx.job_id,

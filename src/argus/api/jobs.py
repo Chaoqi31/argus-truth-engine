@@ -231,7 +231,7 @@ async def select_claims(
     if resumed is None:
         raise HTTPException(
             status_code=_HTTP_NOT_FOUND,
-            detail="job not in interrupted state",
+            detail="job is not awaiting review",
         )
     return {"status": "resumed", "n_selected": len(body.selected_claim_ids)}
 

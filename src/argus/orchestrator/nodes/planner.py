@@ -8,18 +8,18 @@ from argus.agents.planner import PLAN_PDF, PLAN_TEXT, build_planner_input
 from argus.engineering import BudgetExceeded
 from argus.llm import Failed
 from argus.log import log
-from argus.models.domain import Stage
+from argus.models.domain import Failure, FailureKind, Stage
 from argus.orchestrator.assemblers import _build_trace, _step_payload
 from argus.orchestrator.context import _Ctx, _State
 
 
 def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        if state.get("aborted"):
+        if state.get("failure"):
             return {}
         doc = state.get("doc")
         if doc is None:
-            return {"aborted": True, "abort_reason": "no parsed document"}
+            return {"failure": Failure(kind=FailureKind.ERROR, message="no parsed document")}
         input_mode = state.get("input_mode", "pdf")
         task = PLAN_TEXT if input_mode == "text" else PLAN_PDF
         engine = ctx.llm.engine(task)
@@ -34,13 +34,15 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             log.error(
                 "orchestrator.planner_failed", reason=answer.reason, error=answer.detail[:500]
             )
-            return {"aborted": True, "abort_reason": f"planner: {answer.detail}"}
+            return {
+                "failure": Failure(kind=FailureKind.ERROR, message=f"planner: {answer.detail}")
+            }
 
         try:
             ctx.budget.charge(answer.usage.cost_usd)
         except BudgetExceeded as exc:
             log.error("orchestrator.budget_exceeded_at_planner", error=str(exc))
-            return {"aborted": True, "abort_reason": str(exc)}
+            return {"failure": Failure(kind=FailureKind.BUDGET, message=str(exc))}
 
         claims = answer.output.to_claims()
         trace = _build_trace(

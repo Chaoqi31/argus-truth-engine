@@ -18,18 +18,7 @@ from argus.db.models import (
     UserApiKeyRow,
     UserRow,
 )
-from argus.models.domain import Job
-
-_ACTIVE_STATUSES = (
-    "queued",
-    "parsing",
-    "planning",
-    "atomizing",
-    "filtering",
-    "reviewing",
-    "verifying",
-    "reporting",
-)
+from argus.models.domain import Failure, FailureKind, Job
 
 
 class UserIdentity(Protocol):
@@ -144,17 +133,28 @@ class JobRepository:
             await session.delete(row)
             return True
 
-    async def mark_running_as_interrupted(self) -> int:
-        """Flip jobs left unfinished by a dead worker to 'interrupted'.
-
-        Called on startup. Returns the number of jobs flipped.
-        """
+    async def fail_interrupted_runs(self) -> int:
+        """Fail the jobs a dead process left running. Called on startup; jobs
+        awaiting review had nothing running and keep waiting. Returns how many
+        jobs were failed."""
+        failure = Failure(
+            kind=FailureKind.INTERRUPTED,
+            message="The server restarted while this audit was running.",
+        )
         async with self._smaker() as session, session.begin():
             rows = (
-                await session.execute(select(JobRow).where(JobRow.status.in_(_ACTIVE_STATUSES)))
+                await session.execute(select(JobRow).where(JobRow.status == "running"))
             ).scalars().all()
             for row in rows:
-                row.write(row.job().model_copy(update={"status": "interrupted"}))
+                row.write(
+                    row.job().model_copy(
+                        update={
+                            "status": "failed",
+                            "failure": failure,
+                            "completed_at": datetime.utcnow(),
+                        }
+                    )
+                )
             return len(rows)
 
     async def list_job_summaries(

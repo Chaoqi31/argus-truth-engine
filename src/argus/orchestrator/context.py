@@ -14,7 +14,7 @@ from argus.config import Settings
 from argus.engineering import BoundedRunner, BudgetTracker
 from argus.llm import Llm
 from argus.log import log
-from argus.models.domain import Claim, Evidence, Finding, ReasoningTrace, Stage
+from argus.models.domain import Claim, Evidence, Failure, Finding, ReasoningTrace, Stage
 from argus.pdf.parser import ParsedDoc
 from argus.trace_bus.base import TraceBus, TraceEvent
 
@@ -38,8 +38,7 @@ class _State(TypedDict, total=False):
     stages: list[Stage]
     evidences: list[Evidence]
     audit_report_md: str | None
-    aborted: bool
-    abort_reason: str
+    failure: Failure | None
 
 
 class _Ctx:

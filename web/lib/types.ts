@@ -16,6 +16,8 @@ export type {
   Evidence,
   EvidenceQuality,
   EvidenceSource,
+  Failure,
+  FailureKind,
   Finding,
   FindingVerdict,
   Job,

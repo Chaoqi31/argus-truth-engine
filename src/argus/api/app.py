@@ -61,13 +61,11 @@ def create_app(*, settings: Settings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
-            # Startup: mark abandoned jobs (worker died mid-flight) as interrupted
             if state.repo is not None:
-                n_flipped = await state.repo.mark_running_as_interrupted()
-                if n_flipped:
+                n_failed = await state.repo.fail_interrupted_runs()
+                if n_failed:
                     from argus.log import log
-                    log.info("startup.zombie_jobs_marked_interrupted",
-                             count=n_flipped)
+                    log.info("startup.interrupted_runs_failed", count=n_failed)
             yield
         finally:
             await state.transports.aclose()

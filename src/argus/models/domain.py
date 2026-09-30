@@ -325,6 +325,20 @@ class BenchmarkSpec(_Base):
     expected_claims: list[BenchmarkExpectedClaim] = Field(default_factory=list)
 
 
+JobStatus = Literal["running", "awaiting_review", "done", "failed"]
+
+
+class FailureKind(StrEnum):
+    BUDGET = "budget"  # the job's spend cap was reached
+    INTERRUPTED = "interrupted"  # the run was cut off: a restart or a cancel
+    ERROR = "error"  # the input or a provider made the audit impossible
+
+
+class Failure(_Base):
+    kind: FailureKind
+    message: str
+
+
 class Job(_Base):
     id: str
     scenario_label: str | None = None
@@ -334,11 +348,8 @@ class Job(_Base):
     input_mode: Literal["pdf", "text"] = "pdf"
     content_domain: ContentDomain = ContentDomain.GENERAL
     auto_review: bool = False
-    status: Literal[
-        "queued", "parsing", "planning", "atomizing", "filtering",
-        "reviewing", "verifying", "reporting", "done", "failed",
-        "interrupted",
-    ] = "queued"
+    status: JobStatus = "running"
+    failure: Failure | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
     cost_usd: float = 0.0

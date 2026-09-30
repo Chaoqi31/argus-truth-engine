@@ -10,6 +10,11 @@ export type ContentDomain =
   "general" | "academic" | "medical" | "legal" | "finance" | "technology" | "news" | "science";
 /**
  * This interface was referenced by `Job`'s JSON-Schema
+ * via the `definition` "FailureKind".
+ */
+export type FailureKind = "budget" | "interrupted" | "error";
+/**
+ * This interface was referenced by `Job`'s JSON-Schema
  * via the `definition` "ClaimType".
  */
 export type ClaimType = "citation" | "numerical-data" | "time-sensitive" | "cross-reference" | "qualitative";
@@ -81,18 +86,8 @@ export interface Job {
   input_mode: "pdf" | "text";
   content_domain: ContentDomain;
   auto_review: boolean;
-  status:
-    | "queued"
-    | "parsing"
-    | "planning"
-    | "atomizing"
-    | "filtering"
-    | "reviewing"
-    | "verifying"
-    | "reporting"
-    | "done"
-    | "failed"
-    | "interrupted";
+  status: "running" | "awaiting_review" | "done" | "failed";
+  failure: Failure | null;
   created_at: string;
   completed_at: string | null;
   cost_usd: number;
@@ -106,6 +101,14 @@ export interface Job {
   evidences: Evidence[];
   stages: Stage[];
   benchmark: BenchmarkSpec | null;
+}
+/**
+ * This interface was referenced by `Job`'s JSON-Schema
+ * via the `definition` "Failure".
+ */
+export interface Failure {
+  kind: FailureKind;
+  message: string;
 }
 /**
  * This interface was referenced by `Job`'s JSON-Schema
