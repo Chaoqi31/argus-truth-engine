@@ -138,7 +138,11 @@ async def _verify(ctx: _Ctx, state: _State) -> _State:
     state = _merge(
         state, await record_consistency(ctx, consistency.result(), state.get("findings", {}))
     )
+    # Scoring is free and applies to partial results too; a report of an
+    # audit that stopped would read as complete, so it is skipped.
     state = _merge(state, await _confidence_node(ctx)(state))
+    if state.get("failure"):
+        return state
     return _merge(state, await _reporter_node(ctx)(state))
 
 

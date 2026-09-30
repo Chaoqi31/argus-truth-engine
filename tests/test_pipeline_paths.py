@@ -83,10 +83,14 @@ async def test_a_malformed_verifier_answer_is_repaired(tmp_path: Path) -> None:
 
 async def test_the_budget_stops_verification_and_keeps_what_finished(tmp_path: Path) -> None:
     # DeepSeek calls are free; one verifier call costs about $0.11.
-    job, events = await _audit(tmp_path, FakeLLM(), cheap_llm=True, budget_usd=0.2)
+    fake = FakeLLM()
+    job, events = await _audit(tmp_path, fake, cheap_llm=True, budget_usd=0.2)
 
     assert job.status == "failed"
     assert 1 <= job.claims_audited < job.claims_total
+    verified = [f for f in job.findings if f.agent == "UnifiedVerifier"]
+    assert all(f.confidence_breakdown is not None for f in verified)
+    assert (job.audit_report_md, llm_calls(fake).get("chat:reporter")) == (None, None)
     kind, payload = events[-1]
     assert kind == "failed"
     assert payload["failure"]["kind"] == FailureKind.BUDGET

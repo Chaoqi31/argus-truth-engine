@@ -25,8 +25,6 @@ def _stage(summary: str, n_scored: int) -> Stage:
 
 def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
-        if state.get("failure"):
-            return {}
         findings = list(state.get("findings", {}).values())
         await ctx.publisher.stage(
             status="started",
