@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Finding, FindingReasoningStep, Job, Stage, Step } from "@/lib/types";
+import type { Finding, Job, Stage, Step, VerificationStep } from "@/lib/types";
 import { stepIcon, verdictTone } from "@/lib/colors";
 import { useArgusStore } from "@/lib/store";
-import { sortFindingsForReview } from "@/lib/findings";
+import { isDerivedFinding, sortFindingsForReview } from "@/lib/findings";
+import { METRIC_LABEL, STAGE_BLURB, stageLabel } from "@/lib/stage-vocabulary";
 
 // Verdict badge tints — keyed by the tone from `verdictTone`. Mirror the
 // severity-tint pattern (text-foreground on a /15 surface) so contrast holds.
@@ -17,262 +18,11 @@ const TONE_BADGE: Record<string, string> = {
 
 interface Props {
   job: Job | null;
-  liveMode?: boolean;
-  liveSteps?: Step[];
   activeFindingId?: string | null;
 }
 
-export function TraceStreamView({ job, liveMode = false, liveSteps = [], activeFindingId = null }: Props) {
-  if (liveMode) return <LiveTrace steps={liveSteps} />;
+export function TraceStreamView({ job, activeFindingId = null }: Props) {
   return <StaticReplay job={job} activeFindingId={activeFindingId} />;
-}
-
-function LiveTrace({ steps }: { steps: Step[] }) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const autoFollowRef = useRef(true);
-  const [now, setNow] = useState(() => Date.now());
-  const reviewClaims = useArgusStore((s) => s.reviewClaims);
-  const heartbeat = useArgusStore((s) => s.liveHeartbeat);
-  // Elapsed is wall-clock from when the first step lands client-side (state set
-  // in an effect, not a ref read during render). Synthetic stage/claim markers
-  // carry an empty created_at and the demo replays months-old fixture steps, so
-  // the step's own timestamp cannot anchor the clock.
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-  useEffect(() => {
-    // One-time anchor when the first step lands — a real external signal, not
-    // render-derived state. Same pattern as useCountUp's trigger.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (steps.length > 0 && startedAt === null) setStartedAt(Date.now());
-  }, [steps.length, startedAt]);
-  useEffect(() => {
-    if (!autoFollowRef.current) return;
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [steps.length]);
-  // Tick once per second for the elapsed clock. Must NOT depend on steps.length:
-  // re-running on every streamed step clears the interval before it can fire,
-  // which froze the clock for the entire run.
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const claimMeta = new Map(
-    reviewClaims.map(
-      (c, i) => [c.id, { text: c.text, ordinal: `${i + 1}/${reviewClaims.length}` }] as const,
-    ),
-  );
-  const groups = groupLiveSteps(steps, claimMeta);
-  const currentClaim = [...groups].reverse().find((g) => g.type === "claim") ?? null;
-  const totalSearches = steps.filter((s) => s.type === "web_search").length;
-  const totalFetches = steps.filter((s) => s.type === "fetch_url_content").length;
-  const sourceCount = steps.filter((s) => {
-    const result = s.content?.result;
-    return s.type === "web_search" && typeof result === "string" && result.includes("organic");
-  }).length;
-  const elapsed = startedAt !== null ? formatElapsed(now - startedAt) : "0s";
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Live trace
-          </span>
-          <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-success" />
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            {steps.length} steps
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          <LiveChip label="searches" value={totalSearches} pop />
-          <LiveChip label="fetches" value={totalFetches} pop />
-          <LiveChip label="source sets" value={sourceCount} pop />
-          <LiveChip label="elapsed" value={elapsed} />
-        </div>
-      </div>
-      {currentClaim && (
-        <div className="border-b border-border bg-background/95 px-3 py-2">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-primary">
-            Verifying {currentClaim.ordinal ? `claim ${currentClaim.ordinal}` : "claim"}
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-foreground">
-            {currentClaim.label}
-          </p>
-          {heartbeat && (
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              {heartbeat.message} {Math.round(heartbeat.elapsed_s)}s elapsed
-            </p>
-          )}
-        </div>
-      )}
-      <div
-        ref={scrollRef}
-        onScroll={(event) => {
-          const el = event.currentTarget;
-          autoFollowRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-        }}
-        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2"
-      >
-        {steps.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Waiting for first step…</p>
-        ) : (
-          <ol className="flex flex-col gap-2">
-            {groups.map((g) => (
-              <LiveGroupItem key={g.key} group={g} />
-            ))}
-            <li className="flex items-center gap-1.5 px-1 py-1.5 text-xs text-muted-foreground">
-              <span aria-hidden className="frontier-dot size-1.5 rounded-full bg-primary" style={{ animationDelay: "0ms" }} />
-              <span aria-hidden className="frontier-dot size-1.5 rounded-full bg-primary" style={{ animationDelay: "200ms" }} />
-              <span aria-hidden className="frontier-dot size-1.5 rounded-full bg-primary" style={{ animationDelay: "400ms" }} />
-              <span className="ml-1 font-mono text-[10px] uppercase tracking-wider">MiroMind is researching</span>
-            </li>
-          </ol>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LiveChip({ label, value, pop = false }: { label: string; value: string | number; pop?: boolean }) {
-  return (
-    <span className="rounded border border-border bg-background px-1.5 py-0.5">
-      {pop ? (
-        <span key={String(value)} className="chip-pop text-foreground">{value}</span>
-      ) : (
-        <span className="text-foreground">{value}</span>
-      )}{" "}
-      {label}
-    </span>
-  );
-}
-
-interface LiveStepGroup {
-  key: string;
-  type: "stage" | "claim" | "system";
-  label: string;
-  meta?: string;
-  ordinal?: string;
-  steps: Step[];
-}
-
-function groupLiveSteps(
-  steps: Step[],
-  claimMeta?: Map<string, { text: string; ordinal: string }>,
-): LiveStepGroup[] {
-  const groups: LiveStepGroup[] = [];
-  let currentClaimKey: string | null = null;
-
-  const pushClaim = (key: string, label: string, meta?: string, ordinal?: string) => {
-    currentClaimKey = key;
-    let group = groups.find((g) => g.key === key) ?? null;
-    if (!group) {
-      group = { key, type: "claim", label, meta, ordinal, steps: [] };
-      groups.push(group);
-    }
-    return group;
-  };
-
-  for (const step of steps) {
-    const content = step.content as Record<string, unknown>;
-    const stage = content.__stage as
-      | { name?: string; engine?: string; summary?: string }
-      | undefined;
-    if (stage) {
-      currentClaimKey = null;
-      groups.push({
-        key: `stage-${step.id}`,
-        type: "stage",
-        label: stage.name ?? step.summary,
-        meta: stage.summary ?? step.summary,
-        steps: [step],
-      });
-      continue;
-    }
-
-    const claim = content.__claim as
-      | { index?: number; total?: number; text?: string }
-      | undefined;
-    if (claim) {
-      const ordinal =
-        typeof claim.index === "number" && typeof claim.total === "number"
-          ? `${claim.index}/${claim.total}`
-          : undefined;
-      pushClaim(
-        `claim-marker-${step.id}`,
-        claim.text ?? step.summary,
-        "MiroMind deep research",
-        ordinal,
-      );
-      continue;
-    }
-
-    const claimId = typeof content.claim_id === "string" ? content.claim_id : null;
-    if (claimId) {
-      const meta = claimMeta?.get(claimId);
-      const group = pushClaim(
-        `claim-${claimId}`,
-        meta?.text ?? claimId,
-        typeof content.agent === "string" ? content.agent : "MiroMind deep research",
-        meta?.ordinal,
-      );
-      group.steps.push(step);
-      continue;
-    }
-
-    const activeClaim = currentClaimKey
-      ? groups.find((g) => g.key === currentClaimKey)
-      : null;
-    if (activeClaim) {
-      activeClaim.steps.push(step);
-    } else {
-      let system = groups.find((g) => g.key === "system");
-      if (!system) {
-        system = { key: "system", type: "system", label: "Pipeline activity", steps: [] };
-        groups.push(system);
-      }
-      system.steps.push(step);
-    }
-  }
-
-  return groups.filter((g) => g.type !== "claim" || g.steps.length > 0 || g.label);
-}
-
-function formatElapsed(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
-}
-
-function LiveGroupItem({ group }: { group: LiveStepGroup }) {
-  if (group.type === "stage") {
-    return (
-      <li className="animate-row-in rounded-md border border-border bg-muted/30 px-2 py-1.5">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-primary">{group.label}</p>
-        {group.meta && <p className="mt-0.5 text-xs text-muted-foreground">{group.meta}</p>}
-      </li>
-    );
-  }
-
-  return (
-    <li className="animate-row-in rounded-md border border-border bg-background">
-      <div className="border-b border-border px-2.5 py-2">
-        <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
-          <span>{group.type === "claim" ? "Claim" : "Pipeline"}</span>
-          {group.ordinal && <span className="rounded bg-primary/10 px-1.5 py-0.5">{group.ordinal}</span>}
-          {group.meta && <span className="text-muted-foreground">{group.meta}</span>}
-        </p>
-        <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-foreground">{group.label}</p>
-      </div>
-      {group.steps.length > 0 && (
-        <ol className="flex flex-col gap-1 px-2.5 py-2">
-          {group.steps.map((s) => (
-            <StepItem key={s.id} step={s} streamIn />
-          ))}
-        </ol>
-      )}
-    </li>
-  );
 }
 
 interface ClaimGroup {
@@ -288,32 +38,6 @@ const ENGINE_BADGE: Record<Stage["engine"], { label: string; cls: string }> = {
   miromind: { label: "★ MiroMind", cls: "bg-primary/15 text-primary" },
   deepseek: { label: "DeepSeek", cls: "bg-muted text-muted-foreground" },
   deterministic: { label: "deterministic", cls: "bg-muted text-muted-foreground" },
-};
-
-// Human-readable labels for the per-stage metric chips.
-const METRIC_LABEL: Record<string, string> = {
-  pages: "pages", chars: "chars",
-  n_claims: "claims", n_original: "original", n_atoms: "atomic",
-  n_checkworthy: "check-worthy", n_filtered: "filtered",
-  n_before: "before", n_after: "after", n_verifying: "to verify",
-  n_steps: "steps", n_searches: "web searches",
-  n_findings: "findings", n_scored: "scored",
-  n_reviewed: "reviewed", n_cleared: "cleared",
-  n_counterevidence_found: "counterevidence", n_inconclusive: "inconclusive",
-};
-
-// One-line "what this step does" shown at the top of each expanded stage.
-const STAGE_BLURB: Record<string, string> = {
-  parse: "Extracts the raw text and character offsets from the document.",
-  planner: "Reads the document and pulls out the discrete factual claims worth checking.",
-  atomizer: "Splits compound claims into atomic, independently-verifiable statements.",
-  checkworthiness: "Drops opinions, forecasts and trivia — keeps only checkable factual claims.",
-  review_gate: "De-duplicates the claims and caps how many go to paid verification.",
-  verify: "Runs each claim through MiroMind deep research — web searches, fetches, reasoning.",
-  skeptic: "Independently challenges high-risk MiroMind verdicts by searching for counterevidence before confidence scoring.",
-  consistency: "Checks the claims against each other for contradictions and unsupported leaps.",
-  confidence: "Scores each verdict on source authority, evidence freshness and source agreement.",
-  reporter: "Writes the executive summary of the audit.",
 };
 
 function StaticReplay({ job, activeFindingId }: { job: Job | null; activeFindingId: string | null }) {
@@ -333,13 +57,11 @@ function StaticReplay({ job, activeFindingId }: { job: Job | null; activeFinding
   const claimText = new Map(job.claims.map((c) => [c.id, c.text]));
   const traceById = new Map(job.traces.map((t) => [t.id, t]));
   const groups: ClaimGroup[] = sortFindingsForReview(
-    job.findings.filter((f) => f.agent === "UnifiedVerifier"),
+    job.findings.filter((f) => f.agent === "verifier"),
   )
     .map((f) => {
       const trace = traceById.get(f.reasoning_trace_id);
-      const steps = trace
-        ? [...trace.steps].sort((a, b) => a.sequence - b.sequence)
-        : [];
+      const steps = trace ? trace.steps : [];
       return { finding: f, claimText: claimText.get(f.claim_id) ?? f.summary, steps };
     })
     .filter((g) => g.steps.length > 0);
@@ -359,7 +81,7 @@ function StaticReplay({ job, activeFindingId }: { job: Job | null; activeFinding
 
   // Persisted per-stage summary when present; otherwise derive a thinner view
   // from the job so older fixtures/jobs still render every stage.
-  const stages: Stage[] = job.stages?.length ? job.stages : deriveStages(job, groups);
+  const stages = job.stages;
 
   if (stages.length === 0 && groups.length === 0) {
     return (
@@ -462,7 +184,7 @@ function StageOverviewItem({
           {index}
         </span>
         <span className="min-w-0 truncate text-xs font-semibold text-foreground">
-          {stage.name}
+          {stageLabel(stage.key)}
         </span>
         <span className={`shrink-0 rounded-[6px] px-1.5 py-0.5 text-[10px] font-medium ${badge.cls}`}>
           {badge.label}
@@ -567,7 +289,7 @@ function TraceWorkspace({
                           {index + 1}
                         </span>
                         <span className={`min-w-0 flex-1 truncate text-xs font-semibold ${active ? "text-foreground" : ""}`}>
-                          {stage.name}
+                          {stageLabel(stage.key)}
                         </span>
                       </div>
                       <div className="mt-1 flex items-center gap-1.5 pl-7">
@@ -643,7 +365,7 @@ function StageDossier({
           Stage dossier
         </span>
       </div>
-      <h3 className="mt-2 text-lg font-semibold">{stage.name}</h3>
+      <h3 className="mt-2 text-lg font-semibold">{stageLabel(stage.key)}</h3>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
         {stage.summary}
       </p>
@@ -701,7 +423,7 @@ function stageLedger(stage: Stage, job: Job, groups: ClaimGroup[]): StageLedgerI
         output: `${stage.metrics.n_checkworthy ?? claimCount} check-worthy claim(s), ${stage.metrics.n_filtered ?? 0} filtered out.`,
         transparency: "Only externally verifiable factual statements move into paid research.",
       };
-    case "review_gate":
+    case "shortlist":
       return {
         input: `${stage.metrics.n_before ?? claimCount} check-worthy claim(s).`,
         output: `${stage.metrics.n_after ?? verifiedCount} claim(s) queued for MiroMind verification.`,
@@ -885,7 +607,7 @@ function WorkspaceClaimDetail({
 }
 
 function SelectedFindingTraceNotice({ finding, claimText }: { finding: Finding; claimText: string }) {
-  const derived = finding.agent !== "UnifiedVerifier";
+  const derived = isDerivedFinding(finding);
   const tone = verdictTone[finding.verdict] ?? "muted";
 
   return (
@@ -968,11 +690,11 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
   const chips = Object.entries(stage.metrics ?? {});
   const consistencyFindings =
     stage.key === "consistency"
-      ? job.findings.filter((f) => f.agent === "Consistency")
+      ? job.findings.filter((f) => f.agent === "consistency")
       : [];
   const skepticFindings =
     stage.key === "skeptic"
-      ? job.findings.filter((f) => f.agent === "UnifiedVerifier" && f.skeptic_review)
+      ? job.findings.filter((f) => f.agent === "verifier" && f.skeptic_review)
       : [];
   const confidenceFindings =
     stage.key === "confidence" ? sortFindingsForReview(job.findings) : [];
@@ -1007,7 +729,8 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
       {(stage.key === "planner" ||
         stage.key === "atomizer" ||
         stage.key === "checkworthiness" ||
-        stage.key === "review_gate") &&
+        stage.key === "shortlist" ||
+        stage.key === "review") &&
         job.claims.length > 0 && (
           <div className="flex flex-col gap-2">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -1017,7 +740,9 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
                   ? "Atomic claims"
                   : stage.key === "checkworthiness"
                     ? "Kept as check-worthy"
-                    : "Selected for verification"}
+                    : stage.key === "shortlist"
+                      ? "Shortlisted for review"
+                      : "Selected for verification"}
             </p>
             <ul className="grid gap-2">
               {job.claims.map((c) => (
@@ -1036,13 +761,6 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
             </ul>
           </div>
         )}
-
-      {stage.key === "planner" && stage.strategy && (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          <span className="font-medium text-foreground">Strategy: </span>
-          {stage.strategy}
-        </p>
-      )}
 
       {stage.key === "checkworthiness" &&
         stage.filtered_claims &&
@@ -1239,28 +957,6 @@ function plainReportText(report: string): string {
     .trim();
 }
 
-function deriveStages(job: Job, groups: ClaimGroup[]): Stage[] {
-  const nClaims = job.claims.length || groups.length;
-  const nConsistency = job.findings.filter((f) => f.agent === "Consistency").length;
-  const totalSteps = groups.reduce((n, g) => n + g.steps.length, 0);
-  const totalSearches = groups.reduce(
-    (n, g) => n + g.steps.filter((s) => s.type === "web_search").length,
-    0,
-  );
-  const nAudited = job.claims_audited ?? groups.length;
-  return [
-    { key: "parse", name: "Parse", engine: "deterministic", summary: "Document → text + character offsets", metrics: {} },
-    { key: "planner", name: "Planner", engine: "deepseek", summary: "Audit strategy & domain hints", metrics: { n_claims: nClaims } },
-    { key: "atomizer", name: "Atomizer", engine: "deepseek", summary: `Normalised into ${nClaims} atomic claims`, metrics: { n_atoms: nClaims } },
-    { key: "checkworthiness", name: "Check-worthiness", engine: "deepseek", summary: "Opinions & trivia filtered out", metrics: {} },
-    { key: "review_gate", name: "Review gate", engine: "deterministic", summary: `${nClaims} claims selected to verify`, metrics: { n_verifying: nClaims } },
-    { key: "verify", name: "Verify", engine: "miromind", summary: `Deep-researched ${nAudited} claim(s) · ${totalSteps} steps · ${totalSearches} web searches`, metrics: { n_claims: nAudited, n_steps: totalSteps, n_searches: totalSearches } },
-    { key: "consistency", name: "Consistency", engine: "deepseek", summary: nConsistency ? `${nConsistency} cross-claim finding(s)` : "No contradictions found", metrics: { n_findings: nConsistency } },
-    { key: "confidence", name: "Confidence", engine: "deterministic", summary: "Scored on 3 measured factors", metrics: {} },
-    { key: "reporter", name: "Reporter", engine: "deepseek", summary: job.audit_report_md ? "Executive summary generated" : "—", metrics: {} },
-  ];
-}
-
 function VerdictBrief({ finding }: { finding: Finding }) {
   const reasoning = (finding.reasoning_chain ?? [])
     .map((step) => reasoningBriefText(step))
@@ -1317,11 +1013,8 @@ function VerdictBrief({ finding }: { finding: Finding }) {
   );
 }
 
-function reasoningBriefText(step: FindingReasoningStep): string {
-  if ("reasoning" in step && step.reasoning) return step.reasoning;
-  if ("content" in step && step.content) return step.content;
-  if ("observation" in step && step.observation) return step.observation;
-  return "";
+function reasoningBriefText(step: VerificationStep): string {
+  return step.reasoning || step.observation;
 }
 
 function pluralizeTraceMetric(label: string, value: number): string {
@@ -1400,12 +1093,6 @@ function StepItem({ step, highlighted = false, streamIn = false }: { step: Step;
   const isFetch = step.type === "fetch_url_content";
   const hits = isSearch ? parseSearchHits(step.content) : [];
   const content = step.content as Record<string, unknown>;
-  const stageMark = content.__stage as
-    | { name: string; engine: Stage["engine"]; summary: string }
-    | undefined;
-  const claimMark = content.__claim as
-    | { index: number; total: number; text: string }
-    | undefined;
   const thought = displayableThought(
     typeof content?.thought === "string" ? content.thought : null,
     step.summary,
@@ -1417,31 +1104,6 @@ function StepItem({ step, highlighted = false, streamIn = false }: { step: Step;
   useEffect(() => {
     if (highlighted) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [highlighted]);
-
-  // Pipeline-stage marker (live replay only) — a labelled stage line.
-  if (stageMark) {
-    const badge = ENGINE_BADGE[stageMark.engine] ?? ENGINE_BADGE.deterministic;
-    return (
-      <li className="mt-1 flex items-center gap-2 border-t border-border/60 pt-2 text-xs first:mt-0 first:border-t-0 first:pt-0">
-        <span className="shrink-0 font-semibold text-foreground">{stageMark.name}</span>
-        <span className={`shrink-0 rounded-[5px] px-1.5 py-0.5 text-[9px] font-medium ${badge.cls}`}>
-          {badge.label}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">{stageMark.summary}</span>
-      </li>
-    );
-  }
-  // Per-claim verify header (live replay only) — the claim MiroMind is researching.
-  if (claimMark) {
-    return (
-      <li className="mt-1 flex items-start gap-2 border-t border-border/60 pt-2 text-xs">
-        <span className="shrink-0 rounded-[5px] bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-          ★ Verify {claimMark.index}/{claimMark.total}
-        </span>
-        <span className="min-w-0 flex-1 text-foreground">{claimMark.text}</span>
-      </li>
-    );
-  }
 
   return (
     <li

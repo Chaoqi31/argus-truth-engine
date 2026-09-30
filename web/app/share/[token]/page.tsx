@@ -105,8 +105,8 @@ function SharedAudit({ job }: { job: Job }) {
         </div>
         <dl className="mt-5 grid gap-3 sm:grid-cols-3">
           <Stat label="Findings" value={findings.length} />
-          <Stat label="Claims audited" value={job.claims_audited ?? 0} />
-          <Stat label="Claims total" value={job.claims_total ?? 0} />
+          <Stat label="Claims audited" value={job.claims_audited} />
+          <Stat label="Claims total" value={job.claims_total} />
         </dl>
       </section>
 
@@ -167,7 +167,6 @@ function StatusPill({ status }: { status: string }) {
     normalized === "done" || normalized === "ok"
       ? "border-success/20 bg-success/10 text-success-foreground"
       : normalized === "failed" ||
-          normalized === "interrupted" ||
           normalized === "fabricated" ||
           normalized === "contradiction"
         ? "border-destructive/20 bg-destructive/10 text-destructive-foreground"

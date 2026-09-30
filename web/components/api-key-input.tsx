@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-// BYOK input. The visitor pastes their own MiroMind API key; by default it
-// stays only in component state for the current run. If they explicitly opt in
-// to remembering it, we store it in localStorage for the review-resume path.
-
-const STORAGE_KEY = "argus-miromind-key";
+import { isApiKeyRemembered, storeApiKey, storedApiKey } from "@/lib/byok";
 
 interface Props {
   value: string;
@@ -15,51 +10,26 @@ interface Props {
 
 export function ApiKeyInput({ value, onChange }: Props) {
   const [visible, setVisible] = useState(false);
-  const [remember, setRemember] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return Boolean(window.localStorage.getItem(STORAGE_KEY));
-    } catch {
-      return false;
-    }
-  });
+  const [remember, setRemember] = useState(
+    () => typeof window !== "undefined" && isApiKeyRemembered(),
+  );
 
-  // Hydrate from localStorage on mount (parent owns the value).
+  // The parent owns the value; seed it once from the browser session.
   useEffect(() => {
     if (value) return;
-    try {
-      const sessionValue = window.sessionStorage.getItem(STORAGE_KEY);
-      const localValue = window.localStorage.getItem(STORAGE_KEY);
-      const stored = sessionValue ?? localValue;
-      if (stored) {
-        onChange(stored);
-      }
-    } catch {
-      /* private-mode browsers may throw — ignore */
-    }
+    const stored = storedApiKey();
+    if (stored) onChange(stored);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (next: string) => {
     onChange(next);
-    try {
-      if (next) window.sessionStorage.setItem(STORAGE_KEY, next);
-      else window.sessionStorage.removeItem(STORAGE_KEY);
-      if (remember && next) window.localStorage.setItem(STORAGE_KEY, next);
-      else window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
+    storeApiKey(next, remember);
   };
 
   const handleRememberChange = (next: boolean) => {
     setRemember(next);
-    try {
-      if (next && value) window.localStorage.setItem(STORAGE_KEY, value);
-      else window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
+    storeApiKey(value, next);
   };
 
   const id = "miromind-api-key";

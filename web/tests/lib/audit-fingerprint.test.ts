@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getAuditFingerprint } from "@/lib/audit-fingerprint";
 import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -14,7 +15,7 @@ const job: Job = {
   claims_audited: 1,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "The memo cites a Goldman report.",
       page: 1,
@@ -22,14 +23,14 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: { title: "Silicon Supercycle" },
-    },
+      context: "",
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.94,
@@ -43,33 +44,30 @@ const job: Job = {
       ],
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [
     {
       id: "t1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
-      miromind_response_id: "resp_1",
+      agent: "verifier",
+      engine: "miromind",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: "2026-05-20T00:05:00Z",
-      total_tokens: 120,
-      reasoning_tokens: 40,
-      num_search_queries: 2,
-      final_verdict_step_id: "s1",
+      usage: {
+        response_ids: ["resp_1"],
+        total_tokens: 120,
+        reasoning_tokens: 40,
+        num_search_queries: 2,
+        cost_usd: 0,
+      },
       steps: [
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "web_search",
           summary: "Search exact report title.",
           content: { query: "Goldman Silicon Supercycle" },
-          evidence_ids: ["e1"],
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],
@@ -82,21 +80,19 @@ const job: Job = {
       url: "https://example.com/search",
       citation: "Search results",
       snippet: "No exact match.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },
   ],
   stages: [
-    {
+    makeStage({
       key: "verify",
-      name: "Verify",
       engine: "miromind",
       summary: "Deep-researched 1 claim.",
       metrics: { n_claims: 1 },
-    },
+    }),
   ],
-};
+});
 
 describe("audit fingerprint", () => {
   it("is stable for equivalent job data and summarizes included records", () => {

@@ -1,7 +1,4 @@
-"""Tests for the Planner agent's prompt + output model only.
-
-End-to-end MiroMind calls are exercised by tests/test_orchestrator_e2e.py.
-"""
+"""Tests for the Planner agent's prompt + output model only."""
 from __future__ import annotations
 
 from argus.agents.planner import PlannerOutput, build_planner_input

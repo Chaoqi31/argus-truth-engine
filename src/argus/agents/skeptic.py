@@ -3,11 +3,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from argus.agents.base import AgentResult, AgentRunner
-from argus.miromind.client import MiromindClient
-from argus.models.domain import FindingVerdict
-
-SKEPTIC_VERSION = "v1"
+from argus.llm import Route, Task
+from argus.models.domain import Agent, FindingVerdict
 
 SYSTEM_PROMPT = """\
 You are Argus's SKEPTIC REVIEWER. You do NOT produce the primary verdict.
@@ -78,35 +75,12 @@ def build_skeptic_input(
     )
 
 
-async def run_skeptic(
-    client: MiromindClient,
-    *,
-    claim: str,
-    verdict: str,
-    summary: str,
-    why_wrong: str | None,
-    evidence_brief: str,
-    coverage_brief: str,
-    idempotency_key: str | None = None,
-) -> AgentResult[SkepticOutput]:
-    runner = AgentRunner(
-        client=client,
-        model_cls=SkepticOutput,
-        agent_name="skeptic",
-        # Deep-research skeptic spends its output budget on reasoning + tool
-        # calls before emitting the final JSON; 3000 starves it (empty output →
-        # JsonRepairFailed → the node silently skips). 8000 lets it finish.
-        max_output_tokens=8000,
-    )
-    return await runner.run(
-        instructions=SYSTEM_PROMPT,
-        input_text=build_skeptic_input(
-            claim=claim,
-            verdict=verdict,
-            summary=summary,
-            why_wrong=why_wrong,
-            evidence_brief=evidence_brief,
-            coverage_brief=coverage_brief,
-        ),
-        idempotency_key=idempotency_key,
-    )
+# The deep-research skeptic spends its output budget on reasoning and tool
+# calls before the final JSON; 3000 tokens starved it, 8000 lets it finish.
+CHALLENGE = Task(
+    agent=Agent.SKEPTIC,
+    route=Route.DEEP_RESEARCH,
+    instructions=SYSTEM_PROMPT,
+    output=SkepticOutput,
+    max_output_tokens=8000,
+)

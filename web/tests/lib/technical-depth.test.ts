@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getJudgeProofStrip, getTechnicalDepthProof } from "@/lib/technical-depth";
 import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -14,7 +15,7 @@ const job: Job = {
   claims_audited: 2,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "The memo cites a Goldman report.",
       page: 1,
@@ -22,8 +23,9 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: {},
-    },
-    {
+      context: "",
+    }),
+    makeClaim({
       id: "c2",
       text: "NVIDIA data center revenue was $148B.",
       page: 1,
@@ -31,14 +33,14 @@ const job: Job = {
       type: "numerical-data",
       importance: "high",
       extracted_metadata: {},
-    },
+      context: "",
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.94,
@@ -77,73 +79,66 @@ const job: Job = {
       },
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
-    {
+    }),
+    makeFinding({
       id: "f2",
-      job_id: "j1",
       claim_id: "c2",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "ok",
       severity: "minor",
       confidence: 0.96,
       summary: "The claim was verified.",
       evidence_ids: ["e2"],
       reasoning_trace_id: "t2",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [
     {
       id: "t1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
-      miromind_response_id: "resp_1",
+      agent: "verifier",
+      engine: "miromind",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: "2026-05-20T00:05:00Z",
-      total_tokens: 120,
-      reasoning_tokens: 40,
-      num_search_queries: 2,
-      final_verdict_step_id: null,
+      usage: {
+        response_ids: ["resp_1"],
+        total_tokens: 120,
+        reasoning_tokens: 40,
+        num_search_queries: 2,
+        cost_usd: 0,
+      },
       steps: [
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "web_search",
           summary: "Search exact report title.",
           content: {},
-          evidence_ids: ["e1"],
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],
     },
     {
       id: "t2",
-      job_id: "j1",
       claim_id: "c2",
-      agent: "UnifiedVerifier",
-      miromind_response_id: "resp_2",
+      agent: "verifier",
+      engine: "miromind",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: "2026-05-20T00:05:00Z",
-      total_tokens: 140,
-      reasoning_tokens: 50,
-      num_search_queries: 3,
-      final_verdict_step_id: null,
+      usage: {
+        response_ids: ["resp_2"],
+        total_tokens: 140,
+        reasoning_tokens: 50,
+        num_search_queries: 3,
+        cost_usd: 0,
+      },
       steps: [
         {
           id: "s2",
-          trace_id: "t2",
-          sequence: 1,
           type: "web_search",
           summary: "Search official filing.",
           content: {},
-          evidence_ids: ["e2"],
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],
@@ -156,7 +151,6 @@ const job: Job = {
       url: "https://example.com/search",
       citation: "Search results",
       snippet: "No exact match.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },
@@ -166,47 +160,41 @@ const job: Job = {
       url: "https://example.com/10k",
       citation: "Company filing",
       snippet: "Official revenue.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s2",
     },
   ],
   stages: [
-    {
+    makeStage({
       key: "planner",
-      name: "Planner",
       engine: "deepseek",
       summary: "Extracted candidate claims.",
       metrics: { n_claims: 2 },
-    },
-    {
-      key: "review_gate",
-      name: "Review gate",
-      engine: "deterministic",
+    }),
+    makeStage({
+      key: "review",
+            engine: "deterministic",
       summary: "2 claims selected.",
-      metrics: { n_verifying: 2 },
-    },
-    {
+      metrics: { n_selected: 2 },
+    }),
+    makeStage({
       key: "verify",
-      name: "Verify",
       engine: "miromind",
       summary: "Deep-researched 2 claims.",
       metrics: { n_claims: 2 },
-    },
-    {
+    }),
+    makeStage({
       key: "skeptic",
-      name: "Skeptic challenge",
       engine: "miromind",
       summary: "Challenged high-risk findings.",
       metrics: { n_reviewed: 1 },
-    },
-    {
+    }),
+    makeStage({
       key: "confidence",
-      name: "Confidence",
       engine: "deterministic",
       summary: "Scored findings.",
       metrics: { n_scored: 2 },
-    },
+    }),
   ],
   benchmark: {
     name: "planted benchmark",
@@ -215,7 +203,7 @@ const job: Job = {
       { claim_id: "c2", verdict: "ok", rationale: "Control claim." },
     ],
   },
-};
+});
 
 describe("technical depth proof", () => {
   it("summarizes technical implementation evidence from the job record", () => {
@@ -268,7 +256,10 @@ describe("technical depth proof", () => {
   it("falls back to total tokens when reasoning token counters are absent", () => {
     const proof = getTechnicalDepthProof({
       ...job,
-      traces: job.traces.map((trace) => ({ ...trace, reasoning_tokens: 0 })),
+      traces: job.traces.map((trace) => ({
+        ...trace,
+        usage: { ...trace.usage, reasoning_tokens: 0 },
+      })),
     });
 
     const deepResearch = proof.proofs.find((item) => item.id === "miromind_deep_research");

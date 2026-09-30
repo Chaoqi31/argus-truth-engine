@@ -4,19 +4,18 @@ import {
   getJobAuditability,
 } from "@/lib/auditability";
 import type { Finding, Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
-const finding: Finding = {
+const finding: Finding = makeFinding({
   id: "f1",
-  job_id: "j1",
   claim_id: "c1",
-  agent: "UnifiedVerifier",
+  agent: "verifier",
   verdict: "fabricated",
   severity: "major",
   confidence: 0.94,
   summary: "The citation is fabricated.",
   evidence_ids: ["e1"],
   reasoning_trace_id: "t1",
-  related_finding_ids: [],
   created_at: "2026-05-20T00:00:00Z",
   reasoning_chain: [
     {
@@ -62,9 +61,9 @@ const finding: Finding = {
     judgment: "refutes",
     rationale: "The cited numeric claim is not supported.",
   },
-};
+});
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -74,7 +73,7 @@ const job: Job = {
   total_tokens: 1000,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "The report says AI infrastructure spend will exceed $5 trillion.",
       page: 1,
@@ -82,32 +81,31 @@ const job: Job = {
       type: "numerical-data",
       importance: "high",
       extracted_metadata: {},
-    },
+      context: "",
+    }),
   ],
   findings: [finding],
   traces: [
     {
       id: "t1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
-      miromind_response_id: "resp_123",
+      agent: "verifier",
+      engine: "miromind",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: "2026-05-20T00:04:00Z",
-      total_tokens: 4200,
-      reasoning_tokens: 900,
-      num_search_queries: 2,
-      final_verdict_step_id: null,
+      usage: {
+        response_ids: ["resp_123"],
+        total_tokens: 4200,
+        reasoning_tokens: 900,
+        num_search_queries: 2,
+        cost_usd: 0,
+      },
       steps: [
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "web_search",
           summary: "Search exact title.",
           content: {},
-          evidence_ids: ["e1"],
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],
@@ -120,12 +118,11 @@ const job: Job = {
       url: "https://example.com/source",
       citation: "Source search",
       snippet: "No exact match.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:02:00Z",
       retrieved_by_step_id: "s1",
     },
   ],
-};
+});
 
 describe("auditability", () => {
   it("marks all applicable controls present when a finding has full provenance", () => {
@@ -179,7 +176,7 @@ describe("auditability", () => {
       ...finding,
       id: "f_derived",
       claim_id: "c_derived",
-      agent: "Consistency",
+      agent: "consistency",
       verdict: "unsupported-inference",
       severity: "major",
       evidence_ids: [],
@@ -192,7 +189,7 @@ describe("auditability", () => {
     const derivedJob: Job = {
       ...job,
       claims: [
-        {
+        makeClaim({
           id: "c_derived",
           text: "The document draws a conclusion not supported by its verified claims.",
           page: 1,
@@ -200,16 +197,18 @@ describe("auditability", () => {
           type: "qualitative",
           importance: "high",
           extracted_metadata: {},
-        },
+          context: "",
+        }),
       ],
       findings: [derivedFinding],
       traces: [
         {
           ...job.traces[0]!,
           id: "t_derived",
-          claim_id: "c_derived",
-          agent: "Consistency",
-          miromind_response_id: "deepseek:consistency",
+          claim_id: null,
+          agent: "consistency",
+          engine: "deepseek",
+          usage: { ...job.traces[0]!.usage, response_ids: ["chatcmpl_consistency"] },
         },
       ],
       evidences: [],
@@ -265,7 +264,7 @@ describe("auditability", () => {
       ...job,
       claims: [
         job.claims[0]!,
-        {
+        makeClaim({
           id: "c_gap",
           text: "This qualitative control claim has no audit trail.",
           page: 1,
@@ -273,7 +272,8 @@ describe("auditability", () => {
           type: "qualitative",
           importance: "medium",
           extracted_metadata: {},
-        },
+          context: "",
+        }),
       ],
       findings: [finding, incompleteFinding],
     };

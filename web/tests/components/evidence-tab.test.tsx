@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { EvidenceTab } from "@/components/evidence-tab";
 import { useArgusStore } from "@/lib/store";
 import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -14,7 +15,7 @@ const job: Job = {
   total_tokens: 100,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "Smith (2021) on widgets.",
       page: 1,
@@ -22,14 +23,14 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: {},
-    },
+      context: "",
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.96,
@@ -86,46 +87,39 @@ const job: Job = {
       },
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [
     {
       id: "t1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
-      miromind_response_id: "r1",
+      agent: "verifier",
+      engine: "miromind",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: null,
-      total_tokens: 100,
-      reasoning_tokens: 50,
-      num_search_queries: 1,
-      final_verdict_step_id: null,
+      usage: {
+        response_ids: ["r1"],
+        total_tokens: 100,
+        reasoning_tokens: 50,
+        num_search_queries: 1,
+        cost_usd: 0,
+      },
       steps: [
         {
           id: "s0",
-          trace_id: "t1",
-          sequence: 0,
           type: "web_search",
           summary: "search: Smith 2021 widgets DOI",
           content: {
             result: JSON.stringify({ organic: [] }),
           },
-          evidence_ids: [],
-          parent_step_id: null,
           created_at: "2026-05-20T00:00:00Z",
         },
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "thinking",
           summary: "Think about Crossref query.",
           content: {},
-          evidence_ids: [],
-          parent_step_id: null,
           created_at: "2026-05-20T00:00:00Z",
         },
       ],
@@ -138,12 +132,11 @@ const job: Job = {
       url: "https://api.crossref.org/works?query=Smith",
       citation: "Crossref query",
       snippet: "{}",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },
   ],
-};
+});
 
 const REVIEW_STORAGE_KEY = "argus:finding-reviews:j1";
 
@@ -225,7 +218,7 @@ describe("EvidenceTab", () => {
       ...job,
       claims: [
         ...job.claims,
-        {
+        makeClaim({
           id: "c2",
           text: "The brief draws an unsupported legal inference.",
           page: 1,
@@ -233,15 +226,15 @@ describe("EvidenceTab", () => {
           type: "qualitative",
           importance: "high",
           extracted_metadata: {},
-        },
+          context: "",
+        }),
       ],
       findings: [
         ...job.findings,
-        {
+        makeFinding({
           id: "f2",
-          job_id: "j1",
           claim_id: "c2",
-          agent: "Consistency",
+          agent: "consistency",
           verdict: "unsupported-inference",
           severity: "major",
           confidence: 0.95,
@@ -249,34 +242,31 @@ describe("EvidenceTab", () => {
           why_wrong: "The brief extends beyond the holdings verified elsewhere.",
           evidence_ids: [],
           reasoning_trace_id: "t2",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
+        }),
       ],
       traces: [
         ...job.traces,
         {
           id: "t2",
-          job_id: "j1",
-          claim_id: "c2",
-          agent: "Consistency",
-          miromind_response_id: "deepseek:consistency",
+          claim_id: null,
+          agent: "consistency",
+          engine: "deepseek",
           started_at: "2026-05-20T00:00:00Z",
           completed_at: null,
-          total_tokens: 40,
-          reasoning_tokens: 0,
-          num_search_queries: 0,
-          final_verdict_step_id: null,
+          usage: {
+            response_ids: ["chatcmpl_consistency"],
+            total_tokens: 40,
+            reasoning_tokens: 0,
+            num_search_queries: 0,
+            cost_usd: 0,
+          },
           steps: [
             {
               id: "s2",
-              trace_id: "t2",
-              sequence: 1,
               type: "message",
               summary: "Checked claim against verified holdings.",
               content: {},
-              evidence_ids: [],
-              parent_step_id: null,
               created_at: "2026-05-20T00:00:00Z",
             },
           ],

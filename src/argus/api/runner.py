@@ -1,275 +1,265 @@
-"""In-process background job runner.
+"""The API's in-process job runner: the one way to start, watch, and stop audits.
 
-Tracks ``job_id -> JobRecord`` and ``job_id -> asyncio.Task`` so:
+It owns the live runs (job id -> `Run` and its task), bounded by
+`max_active_jobs`, and each job's subscribers, who stay subscribed across
+runs: a client watching a job paused for review receives the frames of the
+run that resumes it. A job is stored when it is submitted and whenever a run
+of it ends (paused, done, failed, cancelled), never per event.
 
-* ``POST /jobs`` returns immediately after scheduling the audit task
-* ``GET  /jobs/{id}`` can answer with ``running``/``failed``/the final Job
-  even when DB persistence isn't configured.
+Everything that must happen atomically (the capacity check and the start,
+the snapshot and the subscription, an event and its fan-out) happens without
+an await in between, on the one event loop, so there are no locks.
 """
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
-from pathlib import Path
-from uuid import uuid4
+from collections.abc import AsyncIterator, Awaitable, Callable, Collection
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from datetime import datetime
 
-from argus.api.deps import AppState
+from argus.audit import Run, extract, verify
+from argus.cache.finding_cache import FindingCache
+from argus.config import Settings
+from argus.db.repository import JobRepository
+from argus.llm import Transports
+from argus.llm.miromind import MiroMindAccess
 from argus.log import log
-from argus.miromind.client import MiromindClient
-from argus.models.domain import Job
-from argus.orchestrator import audit_pdf, audit_text
-from argus.orchestrator.entry import audit_resume
+from argus.models.job import (
+    EventFrame,
+    Failure,
+    FailureKind,
+    Finished,
+    Job,
+    SnapshotFrame,
+)
 
-_ACTIVE_STATUSES = {
-    "queued",
-    "running",
-    "parsing",
-    "planning",
-    "atomizing",
-    "filtering",
-    "verifying",
-    "reporting",
-}
+# A frame a client must not see before the job is stored. It carries the state
+# everything else reads from the database, and it is the run's last, so holding
+# it reorders nothing. The pause is not held: a client that answers on it is
+# waiting in `select`, and holding it would let the run's own next frame past.
+_HELD_UNTIL_STORED = frozenset({"finished"})
 
-
-class RunnerCapacityError(RuntimeError):
-    """Raised when the process already has too many active audits."""
-
-
-@dataclass
-class JobRecord:
-    job_id: str
-    status: str = "queued"
-    result: Job | None = None
-    error: str | None = None
-    pdf_key: str = ""
-    owner_user_id: str | None = None
+# Frames a subscriber may fall behind by before it is dropped; its client
+# reconnects and starts again from a snapshot.
+_BACKLOG = 2000
 
 
-@dataclass
-class JobRunner:
-    state: AppState
-    records: dict[str, JobRecord] = field(default_factory=dict)
-    tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+class CapacityError(Exception):
+    """Too many live runs."""
 
-    async def _reserve(self, record: JobRecord) -> None:
-        async with self.lock:
-            active = sum(1 for r in self.records.values() if r.status in _ACTIVE_STATUSES)
-            if active >= self.state.settings.max_active_jobs:
-                raise RunnerCapacityError("Too many active audits; try again later.")
-            self.records[record.job_id] = record
 
-    async def _reserve_resume(self, job_id: str) -> JobRecord:
-        async with self.lock:
-            existing = self.records.get(job_id)
-            if existing is not None and existing.status in _ACTIVE_STATUSES:
-                raise RunnerCapacityError("This audit is already running.")
-            active = sum(1 for r in self.records.values() if r.status in _ACTIVE_STATUSES)
-            if active >= self.state.settings.max_active_jobs:
-                raise RunnerCapacityError("Too many active audits; try again later.")
-            record = existing or JobRecord(job_id=job_id)
-            record.status = "running"
-            record.error = None
-            self.records[job_id] = record
-            return record
+class JobBusy(Exception):
+    """A run of this job is already live."""
+
+
+class JobNotFound(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class _Live:
+    run: Run
+    task: asyncio.Task[None]
+    # Frames this run recorded that wait for its job to be stored.
+    held: list[EventFrame]
+
+
+class Feed:
+    """One subscription: the job as it was when it began, then every frame
+    applied after it, in order."""
+
+    def __init__(self, job: Job, queue: asyncio.Queue[EventFrame | None]) -> None:
+        self.snapshot_json = SnapshotFrame(job=job).model_dump_json()
+        self.version = job.version
+        self.terminal = job.status in ("done", "failed")
+        self._queue = queue
+
+    async def frames(self) -> AsyncIterator[EventFrame]:
+        """Frames after the snapshot. Ends when the subscriber falls too far
+        behind."""
+        while (frame := await self._queue.get()) is not None:
+            if frame.version > self.version:
+                yield frame
+
+
+class Runner:
+    def __init__(self, *, repo: JobRepository, transports: Transports, settings: Settings) -> None:
+        self._repo = repo
+        self._transports = transports
+        self._settings = settings
+        self._cache = (
+            FindingCache(
+                repo.sessionmaker,
+                default_ttl_days=settings.cache_ttl_days,
+                time_sensitive_ttl_days=settings.cache_ttl_time_sensitive_days,
+            )
+            if settings.cache_enabled
+            else None
+        )
+        self._live: dict[str, _Live] = {}
+        self._reserved = 0
+        self._subscribers: dict[str, set[asyncio.Queue[EventFrame | None]]] = {}
+
+    async def recover(self) -> None:
+        """At startup: a job stored as running belonged to a process that
+        died. It ends failed; a job paused for review keeps waiting."""
+        for job in await self._repo.running_jobs():
+            job.apply(
+                Finished(
+                    status="failed",
+                    failure=Failure(
+                        kind=FailureKind.INTERRUPTED,
+                        message="The server restarted while this audit was running.",
+                    ),
+                    completed_at=datetime.utcnow(),
+                )
+            )
+            await self._repo.update_job(job)
+            log.info("runner.interrupted_run_failed", job_id=job.id)
+
+    async def shutdown(self) -> None:
+        """Stop every live run. Each ends its job failed and stores it, so
+        what a run found before the shutdown is kept."""
+        tasks = [live.task for live in self._live.values()]
+        for task in tasks:
+            task.cancel("The server shut down while this audit was running.")
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     async def submit(
-        self,
-        pdf_bytes: bytes,
-        filename: str,
-        api_key_override: str | None = None,
-        miromind_model: str | None = None,
-        content_domain: str = "general",
-        owner_user_id: str | None = None,
-    ) -> str:
-        job_id = f"job_{uuid4().hex[:12]}"
-        key = f"{job_id}/{filename}"
-        record = JobRecord(
-            job_id=job_id,
-            status="running",
-            pdf_key=key,
-            owner_user_id=owner_user_id,
+        self, job: Job, *, access: MiroMindAccess, owner_user_id: str | None
+    ) -> None:
+        """Store a new job and start auditing it. Raises `CapacityError`,
+        having stored nothing, when too many runs are live."""
+        self.check_capacity()
+        self._reserved += 1
+        try:
+            await self._repo.save_job(job, owner_user_id=owner_user_id)
+        finally:
+            self._reserved -= 1
+        self._start(job, access, _audit)
+
+    async def select(
+        self, job_id: str, claim_ids: Collection[str], *, access: MiroMindAccess
+    ) -> None:
+        """Verify the claims the reviewer kept on a job paused for review.
+        Raises `JobNotFound`, `NotAwaitingReview`, `UnknownClaims`, `JobBusy`,
+        or `CapacityError`."""
+        live = self._live.get(job_id)
+        if live is not None:
+            if live.run.job.status != "awaiting_review":
+                raise JobBusy(job_id)
+            # The run paused and is storing its job. Its `review_ready` frame
+            # reached the client before that write, so a reviewer who answers
+            # at once waits here rather than reading the run's earlier state.
+            await asyncio.gather(live.task, return_exceptions=True)
+        job = await self._repo.get_job(job_id)
+        if job is None:
+            raise JobNotFound(job_id)
+        job.check_selection(claim_ids)
+        self.check_capacity()
+
+        async def selected(run: Run) -> None:
+            await verify(run, claim_ids)
+
+        self._start(job, access, selected)
+
+    async def cancel(self, job_id: str) -> None:
+        """Stop a live run of the job, if there is one, and wait until its
+        job is stored."""
+        live = self._live.get(job_id)
+        if live is None:
+            return
+        live.task.cancel("The audit was deleted.")
+        await asyncio.gather(live.task, return_exceptions=True)
+
+    async def get(self, job_id: str) -> Job | None:
+        """The job as it is now: the live run's while one is live, else the
+        stored one."""
+        live = self._live.get(job_id)
+        if live is not None:
+            return live.run.job
+        return await self._repo.get_job(job_id)
+
+    @asynccontextmanager
+    async def subscribe(self, job_id: str) -> AsyncIterator[Feed]:
+        """Raises `JobNotFound`."""
+        queue: asyncio.Queue[EventFrame | None] = asyncio.Queue()
+        subscribers = self._subscribers.setdefault(job_id, set())
+        subscribers.add(queue)
+        try:
+            live = self._live.get(job_id)
+            # Loading the stored job awaits, and a run may start meanwhile:
+            # its frames queue up, and the feed skips those the job already has.
+            job = live.run.job if live is not None else await self._repo.get_job(job_id)
+            if job is None:
+                raise JobNotFound(job_id)
+            yield Feed(job, queue)
+        finally:
+            subscribers.discard(queue)
+            if not subscribers:
+                self._subscribers.pop(job_id, None)
+
+    def check_capacity(self) -> None:
+        """Raises `CapacityError` when no more runs may start."""
+        if len(self._live) + self._reserved >= self._settings.max_active_jobs:
+            raise CapacityError("Too many active audits; try again later.")
+
+    def _start(
+        self, job: Job, access: MiroMindAccess, work: Callable[[Run], Awaitable[None]]
+    ) -> None:
+        run = Run(
+            job,
+            llm=self._transports.for_job(access),
+            cache=self._cache,
+            settings=self._settings,
+            budget_usd=self._settings.job_budget_usd,
+            emit=lambda frame: self._fan_out(job.id, frame),
         )
-        await self._reserve(record)
-        await self.state.storage.put(key, pdf_bytes, content_type="application/pdf")
-        if self.state.repo is not None:
-            await self.state.repo.save_job(
-                Job(
-                    id=job_id,
-                    pdf_path=str(self.state.storage.path_for(key)),
-                    input_mode="pdf",
-                    content_domain=content_domain,
-                    status="queued",
-                ),
-                owner_user_id=owner_user_id,
-            )
+        held: list[EventFrame] = []
+        task = asyncio.create_task(self._drive(run, work, held), name=f"audit {job.id}")
+        self._live[job.id] = _Live(run, task, held)
 
-        # BYOK: when the caller supplies their own MiroMind key (via the
-        # X-Miromind-Key header), bake it into a per-job Settings + Client so
-        # the public demo never burns the operator's own credits. When absent
-        # we fall back to the server's configured key (used for local/CLI).
-        per_job_settings = self.state.settings
-        per_job_client: MiromindClient | None = None
-        settings_update: dict[str, str] = {}
-        if api_key_override:
-            settings_update["miromind_api_key"] = api_key_override
-        if miromind_model:
-            settings_update["miromind_model"] = miromind_model
-        if settings_update:
-            per_job_settings = self.state.settings.model_copy(update=settings_update)
-            per_job_client = MiromindClient(per_job_settings)
-
-        async def _run() -> None:
-            try:
-                pdf_path = self.state.storage.path_for(key)
-                output_path = Path(str(pdf_path)).with_suffix(".findings.json")
-                job = await audit_pdf(
-                    pdf_path=pdf_path,
-                    output_path=output_path,
-                    settings=per_job_settings,
-                    client=per_job_client,
-                    budget_usd=per_job_settings.job_budget_usd,
-                    repo=self.state.repo,
-                    trace_bus=self.state.trace_bus,
-                    job_id=job_id,
-                    content_domain=content_domain,
-                    checkpointer=self.state.checkpointer,
-                )
-                self.records[job_id].result = job
-                self.records[job_id].status = job.status
-            except Exception as exc:
-                self.records[job_id].status = "failed"
-                self.records[job_id].error = str(exc)[:300]
-                log.error("api.runner.failed", job_id=job_id, error=str(exc)[:300])
-
-        self.tasks[job_id] = asyncio.create_task(_run())
-        return job_id
-
-    async def submit_text(
+    async def _drive(
         self,
-        text: str,
-        api_key_override: str | None = None,
-        miromind_model: str | None = None,
-        auto_review: bool = False,
-        content_domain: str = "general",
-        owner_user_id: str | None = None,
-    ) -> str:
-        job_id = f"job_{uuid4().hex[:12]}"
-        key = f"{job_id}/input.txt"
-        record = JobRecord(job_id=job_id, status="running", owner_user_id=owner_user_id)
-        await self._reserve(record)
-        await self.state.storage.put(key, text.encode(), content_type="text/plain")
-        if self.state.repo is not None:
-            await self.state.repo.save_job(
-                Job(
-                    id=job_id,
-                    input_text=text,
-                    input_mode="text",
-                    content_domain=content_domain,
-                    auto_review=auto_review,
-                    status="queued",
-                ),
-                owner_user_id=owner_user_id,
-            )
-
-        per_job_settings = self.state.settings
-        per_job_client: MiromindClient | None = None
-        settings_update: dict[str, str] = {}
-        if api_key_override:
-            settings_update["miromind_api_key"] = api_key_override
-        if miromind_model:
-            settings_update["miromind_model"] = miromind_model
-        if settings_update:
-            per_job_settings = self.state.settings.model_copy(update=settings_update)
-            per_job_client = MiromindClient(per_job_settings)
-
-        async def _run() -> None:
+        run: Run,
+        work: Callable[[Run], Awaitable[None]],
+        held: list[EventFrame],
+    ) -> None:
+        try:
+            await work(run)
+        finally:
             try:
-                txt_path = self.state.storage.path_for(key)
-                output_path = Path(str(txt_path)).with_suffix(".findings.json")
-                job = await audit_text(
-                    text=text,
-                    output_path=output_path,
-                    settings=per_job_settings,
-                    client=per_job_client,
-                    budget_usd=per_job_settings.job_budget_usd,
-                    repo=self.state.repo,
-                    trace_bus=self.state.trace_bus,
-                    job_id=job_id,
-                    auto_review=auto_review,
-                    content_domain=content_domain,
-                    checkpointer=self.state.checkpointer,
-                )
-                self.records[job_id].result = job
-                self.records[job_id].status = job.status
-            except Exception as exc:
-                self.records[job_id].status = "failed"
-                self.records[job_id].error = str(exc)[:300]
-                log.error("api.runner.text_failed", job_id=job_id, error=str(exc)[:300])
+                # An update, not an insert: a job deleted mid-run stays deleted.
+                await asyncio.shield(self._repo.update_job(run.job))
+            except Exception:
+                log.exception("runner.save_failed", job_id=run.job.id)
+            finally:
+                # A client that has seen these has seen a state the store did
+                # not have yet, and every other reader reads the store.
+                for frame in held:
+                    self._publish(run.job.id, frame)
+                self._live.pop(run.job.id, None)
 
-        self.tasks[job_id] = asyncio.create_task(_run())
-        return job_id
+    def _fan_out(self, job_id: str, frame: EventFrame) -> None:
+        if frame.event.type in _HELD_UNTIL_STORED:
+            live = self._live.get(job_id)
+            if live is not None:
+                live.held.append(frame)
+                return
+        self._publish(job_id, frame)
 
-    async def resume(
-        self,
-        *,
-        job_id: str,
-        selected_claim_ids: list[str] | None,
-        api_key_override: str | None = None,
-        miromind_model: str | None = None,
-    ) -> str | None:
-        """Resume an interrupted job. Returns job_id on success, None if not found."""
-        repo = self.state.repo
-        if repo is None:
-            return None
+    def _publish(self, job_id: str, frame: EventFrame) -> None:
+        subscribers = self._subscribers.get(job_id, set())
+        for queue in list(subscribers):
+            if queue.qsize() >= _BACKLOG:
+                subscribers.discard(queue)
+                queue.put_nowait(None)
+            else:
+                queue.put_nowait(frame)
 
-        record = self.records.get(job_id)
-        if record is None:
-            job = await repo.get_job(job_id)
-            if job is None or job.status != "interrupted":
-                return None
-        record = await self._reserve_resume(job_id)
 
-        output_path = Path(
-            self.state.storage.path_for(record.pdf_key or f"{job_id}/input.txt")
-        ).with_suffix(".findings.json")
-
-        # BYOK: prefer the caller's key (Phase B verification burns the most
-        # credits) so prod — which has no server MiroMind key — can resume.
-        # Falls back to the server key for local/CLI resume.
-        per_job_settings = self.state.settings
-        settings_update: dict[str, str] = {}
-        if api_key_override:
-            settings_update["miromind_api_key"] = api_key_override
-        if miromind_model:
-            settings_update["miromind_model"] = miromind_model
-        if settings_update:
-            per_job_settings = self.state.settings.model_copy(update=settings_update)
-        per_job_client = MiromindClient(per_job_settings)
-
-        async def _run() -> None:
-            try:
-                job = await audit_resume(
-                    job_id=job_id,
-                    selected_claim_ids=selected_claim_ids,
-                    settings=per_job_settings,
-                    client=per_job_client,
-                    budget_usd=per_job_settings.job_budget_usd,
-                    repo=repo,
-                    trace_bus=self.state.trace_bus,
-                    output_path=output_path,
-                    checkpointer=self.state.checkpointer,
-                )
-                self.records[job_id].result = job
-                self.records[job_id].status = job.status
-            except Exception as exc:
-                self.records[job_id].status = "failed"
-                self.records[job_id].error = str(exc)[:300]
-                log.error("api.runner.resume_failed", job_id=job_id, error=str(exc)[:300])
-
-        self.tasks[job_id] = asyncio.create_task(_run())
-        return job_id
-
-    def get(self, job_id: str) -> JobRecord | None:
-        return self.records.get(job_id)
+async def _audit(run: Run) -> None:
+    await extract(run)
+    if run.job.auto_review and run.job.status == "awaiting_review":
+        await verify(run, [c.id for c in run.job.claims])

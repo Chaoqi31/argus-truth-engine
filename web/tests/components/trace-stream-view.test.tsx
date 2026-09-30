@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import type { Job, ReasoningTrace, Step } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
 
 function loadSampleJob(): Job {
-  return {
+  return makeJob({
     id: "job_trace",
     pdf_path: "sample.pdf",
     status: "done",
@@ -15,8 +16,17 @@ function loadSampleJob(): Job {
     claims_total: 2,
     claims_audited: 2,
     audit_report_md: null,
+    stages: [
+      makeStage({ key: "parse", summary: "Parsed 1 page(s)" }),
+      makeStage({
+        key: "verify",
+        engine: "miromind",
+        summary: "Deep-researched 2 claim(s) · 3 steps · 3 web searches",
+        metrics: { n_claims: 2, n_steps: 3, n_searches: 3 },
+      }),
+    ],
     claims: [
-      {
+      makeClaim({
         id: "c_ok",
         text: "Its data-center segment alone generated $148 billion in revenue over the same fiscal year",
         page: 1,
@@ -24,8 +34,9 @@ function loadSampleJob(): Job {
         type: "numerical-data",
         importance: "high",
         extracted_metadata: {},
-      },
-      {
+        context: "",
+      }),
+      makeClaim({
         id: "c_bad",
         text: "According to a February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout,\" cumulative global spending on AI infrastructure will exceed $5 trillion by 2030",
         page: 1,
@@ -33,28 +44,26 @@ function loadSampleJob(): Job {
         type: "citation",
         importance: "high",
         extracted_metadata: {},
-      },
+        context: "",
+      }),
     ],
     findings: [
-      {
+      makeFinding({
         id: "f_ok",
-        job_id: "job_trace",
         claim_id: "c_ok",
-        agent: "UnifiedVerifier",
+        agent: "verifier",
         verdict: "ok",
         severity: "minor",
         confidence: 0.98,
         summary: "The data-center segment claim is lower priority in this fixture.",
         evidence_ids: [],
         reasoning_trace_id: "t_ok",
-        related_finding_ids: [],
         created_at: "2026-06-01T00:00:00Z",
-      },
-      {
+      }),
+      makeFinding({
         id: "f_bad",
-        job_id: "job_trace",
         claim_id: "c_bad",
-        agent: "UnifiedVerifier",
+        agent: "verifier",
         verdict: "fabricated",
         severity: "major",
         confidence: 0.93,
@@ -80,18 +89,17 @@ function loadSampleJob(): Job {
         ],
         evidence_ids: ["e1", "e2"],
         reasoning_trace_id: "t_bad",
-        related_finding_ids: [],
         created_at: "2026-06-01T00:00:00Z",
-      },
+      }),
     ],
     traces: [
       makeTrace("t_bad", "c_bad", [
-        makeStep("t_bad", 1, "thinking", "Reasoning checkpoint 1"),
-        makeStep("t_bad", 2, "web_search", "search: Silicon Supercycle Goldman Sachs"),
-        makeStep("t_bad", 3, "web_search", "search: site:goldmansachs.com Silicon Supercycle"),
-        makeStep("t_bad", 4, "web_search", "search: Tracking Trillions Goldman Sachs"),
+        makeStep("t_bad", "thinking", "Reasoning checkpoint 1"),
+        makeStep("t_bad", "web_search", "search: Silicon Supercycle Goldman Sachs"),
+        makeStep("t_bad", "web_search", "search: site:goldmansachs.com Silicon Supercycle"),
+        makeStep("t_bad", "web_search", "search: Tracking Trillions Goldman Sachs"),
       ]),
-      makeTrace("t_ok", "c_ok", [makeStep("t_ok", 1, "thinking", "Lower priority checkpoint")]),
+      makeTrace("t_ok", "c_ok", [makeStep("t_ok", "thinking", "Lower priority checkpoint")]),
     ],
     evidences: [
       {
@@ -100,7 +108,6 @@ function loadSampleJob(): Job {
         url: "https://example.com/a",
         citation: "Goldman search",
         snippet: "No exact title match.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "t_bad-web_search-2",
       },
@@ -110,82 +117,47 @@ function loadSampleJob(): Job {
         url: "https://example.com/b",
         citation: "Tracking Trillions",
         snippet: "Different report title.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "t_bad-web_search-4",
       },
     ],
-  };
+  });
 }
 
 function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
   return {
     id,
-    job_id: "job_trace",
     claim_id: claimId,
-    agent: "UnifiedVerifier",
-    miromind_response_id: `resp_${id}`,
+    agent: "verifier",
+    engine: "miromind",
     started_at: "2026-06-01T00:00:00Z",
     completed_at: "2026-06-01T00:01:00Z",
-    total_tokens: 100,
-    reasoning_tokens: 50,
-    num_search_queries: steps.filter((step) => step.type === "web_search").length,
-    final_verdict_step_id: null,
+    usage: {
+      response_ids: [`resp_${id}`],
+      total_tokens: 100,
+      reasoning_tokens: 50,
+      num_search_queries: steps.filter((step) => step.type === "web_search").length,
+      cost_usd: 0,
+    },
     steps,
   };
 }
 
 function makeStep(
   traceId: string,
-  sequence: number,
   type: "thinking" | "web_search",
   summary: string,
 ): Step {
   return {
-    id: `${traceId}-${type}-${sequence}`,
-    trace_id: traceId,
-    sequence,
+    id: `${traceId}-${type}-${summary}`,
     type,
     summary,
     content: {},
-    evidence_ids: [],
-    parent_step_id: null,
     created_at: "2026-06-01T00:00:00Z",
   };
 }
 
 describe("TraceStreamView", () => {
-  it("does not force live trace back to the bottom after the user scrolls up", () => {
-    const scrollTo = vi.fn();
-    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
-      configurable: true,
-      value: scrollTo,
-    });
-
-    const { container, rerender } = render(
-      <TraceStreamView job={null} liveMode liveSteps={[makeStep("live", 1, "thinking", "First")]} />,
-    );
-    const scroller = container.querySelector(".overflow-y-auto") as HTMLDivElement;
-    Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 1000 });
-    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 300 });
-    Object.defineProperty(scroller, "scrollTop", { configurable: true, value: 100 });
-
-    const callsBeforeManualScroll = scrollTo.mock.calls.length;
-    fireEvent.scroll(scroller);
-    rerender(
-      <TraceStreamView
-        job={null}
-        liveMode
-        liveSteps={[
-          makeStep("live", 1, "thinking", "First"),
-          makeStep("live", 2, "web_search", "Second"),
-        ]}
-      />,
-    );
-
-    expect(scrollTo).toHaveBeenCalledTimes(callsBeforeManualScroll);
-  });
-
   it("opens the MiroMind verify walkthrough on the evidence-backed issue first", () => {
     const { container } = render(<TraceStreamView job={loadSampleJob()} />);
 
@@ -228,20 +200,18 @@ describe("TraceStreamView", () => {
     const job = loadSampleJob();
     job.findings = [
       ...job.findings,
-      {
+      makeFinding({
         id: "f_derived",
-        job_id: "job_trace",
         claim_id: "c_bad",
-        agent: "Consistency",
+        agent: "consistency",
         verdict: "unsupported-inference",
         severity: "major",
         confidence: 0.91,
         summary: "The claim overextends the verified evidence.",
         evidence_ids: [],
         reasoning_trace_id: "t_derived",
-        related_finding_ids: ["f_bad"],
         created_at: "2026-06-01T00:00:00Z",
-      },
+      }),
     ];
 
     render(<TraceStreamView job={job} activeFindingId="f_derived" />);
@@ -254,16 +224,14 @@ describe("TraceStreamView", () => {
   it("explains the skeptic challenge stage with review outcomes and counterevidence", () => {
     const job = loadSampleJob();
     job.stages = [
-      {
+      makeStage({
         key: "verify",
-        name: "Verify",
         engine: "miromind",
         summary: "Deep-researched 2 claims",
         metrics: { n_claims: 2 },
-      },
-      {
+      }),
+      makeStage({
         key: "skeptic",
-        name: "Skeptic challenge",
         engine: "miromind",
         summary: "Challenged 1 high-risk finding · 1 counterevidence found",
         metrics: {
@@ -272,7 +240,7 @@ describe("TraceStreamView", () => {
           n_counterevidence_found: 1,
           n_inconclusive: 0,
         },
-      },
+      }),
     ];
     job.findings = job.findings.map((finding) =>
       finding.id === "f_bad"
@@ -296,7 +264,7 @@ describe("TraceStreamView", () => {
     );
 
     render(<TraceStreamView job={job} />);
-    fireEvent.click(screen.getByRole("button", { name: /Skeptic challenge/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Skeptic/i }));
 
     expect(screen.getByText(/Independently challenges high-risk MiroMind verdicts/i)).toBeInTheDocument();
     expect(screen.getAllByText("reviewed").length).toBeGreaterThanOrEqual(1);

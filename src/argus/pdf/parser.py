@@ -26,12 +26,6 @@ class ParsedDoc:
     pages: tuple[ParsedPage, ...]
     full_text: str = field(default="")
 
-    def page_for_offset(self, char_offset: int) -> ParsedPage | None:
-        for page in self.pages:
-            if page.start_offset <= char_offset < page.start_offset + len(page.text):
-                return page
-        return None
-
 
 def parse_pdf(path: Path | str) -> ParsedDoc:
     """Parse a PDF file into a ParsedDoc."""

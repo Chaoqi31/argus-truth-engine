@@ -15,7 +15,6 @@
 [![MiroMind](https://img.shields.io/badge/MiroMind-powered-7132f5)](https://www.miromind.ai/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1.x-purple)](https://github.com/langchain-ai/langgraph)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[项目网站](https://argus-truth-engine.vercel.app)** · **[演示视频](https://argus-truth-engine.vercel.app/demo-video)** · **[English](README.md)** · **[简体中文](README.zh.md)**
@@ -131,7 +130,7 @@ Trace 使用**渐进披露**：每个 claim 先以一行展示（verdict + 步�
 
 ## 工作原理
 
-一个 10-stage LangGraph 状态机分两个阶段编排流水线，中间由一道人在环（HITL）审核闸门分隔：
+一条 10-stage 的 async 流水线分两个阶段运行，中间由一道人在环（HITL）审核闸门分隔：
 
 <img src="./docs/assets/argus-architecture.svg" alt="Argus 项目架构图" width="100%">
 
@@ -153,17 +152,15 @@ Trace 使用**渐进披露**：每个 claim 先以一行展示（verdict + 步�
 - **`BoundedRunner`** — 每个 agent 的信号量并发上限
 - **`BudgetTracker`** — 硬性 USD 上限，超支前中途中止
 - **置信度门控的 Skeptic** — 二次意见只在"没把握的高风险判决"上触发：封顶成本，防止错误指控
-- **`retry_on_transient`** — 针对上游 `429` / `5xx` 的指数退避重试
+- **`argus.llm`** — MiroMind 与 DeepSeek 共用的调用网关：对 `429` / `5xx` 指数退避重试，MiroMind 流断开后从最后一个事件续传，超时的响应会被取消以停止计费，输出不是合法 JSON 时再要一次
 - **`make_idempotency_key`** — 确定性的 job-keyed 幂等键
 - **`json-repair`** — LLM JSON 输出的启发式修复 + 针对 MiroMind 怪异返回的数组解包
-- **`SSEDecoder`** — 有状态流解析器，重新拼接被网络分块切断的 SSE 事件，保证 trace 文本与证据 URL 绝不丢失
 - **软性 ≥2 来源规则** — 仅靠过少独立来源的判定会被封顶置信度并标记，而非悄悄丢弃
 
 ### 存储与实时事件流
 
 SQLAlchemy 2.0 异步 ORM（开发/测试用 aiosqlite，生产用 asyncpg + Postgres；共享 Alembic
-迁移）。可插拔的 `TraceBus` 通过 WebSocket 推送实时 agent 事件 —— 单实例用 `InProcessBus`，
-多实例用 Redis pub/sub。
+迁移）。进程内的 trace bus 通过 WebSocket 推送实时 agent 事件。
 
 ## 快速开始
 
@@ -201,20 +198,16 @@ cd web && pnpm install && pnpm dev
 
 前端默认把 `/api/argus/*` 代理到 `http://localhost:8080`（可用 `ARGUS_API_HOST` 覆盖）。
 
-> [!NOTE]
-> macOS 上导出 PDF 需要把 Homebrew 的 Pango/Cairo 放到动态库路径：
-> `DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run argus serve …`。
-
 ## 技术栈
 
 | 层 | 选型 |
 |---|---|
 | **模型** | MiroMind 默认 `mirothinker-1-7-deepresearch-mini`，每次运行前可切换到 `mirothinker-1-7-deepresearch`（per-claim 验证器 + Skeptic 复核 —— 联网的两步）+ DeepSeek `deepseek-chat`（planner / atomizer / checkworthiness / 一致性 / reporter） |
-| **编排** | LangGraph 1.x StateGraph —— 并行 fan-out + reducer fan-in |
+| **编排** | 纯 asyncio —— 一致性检查与验证并行；审核暂停是持久化的 job 状态 |
 | **后端** | Python 3.12 · Pydantic v2 · FastAPI · uvicorn · httpx + 原生 SSE |
 | **持久化** | SQLAlchemy 2.0 async · asyncpg / aiosqlite · Alembic |
-| **报告** | Jinja2 + WeasyPrint（HTML→PDF） |
-| **实时总线** | WebSocket · 可插拔 `TraceBus`（in-process / Redis pub/sub） |
+| **导出** | 浏览器端生成 Markdown 审计包与 JSON 证据包 |
+| **实时总线** | WebSocket · 进程内 trace bus，支持历史回放 |
 | **前端** | Next.js 16 · React 19 · TypeScript 5 · Tailwind v4 · Zustand · react-pdf · @xyflow/react |
 
 ## 测试
@@ -234,4 +227,3 @@ cd web && pnpm test       # 前端测试
 
 - **[MiroMind](https://www.miromind.ai/)** 提供 `mirothinker-1-7-deepresearch` 模型
 - **[UCWS Singapore](https://www.ucws.sg/)** 主办本次黑客松
-- **[LangGraph](https://github.com/langchain-ai/langgraph)** 提供 agent 编排原语

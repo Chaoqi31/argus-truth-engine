@@ -3,25 +3,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { JobStatsBar } from "@/components/job-stats-bar";
 import { useArgusStore } from "@/lib/store";
 import type { Job } from "@/lib/types";
+import { makeFinding, makeJob as baseJob } from "@/tests/factories";
 
 function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: "j1",
+  return baseJob({
     pdf_path: "x.pdf",
-    status: "done",
-    created_at: "2026-05-20T00:00:00Z",
     completed_at: "2026-05-20T00:10:00Z",
     cost_usd: 12.3456,
     total_tokens: 1000,
     claims_total: 10,
     claims_audited: 7,
-    audit_report_md: null,
-    claims: [],
-    findings: [],
-    traces: [],
-    evidences: [],
     ...overrides,
-  };
+  });
 }
 
 const REVIEW_STORAGE_KEY = "argus:finding-reviews:j1";
@@ -65,59 +58,45 @@ describe("JobStatsBar", () => {
           traces: [
             {
               id: "t1",
-              job_id: "j1",
               claim_id: "c1",
-              agent: "UnifiedVerifier",
-              miromind_response_id: "resp_1",
+              agent: "verifier",
+              engine: "miromind",
               started_at: "2026-05-20T00:00:00Z",
               completed_at: "2026-05-20T00:05:00Z",
-              total_tokens: 12000,
-              reasoning_tokens: 678,
-              num_search_queries: 3,
-              final_verdict_step_id: null,
+              usage: {
+                response_ids: ["resp_1"],
+                total_tokens: 12000,
+                reasoning_tokens: 678,
+                num_search_queries: 3,
+                cost_usd: 0,
+              },
               steps: [
                 {
                   id: "s1",
-                  trace_id: "t1",
-                  sequence: 1,
                   type: "web_search",
                   summary: "Search exact citation.",
                   content: {},
-                  evidence_ids: [],
-                  parent_step_id: null,
                   created_at: "2026-05-20T00:01:00Z",
                 },
                 {
                   id: "s2",
-                  trace_id: "t1",
-                  sequence: 2,
                   type: "fetch_url_content",
                   summary: "Fetch source.",
                   content: {},
-                  evidence_ids: [],
-                  parent_step_id: "s1",
                   created_at: "2026-05-20T00:02:00Z",
                 },
                 {
                   id: "s3",
-                  trace_id: "t1",
-                  sequence: 3,
                   type: "fetch_url_content",
                   summary: "Fetch second source.",
                   content: {},
-                  evidence_ids: [],
-                  parent_step_id: "s1",
                   created_at: "2026-05-20T00:03:00Z",
                 },
                 {
                   id: "s4",
-                  trace_id: "t1",
-                  sequence: 4,
                   type: "execute_python",
                   summary: "Check calculation.",
                   content: {},
-                  evidence_ids: [],
-                  parent_step_id: "s2",
                   created_at: "2026-05-20T00:04:00Z",
                 },
               ],
@@ -135,34 +114,30 @@ describe("JobStatsBar", () => {
   it("summarizes reviewer decisions for findings", () => {
     const job = makeJob({
       findings: [
-        {
+        makeFinding({
           id: "f1",
-          job_id: "j1",
           claim_id: "c1",
-          agent: "UnifiedVerifier",
+          agent: "verifier",
           verdict: "fabricated",
           severity: "major",
           confidence: 0.92,
           summary: "No record found.",
           evidence_ids: [],
           reasoning_trace_id: "t1",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
-        {
+        }),
+        makeFinding({
           id: "f2",
-          job_id: "j1",
           claim_id: "c2",
-          agent: "UnifiedVerifier",
+          agent: "verifier",
           verdict: "ok",
           severity: "minor",
           confidence: 0.82,
           summary: "Verified.",
           evidence_ids: [],
           reasoning_trace_id: "t2",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
+        }),
       ],
     });
     useArgusStore.getState().setFindingReview("j1", "f1", { status: "accepted" });

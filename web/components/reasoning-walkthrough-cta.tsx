@@ -3,6 +3,7 @@
 import type { Finding, Job } from "@/lib/types";
 import { sortFindingsForReview } from "@/lib/findings";
 import { noun } from "@/lib/format";
+import { toolCounts } from "@/lib/steps";
 
 interface Props {
   job: Job;
@@ -17,23 +18,16 @@ function pickWalkthroughFinding(job: Job): Finding | null {
   return (
     sortFindingsForReview(job.findings).find((finding) => {
       const trace = traceFor(job, finding);
-      return finding.agent === "UnifiedVerifier" && !!trace && trace.steps.length > 0;
+      return finding.agent === "verifier" && !!trace && trace.steps.length > 0;
     }) ?? null
   );
-}
-
-function countSearches(job: Job, finding: Finding): number {
-  const trace = traceFor(job, finding);
-  if (!trace) return 0;
-  const stepSearches = trace.steps.filter((step) => step.type === "web_search").length;
-  return trace.num_search_queries > 0 ? trace.num_search_queries : stepSearches;
 }
 
 export function ReasoningWalkthroughCta({ job, onStart }: Props) {
   const finding = pickWalkthroughFinding(job);
   const trace = finding ? traceFor(job, finding) : null;
   const disabled = finding === null;
-  const searches = finding ? countSearches(job, finding) : 0;
+  const searches = trace ? toolCounts(trace).searches : 0;
   const sources = finding?.evidence_ids.length ?? 0;
   const verdict = finding?.verdict.replaceAll("-", " ") ?? "no saved trace";
   const steps = trace?.steps.length ?? 0;

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useArgusStore } from "@/lib/store";
-import type { Job, LiveFinding } from "@/lib/types";
+import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
 
-const minimalJob: Job = {
+const minimalJob: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -13,24 +14,22 @@ const minimalJob: Job = {
   audit_report_md: null,
   claims: [],
   findings: [
-    {
+    makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.9,
       summary: "x",
       evidence_ids: [],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [],
   evidences: [],
-};
+});
 
 const REVIEW_STORAGE_KEY = "argus:finding-reviews:j1";
 
@@ -51,34 +50,30 @@ describe("argus store", () => {
     useArgusStore.getState().setJob({
       ...minimalJob,
       findings: [
-        {
+        makeFinding({
           id: "f_derived",
-          job_id: "j1",
           claim_id: "c1",
-          agent: "Consistency",
+          agent: "consistency",
           verdict: "contradiction",
           severity: "major",
           confidence: 1,
           summary: "Two claims contradict each other.",
           evidence_ids: [],
           reasoning_trace_id: "t0",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
-        {
+        }),
+        makeFinding({
           id: "f_evidence",
-          job_id: "j1",
           claim_id: "c1",
-          agent: "UnifiedVerifier",
+          agent: "verifier",
           verdict: "fabricated",
           severity: "major",
           confidence: 0.93,
           summary: "No record was found in primary sources.",
           evidence_ids: ["e1"],
           reasoning_trace_id: "t1",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
+        }),
       ],
     });
 
@@ -119,77 +114,57 @@ describe("argus store", () => {
   });
 });
 
-describe("live-mode state", () => {
+describe("the live job", () => {
   beforeEach(() => {
     useArgusStore.getState().clear();
   });
 
-  it("starts idle with empty live arrays", () => {
+  it("starts idle", () => {
     const s = useArgusStore.getState();
     expect(s.runStatus).toBe("idle");
-    expect(s.liveSteps).toEqual([]);
-    expect(s.liveFindings).toEqual([]);
     expect(s.runError).toBeNull();
   });
 
-  it("appendLiveStep accumulates", () => {
-    const step = {
-      id: "s1",
-      trace_id: "t1",
-      sequence: 1,
-      type: "thinking" as const,
-      summary: "...",
-      content: {},
-      evidence_ids: [],
-      parent_step_id: null,
-      created_at: "2026-05-21T00:00:00Z",
-    };
-    useArgusStore.getState().appendLiveStep(step);
-    expect(useArgusStore.getState().liveSteps).toHaveLength(1);
+  it("takes the run status from the job it is given", () => {
+    useArgusStore.getState().applyJob(makeJob({ status: "running" }));
+    expect(useArgusStore.getState().runStatus).toBe("running");
+
+    useArgusStore.getState().applyJob(
+      makeJob({ status: "running", stages: [makeStage({ key: "verify", status: "running" })] }),
+    );
+    expect(useArgusStore.getState().runStatus).toBe("verifying");
+
+    useArgusStore.getState().applyJob(makeJob({ status: "done" }));
+    expect(useArgusStore.getState().runStatus).toBe("done");
   });
 
-  it("appendLiveSteps batches multiple live steps", () => {
-    const base = {
-      trace_id: "t1",
-      sequence: 1,
-      type: "thinking" as const,
-      summary: "...",
-      content: {},
-      evidence_ids: [],
-      parent_step_id: null,
-      created_at: "2026-05-21T00:00:00Z",
-    };
-    useArgusStore.getState().appendLiveSteps([
-      { ...base, id: "s1" },
-      { ...base, id: "s2", sequence: 2 },
-    ]);
-    expect(useArgusStore.getState().liveSteps.map((s) => s.id)).toEqual(["s1", "s2"]);
+  it("a job paused for review starts with every candidate selected", () => {
+    useArgusStore.getState().applyJob(
+      makeJob({
+        status: "awaiting_review",
+        claims: [makeClaim({ id: "c1" }), makeClaim({ id: "c2", importance: "low" })],
+      }),
+    );
+
+    const s = useArgusStore.getState();
+    expect(s.runStatus).toBe("reviewing");
+    expect([...s.selectedClaimIds]).toEqual(["c1", "c2"]);
   });
 
-  it("stores live heartbeat state", () => {
-    useArgusStore.getState().setLiveHeartbeat({
-      stage: "verify",
-      agent: "UnifiedVerifier",
-      claim_id: "c1",
-      elapsed_s: 12,
-      message: "MiroMind is still researching this claim.",
-    });
-    expect(useArgusStore.getState().liveHeartbeat?.claim_id).toBe("c1");
-    useArgusStore.getState().setLiveHeartbeat(null);
-    expect(useArgusStore.getState().liveHeartbeat).toBeNull();
-  });
+  it("the reviewer narrows the selection, and later frames keep it", () => {
+    useArgusStore.getState().applyJob(
+      makeJob({
+        status: "awaiting_review",
+        claims: [makeClaim({ id: "c1", importance: "high" }), makeClaim({ id: "c2" })],
+      }),
+    );
+    useArgusStore.getState().selectHighImportanceClaims();
+    expect([...useArgusStore.getState().selectedClaimIds]).toEqual(["c1"]);
 
-  it("appendLiveFinding accumulates", () => {
-    const f: LiveFinding = {
-      id: "f1",
-      claim_id: "c1",
-      agent: "UnifiedVerifier",
-      verdict: "fabricated",
-      severity: "major",
-      summary: "No record",
-    };
-    useArgusStore.getState().appendLiveFinding(f);
-    expect(useArgusStore.getState().liveFindings).toEqual([f]);
+    useArgusStore.getState().applyJob(
+      makeJob({ status: "awaiting_review", claims: [makeClaim({ id: "c1" })] }),
+    );
+    expect([...useArgusStore.getState().selectedClaimIds]).toEqual(["c1"]);
   });
 
   it("setRunStatus stores error when failed", () => {
@@ -198,24 +173,14 @@ describe("live-mode state", () => {
     expect(useArgusStore.getState().runError).toBe("BudgetExceeded");
   });
 
-  it("resetLive wipes live arrays + status without touching job", () => {
+  it("clear wipes the job, the run state and the selection", () => {
     const s = useArgusStore.getState();
-    s.setJob(minimalJob);
-    s.appendLiveStep({
-      id: "s1",
-      trace_id: "t1",
-      sequence: 1,
-      type: "thinking",
-      summary: "",
-      content: {},
-      evidence_ids: [],
-      parent_step_id: null,
-      created_at: "2026-05-21T00:00:00Z",
-    });
-    s.resetLive();
-    expect(useArgusStore.getState().liveSteps).toEqual([]);
-    expect(useArgusStore.getState().liveFindings).toEqual([]);
-    expect(useArgusStore.getState().runStatus).toBe("idle");
-    expect(useArgusStore.getState().job?.id).toBe("j1");
+    s.applyJob(makeJob({ status: "running" }));
+    s.clear();
+
+    const cleared = useArgusStore.getState();
+    expect(cleared.job).toBeNull();
+    expect(cleared.runStatus).toBe("idle");
+    expect(cleared.selectedClaimIds.size).toBe(0);
   });
 });

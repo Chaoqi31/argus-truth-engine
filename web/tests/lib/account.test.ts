@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  AccountApiError,
   buildShareUrl,
   createAuditShareLink,
   deleteAccountData,
@@ -138,7 +137,6 @@ describe("account API helpers", () => {
       event_name: "workspace_viewed",
       path: "/app",
       properties: { signed_in: false },
-      auth_required: false,
     });
   });
 
@@ -151,7 +149,7 @@ describe("account API helpers", () => {
         }),
     );
 
-    await expect(deleteAccountData("jwt_1")).rejects.toMatchObject<AccountApiError>({
+    await expect(deleteAccountData("jwt_1")).rejects.toMatchObject({
       status: 401,
       message: "login required",
     });

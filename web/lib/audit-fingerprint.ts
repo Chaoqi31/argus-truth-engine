@@ -1,3 +1,4 @@
+import { stageLabel } from "@/lib/stage-vocabulary";
 import type { Job } from "@/lib/types";
 
 export interface AuditFingerprint {
@@ -56,8 +57,8 @@ function fingerprintPayload(job: Job) {
       content_domain: job.content_domain ?? "general",
       input_mode: job.input_mode ?? "pdf",
       status: job.status,
-      claims_total: job.claims_total ?? job.claims.length,
-      claims_audited: job.claims_audited ?? null,
+      claims_total: job.claims_total,
+      claims_audited: job.claims_audited,
       cost_usd: job.cost_usd,
       total_tokens: job.total_tokens,
     },
@@ -88,26 +89,19 @@ function fingerprintPayload(job: Job) {
       computation_check: finding.computation_check ?? null,
       evidence_ids: finding.evidence_ids,
       reasoning_trace_id: finding.reasoning_trace_id,
-      related_finding_ids: finding.related_finding_ids,
       flags: finding.flags ?? [],
     })),
     traces: job.traces.map((trace) => ({
       id: trace.id,
-      claim_id: trace.claim_id,
       agent: trace.agent,
-      miromind_response_id: trace.miromind_response_id,
-      total_tokens: trace.total_tokens,
-      reasoning_tokens: trace.reasoning_tokens,
-      num_search_queries: trace.num_search_queries,
-      final_verdict_step_id: trace.final_verdict_step_id,
+      claim_id: trace.claim_id,
+      engine: trace.engine,
+      usage: trace.usage,
       steps: trace.steps.map((step) => ({
         id: step.id,
-        sequence: step.sequence,
         type: step.type,
         summary: step.summary,
         content: step.content,
-        evidence_ids: step.evidence_ids,
-        parent_step_id: step.parent_step_id,
       })),
     })),
     evidences: job.evidences.map((evidence) => ({
@@ -116,17 +110,15 @@ function fingerprintPayload(job: Job) {
       url: evidence.url,
       citation: evidence.citation,
       snippet: evidence.snippet,
-      full_content_ref: evidence.full_content_ref,
       retrieved_by_step_id: evidence.retrieved_by_step_id,
     })),
     stages: (job.stages ?? []).map((stage) => ({
       key: stage.key,
-      name: stage.name,
+      name: stageLabel(stage.key),
       engine: stage.engine,
       summary: stage.summary,
       metrics: stage.metrics,
-      strategy: stage.strategy ?? null,
-      filtered_claims: stage.filtered_claims ?? [],
+      filtered_claims: stage.filtered_claims,
     })),
   };
 }

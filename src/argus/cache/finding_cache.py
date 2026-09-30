@@ -1,11 +1,11 @@
-"""Finding cache — persistent layer reads `finding_cache` table.
+"""Verdict cache: verifier verdicts reused across jobs, in `finding_cache`.
 
-Round-trip: serialize Finding + Evidence list as JSON, key by claim+domain+version.
-TTL enforced on read (lazy expiry; periodic GC tracked as separate follow-up).
+Keyed by normalized claim text, content domain and verifier version. A hit
+brings the evidence and the trace the verdict rests on, so the job that
+reuses it can show its research. TTL enforced on read (lazy expiry).
 """
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select, update
@@ -14,7 +14,52 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from argus.db.models import FindingCacheRow
 from argus.log import log
-from argus.models.domain import Evidence, Finding
+from argus.models.domain import Evidence, Finding, Frozen, ReasoningTrace, Usage, new_id
+
+
+class CachedVerdict(Frozen):
+    """A verifier finding with the evidence it cites and the trace behind it."""
+
+    finding: Finding
+    evidences: tuple[Evidence, ...]
+    trace: ReasoningTrace
+
+    def for_claim(self, claim_id: str) -> CachedVerdict:
+        """This verdict under fresh ids, bound to ``claim_id`` in another job.
+        The trace keeps its response ids, which name the research, and costs
+        nothing: the job that reuses it did not pay for it."""
+        steps = {step.id: new_id("step") for step in self.trace.steps}
+        trace = self.trace.model_copy(
+            update={
+                "id": new_id("trace"),
+                "claim_id": claim_id,
+                "usage": Usage(response_ids=self.trace.usage.response_ids),
+                "steps": tuple(
+                    step.model_copy(update={"id": steps[step.id]}) for step in self.trace.steps
+                ),
+            }
+        )
+        evidences = {
+            evidence.id: evidence.model_copy(
+                update={
+                    "id": new_id("ev"),
+                    "retrieved_by_step_id": steps.get(
+                        evidence.retrieved_by_step_id, evidence.retrieved_by_step_id
+                    ),
+                }
+            )
+            for evidence in self.evidences
+        }
+        finding = self.finding.model_copy(
+            update={
+                "id": new_id("f"),
+                "claim_id": claim_id,
+                "evidence_ids": tuple(evidences[i].id for i in self.finding.evidence_ids),
+                "reasoning_trace_id": trace.id,
+                "from_cache": True,
+            }
+        )
+        return CachedVerdict(finding=finding, evidences=tuple(evidences.values()), trace=trace)
 
 
 class FindingCache:
@@ -29,8 +74,8 @@ class FindingCache:
         self._default_ttl = timedelta(days=default_ttl_days)
         self._time_sensitive_ttl = timedelta(days=time_sensitive_ttl_days)
 
-    async def get(self, key: str) -> tuple[Finding, list[Evidence]] | None:
-        """Lookup. Returns (Finding, evidences) or None on miss/expired."""
+    async def get(self, key: str) -> CachedVerdict | None:
+        """The cached verdict, or None on a miss or an expired entry."""
         async with self._sm() as session:
             row = await session.scalar(
                 select(FindingCacheRow).where(FindingCacheRow.key == key)
@@ -46,27 +91,19 @@ class FindingCache:
                 .values(hit_count=FindingCacheRow.hit_count + 1)
             )
             await session.commit()
-            payload = json.loads(row.payload) if isinstance(row.payload, str) else row.payload
-            finding = Finding.model_validate(payload["finding"])
-            evidences = [Evidence.model_validate(e) for e in payload["evidences"]]
             log.info("cache.hit", key=key[:12], hits=row.hit_count + 1)
-            return finding, evidences
+            return CachedVerdict.model_validate(row.payload)
 
     async def put(
         self,
         key: str,
+        verdict: CachedVerdict,
         *,
-        finding: Finding,
-        evidences: list[Evidence],
         verifier_version: str,
         content_domain: str,
         time_sensitive: bool = False,
     ) -> None:
         ttl = self._time_sensitive_ttl if time_sensitive else self._default_ttl
-        payload = {
-            "finding": finding.model_dump(mode="json"),
-            "evidences": [e.model_dump(mode="json") for e in evidences],
-        }
         async with self._sm() as session:
             # Upsert pattern: delete + insert (portable across SQLite & Postgres).
             # Under concurrent puts of the same key, two writers can both pass
@@ -80,7 +117,7 @@ class FindingCache:
             )
             session.add(FindingCacheRow(
                 key=key,
-                payload=json.dumps(payload),
+                payload=verdict.model_dump(mode="json"),
                 verifier_version=verifier_version,
                 content_domain=content_domain,
                 hit_count=0,
@@ -94,10 +131,3 @@ class FindingCache:
             except IntegrityError:
                 await session.rollback()
                 log.info("cache.put_lost_race", key=key[:12])
-
-    async def clear(self) -> int:
-        """Admin: drop all cache rows. Returns count cleared."""
-        async with self._sm() as session:
-            result = await session.execute(delete(FindingCacheRow))
-            await session.commit()
-            return int(getattr(result, "rowcount", 0) or 0)

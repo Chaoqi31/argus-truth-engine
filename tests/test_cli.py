@@ -1,90 +1,80 @@
-"""CLI integration test using typer's CliRunner with the orchestrator stubbed."""
+"""The CLI end to end: `argus audit` against the fake LLM server."""
 from __future__ import annotations
 
 import json
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
-from unittest.mock import patch
 
 from typer.testing import CliRunner
 
 from argus.cli import app
-from argus.models.domain import Job
+from tests.golden import fake_llm_server
+
+FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 
 
-def test_audit_command_writes_output(tmp_path: Path) -> None:
-    fake_job = Job(id="job_test", pdf_path="x.pdf", status="done")
+@contextmanager
+def _fake_providers() -> Iterator[dict[str, str]]:
+    """The environment `argus audit` reads, pointed at the fake providers."""
+    with fake_llm_server() as (llm_url, _):
+        yield {
+            "ARGUS_MIROMIND_API_KEY": "fake",
+            "ARGUS_MIROMIND_BASE_URL": f"{llm_url}/v1",
+            "ARGUS_MIROMIND_RETRY_BASE_DELAY_S": "0.001",
+            "ARGUS_CHEAP_LLM_API_KEY": "fake",
+            "ARGUS_CHEAP_LLM_BASE_URL": llm_url,
+            "ARGUS_DB_URL": "",
+        }
 
-    async def _fake_audit(**kw: object) -> Job:
-        out = Path(str(kw["output_path"]))
-        out.write_text(fake_job.model_dump_json())
-        return fake_job
 
-    with patch("argus.cli.audit_pdf", new=_fake_audit):
-        runner = CliRunner()
-        out = tmp_path / "findings.json"
-        # Pre-create the input PDF so Typer's `exists=True` doesn't reject it:
-        fake_pdf = tmp_path / "fake.pdf"
-        fake_pdf.write_bytes(b"%PDF-1.4\n%fake\n")
-        # API key required by the CLI:
-        result = runner.invoke(
-            app,
-            ["audit", str(fake_pdf), "-o", str(out)],
-            env={"ARGUS_MIROMIND_API_KEY": "sk_test"},
+def test_audit_writes_the_findings(tmp_path: Path) -> None:
+    out = tmp_path / "findings.json"
+    with _fake_providers() as env:
+        result = CliRunner().invoke(
+            app, ["audit", str(FIXTURE_PDF), "-o", str(out)], env=env
         )
-        assert result.exit_code == 0, result.output
-        data = json.loads(out.read_text())
-        assert data["id"] == "job_test"
+
+    assert result.exit_code == 0, result.output
+    job = json.loads(out.read_text())
+    assert job["id"].startswith("job_")
+    assert job["status"] == "done"
+    assert job["findings"]
+    assert job["claims_audited"] == len(job["claims"])
 
 
-def test_audit_command_passes_budget(tmp_path: Path) -> None:
-    captured: dict[str, Any] = {}
-    fake_job = Job(id="job_test", pdf_path="x.pdf", status="done")
-
-    async def _fake_audit(**kw: object) -> Job:
-        captured["budget_usd"] = kw["budget_usd"]
-        Path(str(kw["output_path"])).write_text(fake_job.model_dump_json())
-        return fake_job
-
-    with patch("argus.cli.audit_pdf", new=_fake_audit):
-        runner = CliRunner()
-        out = tmp_path / "findings.json"
-        fake_pdf = tmp_path / "fake.pdf"
-        fake_pdf.write_bytes(b"%PDF-1.4\n%fake\n")
-        result = runner.invoke(
+def test_audit_stops_at_the_budget(tmp_path: Path) -> None:
+    out = tmp_path / "findings.json"
+    with _fake_providers() as env:
+        result = CliRunner().invoke(
             app,
-            ["audit", str(fake_pdf), "-o", str(out), "--budget-usd", "2.5"],
-            env={"ARGUS_MIROMIND_API_KEY": "sk_test"},
+            ["audit", str(FIXTURE_PDF), "-o", str(out), "--budget-usd", "0.01"],
+            env=env,
         )
-        assert result.exit_code == 0, result.output
-        assert captured["budget_usd"] == 2.5
+
+    assert result.exit_code == 0, result.output
+    job = json.loads(out.read_text())
+    assert (job["status"], job["failure"]["kind"]) == ("failed", "budget")
 
 
-def test_audit_command_passes_db_url(tmp_path: Path) -> None:
-    captured: dict[str, Any] = {}
-    fake_job = Job(id="job_test", pdf_path="x.pdf", status="done")
-
-    async def _fake_audit(**kw: object) -> Job:
-        captured["repo_present"] = kw.get("repo") is not None
-        Path(str(kw["output_path"])).write_text(fake_job.model_dump_json())
-        return fake_job
-
-    with patch("argus.cli.audit_pdf", new=_fake_audit):
-        runner = CliRunner()
-        out = tmp_path / "findings.json"
-        fake_pdf = tmp_path / "fake.pdf"
-        fake_pdf.write_bytes(b"%PDF-1.4\n%fake\n")
-        result = runner.invoke(
+def test_audit_persists_the_job_when_a_database_is_given(tmp_path: Path) -> None:
+    out = tmp_path / "findings.json"
+    db_file = tmp_path / "argus.db"
+    with _fake_providers() as env:
+        result = CliRunner().invoke(
             app,
             [
                 "audit",
-                str(fake_pdf),
+                str(FIXTURE_PDF),
                 "-o",
                 str(out),
                 "--db-url",
-                "sqlite+aiosqlite:///:memory:",
+                f"sqlite+aiosqlite:///{db_file}",
             ],
-            env={"ARGUS_MIROMIND_API_KEY": "sk_test"},
+            env=env,
         )
-        assert result.exit_code == 0, result.output
-        assert captured["repo_present"] is True
+
+    assert result.exit_code == 0, result.output
+    stored = sqlite3.connect(db_file).execute("select id from jobs").fetchall()
+    assert stored == [(json.loads(out.read_text())["id"],)]

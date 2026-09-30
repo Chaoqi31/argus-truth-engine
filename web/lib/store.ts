@@ -2,20 +2,17 @@
 
 import { create } from "zustand";
 import { pickInitialFindingId } from "@/lib/findings";
-import type {
-  FilteredClaim,
-  FindingReview,
-  Job,
-  LiveHeartbeat,
-  LiveFinding,
-  ReviewClaim,
-  ReviewerStatus,
-  RunStatus,
-  Step,
-} from "@/lib/types";
+import type { FindingReview, Job, ReviewerStatus, RunStatus } from "@/lib/types";
+
+function statusFor(job: Job): RunStatus {
+  if (job.status === "done") return "done";
+  if (job.status === "failed") return "failed";
+  if (job.status === "awaiting_review") return "reviewing";
+  if (job.stages.some((s) => s.key === "verify" && s.status === "running")) return "verifying";
+  return "running";
+}
 
 interface ArgusState {
-  // existing
   job: Job | null;
   activeFindingId: string | null;
   findingReviews: Record<string, FindingReview>;
@@ -28,28 +25,18 @@ interface ArgusState {
   ) => void;
   clear: () => void;
 
-  // live-mode (B3-C)
-  liveSteps: Step[];
-  liveFindings: LiveFinding[];
-  liveHeartbeat: LiveHeartbeat | null;
+  // The live job: a snapshot, then every event applied to it.
   runStatus: RunStatus;
   runError: string | null;
-  appendLiveStep: (step: Step) => void;
-  appendLiveSteps: (steps: Step[]) => void;
-  appendLiveFinding: (finding: LiveFinding) => void;
-  setLiveHeartbeat: (heartbeat: LiveHeartbeat | null) => void;
   setRunStatus: (status: RunStatus, error?: string | null) => void;
-  resetLive: () => void;
+  /** The job as it now stands: a snapshot, or one folded frame. */
+  applyJob: (job: Job) => void;
 
-  // HITL review
-  reviewClaims: ReviewClaim[];
-  filteredClaims: FilteredClaim[];
+  // HITL review: the candidates come from the job, the selection is the user's.
   selectedClaimIds: Set<string>;
-  setReviewReady: (claims: ReviewClaim[], filtered: FilteredClaim[]) => void;
   toggleClaimSelection: (claimId: string) => void;
   selectAllClaims: () => void;
   selectHighImportanceClaims: () => void;
-  clearReview: () => void;
 
   // cockpit surfaces (T1 contract; filled by T2–T4 surface agents)
   drawerFindingId: string | null;
@@ -74,17 +61,8 @@ export interface EvidenceDiffTarget {
 }
 
 const INITIAL_LIVE = {
-  liveSteps: [] as Step[],
-  liveFindings: [] as LiveFinding[],
-  liveHeartbeat: null as LiveHeartbeat | null,
   runStatus: "idle" as RunStatus,
   runError: null as string | null,
-};
-
-const INITIAL_REVIEW = {
-  reviewClaims: [] as ReviewClaim[],
-  filteredClaims: [] as FilteredClaim[],
-  selectedClaimIds: new Set<string>(),
 };
 
 const INITIAL_COCKPIT = {
@@ -123,20 +101,33 @@ function writeStoredReviews(jobId: string, reviews: Record<string, FindingReview
   }
 }
 
+/** The job, plus the state that follows from it: where the run is, and the
+ * review selection (every candidate, until the user narrows it). */
+function jobSlice(state: ArgusState, job: Job) {
+  return {
+    job,
+    runStatus: statusFor(job),
+    selectedClaimIds:
+      job.status === "awaiting_review" && state.selectedClaimIds.size === 0
+        ? new Set(job.claims.map((c) => c.id))
+        : state.selectedClaimIds,
+  };
+}
+
 export const useArgusStore = create<ArgusState>((set) => ({
   job: null,
   activeFindingId: null,
   findingReviews: {},
   ...INITIAL_LIVE,
-  ...INITIAL_REVIEW,
+  selectedClaimIds: new Set<string>(),
   ...INITIAL_COCKPIT,
 
   setJob: (job) =>
-    set({
-      job,
+    set((s) => ({
+      ...jobSlice(s, job),
       activeFindingId: pickInitialFindingId(job.findings),
       findingReviews: readStoredReviews(job.id),
-    }),
+    })),
   setActiveFinding: (findingId) => set({ activeFindingId: findingId }),
   setFindingReview: (jobId, findingId, patch) =>
     set((s) => {
@@ -162,36 +153,13 @@ export const useArgusStore = create<ArgusState>((set) => ({
       activeFindingId: null,
       findingReviews: {},
       ...INITIAL_LIVE,
-      ...INITIAL_REVIEW,
+      selectedClaimIds: new Set<string>(),
       ...INITIAL_COCKPIT,
     }),
 
-  appendLiveStep: (step) =>
-    set((s) => ({ liveSteps: [...s.liveSteps, step] })),
-  appendLiveSteps: (steps) => {
-    if (steps.length === 0) return;
-    set((s) => ({ liveSteps: [...s.liveSteps, ...steps] }));
-  },
-  appendLiveFinding: (finding) =>
-    set((s) => {
-      const existing = s.liveFindings.findIndex((f) => f.id === finding.id);
-      if (existing === -1) return { liveFindings: [...s.liveFindings, finding] };
-      const next = [...s.liveFindings];
-      next[existing] = finding;
-      return { liveFindings: next };
-    }),
-  setLiveHeartbeat: (heartbeat) => set({ liveHeartbeat: heartbeat }),
   setRunStatus: (status, error = null) => set({ runStatus: status, runError: error }),
-  resetLive: () => set({ ...INITIAL_LIVE }),
+  applyJob: (job) => set((s) => jobSlice(s, job)),
 
-  // HITL review
-  setReviewReady: (claims, filtered) =>
-    set({
-      reviewClaims: claims,
-      filteredClaims: filtered,
-      selectedClaimIds: new Set(claims.map((c) => c.id)),
-      runStatus: "reviewing",
-    }),
   toggleClaimSelection: (claimId) =>
     set((s) => {
       const next = new Set(s.selectedClaimIds);
@@ -201,15 +169,14 @@ export const useArgusStore = create<ArgusState>((set) => ({
     }),
   selectAllClaims: () =>
     set((s) => ({
-      selectedClaimIds: new Set(s.reviewClaims.map((c) => c.id)),
+      selectedClaimIds: new Set((s.job?.claims ?? []).map((c) => c.id)),
     })),
   selectHighImportanceClaims: () =>
     set((s) => ({
       selectedClaimIds: new Set(
-        s.reviewClaims.filter((c) => c.importance === "high").map((c) => c.id),
+        (s.job?.claims ?? []).filter((c) => c.importance === "high").map((c) => c.id),
       ),
     })),
-  clearReview: () => set({ ...INITIAL_REVIEW }),
 
   // cockpit surfaces
   setDrawerFinding: (id) => set({ drawerFindingId: id }),

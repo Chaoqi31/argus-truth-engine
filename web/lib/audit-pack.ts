@@ -6,21 +6,10 @@ import { getJobExecutionControls } from "@/lib/execution-controls";
 import { getJudgeProofStrip, getTechnicalDepthProof } from "@/lib/technical-depth";
 import { sortFindingsForReview } from "@/lib/findings";
 import { formatNumber, formatUsd, pct, plural } from "@/lib/format";
+import { STAGE_BLURB, stageLabel } from "@/lib/stage-vocabulary";
+import { toolCounts } from "@/lib/steps";
 
 const REVIEW_STATUS_ORDER = ["open", "accepted", "disputed", "needs-recheck", "resolved"] as const;
-const STAGE_BLURB: Record<string, string> = {
-  parse: "Extracts the raw text and character offsets from the document.",
-  planner: "Reads the document and pulls out the discrete factual claims worth checking.",
-  atomizer: "Splits compound claims into atomic, independently-verifiable statements.",
-  checkworthiness: "Drops opinions, forecasts and trivia; keeps only checkable factual claims.",
-  review_gate: "De-duplicates the claims and caps how many go to paid verification.",
-  verify: "Runs each claim through MiroMind deep research: web searches, fetches, and reasoning.",
-  skeptic: "Independently challenges high-risk MiroMind verdicts by searching for counterevidence before confidence scoring.",
-  consistency: "Checks the claims against each other for contradictions and unsupported leaps.",
-  confidence: "Scores each verdict on source authority, evidence freshness, and source agreement.",
-  reporter: "Writes the executive summary of the audit.",
-};
-
 function cell(value: unknown): string {
   return String(value ?? "")
     .replaceAll("|", "\\|")
@@ -54,21 +43,6 @@ function excerpt(value: string, max = 1600): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-function traceToolCounts(trace: Job["traces"][number]): {
-  searches: number;
-  fetches: number;
-  codeSteps: number;
-} {
-  const stepSearches = trace.steps.filter((step) => step.type === "web_search").length;
-  return {
-    searches: trace.num_search_queries > 0 ? trace.num_search_queries : stepSearches,
-    fetches: trace.steps.filter((step) => step.type === "fetch_url_content").length,
-    codeSteps: trace.steps.filter(
-      (step) => step.type === "execute_python" || step.type === "execute_command",
-    ).length,
-  };
-}
-
 function skepticCounterevidenceCell(finding: Finding): string {
   const counterevidence = finding.skeptic_review?.counterevidence ?? [];
   return counterevidence
@@ -85,13 +59,13 @@ function stageLedger(
   const claimCount = job.claims.length;
   const findingCount = job.findings.length;
   const evidenceCount = job.evidences.length;
-  const verifierFindings = job.findings.filter((finding) => finding.agent === "UnifiedVerifier");
+  const verifierFindings = job.findings.filter((finding) => finding.agent === "verifier");
   const traceById = new Map(job.traces.map((trace) => [trace.id, trace]));
   const verifierTraces = verifierFindings
     .map((finding) => traceById.get(finding.reasoning_trace_id))
     .filter((trace): trace is Job["traces"][number] => trace !== undefined);
   const traceSteps = verifierTraces.reduce((n, trace) => n + trace.steps.length, 0);
-  const searchCount = verifierTraces.reduce((n, trace) => n + traceToolCounts(trace).searches, 0);
+  const searchCount = verifierTraces.reduce((n, trace) => n + toolCounts(trace).searches, 0);
 
   switch (stage.key) {
     case "parse":
@@ -118,11 +92,17 @@ function stageLedger(
         output: `${stage.metrics.n_checkworthy ?? claimCount} check-worthy claim(s), ${stage.metrics.n_filtered ?? 0} filtered out.`,
         transparency: "Only externally verifiable factual statements move into paid research.",
       };
-    case "review_gate":
+    case "shortlist":
       return {
         input: `${stage.metrics.n_before ?? claimCount} check-worthy claim(s).`,
-        output: `${stage.metrics.n_after ?? verifierFindings.length} claim(s) queued for MiroMind verification.`,
-        transparency: "The gate prevents low-value claims from consuming deep-research budget.",
+        output: `${stage.metrics.n_shortlisted ?? stage.metrics.n_after ?? verifierFindings.length} claim(s) queued for review.`,
+        transparency: "The shortlist keeps low-value claims from consuming deep-research budget.",
+      };
+    case "review":
+      return {
+        input: `${stage.metrics.n_candidates ?? claimCount} shortlisted claim(s).`,
+        output: `${stage.metrics.n_selected ?? verifierFindings.length} claim(s) sent to MiroMind verification.`,
+        transparency: "A person chose what to spend on; the selection is recorded on the job.",
       };
     case "verify":
       return {
@@ -176,14 +156,14 @@ function stageArtifactLines(
     `| ${cell(claim.claim_id ?? "")} | ${cell(claim.text)} | ${cell(claim.reason)} |`,
   );
   const skepticRows = job.findings
-    .filter((finding) => finding.agent === "UnifiedVerifier" && finding.skeptic_review)
+    .filter((finding) => finding.agent === "verifier" && finding.skeptic_review)
     .map((finding) => {
       const review = finding.skeptic_review;
       const claim = claimById.get(finding.claim_id);
       return `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(review?.status)} | ${cell(review?.summary)} | ${cell(claim?.text ?? finding.claim_id)} |`;
     });
   const consistencyRows = job.findings
-    .filter((finding) => finding.agent === "Consistency")
+    .filter((finding) => finding.agent === "consistency")
     .map((finding) =>
       `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(finding.severity)} | ${cell(finding.summary)} |`,
     );
@@ -193,12 +173,12 @@ function stageArtifactLines(
   });
   const traceById = new Map(job.traces.map((trace) => [trace.id, trace]));
   const verifierRows = sortFindingsForReview(
-    job.findings.filter((finding) => finding.agent === "UnifiedVerifier"),
+    job.findings.filter((finding) => finding.agent === "verifier"),
   ).map((finding) => {
     const trace = traceById.get(finding.reasoning_trace_id);
-    const tools = trace ? traceToolCounts(trace) : { searches: 0, fetches: 0, codeSteps: 0 };
+    const tools = trace ? toolCounts(trace) : { searches: 0, fetches: 0, codeSteps: 0 };
     const claim = claimById.get(finding.claim_id);
-    return `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(finding.severity)} | ${Math.round(finding.confidence * 100)}% | ${finding.evidence_ids.length} | ${trace?.steps.length ?? 0} | ${tools.searches} | ${cell(trace?.miromind_response_id ?? "")} | ${cell(claim?.text ?? finding.claim_id)} |`;
+    return `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(finding.severity)} | ${Math.round(finding.confidence * 100)}% | ${finding.evidence_ids.length} | ${trace?.steps.length ?? 0} | ${tools.searches} | ${cell(trace?.usage.response_ids.join(", ") ?? "")} | ${cell(claim?.text ?? finding.claim_id)} |`;
   });
 
   switch (stage.key) {
@@ -209,7 +189,8 @@ function stageArtifactLines(
     case "planner":
     case "atomizer":
     case "checkworthiness":
-    case "review_gate":
+    case "shortlist":
+    case "review":
       return [
         metrics ? `Metrics: ${metrics}` : null,
         "| Claim | Type | Importance | Page | Text |",
@@ -273,14 +254,13 @@ function stageDossiers(
     .map((stage, index) => {
       const ledger = stageLedger(stage, job);
       return lines([
-        `### Stage ${index + 1}: ${stage.name}`,
+        `### Stage ${index + 1}: ${stageLabel(stage.key)}`,
         `- Engine: ${stage.engine}`,
         `- Summary: ${stage.summary}`,
         STAGE_BLURB[stage.key] ? `- Purpose: ${STAGE_BLURB[stage.key]}` : null,
         `- Input: ${ledger.input}`,
         `- Output: ${ledger.output}`,
         `- Transparent because: ${ledger.transparency}`,
-        stage.strategy ? `- Strategy: ${stage.strategy}` : null,
         "",
         stageArtifactLines(stage, job, claimById).join("\n"),
       ]);
@@ -330,10 +310,8 @@ export function buildAuditPackMarkdown(
   reviews: Record<string, FindingReview>,
 ): string {
   const contentDomain = job.content_domain ?? "general";
-  const total = job.claims_total && job.claims_total > 0 ? job.claims_total : job.claims.length;
-  const audited = job.claims_audited && job.claims_audited > 0
-    ? job.claims_audited
-    : job.findings.filter((f) => f.agent === "UnifiedVerifier").length;
+  const total = job.claims_total;
+  const audited = job.claims_audited;
   const unchecked = Math.max(0, total - audited);
   const materialIssues = job.findings.filter(
     (f) => f.verdict !== "ok" && (f.severity === "critical" || f.severity === "major"),
@@ -358,7 +336,7 @@ export function buildAuditPackMarkdown(
   }
   const toolTotals = job.traces.reduce(
     (acc, trace) => {
-      const tools = traceToolCounts(trace);
+      const tools = toolCounts(trace);
       return {
         steps: acc.steps + trace.steps.length,
         searches: acc.searches + tools.searches,
@@ -369,16 +347,12 @@ export function buildAuditPackMarkdown(
     { steps: 0, searches: 0, fetches: 0, codeSteps: 0 },
   );
   const stageRows = (job.stages ?? []).map((stage) =>
-    `| ${cell(stage.name)} | ${cell(stage.engine)} | ${cell(stage.summary)} | ${cell(metricCell(stage.metrics))} |`,
+    `| ${cell(stageLabel(stage.key))} | ${cell(stage.engine)} | ${cell(stage.summary)} | ${cell(metricCell(stage.metrics))} |`,
   );
-  const stageStrategies = (job.stages ?? [])
-    .filter((stage) => stage.strategy)
-    .map((stage) => `- ${stage.name}: ${stage.strategy}`)
-    .join("\n");
   const traceRows = job.traces.map((trace) => {
-    const claim = claimById.get(trace.claim_id);
-    const tools = traceToolCounts(trace);
-    return `| ${cell(trace.agent)} | ${cell(claim?.text ?? trace.claim_id)} | ${trace.steps.length} | ${tools.searches} | ${tools.fetches} | ${tools.codeSteps} | ${trace.total_tokens} | ${trace.reasoning_tokens} | ${cell(trace.miromind_response_id)} |`;
+    const claim = trace.claim_id ? claimById.get(trace.claim_id) : undefined;
+    const tools = toolCounts(trace);
+    return `| ${cell(trace.agent)} | ${cell(claim?.text ?? trace.claim_id ?? "—")} | ${trace.steps.length} | ${tools.searches} | ${tools.fetches} | ${tools.codeSteps} | ${trace.usage.total_tokens} | ${trace.usage.reasoning_tokens} | ${cell(trace.usage.response_ids.join(", "))} |`;
   });
   const auditabilityRows = auditability.controls.map((control) => {
     const coverage = control.required > 0 ? `${control.present}/${control.required}` : "n/a";
@@ -447,12 +421,10 @@ export function buildAuditPackMarkdown(
       .map((e) => `- ${e.citation}${e.url ? ` (${e.url})` : ""}${e.snippet ? `: ${e.snippet}` : ""}`)
       .join("\n");
     const reasoning = (f.reasoning_chain ?? [])
-      .map((step, i) => {
-        if ("action" in step) {
-          return `${i + 1}. ${step.action} Observation: ${step.observation} Reasoning: ${step.reasoning}`;
-        }
-        return `${i + 1}. ${step.step}: ${step.content}`;
-      })
+      .map(
+        (step, i) =>
+          `${i + 1}. ${step.action} Observation: ${step.observation} Reasoning: ${step.reasoning}`,
+      )
       .join("\n");
     const coverageLines = (f.coverage ?? [])
       .map((row) => {
@@ -515,7 +487,7 @@ export function buildAuditPackMarkdown(
     "# Argus Audit Pack",
     "",
     "## Executive Summary",
-    `- Status: ${unchecked > 0 || job.status === "failed" || job.status === "interrupted" ? "Partial" : "Complete"}`,
+    `- Status: ${unchecked > 0 || job.status === "failed" ? "Partial" : "Complete"}`,
     `- Content domain: ${contentDomain}`,
     `- Checked claims: ${audited}/${total}`,
     `- Material issues: ${materialIssues.length}`,
@@ -601,7 +573,6 @@ export function buildAuditPackMarkdown(
           ...stageRows,
         ].join("\n")
       : "No pipeline stages were recorded.",
-    stageStrategies ? `\nStage strategies:\n${stageStrategies}` : null,
     "",
     "## Stage Dossiers",
     stageDossiers(job, claimById),
@@ -627,4 +598,50 @@ export function buildAuditPackMarkdown(
     "## Evidence Appendix",
     evidenceAppendix,
   ]);
+}
+
+export type ExportFormat = "audit_pack" | "json" | "markdown";
+
+function exportFile(
+  format: ExportFormat,
+  job: Job,
+  reviews: Record<string, FindingReview>,
+  exportId: string,
+): { filename: string; text: string; type: string } {
+  switch (format) {
+    case "audit_pack":
+      return {
+        filename: `argus-audit-pack-${exportId}.md`,
+        text: buildAuditPackMarkdown(job, reviews),
+        type: "text/markdown",
+      };
+    case "json":
+      return {
+        filename: `argus-evidence-station-${exportId}.json`,
+        text: buildEvidenceStationJson(job, reviews),
+        type: "application/json",
+      };
+    case "markdown":
+      return {
+        filename: `argus-executive-summary-${exportId}.md`,
+        text: job.audit_report_md ?? "",
+        type: "text/markdown",
+      };
+  }
+}
+
+/** Build one export of the audit and hand it to the browser as a download. */
+export function downloadAuditExport(
+  format: ExportFormat,
+  job: Job,
+  reviews: Record<string, FindingReview>,
+  exportId: string = job.id,
+) {
+  const { filename, text, type } = exportFile(format, job, reviews, exportId);
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import subprocess
-import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -14,10 +12,9 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from argus.api.app import create_app
-from argus.api.job_progress import derive_progress
+from argus.audit import Run
 from argus.config import Settings
-from argus.models.domain import Job
-from argus.trace_bus.base import TraceEvent
+from argus.models.job import Finished
 
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 
@@ -30,62 +27,40 @@ HTTP_UNSUPPORTED = 415
 HTTP_TOO_MANY_REQUESTS = 429
 
 
-def _trace_event(kind: str, sequence: int, payload: dict[str, Any]) -> TraceEvent:
-    return TraceEvent(job_id="job_1", sequence=sequence, kind=kind, payload=payload)
-
-
 @pytest.fixture
-def app_under_test(tmp_path: Path) -> FastAPI:
+def app_under_test(tmp_path: Path, db_url: str) -> FastAPI:
     settings = Settings(
         miromind_api_key="sk_test",
-        db_url=None,
-        redis_url=None,
+        db_url=db_url,
         storage_root=str(tmp_path / "uploads"),
     )
     return create_app(settings=settings)
 
 
-def test_derive_progress_from_trace_history() -> None:
-    progress = derive_progress([
-        _trace_event("stage", 1, {"status": "finished", "key": "parse"}),
-        _trace_event("stage", 2, {"status": "started", "key": "verify", "name": "Verify"}),
-        _trace_event(
-            "claim",
-            3,
-            {
-                "status": "started",
-                "claim_id": "c1",
-                "text": "Claim one.",
-                "index": 1,
-                "total": 2,
-            },
-        ),
-        _trace_event(
-            "heartbeat",
-            4,
-            {"stage": "verify", "agent": "UnifiedVerifier", "elapsed_s": 12},
-        ),
-    ])
+def _finishing_audit(captured: dict[str, Any] | None = None) -> Any:
+    """Stands in for the pipeline: keeps what the run was handed, then ends it."""
 
-    assert progress["finished_stages"] == ["parse"]
-    assert progress["current_stage"]["key"] == "verify"
-    assert progress["claims_started"] == 1
-    assert progress["claims_finished"] == 0
-    assert progress["claims_total"] == 2
-    assert progress["current_claim"]["claim_id"] == "c1"
-    assert progress["last_heartbeat"]["elapsed_s"] == 12
+    async def work(run: Run) -> None:
+        if captured is not None:
+            captured["job"] = run.job
+            captured["model"] = run.llm.access.model
+        run.record(Finished(status="done", completed_at=datetime.utcnow()))
+
+    return work
+
+
+async def _wait_for_status(client: AsyncClient, job_id: str, status: str) -> dict[str, Any]:
+    async with asyncio.timeout(10):
+        while True:
+            got = await client.get(f"/jobs/{job_id}")
+            if got.status_code == HTTP_OK and got.json().get("status") == status:
+                return got.json()
+            await asyncio.sleep(0.05)
 
 
 async def test_post_jobs_accepts_pdf_and_returns_job_id(app_under_test: FastAPI) -> None:
-    """We patch audit_pdf to skip the real pipeline; just check accept + id."""
-    fake_job = Job(id="job_fake", pdf_path="x.pdf", status="done")
-
-    async def _fake_audit(**kw: Any) -> Job:
-        await asyncio.sleep(0)
-        Path(str(kw["output_path"])).write_text(fake_job.model_dump_json())
-        return fake_job
-
-    with patch("argus.api.runner.audit_pdf", new=_fake_audit):
+    """The upload is stored, the job starts, and its PDF stays retrievable."""
+    with patch("argus.api.runner._audit", new=_finishing_audit()):
         async with AsyncClient(
             transport=ASGITransport(app=app_under_test), base_url="http://test"
         ) as client:
@@ -95,37 +70,17 @@ async def test_post_jobs_accepts_pdf_and_returns_job_id(app_under_test: FastAPI)
                     files={"pdf": ("sample-report.pdf", fh, "application/pdf")},
                 )
             assert resp.status_code == HTTP_ACCEPTED, resp.text
-            body = resp.json()
-            job_id = body["job_id"]
+            job_id = resp.json()["job_id"]
             assert job_id
 
-            # Poll GET until the in-memory runner finishes.
-            got = None
-            for _ in range(40):
-                got = await client.get(f"/jobs/{job_id}")
-                if got.status_code == HTTP_OK and got.json().get("status") == "done":
-                    break
-                await asyncio.sleep(0.05)
-            assert got is not None
-            assert got.status_code == HTTP_OK
-            assert got.json()["status"] == "done"
-
+            assert (await _wait_for_status(client, job_id, "done"))["input_mode"] == "pdf"
             pdf_resp = await client.get(f"/jobs/{job_id}/pdf")
             assert pdf_resp.status_code == HTTP_OK
             assert pdf_resp.content.startswith(b"%PDF")
 
 
 async def test_post_jobs_passes_content_domain_to_pdf_pipeline(app_under_test: FastAPI) -> None:
-    async def _fake_audit(**kw: Any) -> Job:
-        await asyncio.sleep(0)
-        return Job(
-            id=kw["job_id"],
-            pdf_path="x.pdf",
-            status="done",
-            content_domain=kw.get("content_domain", "general"),
-        )
-
-    with patch("argus.api.runner.audit_pdf", new=_fake_audit):
+    with patch("argus.api.runner._audit", new=_finishing_audit()):
         async with AsyncClient(
             transport=ASGITransport(app=app_under_test), base_url="http://test"
         ) as client:
@@ -138,41 +93,26 @@ async def test_post_jobs_passes_content_domain_to_pdf_pipeline(app_under_test: F
             assert resp.status_code == HTTP_ACCEPTED, resp.text
             job_id = resp.json()["job_id"]
 
-            got = None
-            for _ in range(40):
-                got = await client.get(f"/jobs/{job_id}")
-                if got.status_code == HTTP_OK and got.json().get("status") == "done":
-                    break
-                await asyncio.sleep(0.05)
-
-            assert got is not None
-            assert got.status_code == HTTP_OK
-            assert got.json()["content_domain"] == "finance"
+            done = await _wait_for_status(client, job_id, "done")
+            assert done["content_domain"] == "finance"
 
 
 async def test_post_text_passes_miromind_model_to_pipeline(app_under_test: FastAPI) -> None:
-    captured: dict[str, str] = {}
-
-    async def _fake_audit(**kw: Any) -> Job:
-        captured["model"] = kw["settings"].miromind_model
-        return Job(id=kw["job_id"], status="done", input_text=kw["text"], input_mode="text")
-
+    captured: dict[str, Any] = {}
     body = {
         "text": "This is a sufficiently long text input for live audit testing.",
         "miromind_model": "mirothinker-1-7-deepresearch-mini",
     }
-    with patch("argus.api.runner.audit_text", new=_fake_audit):
+    with patch("argus.api.runner._audit", new=_finishing_audit(captured)):
         async with AsyncClient(
             transport=ASGITransport(app=app_under_test), base_url="http://test"
         ) as client:
             resp = await client.post("/jobs/text", json=body)
             assert resp.status_code == HTTP_ACCEPTED, resp.text
 
-        for _ in range(20):
-            if "model" in captured:
-                break
-            await asyncio.sleep(0.05)
+            await _wait_for_status(client, resp.json()["job_id"], "done")
     assert captured["model"] == "mirothinker-1-7-deepresearch-mini"
+    assert captured["job"].input_text == body["text"]
 
 
 async def test_post_text_rejects_unknown_miromind_model(app_under_test: FastAPI) -> None:
@@ -205,13 +145,12 @@ async def test_post_text_rejects_when_active_job_limit_reached(
     started = asyncio.Event()
     release = asyncio.Event()
 
-    async def _slow_audit(**kw: Any) -> Job:
+    async def _slow_audit(_run: Run) -> None:
         started.set()
         await release.wait()
-        return Job(id=kw["job_id"], status="done", input_text=kw["text"], input_mode="text")
 
     body = {"text": "This is a sufficiently long text input for live audit testing."}
-    with patch("argus.api.runner.audit_text", new=_slow_audit):
+    with patch("argus.api.runner._audit", new=_slow_audit):
         async with AsyncClient(
             transport=ASGITransport(app=app_under_test), base_url="http://test"
         ) as client:
@@ -247,41 +186,3 @@ async def test_post_rejects_oversized_upload(app_under_test: FastAPI) -> None:
             files={"pdf": ("sample-report.pdf", b"%PDF-1.4", "application/pdf")},
         )
     assert resp.status_code == HTTP_PAYLOAD_TOO_LARGE
-
-
-def test_app_factory_import_does_not_require_weasyprint(tmp_path: Path) -> None:
-    """Health/API startup should not fail just because PDF export deps are absent."""
-    script = f"""
-import builtins
-
-original_import = builtins.__import__
-
-def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-    if name == "weasyprint":
-        raise OSError("cannot load library 'pango-1.0-0'")
-    return original_import(name, globals, locals, fromlist, level)
-
-builtins.__import__ = guarded_import
-
-from argus.api.app import create_app
-from argus.config import Settings
-
-app = create_app(settings=Settings(
-    miromind_api_key="sk_test",
-    db_url=None,
-    redis_url=None,
-    storage_root={str(tmp_path / "uploads")!r},
-))
-assert app.title == "Argus API"
-"""
-    env = os.environ.copy()
-    src = str(Path(__file__).resolve().parents[1] / "src")
-    env["PYTHONPATH"] = f"{src}{os.pathsep}{env.get('PYTHONPATH', '')}"
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        check=False,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    assert result.returncode == 0, result.stderr or result.stdout

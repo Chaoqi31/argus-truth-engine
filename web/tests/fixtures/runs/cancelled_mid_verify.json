@@ -1,0 +1,2341 @@
+{
+ "final": {
+  "audit_report_md": null,
+  "auto_review": false,
+  "benchmark": null,
+  "claims": [
+   {
+    "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme emplo",
+    "extracted_metadata": {
+     "authors": [
+      "Smith",
+      "Lee"
+     ],
+     "year": 2021
+    },
+    "id": "a_3",
+    "importance": "high",
+    "page": 1,
+    "parent_claim_id": "c2",
+    "span": [
+     83,
+     156
+    ],
+    "text": "Smith and Lee (2021) showed that widget demand doubles every three years.",
+    "type": "citation"
+   },
+   {
+    "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% ",
+    "extracted_metadata": {},
+    "id": "a_1",
+    "importance": "high",
+    "page": 1,
+    "parent_claim_id": "c1",
+    "span": [
+     0,
+     82
+    ],
+    "text": "Acme Corp reported revenue of $12.4 billion in fiscal 2024.",
+    "type": "numerical-data"
+   },
+   {
+    "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% ",
+    "extracted_metadata": {},
+    "id": "a_2",
+    "importance": "high",
+    "page": 1,
+    "parent_claim_id": "c1",
+    "span": [
+     0,
+     82
+    ],
+    "text": "Acme Corp's revenue grew 18% year over year in fiscal 2024.",
+    "type": "numerical-data"
+   },
+   {
+    "context": "cal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+    "extracted_metadata": {},
+    "id": "a_6",
+    "importance": "high",
+    "page": 1,
+    "parent_claim_id": "c5",
+    "span": [
+     250,
+     297
+    ],
+    "text": "Acme's operating margin was 32% in fiscal 2024.",
+    "type": "numerical-data"
+   },
+   {
+    "context": "2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+    "extracted_metadata": {},
+    "id": "a_8",
+    "importance": "medium",
+    "page": 1,
+    "parent_claim_id": "c6",
+    "span": [
+     298,
+     345
+    ],
+    "text": "Acme's operating margin was 28% in fiscal 2024.",
+    "type": "numerical-data"
+   },
+   {
+    "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+    "extracted_metadata": {},
+    "id": "a_4",
+    "importance": "medium",
+    "page": 1,
+    "parent_claim_id": "c3",
+    "span": [
+     157,
+     199
+    ],
+    "text": "Acme was founded in 1998 in Austin, Texas.",
+    "type": "cross-reference"
+   }
+  ],
+  "claims_audited": 5,
+  "claims_total": 6,
+  "completed_at": "<ts>",
+  "content_domain": "finance",
+  "cost_usd": 0.67425,
+  "created_at": "<ts>",
+  "evidences": [
+   {
+    "citation": "https://api.crossref.org/works?query=smith+lee+widget",
+    "id": "finding:verifier:a_3/evidence0",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_3/step1",
+    "snippet": "Excerpt from https://api.crossref.org/works?query=smith+lee+widget",
+    "source_type": "web_page",
+    "url": "https://api.crossref.org/works?query=smith+lee+widget"
+   },
+   {
+    "citation": "https://scholar.google.com/scholar?q=smith+lee+2021+widget",
+    "id": "finding:verifier:a_3/evidence1",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_3/step1",
+    "snippet": "Excerpt from https://scholar.google.com/scholar?q=smith+lee+2021+widget",
+    "source_type": "web_page",
+    "url": "https://scholar.google.com/scholar?q=smith+lee+2021+widget"
+   },
+   {
+    "citation": "https://www.sec.gov/acme-10k-2024",
+    "id": "finding:verifier:a_2/evidence0",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_2/step1",
+    "snippet": "Excerpt from https://www.sec.gov/acme-10k-2024",
+    "source_type": "web_page",
+    "url": "https://www.sec.gov/acme-10k-2024"
+   },
+   {
+    "citation": "https://www.reuters.com/acme-results",
+    "id": "finding:verifier:a_2/evidence1",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_2/step1",
+    "snippet": "Excerpt from https://www.reuters.com/acme-results",
+    "source_type": "web_page",
+    "url": "https://www.reuters.com/acme-results"
+   },
+   {
+    "citation": "https://www.bloomberg.com/acme",
+    "id": "finding:verifier:a_2/evidence2",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_2/step1",
+    "snippet": "Excerpt from https://www.bloomberg.com/acme",
+    "source_type": "web_page",
+    "url": "https://www.bloomberg.com/acme"
+   },
+   {
+    "citation": "https://www.sec.gov/acme-10k-2024",
+    "id": "finding:verifier:a_1/evidence0",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_1/step1",
+    "snippet": "Excerpt from https://www.sec.gov/acme-10k-2024",
+    "source_type": "web_page",
+    "url": "https://www.sec.gov/acme-10k-2024"
+   },
+   {
+    "citation": "https://www.reuters.com/acme-results",
+    "id": "finding:verifier:a_1/evidence1",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_1/step1",
+    "snippet": "Excerpt from https://www.reuters.com/acme-results",
+    "source_type": "web_page",
+    "url": "https://www.reuters.com/acme-results"
+   },
+   {
+    "citation": "https://en.wikipedia.org/wiki/Acme_Corp",
+    "id": "finding:verifier:a_4/evidence0",
+    "retrieved_at": "<ts>",
+    "retrieved_by_step_id": "trace:verifier:a_4/step1",
+    "snippet": "Excerpt from https://en.wikipedia.org/wiki/Acme_Corp",
+    "source_type": "web_page",
+    "url": "https://en.wikipedia.org/wiki/Acme_Corp"
+   }
+  ],
+  "failure": {
+   "kind": "interrupted",
+   "message": "stopped by the test"
+  },
+  "findings": [
+   {
+    "agent": "verifier",
+    "claim_id": "a_3",
+    "computation_check": null,
+    "confidence": 0.7,
+    "confidence_breakdown": null,
+    "correct_information": null,
+    "coverage": [
+     {
+      "claim_fragment": "No paper by Smith and Lee (2021) on widget demand exists",
+      "evidence_ids": [
+       "finding:verifier:a_3/evidence0",
+       "finding:verifier:a_3/evidence1"
+      ],
+      "reason": "The cited sources address this fragment.",
+      "relation": "refutes"
+     }
+    ],
+    "created_at": "<ts>",
+    "evidence_ids": [
+     "finding:verifier:a_3/evidence0",
+     "finding:verifier:a_3/evidence1"
+    ],
+    "evidence_quality": [
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_3/evidence0",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 1 addresses the claim directly.",
+      "role": "primary_source"
+     },
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_3/evidence1",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 2 addresses the claim directly.",
+      "role": "secondary_source"
+     }
+    ],
+    "flags": [],
+    "from_cache": false,
+    "id": "finding:verifier:a_3",
+    "reasoning_chain": [
+     {
+      "action": "Searched primary sources for the claim",
+      "observation": "Found 2 relevant source(s)",
+      "reasoning": "Compared the claim with what the sources state."
+     },
+     {
+      "action": "Cross-checked the figures",
+      "observation": "No paper by Smith and Lee (2021) on widget demand exists.",
+      "reasoning": "Verdict: fabricated."
+     }
+    ],
+    "reasoning_trace_id": "trace:verifier:a_3",
+    "severity": "major",
+    "skeptic_review": null,
+    "summary": "No paper by Smith and Lee (2021) on widget demand exists.",
+    "verdict": "fabricated",
+    "why_wrong": "The cited study cannot be found in any index."
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_2",
+    "computation_check": null,
+    "confidence": 0.88,
+    "confidence_breakdown": null,
+    "correct_information": {
+     "retrieved_date": "2026-09-01",
+     "source": "Acme FY2024 10-K",
+     "url": "https://www.sec.gov/acme-10k-2024",
+     "value": "12% year over year"
+    },
+    "coverage": [
+     {
+      "claim_fragment": "Revenue grew 12%, not 18%",
+      "evidence_ids": [
+       "finding:verifier:a_2/evidence0",
+       "finding:verifier:a_2/evidence1",
+       "finding:verifier:a_2/evidence2"
+      ],
+      "reason": "The cited sources address this fragment.",
+      "relation": "refutes"
+     }
+    ],
+    "created_at": "<ts>",
+    "evidence_ids": [
+     "finding:verifier:a_2/evidence0",
+     "finding:verifier:a_2/evidence1",
+     "finding:verifier:a_2/evidence2"
+    ],
+    "evidence_quality": [
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_2/evidence0",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 1 addresses the claim directly.",
+      "role": "primary_source"
+     },
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_2/evidence1",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 2 addresses the claim directly.",
+      "role": "secondary_source"
+     },
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_2/evidence2",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 3 addresses the claim directly.",
+      "role": "secondary_source"
+     }
+    ],
+    "flags": [],
+    "from_cache": false,
+    "id": "finding:verifier:a_2",
+    "reasoning_chain": [
+     {
+      "action": "Searched primary sources for the claim",
+      "observation": "Found 3 relevant source(s)",
+      "reasoning": "Compared the claim with what the sources state."
+     },
+     {
+      "action": "Cross-checked the figures",
+      "observation": "Revenue grew 12%, not 18%.",
+      "reasoning": "Verdict: inaccurate."
+     }
+    ],
+    "reasoning_trace_id": "trace:verifier:a_2",
+    "severity": "major",
+    "skeptic_review": null,
+    "summary": "Revenue grew 12%, not 18%.",
+    "verdict": "inaccurate",
+    "why_wrong": "The claim overstates growth by six points."
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_1",
+    "computation_check": {
+     "claimed_value": "$12.4 billion",
+     "computed_value": "12.4",
+     "extracted_values": [
+      {
+       "label": "FY2024 revenue",
+       "source_evidence_id": "finding:verifier:a_1/evidence0",
+       "unit": "USD bn",
+       "value": "12.4"
+      }
+     ],
+     "formula": "reported == claimed",
+     "judgment": "matches",
+     "kind": "numeric",
+     "rationale": "The filing reports the same figure.",
+     "tolerance": "rounding to 0.1"
+    },
+    "confidence": 0.9,
+    "confidence_breakdown": null,
+    "correct_information": null,
+    "coverage": [
+     {
+      "claim_fragment": "Revenue of $12",
+      "evidence_ids": [
+       "finding:verifier:a_1/evidence0",
+       "finding:verifier:a_1/evidence1"
+      ],
+      "reason": "The cited sources address this fragment.",
+      "relation": "supports"
+     }
+    ],
+    "created_at": "<ts>",
+    "evidence_ids": [
+     "finding:verifier:a_1/evidence0",
+     "finding:verifier:a_1/evidence1"
+    ],
+    "evidence_quality": [
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_1/evidence0",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 1 addresses the claim directly.",
+      "role": "primary_source"
+     },
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_1/evidence1",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 2 addresses the claim directly.",
+      "role": "secondary_source"
+     }
+    ],
+    "flags": [],
+    "from_cache": false,
+    "id": "finding:verifier:a_1",
+    "reasoning_chain": [
+     {
+      "action": "Searched primary sources for the claim",
+      "observation": "Found 2 relevant source(s)",
+      "reasoning": "Compared the claim with what the sources state."
+     },
+     {
+      "action": "Cross-checked the figures",
+      "observation": "Revenue of $12.4 billion matches the FY2024 annual report.",
+      "reasoning": "Verdict: ok."
+     }
+    ],
+    "reasoning_trace_id": "trace:verifier:a_1",
+    "severity": "minor",
+    "skeptic_review": null,
+    "summary": "Revenue of $12.4 billion matches the FY2024 annual report.",
+    "verdict": "ok",
+    "why_wrong": null
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_4",
+    "computation_check": null,
+    "confidence": 0.5,
+    "confidence_breakdown": null,
+    "correct_information": null,
+    "coverage": [
+     {
+      "claim_fragment": "Acme's founding in 1998 in Austin is documented",
+      "evidence_ids": [
+       "finding:verifier:a_4/evidence0"
+      ],
+      "reason": "The cited sources address this fragment.",
+      "relation": "supports"
+     }
+    ],
+    "created_at": "<ts>",
+    "evidence_ids": [
+     "finding:verifier:a_4/evidence0"
+    ],
+    "evidence_quality": [
+     {
+      "authority": 0.9,
+      "directness": 0.9,
+      "evidence_id": "finding:verifier:a_4/evidence0",
+      "freshness": 0.7,
+      "independence": 0.8,
+      "rationale": "Source 1 addresses the claim directly.",
+      "role": "primary_source"
+     }
+    ],
+    "flags": [],
+    "from_cache": false,
+    "id": "finding:verifier:a_4",
+    "reasoning_chain": [
+     {
+      "action": "Searched primary sources for the claim",
+      "observation": "Found 1 relevant source(s)",
+      "reasoning": "Compared the claim with what the sources state."
+     },
+     {
+      "action": "Cross-checked the figures",
+      "observation": "Acme's founding in 1998 in Austin is documented.",
+      "reasoning": "Verdict: ok."
+     }
+    ],
+    "reasoning_trace_id": "trace:verifier:a_4",
+    "severity": "minor",
+    "skeptic_review": null,
+    "summary": "Acme's founding in 1998 in Austin is documented.  [Downgraded to uncertain: fewer than 2 independent sources were available to cross-verify.]",
+    "verdict": "uncertain",
+    "why_wrong": null
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_8",
+    "computation_check": null,
+    "confidence": 0.0,
+    "confidence_breakdown": null,
+    "correct_information": null,
+    "coverage": [],
+    "created_at": "<ts>",
+    "evidence_ids": [],
+    "evidence_quality": [],
+    "flags": [
+     "unparseable verifier response"
+    ],
+    "from_cache": false,
+    "id": "finding:verifier:a_8",
+    "reasoning_chain": [],
+    "reasoning_trace_id": "trace:verifier:a_8",
+    "severity": "minor",
+    "skeptic_review": null,
+    "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: json_repair could not recover: line 1 column 1 (char 0))",
+    "verdict": "uncertain",
+    "why_wrong": null
+   }
+  ],
+  "id": "JOB",
+  "input_mode": "text",
+  "input_text": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+  "pdf_path": "",
+  "persona": null,
+  "scenario_label": null,
+  "stages": [
+   {
+    "engine": "deterministic",
+    "filtered_claims": [],
+    "key": "parse",
+    "metrics": {
+     "chars": 378,
+     "pages": 1
+    },
+    "status": "done",
+    "summary": "Read 378 chars of input text"
+   },
+   {
+    "engine": "deepseek",
+    "filtered_claims": [],
+    "key": "planner",
+    "metrics": {
+     "n_claims": 7
+    },
+    "status": "done",
+    "summary": "Extracted 7 candidate claim(s)"
+   },
+   {
+    "engine": "deepseek",
+    "filtered_claims": [],
+    "key": "atomizer",
+    "metrics": {
+     "n_atoms": 9,
+     "n_original": 7
+    },
+    "status": "done",
+    "summary": "Split 7 into 9 atomic claims"
+   },
+   {
+    "engine": "deepseek",
+    "filtered_claims": [
+     {
+      "claim_id": "a_5",
+      "reason": "Subjective reputation claim",
+      "text": "Acme is widely regarded as an innovative company."
+     }
+    ],
+    "key": "checkworthiness",
+    "metrics": {
+     "n_checkworthy": 8,
+     "n_filtered": 1
+    },
+    "status": "done",
+    "summary": "8 check-worthy · 1 filtered out"
+   },
+   {
+    "engine": "deterministic",
+    "filtered_claims": [],
+    "key": "shortlist",
+    "metrics": {
+     "n_after": 7,
+     "n_before": 8,
+     "n_shortlisted": 6
+    },
+    "status": "done",
+    "summary": "6 claim(s) shortlisted for review"
+   },
+   {
+    "engine": "deterministic",
+    "filtered_claims": [],
+    "key": "review",
+    "metrics": {
+     "n_candidates": 6,
+     "n_selected": 6
+    },
+    "status": "done",
+    "summary": "6 of 6 claim(s) selected"
+   },
+   {
+    "engine": "miromind",
+    "filtered_claims": [],
+    "key": "verify",
+    "metrics": {},
+    "status": "failed",
+    "summary": ""
+   },
+   {
+    "engine": "deepseek",
+    "filtered_claims": [],
+    "key": "consistency",
+    "metrics": {},
+    "status": "failed",
+    "summary": ""
+   }
+  ],
+  "status": "failed",
+  "total_tokens": 9000,
+  "traces": [
+   {
+    "agent": "planner",
+    "claim_id": null,
+    "completed_at": "<ts>",
+    "engine": "deepseek",
+    "id": "trace:planner:-",
+    "started_at": "<ts>",
+    "steps": [],
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:planner:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   {
+    "agent": "atomizer",
+    "claim_id": null,
+    "completed_at": "<ts>",
+    "engine": "deepseek",
+    "id": "trace:atomizer:-",
+    "started_at": "<ts>",
+    "steps": [],
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:atomizer:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   {
+    "agent": "checkworthiness",
+    "claim_id": null,
+    "completed_at": "<ts>",
+    "engine": "deepseek",
+    "id": "trace:checkworthiness:-",
+    "started_at": "<ts>",
+    "steps": [],
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:checkworthiness:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   {
+    "agent": "consistency",
+    "claim_id": null,
+    "completed_at": "<ts>",
+    "engine": "deepseek",
+    "id": "trace:consistency:-",
+    "started_at": "<ts>",
+    "steps": [],
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:consistency:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_3",
+    "completed_at": "<ts>",
+    "engine": "miromind",
+    "id": "trace:verifier:a_3",
+    "started_at": "<ts>",
+    "steps": [
+     {
+      "content": {
+       "thought": "Plan: search for 'Smith and Lee (2021) showed that widget '."
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_3/step0",
+      "summary": "Plan: search for 'Smith and Lee (2021) showed that widget '.",
+      "type": "thinking"
+     },
+     {
+      "content": {
+       "arguments": "{\"q\": \"Smith and Lee (2021) showed that widget demand doubles every\"}",
+       "id": "resp_verifier_141e0d85f6_search",
+       "name": "google_search",
+       "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+       "status": "completed",
+       "type": "tool_call"
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_3/step1",
+      "summary": "search: Smith and Lee (2021) showed that widget demand doubles every",
+      "type": "web_search"
+     }
+    ],
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_3/response"
+     ],
+     "total_tokens": 1500
+    }
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_1",
+    "completed_at": "<ts>",
+    "engine": "miromind",
+    "id": "trace:verifier:a_1",
+    "started_at": "<ts>",
+    "steps": [
+     {
+      "content": {
+       "thought": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'."
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_1/step0",
+      "summary": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'.",
+      "type": "thinking"
+     },
+     {
+      "content": {
+       "arguments": "{\"q\": \"Acme Corp reported revenue of $12.4 billion in fiscal 2024.\"}",
+       "id": "resp_verifier_586fe78b7e_search",
+       "name": "google_search",
+       "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+       "status": "completed",
+       "type": "tool_call"
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_1/step1",
+      "summary": "search: Acme Corp reported revenue of $12.4 billion in fiscal 2024.",
+      "type": "web_search"
+     }
+    ],
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_1/response"
+     ],
+     "total_tokens": 1500
+    }
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_2",
+    "completed_at": "<ts>",
+    "engine": "miromind",
+    "id": "trace:verifier:a_2",
+    "started_at": "<ts>",
+    "steps": [
+     {
+      "content": {
+       "thought": "Plan: search for 'Acme Corp's revenue grew 18% year over y'."
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_2/step0",
+      "summary": "Plan: search for 'Acme Corp's revenue grew 18% year over y'.",
+      "type": "thinking"
+     },
+     {
+      "content": {
+       "arguments": "{\"q\": \"Acme Corp's revenue grew 18% year over year in fiscal 2024.\"}",
+       "id": "resp_verifier_f7eb2bdca3_search",
+       "name": "google_search",
+       "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+       "status": "completed",
+       "type": "tool_call"
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_2/step1",
+      "summary": "search: Acme Corp's revenue grew 18% year over year in fiscal 2024.",
+      "type": "web_search"
+     }
+    ],
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_2/response"
+     ],
+     "total_tokens": 1500
+    }
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_6",
+    "completed_at": null,
+    "engine": "miromind",
+    "id": "trace:verifier:a_6",
+    "started_at": "<ts>",
+    "steps": [
+     {
+      "content": {
+       "thought": "Plan: search for 'Acme's operating margin was 32% in fisca'."
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_6/step0",
+      "summary": "Plan: search for 'Acme's operating margin was 32% in fisca'.",
+      "type": "thinking"
+     },
+     {
+      "content": {
+       "arguments": "{\"q\": \"Acme's operating margin was 32% in fiscal 2024.\"}",
+       "id": "resp_verifier_8f3c29b6af_search",
+       "name": "google_search",
+       "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+       "status": "completed",
+       "type": "tool_call"
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_6/step1",
+      "summary": "search: Acme's operating margin was 32% in fiscal 2024.",
+      "type": "web_search"
+     }
+    ],
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [],
+     "total_tokens": 0
+    }
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_8",
+    "completed_at": "<ts>",
+    "engine": "miromind",
+    "id": "trace:verifier:a_8",
+    "started_at": "<ts>",
+    "steps": [
+     {
+      "content": {
+       "thought": "Plan: search for 'Acme's operating margin was 28% in fisca'."
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_8/step0",
+      "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
+      "type": "thinking"
+     },
+     {
+      "content": {
+       "arguments": "{\"q\": \"Acme's operating margin was 28% in fiscal 2024.\"}",
+       "id": "resp_verifier_8740be432b_search",
+       "name": "google_search",
+       "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+       "status": "completed",
+       "type": "tool_call"
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_8/step1",
+      "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
+      "type": "web_search"
+     },
+     {
+      "content": {
+       "thought": "Plan: search for 'Acme's operating margin was 28% in fisca'."
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_8/step2",
+      "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
+      "type": "thinking"
+     },
+     {
+      "content": {
+       "arguments": "{\"q\": \"Acme's operating margin was 28% in fiscal 2024.\"}",
+       "id": "resp_verifier_f5438a5255_search",
+       "name": "google_search",
+       "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+       "status": "completed",
+       "type": "tool_call"
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_8/step3",
+      "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
+      "type": "web_search"
+     }
+    ],
+    "usage": {
+     "cost_usd": 0.22475,
+     "num_search_queries": 4,
+     "reasoning_tokens": 400,
+     "response_ids": [
+      "trace:verifier:a_8/response",
+      "trace:verifier:a_8/response#2"
+     ],
+     "total_tokens": 3000
+    }
+   },
+   {
+    "agent": "verifier",
+    "claim_id": "a_4",
+    "completed_at": "<ts>",
+    "engine": "miromind",
+    "id": "trace:verifier:a_4",
+    "started_at": "<ts>",
+    "steps": [
+     {
+      "content": {
+       "thought": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'."
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_4/step0",
+      "summary": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'.",
+      "type": "thinking"
+     },
+     {
+      "content": {
+       "arguments": "{\"q\": \"Acme was founded in 1998 in Austin, Texas.\"}",
+       "id": "resp_verifier_e3d42acdd3_search",
+       "name": "google_search",
+       "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+       "status": "completed",
+       "type": "tool_call"
+      },
+      "created_at": "<ts>",
+      "id": "trace:verifier:a_4/step1",
+      "summary": "search: Acme was founded in 1998 in Austin, Texas.",
+      "type": "web_search"
+     }
+    ],
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_4/response"
+     ],
+     "total_tokens": 1500
+    }
+   }
+  ],
+  "version": 55
+ },
+ "frames": [
+  {
+   "event": {
+    "engine": "deterministic",
+    "key": "parse",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 1
+  },
+  {
+   "event": {
+    "filtered_claims": [],
+    "key": "parse",
+    "metrics": {
+     "chars": 378,
+     "pages": 1
+    },
+    "summary": "Read 378 chars of input text",
+    "type": "stage_finished"
+   },
+   "type": "event",
+   "version": 2
+  },
+  {
+   "event": {
+    "engine": "deepseek",
+    "key": "planner",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 3
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "planner",
+     "claim_id": null,
+     "completed_at": null,
+     "engine": "deepseek",
+     "id": "trace:planner:-",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 4
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:planner:-",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:planner:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   "type": "event",
+   "version": 5
+  },
+  {
+   "event": {
+    "filtered_claims": [],
+    "key": "planner",
+    "metrics": {
+     "n_claims": 7
+    },
+    "summary": "Extracted 7 candidate claim(s)",
+    "type": "stage_finished"
+   },
+   "type": "event",
+   "version": 6
+  },
+  {
+   "event": {
+    "engine": "deepseek",
+    "key": "atomizer",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 7
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "atomizer",
+     "claim_id": null,
+     "completed_at": null,
+     "engine": "deepseek",
+     "id": "trace:atomizer:-",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 8
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:atomizer:-",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:atomizer:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   "type": "event",
+   "version": 9
+  },
+  {
+   "event": {
+    "filtered_claims": [],
+    "key": "atomizer",
+    "metrics": {
+     "n_atoms": 9,
+     "n_original": 7
+    },
+    "summary": "Split 7 into 9 atomic claims",
+    "type": "stage_finished"
+   },
+   "type": "event",
+   "version": 10
+  },
+  {
+   "event": {
+    "engine": "deepseek",
+    "key": "checkworthiness",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 11
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "checkworthiness",
+     "claim_id": null,
+     "completed_at": null,
+     "engine": "deepseek",
+     "id": "trace:checkworthiness:-",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 12
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:checkworthiness:-",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:checkworthiness:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   "type": "event",
+   "version": 13
+  },
+  {
+   "event": {
+    "filtered_claims": [
+     {
+      "claim_id": "a_5",
+      "reason": "Subjective reputation claim",
+      "text": "Acme is widely regarded as an innovative company."
+     }
+    ],
+    "key": "checkworthiness",
+    "metrics": {
+     "n_checkworthy": 8,
+     "n_filtered": 1
+    },
+    "summary": "8 check-worthy · 1 filtered out",
+    "type": "stage_finished"
+   },
+   "type": "event",
+   "version": 14
+  },
+  {
+   "event": {
+    "engine": "deterministic",
+    "key": "shortlist",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 15
+  },
+  {
+   "event": {
+    "filtered_claims": [],
+    "key": "shortlist",
+    "metrics": {
+     "n_after": 7,
+     "n_before": 8,
+     "n_shortlisted": 6
+    },
+    "summary": "6 claim(s) shortlisted for review",
+    "type": "stage_finished"
+   },
+   "type": "event",
+   "version": 16
+  },
+  {
+   "event": {
+    "engine": "deterministic",
+    "key": "review",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 17
+  },
+  {
+   "event": {
+    "claims": [
+     {
+      "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme emplo",
+      "extracted_metadata": {
+       "authors": [
+        "Smith",
+        "Lee"
+       ],
+       "year": 2021
+      },
+      "id": "a_3",
+      "importance": "high",
+      "page": 1,
+      "parent_claim_id": "c2",
+      "span": [
+       83,
+       156
+      ],
+      "text": "Smith and Lee (2021) showed that widget demand doubles every three years.",
+      "type": "citation"
+     },
+     {
+      "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% ",
+      "extracted_metadata": {},
+      "id": "a_1",
+      "importance": "high",
+      "page": 1,
+      "parent_claim_id": "c1",
+      "span": [
+       0,
+       82
+      ],
+      "text": "Acme Corp reported revenue of $12.4 billion in fiscal 2024.",
+      "type": "numerical-data"
+     },
+     {
+      "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% ",
+      "extracted_metadata": {},
+      "id": "a_2",
+      "importance": "high",
+      "page": 1,
+      "parent_claim_id": "c1",
+      "span": [
+       0,
+       82
+      ],
+      "text": "Acme Corp's revenue grew 18% year over year in fiscal 2024.",
+      "type": "numerical-data"
+     },
+     {
+      "context": "cal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+      "extracted_metadata": {},
+      "id": "a_6",
+      "importance": "high",
+      "page": 1,
+      "parent_claim_id": "c5",
+      "span": [
+       250,
+       297
+      ],
+      "text": "Acme's operating margin was 32% in fiscal 2024.",
+      "type": "numerical-data"
+     },
+     {
+      "context": "2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+      "extracted_metadata": {},
+      "id": "a_8",
+      "importance": "medium",
+      "page": 1,
+      "parent_claim_id": "c6",
+      "span": [
+       298,
+       345
+      ],
+      "text": "Acme's operating margin was 28% in fiscal 2024.",
+      "type": "numerical-data"
+     },
+     {
+      "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+      "extracted_metadata": {},
+      "id": "a_4",
+      "importance": "medium",
+      "page": 1,
+      "parent_claim_id": "c3",
+      "span": [
+       157,
+       199
+      ],
+      "text": "Acme was founded in 1998 in Austin, Texas.",
+      "type": "cross-reference"
+     }
+    ],
+    "type": "review_ready"
+   },
+   "type": "event",
+   "version": 18
+  },
+  {
+   "event": {
+    "claim_ids": [
+     "a_3",
+     "a_1",
+     "a_2",
+     "a_6",
+     "a_8",
+     "a_4"
+    ],
+    "type": "claims_selected"
+   },
+   "type": "event",
+   "version": 19
+  },
+  {
+   "event": {
+    "filtered_claims": [],
+    "key": "review",
+    "metrics": {
+     "n_candidates": 6,
+     "n_selected": 6
+    },
+    "summary": "6 of 6 claim(s) selected",
+    "type": "stage_finished"
+   },
+   "type": "event",
+   "version": 20
+  },
+  {
+   "event": {
+    "engine": "miromind",
+    "key": "verify",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 21
+  },
+  {
+   "event": {
+    "engine": "deepseek",
+    "key": "consistency",
+    "type": "stage_started"
+   },
+   "type": "event",
+   "version": 22
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "consistency",
+     "claim_id": null,
+     "completed_at": null,
+     "engine": "deepseek",
+     "id": "trace:consistency:-",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 23
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "verifier",
+     "claim_id": "a_3",
+     "completed_at": null,
+     "engine": "miromind",
+     "id": "trace:verifier:a_3",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 24
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "verifier",
+     "claim_id": "a_1",
+     "completed_at": null,
+     "engine": "miromind",
+     "id": "trace:verifier:a_1",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 25
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "verifier",
+     "claim_id": "a_2",
+     "completed_at": null,
+     "engine": "miromind",
+     "id": "trace:verifier:a_2",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 26
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "verifier",
+     "claim_id": "a_6",
+     "completed_at": null,
+     "engine": "miromind",
+     "id": "trace:verifier:a_6",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 27
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "verifier",
+     "claim_id": "a_8",
+     "completed_at": null,
+     "engine": "miromind",
+     "id": "trace:verifier:a_8",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 28
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:consistency:-",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.0,
+     "num_search_queries": 0,
+     "reasoning_tokens": 0,
+     "response_ids": [
+      "trace:consistency:-/response"
+     ],
+     "total_tokens": 0
+    }
+   },
+   "type": "event",
+   "version": 29
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "thought": "Plan: search for 'Smith and Lee (2021) showed that widget '."
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_3/step0",
+     "summary": "Plan: search for 'Smith and Lee (2021) showed that widget '.",
+     "type": "thinking"
+    },
+    "trace_id": "trace:verifier:a_3",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 30
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "arguments": "{\"q\": \"Smith and Lee (2021) showed that widget demand doubles every\"}",
+      "id": "resp_verifier_141e0d85f6_search",
+      "name": "google_search",
+      "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+      "status": "completed",
+      "type": "tool_call"
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_3/step1",
+     "summary": "search: Smith and Lee (2021) showed that widget demand doubles every",
+     "type": "web_search"
+    },
+    "trace_id": "trace:verifier:a_3",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 31
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "thought": "Plan: search for 'Acme Corp's revenue grew 18% year over y'."
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_2/step0",
+     "summary": "Plan: search for 'Acme Corp's revenue grew 18% year over y'.",
+     "type": "thinking"
+    },
+    "trace_id": "trace:verifier:a_2",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 32
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "arguments": "{\"q\": \"Acme Corp's revenue grew 18% year over year in fiscal 2024.\"}",
+      "id": "resp_verifier_f7eb2bdca3_search",
+      "name": "google_search",
+      "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+      "status": "completed",
+      "type": "tool_call"
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_2/step1",
+     "summary": "search: Acme Corp's revenue grew 18% year over year in fiscal 2024.",
+     "type": "web_search"
+    },
+    "trace_id": "trace:verifier:a_2",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 33
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "thought": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'."
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_1/step0",
+     "summary": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'.",
+     "type": "thinking"
+    },
+    "trace_id": "trace:verifier:a_1",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 34
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "arguments": "{\"q\": \"Acme Corp reported revenue of $12.4 billion in fiscal 2024.\"}",
+      "id": "resp_verifier_586fe78b7e_search",
+      "name": "google_search",
+      "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+      "status": "completed",
+      "type": "tool_call"
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_1/step1",
+     "summary": "search: Acme Corp reported revenue of $12.4 billion in fiscal 2024.",
+     "type": "web_search"
+    },
+    "trace_id": "trace:verifier:a_1",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 35
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "thought": "Plan: search for 'Acme's operating margin was 28% in fisca'."
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_8/step0",
+     "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
+     "type": "thinking"
+    },
+    "trace_id": "trace:verifier:a_8",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 36
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "arguments": "{\"q\": \"Acme's operating margin was 28% in fiscal 2024.\"}",
+      "id": "resp_verifier_8740be432b_search",
+      "name": "google_search",
+      "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+      "status": "completed",
+      "type": "tool_call"
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_8/step1",
+     "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
+     "type": "web_search"
+    },
+    "trace_id": "trace:verifier:a_8",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 37
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "thought": "Plan: search for 'Acme's operating margin was 32% in fisca'."
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_6/step0",
+     "summary": "Plan: search for 'Acme's operating margin was 32% in fisca'.",
+     "type": "thinking"
+    },
+    "trace_id": "trace:verifier:a_6",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 38
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "arguments": "{\"q\": \"Acme's operating margin was 32% in fiscal 2024.\"}",
+      "id": "resp_verifier_8f3c29b6af_search",
+      "name": "google_search",
+      "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+      "status": "completed",
+      "type": "tool_call"
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_6/step1",
+     "summary": "search: Acme's operating margin was 32% in fiscal 2024.",
+     "type": "web_search"
+    },
+    "trace_id": "trace:verifier:a_6",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 39
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:verifier:a_3",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_3/response"
+     ],
+     "total_tokens": 1500
+    }
+   },
+   "type": "event",
+   "version": 40
+  },
+  {
+   "event": {
+    "evidences": [
+     {
+      "citation": "https://api.crossref.org/works?query=smith+lee+widget",
+      "id": "finding:verifier:a_3/evidence0",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_3/step1",
+      "snippet": "Excerpt from https://api.crossref.org/works?query=smith+lee+widget",
+      "source_type": "web_page",
+      "url": "https://api.crossref.org/works?query=smith+lee+widget"
+     },
+     {
+      "citation": "https://scholar.google.com/scholar?q=smith+lee+2021+widget",
+      "id": "finding:verifier:a_3/evidence1",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_3/step1",
+      "snippet": "Excerpt from https://scholar.google.com/scholar?q=smith+lee+2021+widget",
+      "source_type": "web_page",
+      "url": "https://scholar.google.com/scholar?q=smith+lee+2021+widget"
+     }
+    ],
+    "finding": {
+     "agent": "verifier",
+     "claim_id": "a_3",
+     "computation_check": null,
+     "confidence": 0.7,
+     "confidence_breakdown": null,
+     "correct_information": null,
+     "coverage": [
+      {
+       "claim_fragment": "No paper by Smith and Lee (2021) on widget demand exists",
+       "evidence_ids": [
+        "finding:verifier:a_3/evidence0",
+        "finding:verifier:a_3/evidence1"
+       ],
+       "reason": "The cited sources address this fragment.",
+       "relation": "refutes"
+      }
+     ],
+     "created_at": "<ts>",
+     "evidence_ids": [
+      "finding:verifier:a_3/evidence0",
+      "finding:verifier:a_3/evidence1"
+     ],
+     "evidence_quality": [
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_3/evidence0",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 1 addresses the claim directly.",
+       "role": "primary_source"
+      },
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_3/evidence1",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 2 addresses the claim directly.",
+       "role": "secondary_source"
+      }
+     ],
+     "flags": [],
+     "from_cache": false,
+     "id": "finding:verifier:a_3",
+     "reasoning_chain": [
+      {
+       "action": "Searched primary sources for the claim",
+       "observation": "Found 2 relevant source(s)",
+       "reasoning": "Compared the claim with what the sources state."
+      },
+      {
+       "action": "Cross-checked the figures",
+       "observation": "No paper by Smith and Lee (2021) on widget demand exists.",
+       "reasoning": "Verdict: fabricated."
+      }
+     ],
+     "reasoning_trace_id": "trace:verifier:a_3",
+     "severity": "major",
+     "skeptic_review": null,
+     "summary": "No paper by Smith and Lee (2021) on widget demand exists.",
+     "verdict": "fabricated",
+     "why_wrong": "The cited study cannot be found in any index."
+    },
+    "type": "finding_recorded"
+   },
+   "type": "event",
+   "version": 41
+  },
+  {
+   "event": {
+    "trace": {
+     "agent": "verifier",
+     "claim_id": "a_4",
+     "completed_at": null,
+     "engine": "miromind",
+     "id": "trace:verifier:a_4",
+     "started_at": "<ts>",
+     "steps": [],
+     "usage": {
+      "cost_usd": 0.0,
+      "num_search_queries": 0,
+      "reasoning_tokens": 0,
+      "response_ids": [],
+      "total_tokens": 0
+     }
+    },
+    "type": "trace_opened"
+   },
+   "type": "event",
+   "version": 42
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:verifier:a_2",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_2/response"
+     ],
+     "total_tokens": 1500
+    }
+   },
+   "type": "event",
+   "version": 43
+  },
+  {
+   "event": {
+    "evidences": [
+     {
+      "citation": "https://www.sec.gov/acme-10k-2024",
+      "id": "finding:verifier:a_2/evidence0",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_2/step1",
+      "snippet": "Excerpt from https://www.sec.gov/acme-10k-2024",
+      "source_type": "web_page",
+      "url": "https://www.sec.gov/acme-10k-2024"
+     },
+     {
+      "citation": "https://www.reuters.com/acme-results",
+      "id": "finding:verifier:a_2/evidence1",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_2/step1",
+      "snippet": "Excerpt from https://www.reuters.com/acme-results",
+      "source_type": "web_page",
+      "url": "https://www.reuters.com/acme-results"
+     },
+     {
+      "citation": "https://www.bloomberg.com/acme",
+      "id": "finding:verifier:a_2/evidence2",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_2/step1",
+      "snippet": "Excerpt from https://www.bloomberg.com/acme",
+      "source_type": "web_page",
+      "url": "https://www.bloomberg.com/acme"
+     }
+    ],
+    "finding": {
+     "agent": "verifier",
+     "claim_id": "a_2",
+     "computation_check": null,
+     "confidence": 0.88,
+     "confidence_breakdown": null,
+     "correct_information": {
+      "retrieved_date": "2026-09-01",
+      "source": "Acme FY2024 10-K",
+      "url": "https://www.sec.gov/acme-10k-2024",
+      "value": "12% year over year"
+     },
+     "coverage": [
+      {
+       "claim_fragment": "Revenue grew 12%, not 18%",
+       "evidence_ids": [
+        "finding:verifier:a_2/evidence0",
+        "finding:verifier:a_2/evidence1",
+        "finding:verifier:a_2/evidence2"
+       ],
+       "reason": "The cited sources address this fragment.",
+       "relation": "refutes"
+      }
+     ],
+     "created_at": "<ts>",
+     "evidence_ids": [
+      "finding:verifier:a_2/evidence0",
+      "finding:verifier:a_2/evidence1",
+      "finding:verifier:a_2/evidence2"
+     ],
+     "evidence_quality": [
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_2/evidence0",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 1 addresses the claim directly.",
+       "role": "primary_source"
+      },
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_2/evidence1",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 2 addresses the claim directly.",
+       "role": "secondary_source"
+      },
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_2/evidence2",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 3 addresses the claim directly.",
+       "role": "secondary_source"
+      }
+     ],
+     "flags": [],
+     "from_cache": false,
+     "id": "finding:verifier:a_2",
+     "reasoning_chain": [
+      {
+       "action": "Searched primary sources for the claim",
+       "observation": "Found 3 relevant source(s)",
+       "reasoning": "Compared the claim with what the sources state."
+      },
+      {
+       "action": "Cross-checked the figures",
+       "observation": "Revenue grew 12%, not 18%.",
+       "reasoning": "Verdict: inaccurate."
+      }
+     ],
+     "reasoning_trace_id": "trace:verifier:a_2",
+     "severity": "major",
+     "skeptic_review": null,
+     "summary": "Revenue grew 12%, not 18%.",
+     "verdict": "inaccurate",
+     "why_wrong": "The claim overstates growth by six points."
+    },
+    "type": "finding_recorded"
+   },
+   "type": "event",
+   "version": 44
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:verifier:a_1",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_1/response"
+     ],
+     "total_tokens": 1500
+    }
+   },
+   "type": "event",
+   "version": 45
+  },
+  {
+   "event": {
+    "evidences": [
+     {
+      "citation": "https://www.sec.gov/acme-10k-2024",
+      "id": "finding:verifier:a_1/evidence0",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_1/step1",
+      "snippet": "Excerpt from https://www.sec.gov/acme-10k-2024",
+      "source_type": "web_page",
+      "url": "https://www.sec.gov/acme-10k-2024"
+     },
+     {
+      "citation": "https://www.reuters.com/acme-results",
+      "id": "finding:verifier:a_1/evidence1",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_1/step1",
+      "snippet": "Excerpt from https://www.reuters.com/acme-results",
+      "source_type": "web_page",
+      "url": "https://www.reuters.com/acme-results"
+     }
+    ],
+    "finding": {
+     "agent": "verifier",
+     "claim_id": "a_1",
+     "computation_check": {
+      "claimed_value": "$12.4 billion",
+      "computed_value": "12.4",
+      "extracted_values": [
+       {
+        "label": "FY2024 revenue",
+        "source_evidence_id": "finding:verifier:a_1/evidence0",
+        "unit": "USD bn",
+        "value": "12.4"
+       }
+      ],
+      "formula": "reported == claimed",
+      "judgment": "matches",
+      "kind": "numeric",
+      "rationale": "The filing reports the same figure.",
+      "tolerance": "rounding to 0.1"
+     },
+     "confidence": 0.9,
+     "confidence_breakdown": null,
+     "correct_information": null,
+     "coverage": [
+      {
+       "claim_fragment": "Revenue of $12",
+       "evidence_ids": [
+        "finding:verifier:a_1/evidence0",
+        "finding:verifier:a_1/evidence1"
+       ],
+       "reason": "The cited sources address this fragment.",
+       "relation": "supports"
+      }
+     ],
+     "created_at": "<ts>",
+     "evidence_ids": [
+      "finding:verifier:a_1/evidence0",
+      "finding:verifier:a_1/evidence1"
+     ],
+     "evidence_quality": [
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_1/evidence0",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 1 addresses the claim directly.",
+       "role": "primary_source"
+      },
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_1/evidence1",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 2 addresses the claim directly.",
+       "role": "secondary_source"
+      }
+     ],
+     "flags": [],
+     "from_cache": false,
+     "id": "finding:verifier:a_1",
+     "reasoning_chain": [
+      {
+       "action": "Searched primary sources for the claim",
+       "observation": "Found 2 relevant source(s)",
+       "reasoning": "Compared the claim with what the sources state."
+      },
+      {
+       "action": "Cross-checked the figures",
+       "observation": "Revenue of $12.4 billion matches the FY2024 annual report.",
+       "reasoning": "Verdict: ok."
+      }
+     ],
+     "reasoning_trace_id": "trace:verifier:a_1",
+     "severity": "minor",
+     "skeptic_review": null,
+     "summary": "Revenue of $12.4 billion matches the FY2024 annual report.",
+     "verdict": "ok",
+     "why_wrong": null
+    },
+    "type": "finding_recorded"
+   },
+   "type": "event",
+   "version": 46
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "thought": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'."
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_4/step0",
+     "summary": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'.",
+     "type": "thinking"
+    },
+    "trace_id": "trace:verifier:a_4",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 47
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "arguments": "{\"q\": \"Acme was founded in 1998 in Austin, Texas.\"}",
+      "id": "resp_verifier_e3d42acdd3_search",
+      "name": "google_search",
+      "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+      "status": "completed",
+      "type": "tool_call"
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_4/step1",
+     "summary": "search: Acme was founded in 1998 in Austin, Texas.",
+     "type": "web_search"
+    },
+    "trace_id": "trace:verifier:a_4",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 48
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "thought": "Plan: search for 'Acme's operating margin was 28% in fisca'."
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_8/step2",
+     "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
+     "type": "thinking"
+    },
+    "trace_id": "trace:verifier:a_8",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 49
+  },
+  {
+   "event": {
+    "step": {
+     "content": {
+      "arguments": "{\"q\": \"Acme's operating margin was 28% in fiscal 2024.\"}",
+      "id": "resp_verifier_f5438a5255_search",
+      "name": "google_search",
+      "result": "{\"organic\": [{\"link\": \"https://example.org\"}]}",
+      "status": "completed",
+      "type": "tool_call"
+     },
+     "created_at": "<ts>",
+     "id": "trace:verifier:a_8/step3",
+     "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
+     "type": "web_search"
+    },
+    "trace_id": "trace:verifier:a_8",
+    "type": "step_recorded"
+   },
+   "type": "event",
+   "version": 50
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:verifier:a_4",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.112375,
+     "num_search_queries": 2,
+     "reasoning_tokens": 200,
+     "response_ids": [
+      "trace:verifier:a_4/response"
+     ],
+     "total_tokens": 1500
+    }
+   },
+   "type": "event",
+   "version": 51
+  },
+  {
+   "event": {
+    "evidences": [
+     {
+      "citation": "https://en.wikipedia.org/wiki/Acme_Corp",
+      "id": "finding:verifier:a_4/evidence0",
+      "retrieved_at": "<ts>",
+      "retrieved_by_step_id": "trace:verifier:a_4/step1",
+      "snippet": "Excerpt from https://en.wikipedia.org/wiki/Acme_Corp",
+      "source_type": "web_page",
+      "url": "https://en.wikipedia.org/wiki/Acme_Corp"
+     }
+    ],
+    "finding": {
+     "agent": "verifier",
+     "claim_id": "a_4",
+     "computation_check": null,
+     "confidence": 0.5,
+     "confidence_breakdown": null,
+     "correct_information": null,
+     "coverage": [
+      {
+       "claim_fragment": "Acme's founding in 1998 in Austin is documented",
+       "evidence_ids": [
+        "finding:verifier:a_4/evidence0"
+       ],
+       "reason": "The cited sources address this fragment.",
+       "relation": "supports"
+      }
+     ],
+     "created_at": "<ts>",
+     "evidence_ids": [
+      "finding:verifier:a_4/evidence0"
+     ],
+     "evidence_quality": [
+      {
+       "authority": 0.9,
+       "directness": 0.9,
+       "evidence_id": "finding:verifier:a_4/evidence0",
+       "freshness": 0.7,
+       "independence": 0.8,
+       "rationale": "Source 1 addresses the claim directly.",
+       "role": "primary_source"
+      }
+     ],
+     "flags": [],
+     "from_cache": false,
+     "id": "finding:verifier:a_4",
+     "reasoning_chain": [
+      {
+       "action": "Searched primary sources for the claim",
+       "observation": "Found 1 relevant source(s)",
+       "reasoning": "Compared the claim with what the sources state."
+      },
+      {
+       "action": "Cross-checked the figures",
+       "observation": "Acme's founding in 1998 in Austin is documented.",
+       "reasoning": "Verdict: ok."
+      }
+     ],
+     "reasoning_trace_id": "trace:verifier:a_4",
+     "severity": "minor",
+     "skeptic_review": null,
+     "summary": "Acme's founding in 1998 in Austin is documented.  [Downgraded to uncertain: fewer than 2 independent sources were available to cross-verify.]",
+     "verdict": "uncertain",
+     "why_wrong": null
+    },
+    "type": "finding_recorded"
+   },
+   "type": "event",
+   "version": 52
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "trace_id": "trace:verifier:a_8",
+    "type": "trace_closed",
+    "usage": {
+     "cost_usd": 0.22475,
+     "num_search_queries": 4,
+     "reasoning_tokens": 400,
+     "response_ids": [
+      "trace:verifier:a_8/response",
+      "trace:verifier:a_8/response#2"
+     ],
+     "total_tokens": 3000
+    }
+   },
+   "type": "event",
+   "version": 53
+  },
+  {
+   "event": {
+    "evidences": [],
+    "finding": {
+     "agent": "verifier",
+     "claim_id": "a_8",
+     "computation_check": null,
+     "confidence": 0.0,
+     "confidence_breakdown": null,
+     "correct_information": null,
+     "coverage": [],
+     "created_at": "<ts>",
+     "evidence_ids": [],
+     "evidence_quality": [],
+     "flags": [
+      "unparseable verifier response"
+     ],
+     "from_cache": false,
+     "id": "finding:verifier:a_8",
+     "reasoning_chain": [],
+     "reasoning_trace_id": "trace:verifier:a_8",
+     "severity": "minor",
+     "skeptic_review": null,
+     "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: json_repair could not recover: line 1 column 1 (char 0))",
+     "verdict": "uncertain",
+     "why_wrong": null
+    },
+    "type": "finding_recorded"
+   },
+   "type": "event",
+   "version": 54
+  },
+  {
+   "event": {
+    "completed_at": "<ts>",
+    "failure": {
+     "kind": "interrupted",
+     "message": "stopped by the test"
+    },
+    "status": "failed",
+    "type": "finished"
+   },
+   "type": "event",
+   "version": 55
+  }
+ ],
+ "initial": {
+  "audit_report_md": null,
+  "auto_review": false,
+  "benchmark": null,
+  "claims": [],
+  "claims_audited": 0,
+  "claims_total": 0,
+  "completed_at": null,
+  "content_domain": "finance",
+  "cost_usd": 0.0,
+  "created_at": "<ts>",
+  "evidences": [],
+  "failure": null,
+  "findings": [],
+  "id": "JOB",
+  "input_mode": "text",
+  "input_text": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
+  "pdf_path": "",
+  "persona": null,
+  "scenario_label": null,
+  "stages": [],
+  "status": "running",
+  "total_tokens": 0,
+  "traces": [],
+  "version": 0
+ }
+}

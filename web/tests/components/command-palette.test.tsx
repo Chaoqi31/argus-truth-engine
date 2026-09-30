@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommandPalette } from "@/components/cockpit/command-palette";
 import { useArgusStore } from "@/lib/store";
 import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
-const job: Job = {
+const job: Job = makeJob({
   id: "job_1",
   pdf_path: "x.pdf",
   status: "done",
@@ -16,7 +17,7 @@ const job: Job = {
   claims_audited: 1,
   audit_report_md: "Executive summary",
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "The memo cites Goldman Sachs, Tracking Trillions: A Silicon Supercycle Report.",
       page: 1,
@@ -24,14 +25,14 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: {},
-    },
+      context: "",
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
-      job_id: "job_1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.94,
@@ -46,9 +47,8 @@ const job: Job = {
       ],
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [],
   evidences: [
@@ -58,12 +58,11 @@ const job: Job = {
       url: "https://example.com/search",
       citation: "Search results",
       snippet: "No exact title match.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },
   ],
-};
+});
 
 describe("CommandPalette", () => {
   beforeEach(() => {

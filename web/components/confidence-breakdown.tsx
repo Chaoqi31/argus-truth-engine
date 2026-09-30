@@ -1,13 +1,13 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import type { ConfidenceBreakdownData } from "@/lib/types";
+import type { ConfidenceBreakdown } from "@/lib/types";
 
 interface Props {
-  breakdown: ConfidenceBreakdownData;
+  breakdown: ConfidenceBreakdown;
 }
 
-const FACTORS: ReadonlyArray<{ key: keyof ConfidenceBreakdownData; label: string }> = [
+const FACTORS: ReadonlyArray<{ key: keyof ConfidenceBreakdown; label: string }> = [
   { key: "source_agreement", label: "Source agreement" },
   { key: "source_authority", label: "Source authority" },
   { key: "evidence_freshness", label: "Evidence freshness" },

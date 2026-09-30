@@ -20,8 +20,6 @@ class ProductEvent(BaseModel):
 @router.post("", status_code=202)
 async def record_event(request: Request, body: ProductEvent) -> dict[str, str]:
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=500, detail="database is not configured")
     try:
         ctx = await auth_context_from_request(request)
     except HTTPException:

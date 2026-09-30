@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { loadSampleJob, type Scenario } from "@/lib/load-job";
-import { replayTrace } from "@/lib/trace-replayer";
-import { orderFindingsForDemoReplay } from "@/lib/demo-replay";
+import { applyEvent, emptyJob, type ArgusEvent } from "@/lib/live-job";
 import { useArgusStore } from "@/lib/store";
-import type { Job, Step } from "@/lib/types";
-import { toLiveFinding } from "../lib/trace-payload";
+import type { Job, StepType } from "@/lib/types";
+import { eventsOf } from "../lib/events";
 
 type DemoReplayParams = {
   liveId: string | null;
@@ -16,6 +17,25 @@ type DemoReplayParams = {
   router: AppRouterInstance;
 };
 
+/** Per-event delays for the replay; a step keeps the rhythm it streamed at. */
+const STEP_DELAY: Record<StepType, number> = {
+  thinking: 90,
+  message: 250,
+  tool_call: 280,
+  execute_python: 420,
+  execute_command: 420,
+  web_search: 550,
+  fetch_url_content: 700,
+};
+
+const EVENT_DELAY = 180;
+
+function delayFor(event: ArgusEvent): number {
+  if (event.type === "step_recorded") return STEP_DELAY[event.step.type] ?? EVENT_DELAY;
+  if (event.type === "finished") return 400;
+  return EVENT_DELAY;
+}
+
 export function useDemoReplay({
   liveId,
   demo,
@@ -24,17 +44,23 @@ export function useDemoReplay({
   setScenario,
   router,
 }: DemoReplayParams) {
-  const resetLive = useArgusStore((s) => s.resetLive);
   const setRunStatus = useArgusStore((s) => s.setRunStatus);
   const setJob = useArgusStore((s) => s.setJob);
-  const appendLiveStep = useArgusStore((s) => s.appendLiveStep);
-  const appendLiveFinding = useArgusStore((s) => s.appendLiveFinding);
-  const setConsoleMode = useArgusStore((s) => s.setConsoleMode);
+  const applyJob = useArgusStore((s) => s.applyJob);
   const clearStore = useArgusStore((s) => s.clear);
 
   const [demoJob, setDemoJob] = useState<Job | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
-  const demoAbortRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopReplay = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopReplay(), [stopReplay]);
 
   useEffect(() => {
     if (liveId) return;
@@ -54,126 +80,50 @@ export function useDemoReplay({
     };
   }, [scenario, liveId, demo, job, router]);
 
-  useEffect(() => () => demoAbortRef.current?.abort(), []);
-
   useEffect(() => {
     if (liveId || demo || !job) return;
-    demoAbortRef.current?.abort();
+    stopReplay();
     clearStore();
-  }, [liveId, demo, job, clearStore]);
+  }, [liveId, demo, job, clearStore, stopReplay]);
 
   const runDemo = () => {
     if (!demoJob || demoRunning) return;
-    demoAbortRef.current?.abort();
-    const controller = new AbortController();
-    demoAbortRef.current = controller;
-    const { signal } = controller;
-
-    resetLive();
-    setRunStatus("running");
+    stopReplay();
     setDemoRunning(true);
 
-    const findings = orderFindingsForDemoReplay(demoJob);
-    const claimText = new Map(demoJob.claims.map((c) => [c.id, c.text]));
-    const traceById = new Map(demoJob.traces.map((t) => [t.id, t]));
-    const stagesByKey = new Map((demoJob.stages ?? []).map((s) => [s.key, s]));
-    const findingIndex = new Map(findings.map((f, k) => [f.id, k] as const));
+    const events = eventsOf(demoJob);
+    let current = emptyJob(demoJob);
+    let i = 0;
+    setJob(current);
+    setRunStatus("running");
 
-    let seq = 0;
-    const timeline: Step[] = [];
-    const revealAt = new Array<number>(findings.length).fill(0);
-    const marker = (content: Record<string, unknown>, summary: string): Step => ({
-      id: `pipe-${seq}`,
-      trace_id: "__pipeline",
-      sequence: ++seq,
-      type: "message",
-      summary,
-      content,
-      evidence_ids: [],
-      parent_step_id: null,
-      created_at: "",
-    });
-    const pushStage = (key: string) => {
-      const st = stagesByKey.get(key);
-      if (!st) return;
-      timeline.push(
-        marker(
-          { __stage: { key: st.key, name: st.name, engine: st.engine, summary: st.summary } },
-          st.summary,
-        ),
-      );
-    };
-
-    (["parse", "planner", "atomizer", "checkworthiness", "review_gate"] as const).forEach(pushStage);
-
-    const verifiers = findings.filter((f) => f.agent === "UnifiedVerifier");
-    verifiers.forEach((f, i) => {
-      const trace = traceById.get(f.reasoning_trace_id);
-      const tsteps = trace ? [...trace.steps].sort((a, b) => a.sequence - b.sequence) : [];
-      if (tsteps.length === 0) return;
-      const text = claimText.get(f.claim_id) ?? f.summary;
-      timeline.push(marker({ __claim: { index: i + 1, total: verifiers.length, text } }, text));
-      tsteps.forEach((s) => timeline.push({ ...s, sequence: ++seq }));
-      const k = findingIndex.get(f.id);
-      if (k !== undefined) revealAt[k] = timeline.length;
-    });
-
-    (["consistency", "confidence", "reporter"] as const).forEach((key) => {
-      pushStage(key);
-      if (key === "consistency") {
-        findings
-          .filter((f) => f.agent === "Consistency")
-          .forEach((f) => {
-            const k = findingIndex.get(f.id);
-            if (k !== undefined) revealAt[k] = timeline.length;
-          });
+    const tick = () => {
+      const event = events[i++];
+      if (event === undefined) {
+        setDemoRunning(false);
+        return;
       }
-    });
-
-    const revealed = new Set<number>();
-    let shown = 0;
-
-    void replayTrace(
-      timeline,
-      (step) => {
-        appendLiveStep(step);
-        shown += 1;
-        findings.forEach((f, k) => {
-          if (!revealed.has(k) && revealAt[k] > 0 && shown >= revealAt[k]) {
-            appendLiveFinding(toLiveFinding(f));
-            revealed.add(k);
-          }
-        });
-      },
-      { signal },
-    ).then(() => {
-      if (signal.aborted) return;
-      findings.forEach((f, k) => {
-        if (!revealed.has(k)) appendLiveFinding(toLiveFinding(f));
-      });
-      setJob(demoJob);
-      setRunStatus("done");
-      setConsoleMode("evidence");
-      setDemoRunning(false);
-    });
+      current = applyEvent(current, event);
+      applyJob(current);
+      timerRef.current = setTimeout(tick, delayFor(event));
+    };
+    timerRef.current = setTimeout(tick, 120);
   };
 
   const replayDemo = () => {
-    clearStore();
+    stopReplay();
     runDemo();
   };
 
   const finishDemoNow = () => {
     if (!demoJob) return;
-    demoAbortRef.current?.abort();
+    stopReplay();
     setJob(demoJob);
-    setRunStatus("done");
-    setConsoleMode("evidence");
     setDemoRunning(false);
   };
 
   const startAuditingFromDemo = () => {
-    demoAbortRef.current?.abort();
+    stopReplay();
     clearStore();
   };
 

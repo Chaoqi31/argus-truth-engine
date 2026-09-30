@@ -26,20 +26,12 @@ class Settings(BaseSettings):
     miromind_request_timeout_s: float = 90.0
     miromind_stream_timeout_s: float = 300.0
     miromind_response_timeout_s: float = 600.0
-    trace_heartbeat_interval_s: float = 15.0
     miromind_retry_attempts: int = 3
     miromind_retry_base_delay_s: float = 1.0
-    db_url: str | None = None
+    db_url: str = "sqlite+aiosqlite:///./argus.db"
 
     # API server
-    api_host: str = "127.0.0.1"
-    api_port: int = 8080
     max_active_jobs: int = 2
-
-    # Optional Redis URL. When None, the in-process bus is used.
-    redis_url: str | None = None
-    trace_history_max_events: int = 5000
-    trace_history_ttl_s: float = 86400.0
 
     # Filesystem path where uploaded PDFs are stored.
     storage_root: str = "./uploads"
@@ -81,7 +73,6 @@ class Settings(BaseSettings):
     # worth a second MiroMind call; only genuinely uncertain ones are. Raise
     # toward 1.0 to challenge more findings; lower to spend fewer skeptic calls.
     skeptic_confidence_threshold: float = 0.85
-    consistency_concurrency: int = 2
     # Process-wide MiroMind request rate ceiling. Shared across all jobs +
     # all agents. Default 10 req/s gives headroom under MiroMind's
     # documented limits while preventing 429 storms.
@@ -96,9 +87,6 @@ class Settings(BaseSettings):
     cache_enabled: bool = True
     cache_ttl_days: int = 30
     cache_ttl_time_sensitive_days: int = 3
-    # NOTE: there is no HITL timeout setting. LangGraph's interrupt() pauses
-    # indefinitely until Command(resume=...) arrives. If a polling-based
-    # timeout job is ever introduced, add the setting then.
 
 
 def settings() -> Settings:

@@ -2,6 +2,7 @@
 
 import type { Job } from "@/lib/types";
 import { formatNumber } from "@/lib/format";
+import { toolCounts } from "@/lib/steps";
 import { useArgusStore } from "@/lib/store";
 
 interface Props {
@@ -17,22 +18,11 @@ interface Stat {
   warn?: boolean;
 }
 
-function traceToolCounts(trace: Job["traces"][number]) {
-  const searchesFromSteps = trace.steps.filter((s) => s.type === "web_search").length;
-  return {
-    searches: trace.num_search_queries > 0 ? trace.num_search_queries : searchesFromSteps,
-    fetches: trace.steps.filter((s) => s.type === "fetch_url_content").length,
-    codeSteps: trace.steps.filter(
-      (s) => s.type === "execute_python" || s.type === "execute_command",
-    ).length,
-  };
-}
-
 function buildStats(job: Job): Stat[] {
   const totalSteps = job.traces.reduce((n, t) => n + t.steps.length, 0);
   const toolTotals = job.traces.reduce(
     (acc, trace) => {
-      const tools = traceToolCounts(trace);
+      const tools = toolCounts(trace);
       return {
         searches: acc.searches + tools.searches,
         fetches: acc.fetches + tools.fetches,
@@ -43,8 +33,8 @@ function buildStats(job: Job): Stat[] {
   );
   const totalToolCalls = toolTotals.searches + toolTotals.fetches + toolTotals.codeSteps;
   const contentDomain = job.content_domain ?? "general";
-  const total = job.claims_total ?? 0;
-  const audited = job.claims_audited ?? 0;
+  const total = job.claims_total;
+  const audited = job.claims_audited;
   const hasCoverage = total > 0;
 
   const stats: Stat[] = [

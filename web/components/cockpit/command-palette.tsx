@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useArgusStore } from "@/lib/store";
-import { buildAuditPackMarkdown, buildEvidenceStationJson } from "@/lib/audit-pack";
-import type { Finding, Claim } from "@/lib/types";
+import { downloadAuditExport, type ExportFormat } from "@/lib/audit-pack";
+import { verdictColorVar } from "@/lib/colors";
+import { SEVERITY_LABEL, VERDICT_LABEL } from "@/lib/findings";
+import type { Claim, Finding, FindingVerdict, Severity } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,8 +19,8 @@ interface FindingResult {
   id: string;
   label: string;
   meta: string;
-  verdict: string;
-  severity: string;
+  verdict: FindingVerdict;
+  severity: Severity;
 }
 
 interface ClaimResult {
@@ -66,33 +68,6 @@ function searchMatchScore(haystack: string, needle: string): number | null {
   return null;
 }
 
-const VERDICT_LABELS: Record<string, string> = {
-  ok: "OK",
-  fabricated: "Fabricated",
-  "partial-match": "Partial match",
-  mismatch: "Mismatch",
-  misrepresented: "Misrepresented",
-  stale: "Stale",
-  superseded: "Superseded",
-  contradiction: "Contradiction",
-  uncertain: "Uncertain",
-};
-
-const SEVERITY_LABELS: Record<string, string> = {
-  critical: "Critical",
-  major: "Major",
-  minor: "Minor",
-};
-
-function verdictClass(verdict: string): string {
-  if (verdict === "ok") return "verdict-ok";
-  if (verdict === "fabricated" || verdict === "mismatch" || verdict === "misrepresented")
-    return "verdict-danger";
-  if (verdict === "stale" || verdict === "superseded" || verdict === "partial-match")
-    return "verdict-warn";
-  return "verdict-muted";
-}
-
 // ---------------------------------------------------------------------------
 // Static action registry
 // ---------------------------------------------------------------------------
@@ -118,15 +93,11 @@ const STATIC_ACTIONS: ActionResult[] = [
   },
 ];
 
-function downloadText(filename: string, text: string, type: string) {
-  const blob = new Blob([text], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+const ACTION_FORMAT: Record<ActionResult["id"], ExportFormat> = {
+  "action:export-audit-pack": "audit_pack",
+  "action:export-json": "json",
+  "action:export-markdown": "markdown",
+};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -189,8 +160,8 @@ export function CommandPalette() {
       for (const f of job.findings as Finding[]) {
         const searchable = [
           f.summary,
-          VERDICT_LABELS[f.verdict] ?? f.verdict,
-          SEVERITY_LABELS[f.severity] ?? f.severity,
+          VERDICT_LABEL[f.verdict],
+          SEVERITY_LABEL[f.severity],
         ].join(" ");
         const score = searchMatchScore(searchable, q);
         if (score !== null) {
@@ -201,7 +172,7 @@ export function CommandPalette() {
               kind: "finding",
               id: f.id,
               label: f.summary,
-              meta: `${VERDICT_LABELS[f.verdict] ?? f.verdict} · ${SEVERITY_LABELS[f.severity] ?? f.severity}`,
+              meta: `${VERDICT_LABEL[f.verdict]} · ${SEVERITY_LABEL[f.severity]}`,
               verdict: f.verdict,
               severity: f.severity,
             },
@@ -266,25 +237,7 @@ export function CommandPalette() {
             setPaletteOpen(false);
             break;
           }
-          if (r.id === "action:export-audit-pack") {
-            downloadText(
-              `argus-audit-pack-${job.id}.md`,
-              buildAuditPackMarkdown(job, reviews),
-              "text/markdown",
-            );
-          } else if (r.id === "action:export-json") {
-            downloadText(
-              `argus-evidence-station-${job.id}.json`,
-              buildEvidenceStationJson(job, reviews),
-              "application/json",
-            );
-          } else if (r.id === "action:export-markdown") {
-            downloadText(
-              `argus-executive-summary-${job.id}.md`,
-              job.audit_report_md ?? "",
-              "text/markdown",
-            );
-          }
+          downloadAuditExport(ACTION_FORMAT[r.id], job, reviews);
           setPaletteOpen(false);
           break;
         }
@@ -478,15 +431,13 @@ export function CommandPalette() {
                           {r.kind === "finding" ? (
                             <>
                               <span
-                                className={[
-                                  "inline-block rounded px-1 py-px text-[10px] font-semibold",
-                                  verdictClass(r.verdict),
-                                ].join(" ")}
+                                className="inline-block rounded px-1 py-px text-[10px] font-semibold"
+                                style={{ color: verdictColorVar(r.verdict) }}
                               >
-                                {VERDICT_LABELS[r.verdict] ?? r.verdict}
+                                {VERDICT_LABEL[r.verdict]}
                               </span>
                               {" · "}
-                              {SEVERITY_LABELS[r.severity] ?? r.severity}
+                              {SEVERITY_LABEL[r.severity]}
                             </>
                           ) : (
                             r.meta

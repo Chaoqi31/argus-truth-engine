@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { getBenchmarkEvaluation } from "@/lib/benchmark-evaluation";
-import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
-const job = {
+const job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -14,7 +14,7 @@ const job = {
   claims_audited: 3,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "Known good claim.",
       page: 1,
@@ -22,8 +22,9 @@ const job = {
       type: "qualitative",
       importance: "medium",
       extracted_metadata: {},
-    },
-    {
+      context: "",
+    }),
+    makeClaim({
       id: "c2",
       text: "Known fabricated citation.",
       page: 1,
@@ -31,8 +32,9 @@ const job = {
       type: "citation",
       importance: "high",
       extracted_metadata: {},
-    },
-    {
+      context: "",
+    }),
+    makeClaim({
       id: "c3",
       text: "Known numeric error.",
       page: 1,
@@ -40,51 +42,46 @@ const job = {
       type: "numerical-data",
       importance: "high",
       extracted_metadata: {},
-    },
+      context: "",
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "ok",
       severity: "minor",
       confidence: 0.9,
       summary: "Verified.",
       evidence_ids: [],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
-    {
+    }),
+    makeFinding({
       id: "f2",
-      job_id: "j1",
       claim_id: "c2",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.9,
       summary: "Fabricated.",
       evidence_ids: [],
       reasoning_trace_id: "t2",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
-    {
+    }),
+    makeFinding({
       id: "f3",
-      job_id: "j1",
       claim_id: "c3",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "inaccurate",
       severity: "major",
       confidence: 0.9,
       summary: "Inaccurate.",
       evidence_ids: [],
       reasoning_trace_id: "t3",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [],
   evidences: [],
@@ -96,7 +93,7 @@ const job = {
       { claim_id: "c3", verdict: "inaccurate", rationale: "Planted wrong number." },
     ],
   },
-} satisfies Job;
+});
 
 describe("benchmark evaluation", () => {
   it("scores verifier verdicts against fixture ground truth", () => {
@@ -117,7 +114,7 @@ describe("benchmark evaluation", () => {
   });
 
   it("returns null for live jobs without fixture ground truth", () => {
-    const evaluation = getBenchmarkEvaluation({ ...job, benchmark: undefined });
+    const evaluation = getBenchmarkEvaluation({ ...job, benchmark: null });
 
     expect(evaluation).toBeNull();
   });

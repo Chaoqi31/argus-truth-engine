@@ -2,58 +2,52 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ReasoningWalkthroughCta } from "@/components/reasoning-walkthrough-cta";
 import type { Finding, Job, ReasoningTrace, Step } from "@/lib/types";
+import {
+  makeClaim,
+  makeFinding as baseFinding,
+  makeJob as baseJob,
+  makeStep as baseStep,
+  makeTrace as baseTrace,
+} from "@/tests/factories";
 
 function makeFinding(overrides: Partial<Finding>): Finding {
-  return {
-    id: "f1",
-    job_id: "job_1",
-    claim_id: "c1",
-    agent: "UnifiedVerifier",
-    verdict: "ok",
-    severity: "minor",
+  return baseFinding({
     confidence: 0.8,
     summary: "Verified.",
-    evidence_ids: [],
-    reasoning_trace_id: "t1",
-    related_finding_ids: [],
     created_at: "2026-06-01T00:00:00Z",
     ...overrides,
-  };
+  });
 }
 
 function makeStep(traceId: string, id: string, type: Step["type"]): Step {
-  return {
+  return baseStep({
     id,
-    trace_id: traceId,
-    sequence: 1,
     type,
     summary: `${type} step`,
-    content: {},
-    evidence_ids: [],
-    parent_step_id: null,
     created_at: "2026-06-01T00:00:00Z",
-  };
+  });
 }
 
 function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
-  return {
+  return baseTrace({
     id,
-    job_id: "job_1",
     claim_id: claimId,
-    agent: "UnifiedVerifier",
-    miromind_response_id: `resp_${id}`,
+    engine: "miromind",
     started_at: "2026-06-01T00:00:00Z",
     completed_at: "2026-06-01T00:03:00Z",
-    total_tokens: 500,
-    reasoning_tokens: 120,
-    num_search_queries: steps.filter((step) => step.type === "web_search").length,
-    final_verdict_step_id: null,
+    usage: {
+      response_ids: [`resp_${id}`],
+      total_tokens: 500,
+      reasoning_tokens: 120,
+      num_search_queries: steps.filter((step) => step.type === "web_search").length,
+      cost_usd: 0,
+    },
     steps,
-  };
+  });
 }
 
 function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
+  return baseJob({
     id: "job_1",
     pdf_path: "x.pdf",
     status: "done",
@@ -65,7 +59,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     claims_audited: 2,
     audit_report_md: null,
     claims: [
-      {
+      makeClaim({
         id: "c1",
         text: "The memo cites a fabricated Goldman report.",
         page: 1,
@@ -73,8 +67,9 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         type: "citation",
         importance: "high",
         extracted_metadata: {},
-      },
-      {
+        context: "",
+      }),
+      makeClaim({
         id: "c2",
         text: "NVIDIA was founded in 1993.",
         page: 1,
@@ -82,7 +77,8 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         type: "qualitative",
         importance: "medium",
         extracted_metadata: {},
-      },
+        context: "",
+      }),
     ],
     findings: [
       makeFinding({
@@ -126,7 +122,6 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         url: "https://example.com/a",
         citation: "Search result A",
         snippet: "No exact title match.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "s_bad_2",
       },
@@ -136,13 +131,12 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         url: "https://example.com/b",
         citation: "Search result B",
         snippet: "Different Goldman report.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "s_bad_3",
       },
     ],
     ...overrides,
-  };
+  });
 }
 
 describe("ReasoningWalkthroughCta", () => {
@@ -164,7 +158,9 @@ describe("ReasoningWalkthroughCta", () => {
   it("keeps token counts out of the conclusion layer", () => {
     const job = makeJob();
     const traces = job.traces.map((trace) =>
-      trace.id === "t_bad" ? { ...trace, total_tokens: 500, reasoning_tokens: 0 } : trace,
+      trace.id === "t_bad"
+        ? { ...trace, usage: { ...trace.usage, total_tokens: 500, reasoning_tokens: 0 } }
+        : trace,
     );
 
     render(<ReasoningWalkthroughCta job={{ ...job, traces }} onStart={vi.fn()} />);

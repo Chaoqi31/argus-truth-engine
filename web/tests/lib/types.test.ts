@@ -7,8 +7,9 @@ import {
   type Job,
   type Severity,
 } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
-const sampleClaim: Claim = {
+const sampleClaim: Claim = makeClaim({
   id: "c1",
   text: "Smith (2021) found X.",
   page: 1,
@@ -16,7 +17,8 @@ const sampleClaim: Claim = {
   type: "citation",
   importance: "high",
   extracted_metadata: { authors: ["Smith"], year: 2021 },
-};
+  context: "",
+});
 
 describe("types", () => {
   it("isCitationClaim narrows on type=citation", () => {
@@ -27,21 +29,19 @@ describe("types", () => {
   it("Finding/Job/Severity enums are typed", () => {
     const sev: Severity = "major";
     const verdict: FindingVerdict = "fabricated";
-    const f: Finding = {
+    const f: Finding = makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict,
       severity: sev,
       confidence: 0.9,
       summary: "No DOI found.",
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    };
-    const j: Job = {
+    });
+    const j: Job = makeJob({
       id: "j1",
       pdf_path: "x.pdf",
       status: "done",
@@ -54,7 +54,7 @@ describe("types", () => {
       findings: [f],
       traces: [],
       evidences: [],
-    };
+    });
     expect(j.findings[0]?.verdict).toBe("fabricated");
   });
 });

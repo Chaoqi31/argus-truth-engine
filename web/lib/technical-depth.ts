@@ -1,8 +1,10 @@
 import { getJobAuditability } from "@/lib/auditability";
+import { stageLabel } from "@/lib/stage-vocabulary";
 import { getAuditFingerprint } from "@/lib/audit-fingerprint";
 import { getBenchmarkEvaluation } from "@/lib/benchmark-evaluation";
 import { getJobExecutionControls } from "@/lib/execution-controls";
-import { formatNumber, isMiroMindResponseId, pct, plural } from "@/lib/format";
+import { formatNumber, pct, plural } from "@/lib/format";
+import { toolCounts } from "@/lib/steps";
 import type { Job } from "@/lib/types";
 
 export type TechnicalProofId =
@@ -94,7 +96,7 @@ export function getJudgeProofStrip(job: Job): JudgeProof[] {
   const architecturePresent =
     proofById.get("agent_pipeline")?.status === "present" &&
     proofById.get("parallel_fanout")?.status === "present" &&
-    stages.some((stage) => stage.key === "review_gate");
+    stages.some((stage) => stage.key === "review");
   const nativeTrace = proofById.get("miromind_deep_research");
   const skepticStatus = (skeptic?.status ?? "missing") as TechnicalProofStatus;
 
@@ -140,21 +142,19 @@ export function getJudgeProofStrip(job: Job): JudgeProof[] {
 
 export function getTechnicalDepthProof(job: Job): TechnicalDepthProof {
   const stages = job.stages ?? [];
-  const miromindTraces = job.traces.filter((trace) =>
-    isMiroMindResponseId(trace.miromind_response_id),
+  const miromindTraces = job.traces.filter((trace) => trace.engine === "miromind");
+  const responseIds = new Set(miromindTraces.flatMap((trace) => trace.usage.response_ids));
+  const searches = miromindTraces.reduce((sum, trace) => sum + toolCounts(trace).searches, 0);
+  const reasoningTokens = miromindTraces.reduce(
+    (sum, trace) => sum + trace.usage.reasoning_tokens,
+    0,
   );
-  const responseIds = new Set(miromindTraces.map((trace) => trace.miromind_response_id));
-  const searches = miromindTraces.reduce((sum, trace) => {
-    const stepSearches = trace.steps.filter((step) => step.type === "web_search").length;
-    return sum + (trace.num_search_queries > 0 ? trace.num_search_queries : stepSearches);
-  }, 0);
-  const reasoningTokens = miromindTraces.reduce((sum, trace) => sum + trace.reasoning_tokens, 0);
-  const totalTokens = miromindTraces.reduce((sum, trace) => sum + trace.total_tokens, 0);
+  const totalTokens = miromindTraces.reduce((sum, trace) => sum + trace.usage.total_tokens, 0);
   const tokenEvidence =
     reasoningTokens > 0
       ? `${formatNumber(reasoningTokens)} reasoning tokens`
       : `${formatNumber(totalTokens)} total tokens`;
-  const stageNames = stages.map((stage) => stage.name).join(" -> ");
+  const stageNames = stages.map((stage) => stageLabel(stage.key)).join(" -> ");
   const hasMultiStageGraph =
     stages.length >= 4 &&
     stages.some((stage) => stage.engine === "miromind") &&

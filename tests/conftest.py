@@ -1,20 +1,15 @@
 """Pytest fixtures shared across the test suite."""
 from __future__ import annotations
 
-import os
-import sys
 from collections.abc import AsyncIterator
-
-# WeasyPrint on macOS + Homebrew needs DYLD_LIBRARY_PATH for Pango/Cairo.
-# Safe no-op on Linux / CI.
-if sys.platform == "darwin":
-    os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from argus.db.models import Base
+from argus.db.session import upgrade_schema
 
 
 @pytest.fixture(autouse=True)
@@ -22,15 +17,23 @@ def _hermetic_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     """Tests must never use real API keys or make network calls.
 
     A developer's shell or local .env may set live-product config (API keys,
-    auth enforcement, or DB-backed checkpointers). If those leak into Settings()
+    auth enforcement, or a database URL). If those leak into Settings()
     during tests, anonymous API tests start returning 401s and offline
-    orchestrator tests can pause at the review interrupt. Force hermetic values
+    pipeline tests can pause for review. Force hermetic values
     here; tests that need a setting pass one explicitly (init kwargs override env).
     """
     monkeypatch.setenv("ARGUS_MIROMIND_API_KEY", "")
     monkeypatch.setenv("ARGUS_CHEAP_LLM_API_KEY", "")
     monkeypatch.setenv("ARGUS_AUTH_REQUIRED", "false")
     monkeypatch.setenv("ARGUS_DB_URL", "")
+
+
+@pytest.fixture
+def db_url(tmp_path: Path) -> str:
+    """A SQLite file with every migration applied, as `argus serve` leaves it."""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'argus.db'}"
+    upgrade_schema(url)
+    return url
 
 
 @pytest_asyncio.fixture

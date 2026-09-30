@@ -1,27 +1,28 @@
-"""WebSocket /ws/jobs/{id}/trace — replay history then stream live events."""
+"""WebSocket /ws/jobs/{id}: the job, then every change to it.
+
+Every connection starts with a snapshot of the job and then streams the
+events applied to it, so reconnecting, reloading, and opening a second tab
+are the same case. The socket closes after the event that finishes a run; a
+job paused for review keeps it open for the run that resumes it.
+"""
 from __future__ import annotations
 
 import contextlib
-import json
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
 from argus.api.access import require_job_access
 from argus.api.auth import auth_context_from_websocket
-from argus.trace_bus.base import TraceEvent
+from argus.api.runner import JobNotFound, Runner
 
 router = APIRouter(prefix="/ws", tags=["ws"])
 
+_FELL_BEHIND = 1013  # "try again later": the client reconnects from a snapshot
 
-@router.websocket("/jobs/{job_id}/trace")
-async def trace_ws(
-    websocket: WebSocket,
-    job_id: str,
-    after: int = 0,
-    token: str | None = None,
-) -> None:
-    state = websocket.app.state.argus
-    bus = state.trace_bus
+
+@router.websocket("/jobs/{job_id}")
+async def job_live(websocket: WebSocket, job_id: str, token: str | None = None) -> None:
+    runner: Runner = websocket.app.state.argus.runner
     try:
         ctx = await auth_context_from_websocket(websocket, token)
         await require_job_access(websocket, job_id, ctx)
@@ -29,34 +30,23 @@ async def trace_ws(
         await websocket.close(code=1008)
         return
     await websocket.accept()
-
     try:
-        async with bus.subscribe(job_id, after=after) as sub:
-            # Replay history first.
-            async for ev in sub.iter_history():
-                await websocket.send_text(_encode(ev))
-                if ev.kind in ("finished", "failed"):
+        async with runner.subscribe(job_id) as feed:
+            await websocket.send_text(feed.snapshot_json)
+            if feed.terminal:
+                await websocket.close()
+                return
+            async for frame in feed.frames():
+                await websocket.send_text(frame.model_dump_json())
+                if frame.event.type == "finished":
+                    await websocket.close()
                     return
-            # Then stream live events until terminal or disconnect.
-            async for ev in sub.iter_live():
-                await websocket.send_text(_encode(ev))
-                if ev.kind in ("finished", "failed"):
-                    return
+            await websocket.close(code=_FELL_BEHIND)
+    except JobNotFound:
+        await websocket.close(code=1008)
     except WebSocketDisconnect:
         return
     finally:
-        # Already closed on terminal event or disconnect race — suppress.
+        # The socket may already be closed by either side.
         with contextlib.suppress(RuntimeError):
             await websocket.close()
-
-
-def _encode(ev: TraceEvent) -> str:
-    return json.dumps(
-        {
-            "job_id": ev.job_id,
-            "sequence": ev.sequence,
-            "kind": ev.kind,
-            "payload": ev.payload,
-        }
-    )
-

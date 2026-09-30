@@ -3,10 +3,10 @@ import type {
   ComputationCheck,
   Evidence,
   EvidenceQuality,
-  FindingReasoningStep,
   Job,
   ReviewerStatus,
   SkepticReview,
+  VerificationStep,
 } from "@/lib/types";
 import { stepIcon } from "@/lib/colors";
 import { ConfidenceBreakdown } from "@/components/confidence-breakdown";
@@ -751,40 +751,26 @@ function ReasoningSummaryItem({
   step,
   index,
 }: {
-  step: FindingReasoningStep;
+  step: VerificationStep;
   index: number;
 }) {
-  if ("action" in step) {
-    return (
-      <li className="border-l border-border pl-3">
-        <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          {index}. Action
-        </p>
-        <p className="mt-0.5 leading-relaxed">{step.action}</p>
-        {step.observation && (
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Observation: </span>
-            {step.observation}
-          </p>
-        )}
-        {step.reasoning && (
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Reasoning: </span>
-            {step.reasoning}
-          </p>
-        )}
-      </li>
-    );
-  }
-
   return (
     <li className="border-l border-border pl-3">
       <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-        {index}. {step.step}
+        {index}. Action
       </p>
-      <p className="mt-0.5 leading-relaxed">{step.content}</p>
-      {step.evidence_ref && (
-        <p className="mt-1 font-mono text-xs text-muted-foreground">{step.evidence_ref}</p>
+      <p className="mt-0.5 leading-relaxed">{step.action}</p>
+      {step.observation && (
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">Observation: </span>
+          {step.observation}
+        </p>
+      )}
+      {step.reasoning && (
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground">Reasoning: </span>
+          {step.reasoning}
+        </p>
       )}
     </li>
   );

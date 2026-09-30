@@ -23,9 +23,8 @@ def _claim(cid: str) -> Claim:
 def _finding(fid: str, claim_id: str, severity: Severity, confidence: float) -> Finding:
     return Finding(
         id=fid,
-        job_id="j1",
         claim_id=claim_id,
-        agent="CitationVerifier",
+        agent="verifier",
         verdict=FindingVerdict.FABRICATED,
         severity=severity,
         confidence=confidence,

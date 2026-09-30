@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TextViewer } from "@/components/text-viewer";
 import type { Claim, Finding } from "@/lib/types";
+import { makeClaim, makeFinding } from "@/tests/factories";
 
 const text =
   "Defendant's motion should be denied. Controlling authority squarely supports plaintiff's position.\n\n" +
@@ -10,7 +11,7 @@ const text =
 const claimText =
   "In Shute v. Carnival Cruise Lines, 499 U.S. 585 (1991), the Supreme Court held that such clauses are unenforceable against individual consumers.";
 
-const claim: Claim = {
+const claim: Claim = makeClaim({
   id: "c_shute",
   text: claimText,
   page: 1,
@@ -18,22 +19,21 @@ const claim: Claim = {
   type: "citation",
   importance: "high",
   extracted_metadata: {},
-};
+  context: "",
+});
 
-const finding: Finding = {
+const finding: Finding = makeFinding({
   id: "f_shute",
-  job_id: "j1",
   claim_id: "c_shute",
-  agent: "UnifiedVerifier",
+  agent: "verifier",
   verdict: "inaccurate",
   severity: "critical",
   confidence: 0.99,
   summary: "The claim reverses Shute.",
   evidence_ids: [],
   reasoning_trace_id: "t1",
-  related_finding_ids: [],
   created_at: "2026-06-05T00:00:00Z",
-};
+});
 
 describe("TextViewer", () => {
   beforeEach(() => {

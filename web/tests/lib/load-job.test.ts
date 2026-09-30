@@ -57,7 +57,7 @@ describe("load-job", () => {
     const legalAuditability = getFindingAuditability(legalJob, legalFinding!);
     expect(legalAuditability.controls.find((control) => control.id === "skeptic")?.status).toBe("present");
 
-    const skepticTrace = legalJob.traces.find((trace) => trace.agent === "Skeptic");
+    const skepticTrace = legalJob.traces.find((trace) => trace.agent === "skeptic");
     expect(skepticTrace?.steps.length ?? 0).toBeGreaterThan(0);
   });
 

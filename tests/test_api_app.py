@@ -12,11 +12,10 @@ from argus.config import Settings
 
 
 @pytest.fixture
-def app_under_test(tmp_path: Any) -> FastAPI:
+def app_under_test(tmp_path: Any, db_url: str) -> FastAPI:
     settings = Settings(
         miromind_api_key="sk_test",
-        db_url=None,
-        redis_url=None,
+        db_url=db_url,
         storage_root=str(tmp_path / "storage"),
     )
     return create_app(settings=settings)

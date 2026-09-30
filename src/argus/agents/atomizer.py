@@ -4,10 +4,12 @@ Uses a cheap LLM (DeepSeek) instead of MiroMind to keep costs near zero.
 """
 from __future__ import annotations
 
+import json
+
 from pydantic import BaseModel, Field
 
-from argus.llm.cheap_client import CheapLLMClient
-from argus.models.domain import Claim, ClaimType
+from argus.llm import Route, Task
+from argus.models.domain import Agent, Claim, ClaimType
 
 SYSTEM_PROMPT = """\
 You are a claim decomposition specialist. Your task is to break compound
@@ -60,43 +62,42 @@ _TYPE_MAP: dict[str, ClaimType] = {
 }
 
 
-async def run_atomizer(
-    client: CheapLLMClient,
-    claims: list[Claim],
-) -> list[Claim]:
-    if not claims:
-        return []
+ATOMIZE = Task(
+    agent=Agent.ATOMIZER,
+    route=Route.DEEPSEEK_ONLY,
+    instructions=SYSTEM_PROMPT,
+    output=AtomOutput,
+    max_output_tokens=4000,
+)
 
-    payload = [
-        {"id": c.id, "text": c.text, "type": c.type.value}
-        for c in claims
-    ]
-    import json
-    user_input = (
+
+def build_atomizer_input(claims: list[Claim]) -> str:
+    payload = [{"id": c.id, "text": c.text, "type": c.type.value} for c in claims]
+    return (
         "Decompose each claim into atomic verifiable facts.\n\n"
         f"CLAIMS:\n{json.dumps(payload, indent=2, ensure_ascii=False)}"
     )
 
-    result = await client.complete(SYSTEM_PROMPT, user_input, AtomOutput)
 
+def atoms_from(output: AtomOutput, claims: list[Claim]) -> list[Claim]:
+    """Atoms as claims that inherit their parent's page, span and importance.
+    Falls back to the original claims when no atom maps to a parent."""
     parent_map = {c.id: c for c in claims}
     atoms: list[Claim] = []
-    for i, atom in enumerate(result.atoms):
+    for i, atom in enumerate(output.atoms):
         parent = parent_map.get(atom.parent_claim_id)
         if not parent:
             continue
-        claim_type = _TYPE_MAP.get(atom.type, parent.type)
         atoms.append(
             Claim(
                 id=f"a_{i+1}",
                 text=atom.text,
                 page=parent.page,
                 span=parent.span,
-                type=claim_type,
+                type=_TYPE_MAP.get(atom.type, parent.type),
                 importance=parent.importance,
                 extracted_metadata=parent.extracted_metadata,
                 parent_claim_id=parent.id,
             )
         )
-
     return atoms if atoms else claims

@@ -3,30 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClaimReviewPanel } from "@/components/claim-review-panel";
 import { submitClaimSelection } from "@/lib/api";
 import { useArgusStore } from "@/lib/store";
-import type { ReviewClaim } from "@/lib/types";
+import type { Claim } from "@/lib/types";
+import { makeClaim, makeJob } from "@/tests/factories";
 
 vi.mock("@/lib/api", () => ({
-  DEFAULT_MIROMIND_MODEL: "mirothinker-1-7-deepresearch-mini",
-  MIROMIND_MODEL_STORAGE_KEY: "argus-miromind-model",
-  isMiroMindModel: (value: unknown) =>
-    value === "mirothinker-1-7-deepresearch" ||
-    value === "mirothinker-1-7-deepresearch-mini",
   submitClaimSelection: vi.fn().mockResolvedValue(undefined),
 }));
 
-const claims: ReviewClaim[] = [
-  {
+const claims: Claim[] = [
+  makeClaim({
     id: "c1",
     text: "The memo cites Goldman Sachs, Tracking Trillions: A Silicon Supercycle Report.",
     type: "citation",
     importance: "high",
-  },
-  {
+  }),
+  makeClaim({
     id: "c2",
     text: "NVIDIA data-center revenue reached $47.5 billion in Q1 FY2027.",
     type: "numerical-data",
     importance: "medium",
-  },
+  }),
 ];
 
 describe("ClaimReviewPanel", () => {
@@ -38,7 +34,9 @@ describe("ClaimReviewPanel", () => {
     window.localStorage.removeItem("argus-miromind-model");
     window.sessionStorage.removeItem("argus-miromind-model");
     useArgusStore.getState().clear();
-    useArgusStore.getState().setReviewReady(claims, []);
+    useArgusStore
+      .getState()
+      .applyJob(makeJob({ id: "job_1", status: "awaiting_review", claims }));
   });
 
   it("gives each claim checkbox an accessible name from the claim text", () => {

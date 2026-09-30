@@ -34,7 +34,7 @@ export function getBenchmarkEvaluation(job: Job): BenchmarkEvaluation | null {
 
   const verifierFindingByClaim = new Map(
     job.findings
-      .filter((finding) => finding.agent === "UnifiedVerifier")
+      .filter((finding) => finding.agent === "verifier")
       .map((finding) => [finding.claim_id, finding] as const),
   );
   const rows = expectedClaims.map((expected): BenchmarkEvaluationRow => {

@@ -1,14 +1,16 @@
-"""Core domain models for Argus.
+"""The values an audit is made of: documents become claims, claims become
+findings, and every LLM task leaves a trace of the steps it streamed.
 
-These models represent the data flowing through the pipeline: PDFs become Claims,
-Claims become Findings (with attached ReasoningTraces), and the final output is
-the union of all of those plus the per-Step events MiroMind streamed back.
+All of them are immutable: a revised finding is a copy under the same id,
+never an edit a concurrent stage could observe. The aggregate that collects
+them is `argus.models.job.Job`.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -30,44 +32,31 @@ class Severity(StrEnum):
 
 
 class FindingVerdict(StrEnum):
-    """The verdict a verifier assigns to a single claim.
+    """The verdict on a single claim.
 
-    The distinctions matter — they drive severity and the report copy:
+    The UnifiedVerifier judges a claim against outside evidence:
 
     - OK: the claim checks out against the evidence.
-    - FABRICATED: the cited source/reference does not exist (or the event never
-      happened) — nothing real to point at.
-    - INACCURATE: the source exists but the claim states it wrong (factual error).
-    - MISMATCH / MISREPRESENTED: the claim contradicts or misstates what the
-      cited source actually says (the source exists and was consulted).
-    - STALE: the claim was true but has simply aged out / gone out of date.
-    - SUPERSEDED: the claim has been explicitly replaced by a newer fact.
-    - OUTDATED: newer data exists than the figure the claim cites.
-    - CONTRADICTION: the document contradicts *itself* (two claims can't both
-      hold) — a document-internal flaw, not an external-evidence mismatch.
-    - UNSUPPORTED_INFERENCE / OVERREACH: the stated conclusion is not supported
-      by the document's own premises (a logical leap), again document-internal.
-    - PARTIAL_MATCH: the claim is only partially supported by the evidence.
-    - UNCERTAIN: the verifier could not determine the truth of the claim.
+    - FABRICATED: the cited source or event does not exist.
+    - INACCURATE: the source exists but the claim states it wrong.
+    - OUTDATED: newer data supersedes the figure the claim cites.
+    - MISREPRESENTED: the claim distorts what its cited source says.
+    - UNCERTAIN: the claim could not be verified either way.
 
-    Note: the UnifiedVerifier prompt currently emits only OK / FABRICATED /
-    INACCURATE / OUTDATED / MISREPRESENTED / UNCERTAIN; CONTRADICTION,
-    UNSUPPORTED_INFERENCE and OVERREACH come from the consistency checker.
-    PARTIAL_MATCH, MISMATCH, STALE and SUPERSEDED are defined here but are not
-    currently produced by any prompt.
+    The consistency checker judges the document against itself:
+
+    - CONTRADICTION: two claims in the document cannot both hold.
+    - UNSUPPORTED_INFERENCE: a conclusion does not follow from its premises.
+    - OVERREACH: a conclusion claims more than its cited data supports.
     """
 
     OK = "ok"
     FABRICATED = "fabricated"
-    PARTIAL_MATCH = "partial-match"
-    MISMATCH = "mismatch"
-    MISREPRESENTED = "misrepresented"
-    STALE = "stale"
-    SUPERSEDED = "superseded"
-    CONTRADICTION = "contradiction"
     INACCURATE = "inaccurate"
     OUTDATED = "outdated"
+    MISREPRESENTED = "misrepresented"
     UNCERTAIN = "uncertain"
+    CONTRADICTION = "contradiction"
     UNSUPPORTED_INFERENCE = "unsupported-inference"
     OVERREACH = "overreach"
 
@@ -99,11 +88,70 @@ class StepType(StrEnum):
 # --- Models ---------------------------------------------------------------------------
 
 
+class Agent(StrEnum):
+    """Which LLM task produced a trace or a finding: one value per task."""
+
+    PLANNER = "planner"
+    ATOMIZER = "atomizer"
+    CHECKWORTHINESS = "checkworthiness"
+    VERIFIER = "verifier"
+    SKEPTIC = "skeptic"
+    CONSISTENCY = "consistency"
+    REPORTER = "reporter"
+
+
+class Engine(StrEnum):
+    """What executed a stage or a trace. For LLM work it is the provider the
+    gateway routed the task to."""
+
+    DEEPSEEK = "deepseek"
+    MIROMIND = "miromind"
+    DETERMINISTIC = "deterministic"
+
+
+class StageKey(StrEnum):
+    """Pipeline stages. Declaration order is pipeline order, which is how a
+    job's stages are listed even when two ran at once."""
+
+    PARSE = "parse"
+    PLANNER = "planner"
+    ATOMIZER = "atomizer"
+    CHECKWORTHINESS = "checkworthiness"
+    SHORTLIST = "shortlist"
+    REVIEW = "review"
+    VERIFY = "verify"
+    SKEPTIC = "skeptic"
+    CONSISTENCY = "consistency"
+    CONFIDENCE = "confidence"
+    REPORTER = "reporter"
+
+
+class FindingFlag(StrEnum):
+    """User-facing caveats on a finding. Values are the badge text."""
+
+    SINGLE_SOURCE = "single source — verify manually"
+    UNDER_SOURCED = "under-sourced — verify manually"
+    SKEPTIC_COUNTEREVIDENCE = "skeptic counterevidence found"
+    VERIFIER_TIMED_OUT = "verifier timed out"
+    VERIFIER_UNPARSEABLE = "unparseable verifier response"
+    VERIFIER_REQUEST_FAILED = "verifier request failed"
+
+
+def new_id(prefix: str) -> str:
+    return f"{prefix}_{uuid4().hex[:12]}"
+
+
 class _Base(BaseModel):
-    model_config = ConfigDict(frozen=False, extra="forbid")
+    # Serialization always emits defaulted fields, so the web's generated
+    # types mark them required.
+    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
 
 
-class Claim(_Base):
+class Frozen(_Base):
+    model_config = ConfigDict(frozen=True)
+
+
+class Claim(Frozen):
     id: str
     text: str
     page: int = Field(default=1, ge=0)
@@ -112,6 +160,9 @@ class Claim(_Base):
     importance: Literal["high", "medium", "low"]
     extracted_metadata: dict[str, Any] = Field(default_factory=dict)
     parent_claim_id: str | None = None
+    # The passage around the claim that the verifier is shown. Set when the
+    # claim is shortlisted, so verification never needs the source document.
+    context: str = ""
 
     @model_validator(mode="after")
     def _check_span(self) -> Claim:
@@ -121,54 +172,63 @@ class Claim(_Base):
         return self
 
 
-class Evidence(_Base):
+class Evidence(Frozen):
     id: str
     source_type: EvidenceSource
     url: str | None = None
     citation: str
     snippet: str = ""
-    full_content_ref: str | None = None
     retrieved_at: datetime = Field(default_factory=datetime.utcnow)
     retrieved_by_step_id: str
 
 
-class Step(_Base):
+class Step(Frozen):
+    """One thing an LLM did while it worked: a thought, a search, a fetch. A
+    trace's steps are in the order the provider began them."""
+
     id: str
-    trace_id: str
-    sequence: int = Field(ge=0)
     type: StepType
     summary: str
     content: dict[str, Any] = Field(default_factory=dict)
-    evidence_ids: list[str] = Field(default_factory=list)
-    parent_step_id: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class ReasoningTrace(_Base):
-    id: str
-    job_id: str
-    claim_id: str
-    agent: str
-    miromind_response_id: str
-    started_at: datetime
-    completed_at: datetime | None = None
+class Usage(Frozen):
+    """What an LLM call consumed, over every attempt it made. Only MiroMind
+    responses cost money; the job's spend is the sum over its traces."""
+
+    response_ids: tuple[str, ...] = ()
     total_tokens: int = 0
     reasoning_tokens: int = 0
     num_search_queries: int = 0
-    final_verdict_step_id: str | None = None
-    steps: list[Step] = Field(default_factory=list)
+    cost_usd: float = 0.0
+
+    def __add__(self, other: Usage) -> Usage:
+        return Usage(
+            response_ids=self.response_ids + other.response_ids,
+            total_tokens=self.total_tokens + other.total_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            num_search_queries=self.num_search_queries + other.num_search_queries,
+            cost_usd=self.cost_usd + other.cost_usd,
+        )
 
 
-class ReasoningStep(_Base):
-    """One step in a structured reasoning chain — makes verification transparent."""
+class ReasoningTrace(Frozen):
+    """One LLM task: every step it streamed, what it cost, which engine ran
+    it. `claim_id` is None for tasks over the whole document. A trace without
+    `completed_at` is still running, or was cut off."""
 
-    step: str  # e.g. "premise", "search", "evidence_found", "comparison", "inference"
-    content: str  # human-readable description
-    evidence_ref: str | None = None  # link to evidence ID or URL
-    confidence_delta: float = 0.0  # how this step affected confidence (+/-)
+    id: str
+    agent: Agent
+    claim_id: str | None = None
+    engine: Engine
+    started_at: datetime
+    completed_at: datetime | None = None
+    usage: Usage = Usage()
+    steps: tuple[Step, ...] = ()
 
 
-class CorrectedInfo(_Base):
+class CorrectedInfo(Frozen):
     """What the correct information actually is, with authoritative source."""
 
     value: str
@@ -177,7 +237,7 @@ class CorrectedInfo(_Base):
     retrieved_date: str | None = None
 
 
-class VerificationStep(_Base):
+class VerificationStep(Frozen):
     """One step in a verification chain — action/observation/reasoning triple."""
 
     action: str
@@ -185,7 +245,7 @@ class VerificationStep(_Base):
     reasoning: str
 
 
-class ConfidenceBreakdown(_Base):
+class ConfidenceBreakdown(Frozen):
     """Decomposed confidence — explains WHY confidence is at a certain level."""
 
     source_agreement: float = Field(default=0.0, ge=0.0, le=1.0)  # do sources agree?
@@ -194,7 +254,7 @@ class ConfidenceBreakdown(_Base):
     reasoning: str = ""  # 1-sentence description of the measured factors
 
 
-class EvidenceQuality(_Base):
+class EvidenceQuality(Frozen):
     """Per-evidence quality signals used to explain why a source is trusted."""
 
     evidence_id: str
@@ -206,16 +266,16 @@ class EvidenceQuality(_Base):
     rationale: str = ""
 
 
-class ClaimCoverage(_Base):
+class ClaimCoverage(Frozen):
     """How evidence supports/refutes a specific fragment of the claim."""
 
     claim_fragment: str
     relation: str
-    evidence_ids: list[str] = Field(default_factory=list)
+    evidence_ids: tuple[str, ...] = ()
     reason: str = ""
 
 
-class ComputationValue(_Base):
+class ComputationValue(Frozen):
     """One value extracted for a numerical/date verification check."""
 
     label: str
@@ -224,12 +284,12 @@ class ComputationValue(_Base):
     source_evidence_id: str | None = None
 
 
-class ComputationCheck(_Base):
+class ComputationCheck(Frozen):
     """Reproducible numeric/date check behind a verifier judgment."""
 
     kind: Literal["numeric", "date"]
     claimed_value: str = ""
-    extracted_values: list[ComputationValue] = Field(default_factory=list)
+    extracted_values: tuple[ComputationValue, ...] = ()
     formula: str = ""
     computed_value: str = ""
     tolerance: str = ""
@@ -237,7 +297,7 @@ class ComputationCheck(_Base):
     rationale: str = ""
 
 
-class SkepticCounterevidence(_Base):
+class SkepticCounterevidence(Frozen):
     """A possible counterexample found by the skeptic pass."""
 
     source: str = ""
@@ -246,28 +306,19 @@ class SkepticCounterevidence(_Base):
     relevance: str = ""
 
 
-class SkepticReview(_Base):
+class SkepticReview(Frozen):
     """Independent challenge pass over a high-risk verifier conclusion."""
 
     status: Literal["no_counterevidence", "counterevidence_found", "inconclusive"]
     summary: str
     recommended_verdict: FindingVerdict | None = None
-    counterevidence: list[SkepticCounterevidence] = Field(default_factory=list)
+    counterevidence: tuple[SkepticCounterevidence, ...] = ()
 
 
-class SearchStrategy(_Base):
-    """A planned search approach for verifying a claim from a specific angle."""
-
-    angle: str  # e.g. "direct_verification", "negation_search", "source_tracing"
-    query: str  # the actual search query to use
-    rationale: str  # why this angle is useful
-
-
-class Finding(_Base):
+class Finding(Frozen):
     id: str
-    job_id: str
     claim_id: str
-    agent: str
+    agent: Literal[Agent.VERIFIER, Agent.CONSISTENCY]
     verdict: FindingVerdict
     severity: Severity = Severity.MINOR
     confidence: float = Field(ge=0.0, le=1.0)
@@ -275,19 +326,16 @@ class Finding(_Base):
     summary: str
     why_wrong: str | None = None
     correct_information: CorrectedInfo | None = None
-    reasoning_chain: list[ReasoningStep | VerificationStep] = Field(default_factory=list)
-    evidence_quality: list[EvidenceQuality] = Field(default_factory=list)
-    coverage: list[ClaimCoverage] = Field(default_factory=list)
+    reasoning_chain: tuple[VerificationStep, ...] = ()
+    evidence_quality: tuple[EvidenceQuality, ...] = ()
+    coverage: tuple[ClaimCoverage, ...] = ()
     skeptic_review: SkepticReview | None = None
     computation_check: ComputationCheck | None = None
-    evidence_ids: list[str] = Field(default_factory=list)
+    evidence_ids: tuple[str, ...] = ()
     reasoning_trace_id: str
-    related_finding_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     from_cache: bool = False
-    # User-facing caveats surfaced as badges (e.g. "single source — verify
-    # manually" when a verdict rests on fewer than 2 independent sources).
-    flags: list[str] = Field(default_factory=list)
+    flags: tuple[FindingFlag, ...] = ()
 
 
 class ContentDomain(StrEnum):
@@ -303,23 +351,28 @@ class ContentDomain(StrEnum):
     SCIENCE = "science"
 
 
-class StageFilteredClaim(_Base):
+class StageFilteredClaim(Frozen):
     claim_id: str | None = None
     text: str
     reason: str
 
 
-class Stage(_Base):
-    key: str
-    name: str
-    engine: Literal["deepseek", "miromind", "deterministic"]
-    summary: str
+class StageStatus(StrEnum):
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"  # the run ended while the stage was running
+
+
+class Stage(Frozen):
+    key: StageKey
+    engine: Engine
+    status: StageStatus = StageStatus.RUNNING
+    summary: str = ""
     metrics: dict[str, int] = Field(default_factory=dict)
-    strategy: str | None = None
-    filtered_claims: list[StageFilteredClaim] | None = None
+    filtered_claims: tuple[StageFilteredClaim, ...] = ()
 
 
-class BenchmarkExpectedClaim(_Base):
+class BenchmarkExpectedClaim(Frozen):
     """Demo-fixture-only ground truth — see :class:`BenchmarkSpec`."""
 
     claim_id: str
@@ -327,7 +380,7 @@ class BenchmarkExpectedClaim(_Base):
     rationale: str
 
 
-class BenchmarkSpec(_Base):
+class BenchmarkSpec(Frozen):
     """Planted-error answer key for the demo sample fixture ONLY.
 
     Never populated on live audits (always ``None`` there); it exists so the
@@ -337,40 +390,4 @@ class BenchmarkSpec(_Base):
     """
 
     name: str
-    expected_claims: list[BenchmarkExpectedClaim] = Field(default_factory=list)
-
-
-class Job(_Base):
-    id: str
-    scenario_label: str | None = None
-    persona: str | None = None
-    pdf_path: str = ""
-    input_text: str | None = None
-    input_mode: Literal["pdf", "text"] = "pdf"
-    content_domain: ContentDomain = ContentDomain.GENERAL
-    auto_review: bool = False
-    status: Literal[
-        "queued", "parsing", "planning", "atomizing", "filtering",
-        "reviewing", "verifying", "reporting", "done", "failed",
-        "interrupted",
-    ] = "queued"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: datetime | None = None
-    cost_usd: float = 0.0
-    total_tokens: int = 0
-    audit_report_md: str | None = None
-
-    # Audit coverage — guards against partial results masquerading as complete.
-    # claims_total: claims that entered Phase B verification.
-    # claims_audited: claims that received a UnifiedVerifier verdict (incl.
-    # downgraded/failed uncertains). audited < total ⇒ partial coverage.
-    claims_total: int = 0
-    claims_audited: int = 0
-
-    claims: list[Claim] = Field(default_factory=list)
-    findings: list[Finding] = Field(default_factory=list)
-    traces: list[ReasoningTrace] = Field(default_factory=list)
-    evidences: list[Evidence] = Field(default_factory=list)
-    stages: list[Stage] = Field(default_factory=list)
-    # Demo-fixture-only ground truth; always None on live jobs. See BenchmarkSpec.
-    benchmark: BenchmarkSpec | None = None
+    expected_claims: tuple[BenchmarkExpectedClaim, ...] = ()

@@ -1,15 +1,14 @@
 """User account endpoints."""
 from __future__ import annotations
 
-from contextlib import suppress
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 from argus.api.auth import require_user
-from argus.config import Settings
-from argus.miromind.client import MiromindClient
+from argus.api.deps import AppState
+from argus.llm.miromind import MiroMindAccess, MiroMindError
 
 router = APIRouter(prefix="/me", tags=["account"])
 
@@ -66,8 +65,6 @@ async def get_me(request: Request) -> dict[str, object]:
 async def list_api_keys(request: Request) -> list[ApiKeyOut]:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     keys = await repo.list_api_keys(user_id=user.id)
     return [ApiKeyOut(**key.__dict__) for key in keys]
 
@@ -77,8 +74,6 @@ async def create_api_key(request: Request, body: ApiKeyCreate) -> ApiKeyOut:
     user = await require_user(request)
     repo = request.app.state.argus.repo
     cipher = request.app.state.argus.key_cipher
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     if cipher is None:
         raise HTTPException(
             status_code=_HTTP_SERVER_ERROR,
@@ -100,8 +95,6 @@ async def create_api_key(request: Request, body: ApiKeyCreate) -> ApiKeyOut:
 async def update_api_key(request: Request, key_id: str, body: ApiKeyPatch) -> ApiKeyOut:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     updated = await repo.update_api_key(
         user_id=user.id,
         key_id=key_id,
@@ -120,8 +113,6 @@ async def test_api_key(request: Request, body: ApiKeyTest) -> ApiKeyTestOut:
     if not raw and body.key_id:
         repo = request.app.state.argus.repo
         cipher = request.app.state.argus.key_cipher
-        if repo is None:
-            raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
         if cipher is None:
             raise HTTPException(
                 status_code=_HTTP_SERVER_ERROR,
@@ -133,15 +124,13 @@ async def test_api_key(request: Request, body: ApiKeyTest) -> ApiKeyTestOut:
         raw = cipher.decrypt(encrypted)
     if not raw:
         raise HTTPException(status_code=_HTTP_BAD_REQUEST, detail="api key required")
-    return await _test_miromind_key(request.app.state.argus.settings, raw)
+    return await _test_miromind_key(request.app.state.argus, raw)
 
 
 @router.delete("/api-keys/{key_id}", status_code=204)
 async def delete_api_key(request: Request, key_id: str) -> None:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     deleted = await repo.revoke_api_key(user_id=user.id, key_id=key_id)
     if not deleted:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="api key not found")
@@ -151,35 +140,13 @@ async def delete_api_key(request: Request, key_id: str) -> None:
 async def delete_account(request: Request) -> None:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     await repo.delete_user_data(user_id=user.id)
 
 
-async def _test_miromind_key(settings: Settings, api_key: str) -> ApiKeyTestOut:
-    client = MiromindClient(
-        settings.model_copy(
-            update={
-                "miromind_api_key": api_key,
-                "miromind_retry_attempts": 1,
-                "miromind_request_timeout_s": min(settings.miromind_request_timeout_s, 20.0),
-            }
-        )
-    )
+async def _test_miromind_key(state: AppState, api_key: str) -> ApiKeyTestOut:
+    access = MiroMindAccess(api_key=SecretStr(api_key), model=state.settings.miromind_model)
     try:
-        response_id = await client.submit_background(
-            input="Return the word OK.",
-            instructions="This is a minimal API-key connectivity check.",
-            max_output_tokens=4,
-            metadata={"argus_probe": "api_key_test"},
-            idempotency_key=None,
-        )
-        with suppress(Exception):
-            await client.cancel(response_id)
-        return ApiKeyTestOut(
-            ok=True,
-            message="MiroMind accepted this key.",
-            response_id=response_id,
-        )
-    except Exception as exc:
+        response_id = await state.transports.miromind.check_key(access)
+    except MiroMindError as exc:
         return ApiKeyTestOut(ok=False, message=str(exc)[:240], response_id=None)
+    return ApiKeyTestOut(ok=True, message="MiroMind accepted this key.", response_id=response_id)

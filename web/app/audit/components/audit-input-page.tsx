@@ -3,17 +3,15 @@
 import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { uploadPdf, submitText, UnsupportedMediaTypeError } from "@/lib/api";
+import { ArgusApiError } from "@/lib/http";
 import {
-  DEFAULT_MIROMIND_MODEL,
-  MIROMIND_MODEL_STORAGE_KEY,
   MIROMIND_MODELS,
-  uploadPdf,
-  submitText,
-  UnsupportedMediaTypeError,
-  ArgusApiError,
   isMiroMindModel,
+  storeMiroMindModel,
+  useStoredMiroMindModel,
   type MiroMindModel,
-} from "@/lib/api";
+} from "@/lib/byok";
 import { useArgusStore } from "@/lib/store";
 import { ArgusHeader } from "@/components/argus-header";
 import { ApiKeyInput } from "@/components/api-key-input";
@@ -29,10 +27,11 @@ import { useAuthSession } from "@/lib/use-auth-session";
 export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode }) {
   const router = useRouter();
   const auth = useAuthSession();
-  const resetLive = useArgusStore((s) => s.resetLive);
   const clearStore = useArgusStore((s) => s.clear);
   const [apiKey, setApiKey] = useState("");
-  const [miromindModel, setMiromindModel] = useState<MiroMindModel>(DEFAULT_MIROMIND_MODEL);
+  const storedModel = useStoredMiroMindModel();
+  const [chosenModel, setChosenModel] = useState<MiroMindModel | null>(null);
+  const miromindModel = chosenModel ?? storedModel;
   const [savedKeys, setSavedKeys] = useState<SavedApiKey[]>([]);
   const [selectedKeyId, setSelectedKeyId] = useState<string>("paste");
   const [saveKeyToAccount, setSaveKeyToAccount] = useState(false);
@@ -40,14 +39,6 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
   const [textInput, setTextInput] = useState("");
   const [loading, setLoading] = useState<"upload" | "sample" | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored =
-      window.sessionStorage.getItem(MIROMIND_MODEL_STORAGE_KEY) ??
-      window.localStorage.getItem(MIROMIND_MODEL_STORAGE_KEY);
-    if (isMiroMindModel(stored)) setMiromindModel(stored);
-  }, []);
 
   useEffect(() => {
     if (!auth.accessToken) {
@@ -78,12 +69,6 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
   const hasServerKey = selfHosted;
   const hasRunnableKey = hasServerKey || usingSavedKey || apiKey.trim().length > 0;
 
-  const rememberModel = (model: MiroMindModel) => {
-    if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(MIROMIND_MODEL_STORAGE_KEY, model);
-    window.localStorage.setItem(MIROMIND_MODEL_STORAGE_KEY, model);
-  };
-
   const submitOptions = async () => {
     let apiKeyId = usingSavedKey ? selectedKeyId : null;
     let rawApiKey = usingSavedKey ? undefined : apiKey;
@@ -100,7 +85,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
       rawApiKey = undefined;
       setSaveKeyToAccount(false);
     }
-    rememberModel(miromindModel);
+    storeMiroMindModel(miromindModel);
     return {
       rawApiKey,
       options: { accessToken: auth.accessToken, apiKeyId, miromindModel },
@@ -127,7 +112,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
     try {
       const { rawApiKey, options } = await submitOptions();
       const { job_id } = await submitText(textInput, rawApiKey, options);
-      resetLive();
+      clearStore();
       router.push(`/audit?id=${encodeURIComponent(job_id)}&mode=text`);
     } catch (e) {
       if (e instanceof ArgusApiError) setError(`API error: ${e.message}`);
@@ -150,7 +135,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
     try {
       const { rawApiKey, options } = await submitOptions();
       const { job_id } = await uploadPdf(file, rawApiKey, options);
-      resetLive();
+      clearStore();
       router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
       if (e instanceof UnsupportedMediaTypeError) setError("Only PDF files are supported.");
@@ -265,8 +250,8 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
                 value={miromindModel}
                 onChange={(e) => {
                   if (!isMiroMindModel(e.target.value)) return;
-                  setMiromindModel(e.target.value);
-                  rememberModel(e.target.value);
+                  setChosenModel(e.target.value);
+                  storeMiroMindModel(e.target.value);
                   setError(null);
                 }}
                 className="rounded-md border border-border bg-background px-3 py-2 text-sm"

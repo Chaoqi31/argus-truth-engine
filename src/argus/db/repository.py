@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer
 
 from argus.db.models import (
     AnalyticsEventRow,
@@ -18,7 +18,7 @@ from argus.db.models import (
     UserApiKeyRow,
     UserRow,
 )
-from argus.models.domain import Job
+from argus.models.job import Job
 
 
 class UserIdentity(Protocol):
@@ -64,13 +64,6 @@ class ShareLinkSummary:
     revoked_at: datetime | None
 
 
-class _UnsetOwnerFilter:
-    pass
-
-
-_UNSET_OWNER_FILTER = _UnsetOwnerFilter()
-
-
 class JobRepository:
     """High-level Job persistence built on JobRow."""
 
@@ -83,47 +76,22 @@ class JobRepository:
         return self._smaker
 
     async def save_job(self, job: Job, *, owner_user_id: str | None = None) -> None:
-        """Upsert a Job + all its nested rows.
-
-        We fetch any existing JobRow with the same id and use
-        ``session.delete()`` so the ORM-level cascade fires (deleting
-        nested claims/findings/traces/steps/evidences); then insert the
-        new tree. Partial-job updates aren't a real use case for Argus —
-        a job either runs to completion or aborts — so wiping-and-
-        reinserting is simpler and correctness-safe than diffing nested
-        collections. If ``owner_user_id`` is omitted, preserve the existing
-        owner on upsert so the orchestrator can persist final results without
-        knowing about request-level auth.
-        """
+        """Insert or overwrite the job. The owner is kept unless one is given."""
         async with self._smaker() as session, session.begin():
-            existing = (
-                await session.execute(select(JobRow).where(JobRow.id == job.id))
-            ).scalar_one_or_none()
-            preserved_owner = owner_user_id
-            preserved_visibility = "private"
-            if existing is not None:
-                preserved_owner = (
-                    owner_user_id if owner_user_id is not None else existing.owner_user_id
-                )
-                preserved_visibility = existing.visibility or "private"
-                await session.delete(existing)
-                await session.flush()
-            session.add(
-                JobRow.from_domain(
-                    job,
-                    owner_user_id=preserved_owner,
-                    visibility=preserved_visibility,
-                )
-            )
+            row = await session.get(JobRow, job.id)
+            if row is None:
+                row = JobRow(id=job.id)
+                session.add(row)
+            if owner_user_id is not None:
+                row.owner_user_id = owner_user_id
+            row.write(job)
 
     async def get_job(self, job_id: str) -> Job | None:
         async with self._smaker() as session:
             row = (
                 await session.execute(select(JobRow).where(JobRow.id == job_id))
             ).scalar_one_or_none()
-            if row is None:
-                return None
-            return row.to_domain()
+            return row.job() if row is not None else None
 
     async def get_job_for_user(self, job_id: str, owner_user_id: str) -> Job | None:
         async with self._smaker() as session:
@@ -135,9 +103,7 @@ class JobRepository:
                     )
                 )
             ).scalar_one_or_none()
-            if row is None:
-                return None
-            return row.to_domain()
+            return row.job() if row is not None else None
 
     async def get_job_owner(self, job_id: str) -> str | None:
         async with self._smaker() as session:
@@ -167,80 +133,50 @@ class JobRepository:
             await session.delete(row)
             return True
 
-    async def mark_running_as_interrupted(self) -> int:
-        """Flip any unfinished job state to 'interrupted'.
+    async def update_job(self, job: Job) -> bool:
+        """Overwrite a stored job. False when it is no longer stored."""
+        async with self._smaker() as session, session.begin():
+            row = await session.get(JobRow, job.id)
+            if row is None:
+                return False
+            row.write(job)
+            return True
 
-        Called on startup — any job in an active pipeline state was abandoned
-        by a crashed/killed worker. Returns the number of jobs flipped.
-        """
-        active_statuses = [
-            "queued",
-            "running",
-            "parsing",
-            "planning",
-            "atomizing",
-            "filtering",
-            "reviewing",
-            "verifying",
-            "reporting",
-        ]
+    async def running_jobs(self) -> list[Job]:
         async with self._smaker() as session:
-            result = await session.execute(
-                update(JobRow)
-                .where(JobRow.status.in_(active_statuses))
-                .values(status="interrupted")
-            )
-            await session.commit()
-            # CursorResult exposes rowcount; cast for mypy since execute() is
-            # typed as Result[Any] generically.
-            return int(getattr(result, "rowcount", 0) or 0)
-
-    async def list_jobs(
-        self,
-        *,
-        limit: int = 20,
-        owner_user_id: str | None | _UnsetOwnerFilter = _UNSET_OWNER_FILTER,
-    ) -> list[Job]:
-        async with self._smaker() as session:
-            stmt = select(JobRow).order_by(JobRow.created_at.desc()).limit(limit)
-            if not isinstance(owner_user_id, _UnsetOwnerFilter):
-                stmt = stmt.where(JobRow.owner_user_id == owner_user_id)
-            rows = (await session.execute(stmt)).scalars().all()
-            return [r.to_domain() for r in rows]
+            rows = (
+                await session.execute(select(JobRow).where(JobRow.status == "running"))
+            ).scalars().all()
+            return [row.job() for row in rows]
 
     async def list_job_summaries(
         self,
         *,
-        owner_user_id: str | None | _UnsetOwnerFilter = _UNSET_OWNER_FILTER,
+        owner_user_id: str | None,
         limit: int = 50,
     ) -> list[JobSummary]:
         async with self._smaker() as session:
             now = datetime.utcnow()
-            stmt = (
-                select(JobRow)
-                .options(
-                    selectinload(JobRow.findings),
-                    selectinload(JobRow.share_links),
-                )
-                .order_by(JobRow.created_at.desc())
-                .limit(limit)
-            )
-            if not isinstance(owner_user_id, _UnsetOwnerFilter):
-                stmt = stmt.where(JobRow.owner_user_id == owner_user_id)
             rows = (
-                await session.execute(stmt)
+                await session.execute(
+                    select(JobRow)
+                    .options(defer(JobRow.document))
+                    .where(JobRow.owner_user_id == owner_user_id)
+                    .order_by(JobRow.created_at.desc())
+                    .limit(limit)
+                )
             ).scalars().all()
             return [
                 JobSummary(
                     id=row.id,
                     status=row.status,
-                    input_mode=row.input_mode or "pdf",
-                    title=_job_title(row),
+                    input_mode=row.input_mode,
+                    title=row.title,
                     created_at=row.created_at,
                     completed_at=row.completed_at,
-                    findings_count=len(row.findings),
-                    claims_total=row.claims_total or 0,
-                    claims_audited=row.claims_audited or 0,
+                    findings_count=row.findings_count,
+                    claims_total=row.claims_total,
+                    claims_audited=row.claims_audited,
                     cost_usd=row.cost_usd,
                     share_links=[
                         _share_link_summary(link)
@@ -518,7 +454,7 @@ class JobRepository:
                     access_metadata={"token": token[:8]},
                 )
             )
-            return row.to_domain()
+            return row.job()
 
     async def log_job_access(
         self,
@@ -574,11 +510,7 @@ class JobRepository:
                 await session.execute(
                     delete(AuditShareLinkRow).where(AuditShareLinkRow.job_id.in_(job_ids))
                 )
-                rows = (
-                    await session.execute(select(JobRow).where(JobRow.id.in_(job_ids)))
-                ).scalars().all()
-                for row in rows:
-                    await session.delete(row)
+                await session.execute(delete(JobRow).where(JobRow.id.in_(job_ids)))
             await session.execute(
                 delete(AnalyticsEventRow).where(AnalyticsEventRow.user_id == user_id)
             )
@@ -594,15 +526,6 @@ class JobRepository:
             ).scalar_one_or_none()
             if user is not None:
                 await session.delete(user)
-
-
-def _job_title(row: JobRow) -> str:
-    if row.input_mode == "text" and row.input_text:
-        compact = " ".join(row.input_text.strip().split())
-        return compact[:96] + ("..." if len(compact) > 96 else "")
-    if row.pdf_path:
-        return row.pdf_path.rsplit("/", 1)[-1] or row.id
-    return row.id
 
 
 def _api_key_summary(row: UserApiKeyRow) -> ApiKeySummary:
