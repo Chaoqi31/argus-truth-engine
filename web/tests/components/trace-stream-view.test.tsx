@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import type { Job, ReasoningTrace, Step } from "@/lib/types";
 import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
@@ -17,10 +17,9 @@ function loadSampleJob(): Job {
     claims_audited: 2,
     audit_report_md: null,
     stages: [
-      makeStage({ key: "parse", name: "Parse", summary: "Parsed 1 page(s)" }),
+      makeStage({ key: "parse", summary: "Parsed 1 page(s)" }),
       makeStage({
         key: "verify",
-        name: "Verify",
         engine: "miromind",
         summary: "Deep-researched 2 claim(s) · 3 steps · 3 web searches",
         metrics: { n_claims: 2, n_steps: 3, n_searches: 3 },
@@ -95,12 +94,12 @@ function loadSampleJob(): Job {
     ],
     traces: [
       makeTrace("t_bad", "c_bad", [
-        makeStep("t_bad", 1, "thinking", "Reasoning checkpoint 1"),
-        makeStep("t_bad", 2, "web_search", "search: Silicon Supercycle Goldman Sachs"),
-        makeStep("t_bad", 3, "web_search", "search: site:goldmansachs.com Silicon Supercycle"),
-        makeStep("t_bad", 4, "web_search", "search: Tracking Trillions Goldman Sachs"),
+        makeStep("t_bad", "thinking", "Reasoning checkpoint 1"),
+        makeStep("t_bad", "web_search", "search: Silicon Supercycle Goldman Sachs"),
+        makeStep("t_bad", "web_search", "search: site:goldmansachs.com Silicon Supercycle"),
+        makeStep("t_bad", "web_search", "search: Tracking Trillions Goldman Sachs"),
       ]),
-      makeTrace("t_ok", "c_ok", [makeStep("t_ok", 1, "thinking", "Lower priority checkpoint")]),
+      makeTrace("t_ok", "c_ok", [makeStep("t_ok", "thinking", "Lower priority checkpoint")]),
     ],
     evidences: [
       {
@@ -146,54 +145,19 @@ function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
 
 function makeStep(
   traceId: string,
-  sequence: number,
   type: "thinking" | "web_search",
   summary: string,
 ): Step {
   return {
-    id: `${traceId}-${type}-${sequence}`,
-    trace_id: traceId,
-    sequence,
+    id: `${traceId}-${type}-${summary}`,
     type,
     summary,
     content: {},
-    parent_step_id: null,
     created_at: "2026-06-01T00:00:00Z",
   };
 }
 
 describe("TraceStreamView", () => {
-  it("does not force live trace back to the bottom after the user scrolls up", () => {
-    const scrollTo = vi.fn();
-    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
-      configurable: true,
-      value: scrollTo,
-    });
-
-    const { container, rerender } = render(
-      <TraceStreamView job={null} liveMode liveSteps={[makeStep("live", 1, "thinking", "First")]} />,
-    );
-    const scroller = container.querySelector(".overflow-y-auto") as HTMLDivElement;
-    Object.defineProperty(scroller, "scrollHeight", { configurable: true, value: 1000 });
-    Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 300 });
-    Object.defineProperty(scroller, "scrollTop", { configurable: true, value: 100 });
-
-    const callsBeforeManualScroll = scrollTo.mock.calls.length;
-    fireEvent.scroll(scroller);
-    rerender(
-      <TraceStreamView
-        job={null}
-        liveMode
-        liveSteps={[
-          makeStep("live", 1, "thinking", "First"),
-          makeStep("live", 2, "web_search", "Second"),
-        ]}
-      />,
-    );
-
-    expect(scrollTo).toHaveBeenCalledTimes(callsBeforeManualScroll);
-  });
-
   it("opens the MiroMind verify walkthrough on the evidence-backed issue first", () => {
     const { container } = render(<TraceStreamView job={loadSampleJob()} />);
 
@@ -262,14 +226,12 @@ describe("TraceStreamView", () => {
     job.stages = [
       makeStage({
         key: "verify",
-        name: "Verify",
         engine: "miromind",
         summary: "Deep-researched 2 claims",
         metrics: { n_claims: 2 },
       }),
       makeStage({
         key: "skeptic",
-        name: "Skeptic challenge",
         engine: "miromind",
         summary: "Challenged 1 high-risk finding · 1 counterevidence found",
         metrics: {
@@ -302,7 +264,7 @@ describe("TraceStreamView", () => {
     );
 
     render(<TraceStreamView job={job} />);
-    fireEvent.click(screen.getByRole("button", { name: /Skeptic challenge/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Skeptic/i }));
 
     expect(screen.getByText(/Independently challenges high-risk MiroMind verdicts/i)).toBeInTheDocument();
     expect(screen.getAllByText("reviewed").length).toBeGreaterThanOrEqual(1);

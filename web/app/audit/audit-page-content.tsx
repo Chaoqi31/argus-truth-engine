@@ -25,7 +25,7 @@ import { DemoRunControls } from "@/components/demo-run-controls";
 import type { Scenario } from "@/lib/load-job";
 import { useAuthSession } from "@/lib/use-auth-session";
 import { AuthButton } from "@/components/auth-button";
-import { useAuditRun } from "./hooks/use-audit-run";
+import { useLiveJob } from "./hooks/use-live-job";
 import { useDemoReplay } from "./hooks/use-demo-replay";
 import {
   auditNextFromParams,
@@ -48,7 +48,6 @@ import {
 import { AuditInputPage } from "./components/audit-input-page";
 import { ColumnResizeHandle, ConsoleToggle } from "./components/cockpit-chrome";
 import { DemoIdleScreen } from "./components/demo-idle-screen";
-import { LiveFindingsList } from "./components/live-findings-list";
 import { RunBanner } from "./components/run-banner";
 import { VerdictHero } from "./components/verdict-hero";
 
@@ -78,9 +77,6 @@ export function AuditPageContent() {
   const activeFindingId = useArgusStore((s) => s.activeFindingId);
   const setActiveFinding = useArgusStore((s) => s.setActiveFinding);
   const setDrawerFinding = useArgusStore((s) => s.setDrawerFinding);
-  const liveSteps = useArgusStore((s) => s.liveSteps);
-  const liveFindings = useArgusStore((s) => s.liveFindings);
-  const liveHeartbeat = useArgusStore((s) => s.liveHeartbeat);
   const runStatus = useArgusStore((s) => s.runStatus);
   const runError = useArgusStore((s) => s.runError);
   const findingReviews = useArgusStore((s) => s.findingReviews);
@@ -97,7 +93,7 @@ export function AuditPageContent() {
 
   useFindingKeyboardNav(() => setHintOpen((v) => !v));
   useCommandPaletteHotkey();
-  useAuditRun(liveId, auth);
+  useLiveJob(liveId, auth);
 
   const {
     demoJob,
@@ -152,15 +148,8 @@ export function AuditPageContent() {
   }
 
   if ((liveId || demoRunning) && !job) {
-    const lastStep = liveSteps[liveSteps.length - 1] ?? null;
-    const lastAgent =
-      lastStep?.content && typeof lastStep.content === "object" && lastStep.content !== null
-        ? String((lastStep.content as Record<string, unknown>).agent ?? "")
-        : "";
     const showPdf = !!liveId && !isTextMode;
-    const showReport = demoRunning && !!demoJob;
     const livePdfUrl = liveId ? `/api/argus/jobs/${encodeURIComponent(liveId)}/pdf` : "";
-    const splitGrid = showPdf || showReport;
     return (
       <div className="cockpit cc-backdrop min-h-screen">
         <ArgusHeader
@@ -171,25 +160,16 @@ export function AuditPageContent() {
                   Start auditing
                 </Link>
               )}
-              {demoRunning && demoJob && (
-                <DemoRunControls onShowFullAudit={finishDemoNow} />
-              )}
+              {demoRunning && demoJob && <DemoRunControls onShowFullAudit={finishDemoNow} />}
               <PaletteHint />
-              <ExportMenu onSelect={onExport} disabled={runStatus !== "done"} />
+              <ExportMenu onSelect={onExport} disabled />
               <AuthButton next={currentAuditNext} />
             </div>
           }
         />
         {signedInNotice}
-        <RunBanner
-          runStatus={runStatus}
-          steps={liveSteps.length}
-          findings={liveFindings.length}
-          reason={runError}
-          activeAgent={lastAgent}
-          heartbeat={liveHeartbeat}
-        />
-        <main className={`grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 grid-rows-1 ${splitGrid ? "md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]" : "lg:grid-cols-[minmax(0,1fr)_400px]"}`}>
+        <RunBanner runStatus={runStatus} job={job} reason={runError} />
+        <main className="grid h-[calc(100vh-3.5rem-3rem)] grid-cols-1 grid-rows-1 md:grid-cols-[1fr_440px] lg:grid-cols-[1fr_480px]">
           {showPdf ? (
             <div className="hidden md:block">
               <PdfViewer
@@ -200,50 +180,12 @@ export function AuditPageContent() {
                 onClaimClick={() => {}}
               />
             </div>
-          ) : showReport ? (
-            <div className="hidden min-h-0 md:block">
-              <TextViewer
-                text={demoJob.input_text ?? ""}
-                claims={[]}
-                findings={[]}
-                activeFindingId={null}
-                onClaimClick={() => {}}
-              />
-            </div>
           ) : null}
-          {runStatus === "reviewing" && liveId ? (
-            <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
-              <ClaimReviewPanel jobId={liveId} />
-            </aside>
-          ) : splitGrid ? (
-            <aside className="flex min-h-0 flex-col border-l border-[var(--cc-border)]">
-              <div className="min-h-0 flex-1 border-b border-[var(--cc-border)]">
-                <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
-              </div>
-              <div className="max-h-[30vh] shrink-0 overflow-hidden">
-                <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Live findings preview
-                  </span>
-                </div>
-                <LiveFindingsList findings={liveFindings} mode="stacked" />
-              </div>
-            </aside>
-          ) : (
-            <>
-              <section className="min-h-0">
-                <TraceStreamView job={null} liveMode liveSteps={liveSteps} />
-              </section>
-              <aside className="hidden min-h-0 flex-col border-l border-[var(--cc-border)] lg:flex">
-                <div className="flex items-center gap-1 border-b border-[var(--cc-border)] bg-muted px-3 py-2">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Live findings preview
-                  </span>
-                </div>
-                <LiveFindingsList findings={liveFindings} mode="side" />
-              </aside>
-            </>
-          )}
+          <aside className="hidden min-h-0 flex-col border-l border-[var(--cc-border)] md:flex">
+            <p className="p-4 text-xs text-muted-foreground">
+              Waiting for the audit to open its stream…
+            </p>
+          </aside>
         </main>
         <ShortcutsHint open={hintOpen} onClose={() => setHintOpen(false)} />
         <CommandPalette />
@@ -311,6 +253,7 @@ export function AuditPageContent() {
         }
       />
       {signedInNotice}
+      {runStatus !== "done" && <RunBanner runStatus={runStatus} job={job} reason={runError} />}
       {demo === "1" && job?.scenario_label && job?.persona && (
         <ScenarioBanner label={job.scenario_label} persona={job.persona} />
       )}
@@ -351,14 +294,18 @@ export function AuditPageContent() {
         <section className="flex min-h-0 flex-col border-[var(--cc-border)] lg:border-l">
           <div className="flex items-center gap-2 border-b border-[var(--cc-border)] bg-muted px-4 py-2.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Review queue
+              {runStatus === "reviewing" ? "Review claims" : "Review queue"}
             </span>
             <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-              {job.findings.length}
+              {runStatus === "reviewing" ? job.claims.length : job.findings.length}
             </span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={selectFinding} onOpenDrawer={openFindingDrawer} />
+            {runStatus === "reviewing" ? (
+              <ClaimReviewPanel jobId={job.id} />
+            ) : (
+              <FindingsTab job={job} activeFindingId={activeFindingId} onSelect={selectFinding} onOpenDrawer={openFindingDrawer} />
+            )}
           </div>
         </section>
 

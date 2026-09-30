@@ -68,12 +68,9 @@ export function makeFinding(fields: Partial<Finding> = {}): Finding {
 export function makeStep(fields: Partial<Step> = {}): Step {
   return {
     id: "s1",
-    trace_id: "t1",
-    sequence: 0,
     type: "thinking",
     summary: "",
     content: {},
-    parent_step_id: null,
     created_at: T0,
     ...fields,
   };
@@ -102,8 +99,8 @@ export function makeTrace(fields: Partial<ReasoningTrace> = {}): ReasoningTrace 
 export function makeStage(fields: Partial<Stage> = {}): Stage {
   return {
     key: "parse",
-    name: "Parse",
     engine: "deterministic",
+    status: "done",
     summary: "",
     metrics: {},
     filtered_claims: [],
@@ -125,6 +122,7 @@ export function makeJob(fields: Partial<Job> = {}): Job {
     failure: null,
     created_at: T0,
     completed_at: null,
+    version: 0,
     cost_usd: 0,
     total_tokens: 0,
     audit_report_md: null,

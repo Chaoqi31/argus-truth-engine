@@ -1,4 +1,5 @@
 import { getJobAuditability } from "@/lib/auditability";
+import { stageLabel } from "@/lib/stage-vocabulary";
 import { getAuditFingerprint } from "@/lib/audit-fingerprint";
 import { getBenchmarkEvaluation } from "@/lib/benchmark-evaluation";
 import { getJobExecutionControls } from "@/lib/execution-controls";
@@ -95,7 +96,7 @@ export function getJudgeProofStrip(job: Job): JudgeProof[] {
   const architecturePresent =
     proofById.get("agent_pipeline")?.status === "present" &&
     proofById.get("parallel_fanout")?.status === "present" &&
-    stages.some((stage) => stage.key === "review_gate");
+    stages.some((stage) => stage.key === "review");
   const nativeTrace = proofById.get("miromind_deep_research");
   const skepticStatus = (skeptic?.status ?? "missing") as TechnicalProofStatus;
 
@@ -153,7 +154,7 @@ export function getTechnicalDepthProof(job: Job): TechnicalDepthProof {
     reasoningTokens > 0
       ? `${formatNumber(reasoningTokens)} reasoning tokens`
       : `${formatNumber(totalTokens)} total tokens`;
-  const stageNames = stages.map((stage) => stage.name).join(" -> ");
+  const stageNames = stages.map((stage) => stageLabel(stage.key)).join(" -> ");
   const hasMultiStageGraph =
     stages.length >= 4 &&
     stages.some((stage) => stage.engine === "miromind") &&

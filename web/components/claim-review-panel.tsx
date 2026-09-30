@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useArgusStore } from "@/lib/store";
 import { submitClaimSelection } from "@/lib/api";
 import { storedApiKey, storedMiroMindModel } from "@/lib/byok";
-import type { ReviewClaim } from "@/lib/types";
+import type { Claim } from "@/lib/types";
 import { useAuthSession } from "@/lib/use-auth-session";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -29,18 +29,21 @@ export function ClaimReviewPanel({ jobId }: Props) {
   const auth = useAuthSession();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const reviewClaims = useArgusStore((s) => s.reviewClaims);
-  const filteredClaims = useArgusStore((s) => s.filteredClaims);
+  const job = useArgusStore((s) => s.job);
   const selectedClaimIds = useArgusStore((s) => s.selectedClaimIds);
   const toggleClaimSelection = useArgusStore((s) => s.toggleClaimSelection);
   const selectAllClaims = useArgusStore((s) => s.selectAllClaims);
   const selectHighImportanceClaims = useArgusStore((s) => s.selectHighImportanceClaims);
   const setRunStatus = useArgusStore((s) => s.setRunStatus);
 
+  const reviewClaims = job?.claims ?? [];
+  const filteredClaims =
+    job?.stages.find((s) => s.key === "checkworthiness")?.filtered_claims ?? [];
+
   const nSelected = selectedClaimIds.size;
   const highCount = reviewClaims.filter((c) => c.importance === "high").length;
 
-  const grouped = reviewClaims.reduce<Record<string, ReviewClaim[]>>((acc, c) => {
+  const grouped = reviewClaims.reduce<Record<string, Claim[]>>((acc, c) => {
     const key = c.type || "qualitative";
     (acc[key] ??= []).push(c);
     return acc;
@@ -122,7 +125,7 @@ export function ClaimReviewPanel({ jobId }: Props) {
             </summary>
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
               {filteredClaims.map((f) => (
-                <li key={f.claim_id} className="flex gap-2">
+                <li key={f.claim_id ?? f.text} className="flex gap-2">
                   <span className="shrink-0 italic">{f.reason}</span>
                   <span className="line-clamp-1">{f.text}</span>
                 </li>

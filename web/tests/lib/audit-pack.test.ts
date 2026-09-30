@@ -134,12 +134,9 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s1",
-              trace_id: "t1",
-              sequence: 1,
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
           ],
@@ -231,12 +228,9 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s1",
-              trace_id: "t1",
-              sequence: 1,
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
           ],
@@ -277,22 +271,19 @@ describe("buildAuditPackMarkdown", () => {
       ],
       stages: [
         makeStage({
-          key: "review_gate",
-          name: "Review gate",
-          engine: "deterministic",
+          key: "review",
+                    engine: "deterministic",
           summary: "2 claims selected",
-          metrics: { n_verifying: 2 },
+          metrics: { n_selected: 2 },
         }),
         makeStage({
           key: "verify",
-          name: "Verify",
           engine: "miromind",
           summary: "Deep-researched 2 claims",
           metrics: { n_claims: 2 },
         }),
         makeStage({
           key: "skeptic",
-          name: "Skeptic challenge",
           engine: "miromind",
           summary: "Challenged 1 high-risk finding",
           metrics: { n_reviewed: 1 },
@@ -316,12 +307,9 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s1",
-              trace_id: "t1",
-              sequence: 1,
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
           ],
@@ -343,12 +331,9 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s2",
-              trace_id: "t2",
-              sequence: 1,
               type: "web_search",
               summary: "Search source.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
           ],
@@ -434,35 +419,30 @@ describe("buildAuditPackMarkdown", () => {
       stages: [
         makeStage({
           key: "planner",
-          name: "Planner",
           engine: "deepseek",
           summary: "Extracted candidate claims.",
           metrics: { n_claims: 2 },
         }),
         makeStage({
-          key: "review_gate",
-          name: "Review gate",
-          engine: "deterministic",
+          key: "review",
+                    engine: "deterministic",
           summary: "2 claims selected.",
-          metrics: { n_verifying: 2 },
+          metrics: { n_selected: 2 },
         }),
         makeStage({
           key: "verify",
-          name: "Verify",
           engine: "miromind",
           summary: "Deep-researched 2 claims.",
           metrics: { n_claims: 2 },
         }),
         makeStage({
           key: "skeptic",
-          name: "Skeptic challenge",
           engine: "miromind",
           summary: "Challenged high-risk findings.",
           metrics: { n_reviewed: 1 },
         }),
         makeStage({
           key: "confidence",
-          name: "Confidence",
           engine: "deterministic",
           summary: "Scored findings.",
           metrics: { n_scored: 2 },
@@ -486,12 +466,9 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s1",
-              trace_id: "t1",
-              sequence: 1,
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
           ],
@@ -513,12 +490,9 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s2",
-              trace_id: "t2",
-              sequence: 1,
               type: "web_search",
               summary: "Search source.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
           ],
@@ -598,42 +572,30 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s1",
-              trace_id: "t1",
-              sequence: 1,
               type: "web_search",
               summary: "Search one.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
             {
               id: "s2",
-              trace_id: "t1",
-              sequence: 2,
               type: "web_search",
               summary: "Search two.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:02:00Z",
             },
             {
               id: "s3",
-              trace_id: "t1",
-              sequence: 3,
               type: "fetch_url_content",
               summary: "Fetch source.",
               content: {},
-              parent_step_id: "s2",
               created_at: "2026-05-20T00:03:00Z",
             },
             {
               id: "s4",
-              trace_id: "t1",
-              sequence: 4,
               type: "execute_python",
               summary: "Check calculation.",
               content: {},
-              parent_step_id: "s3",
               created_at: "2026-05-20T00:04:00Z",
             },
           ],
@@ -716,14 +678,12 @@ describe("buildAuditPackMarkdown", () => {
       stages: [
         makeStage({
           key: "planner",
-          name: "Planner",
           engine: "deepseek",
           summary: "Extracted 1 candidate claim.",
           metrics: { n_claims: 1 },
         }),
         makeStage({
           key: "verify",
-          name: "Verify",
           engine: "miromind",
           summary: "Verified the selected claim with web search.",
           metrics: { claims: 1, searches: 3 },
@@ -747,22 +707,16 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s1",
-              trace_id: "t1",
-              sequence: 1,
               type: "web_search",
               summary: "Searched exact report title.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
             {
               id: "s2",
-              trace_id: "t1",
-              sequence: 2,
               type: "message",
               summary: "Concluded the citation was fabricated.",
               content: {},
-              parent_step_id: "s1",
               created_at: "2026-05-20T00:02:00Z",
             },
           ],
@@ -774,7 +728,7 @@ describe("buildAuditPackMarkdown", () => {
 
     expect(markdown).toContain("## Reasoning Transparency");
     expect(markdown).toContain("| Planner | deepseek | Extracted 1 candidate claim. | n_claims: 1 |");
-    expect(markdown).toContain("| Verify | miromind | Verified the selected claim with web search. | claims: 1; searches: 3 |");
+    expect(markdown).toContain("| Verification | miromind | Verified the selected claim with web search. | claims: 1; searches: 3 |");
     expect(markdown).toContain("## Trace Inventory");
     expect(markdown).toContain(
       "| verifier | The memo cites a Goldman Silicon Supercycle report. | 2 | 3 | 0 | 0 | 4200 | 900 | resp_123 |",
@@ -783,7 +737,7 @@ describe("buildAuditPackMarkdown", () => {
     expect(markdown).toContain("### Stage 1: Planner");
     expect(markdown).toContain("- Input: Parsed document text with domain hints.");
     expect(markdown).toContain("| Claim | Type | Importance | Page | Text |");
-    expect(markdown).toContain("### Stage 2: Verify");
+    expect(markdown).toContain("### Stage 2: Verification");
     expect(markdown).toContain(
       "| Finding | Verdict | Severity | Confidence | Sources | Steps | Searches | MiroMind Response | Claim |",
     );
@@ -798,7 +752,6 @@ describe("buildAuditPackMarkdown", () => {
       stages: [
         makeStage({
           key: "parse",
-          name: "Parse",
           engine: "deterministic",
           summary: "Document parsed.",
           metrics: { pages: 1, chars: 120 },
@@ -906,42 +859,30 @@ describe("buildAuditPackMarkdown", () => {
           steps: [
             {
               id: "s1",
-              trace_id: "t1",
-              sequence: 1,
               type: "web_search",
               summary: "Search one.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
             {
               id: "s2",
-              trace_id: "t1",
-              sequence: 2,
               type: "web_search",
               summary: "Search two.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:02:00Z",
             },
             {
               id: "s3",
-              trace_id: "t1",
-              sequence: 3,
               type: "fetch_url_content",
               summary: "Fetched source page.",
               content: {},
-              parent_step_id: "s2",
               created_at: "2026-05-20T00:03:00Z",
             },
             {
               id: "s4",
-              trace_id: "t1",
-              sequence: 4,
               type: "execute_python",
               summary: "Checked a calculation.",
               content: {},
-              parent_step_id: "s3",
               created_at: "2026-05-20T00:04:00Z",
             },
           ],

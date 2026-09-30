@@ -86,12 +86,9 @@ const job: Job = makeJob({
       steps: [
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "web_search",
           summary: "Search exact title.",
           content: {},
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],
@@ -113,12 +110,9 @@ const job: Job = makeJob({
       steps: [
         {
           id: "s2",
-          trace_id: "t2",
-          sequence: 1,
           type: "web_search",
           summary: "Search source.",
           content: {},
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],
@@ -146,22 +140,19 @@ const job: Job = makeJob({
   ],
   stages: [
     makeStage({
-      key: "review_gate",
-      name: "Review gate",
-      engine: "deterministic",
+      key: "review",
+            engine: "deterministic",
       summary: "2 claims selected",
-      metrics: { n_verifying: 2 },
+      metrics: { n_selected: 2 },
     }),
     makeStage({
       key: "verify",
-      name: "Verify",
       engine: "miromind",
       summary: "Deep-researched 2 claims",
       metrics: { n_claims: 2, n_steps: 2 },
     }),
     makeStage({
       key: "skeptic",
-      name: "Skeptic challenge",
       engine: "miromind",
       summary: "Challenged 1 high-risk finding",
       metrics: { n_reviewed: 1 },

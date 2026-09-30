@@ -22,8 +22,6 @@ function makeFinding(overrides: Partial<Finding>): Finding {
 function makeStep(traceId: string, id: string, type: Step["type"]): Step {
   return baseStep({
     id,
-    trace_id: traceId,
-    sequence: 1,
     type,
     summary: `${type} step`,
     created_at: "2026-06-01T00:00:00Z",

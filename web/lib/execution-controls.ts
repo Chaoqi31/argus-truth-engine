@@ -45,10 +45,7 @@ export function getJobExecutionControls(job: Job): ExecutionControlSummary {
   const verifierTraces = job.traces.filter((trace) => trace.agent === "verifier");
   const miromindTraces = job.traces.filter((trace) => trace.engine === "miromind");
   const responseIds = new Set(miromindTraces.flatMap((trace) => trace.usage.response_ids));
-  const cursorSteps = miromindTraces.reduce(
-    (sum, trace) => sum + trace.steps.filter((step) => Number.isFinite(step.sequence)).length,
-    0,
-  );
+  const cursorSteps = miromindTraces.reduce((sum, trace) => sum + trace.steps.length, 0);
   const audited = job.claims_audited;
   const total = job.claims_total;
   const hasStage = (key: string) => (job.stages ?? []).some((stage) => stage.key === key);
@@ -89,8 +86,8 @@ export function getJobExecutionControls(job: Job): ExecutionControlSummary {
     ),
     control(
       "review_checkpoint",
-      hasStage("review_gate") ? "present" : "missing",
-      hasStage("review_gate")
+      hasStage("review") ? "present" : "missing",
+      hasStage("review")
         ? "Review gate stage recorded before paid verification."
         : "No review checkpoint stage was recorded.",
     ),

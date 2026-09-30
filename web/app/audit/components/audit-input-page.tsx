@@ -27,7 +27,6 @@ import { useAuthSession } from "@/lib/use-auth-session";
 export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode }) {
   const router = useRouter();
   const auth = useAuthSession();
-  const resetLive = useArgusStore((s) => s.resetLive);
   const clearStore = useArgusStore((s) => s.clear);
   const [apiKey, setApiKey] = useState("");
   const storedModel = useStoredMiroMindModel();
@@ -113,7 +112,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
     try {
       const { rawApiKey, options } = await submitOptions();
       const { job_id } = await submitText(textInput, rawApiKey, options);
-      resetLive();
+      clearStore();
       router.push(`/audit?id=${encodeURIComponent(job_id)}&mode=text`);
     } catch (e) {
       if (e instanceof ArgusApiError) setError(`API error: ${e.message}`);
@@ -136,7 +135,7 @@ export function AuditInputPage({ signedInNotice }: { signedInNotice?: ReactNode 
     try {
       const { rawApiKey, options } = await submitOptions();
       const { job_id } = await uploadPdf(file, rawApiKey, options);
-      resetLive();
+      clearStore();
       router.push(`/audit?id=${encodeURIComponent(job_id)}`);
     } catch (e) {
       if (e instanceof UnsupportedMediaTypeError) setError("Only PDF files are supported.");

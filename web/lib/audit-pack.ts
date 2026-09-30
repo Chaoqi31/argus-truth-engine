@@ -6,22 +6,10 @@ import { getJobExecutionControls } from "@/lib/execution-controls";
 import { getJudgeProofStrip, getTechnicalDepthProof } from "@/lib/technical-depth";
 import { sortFindingsForReview } from "@/lib/findings";
 import { formatNumber, formatUsd, pct, plural } from "@/lib/format";
+import { STAGE_BLURB, stageLabel } from "@/lib/stage-vocabulary";
 import { toolCounts } from "@/lib/steps";
 
 const REVIEW_STATUS_ORDER = ["open", "accepted", "disputed", "needs-recheck", "resolved"] as const;
-const STAGE_BLURB: Record<string, string> = {
-  parse: "Extracts the raw text and character offsets from the document.",
-  planner: "Reads the document and pulls out the discrete factual claims worth checking.",
-  atomizer: "Splits compound claims into atomic, independently-verifiable statements.",
-  checkworthiness: "Drops opinions, forecasts and trivia; keeps only checkable factual claims.",
-  review_gate: "De-duplicates the claims and caps how many go to paid verification.",
-  verify: "Runs each claim through MiroMind deep research: web searches, fetches, and reasoning.",
-  skeptic: "Independently challenges high-risk MiroMind verdicts by searching for counterevidence before confidence scoring.",
-  consistency: "Checks the claims against each other for contradictions and unsupported leaps.",
-  confidence: "Scores each verdict on source authority, evidence freshness, and source agreement.",
-  reporter: "Writes the executive summary of the audit.",
-};
-
 function cell(value: unknown): string {
   return String(value ?? "")
     .replaceAll("|", "\\|")
@@ -104,11 +92,17 @@ function stageLedger(
         output: `${stage.metrics.n_checkworthy ?? claimCount} check-worthy claim(s), ${stage.metrics.n_filtered ?? 0} filtered out.`,
         transparency: "Only externally verifiable factual statements move into paid research.",
       };
-    case "review_gate":
+    case "shortlist":
       return {
         input: `${stage.metrics.n_before ?? claimCount} check-worthy claim(s).`,
-        output: `${stage.metrics.n_after ?? verifierFindings.length} claim(s) queued for MiroMind verification.`,
-        transparency: "The gate prevents low-value claims from consuming deep-research budget.",
+        output: `${stage.metrics.n_shortlisted ?? stage.metrics.n_after ?? verifierFindings.length} claim(s) queued for review.`,
+        transparency: "The shortlist keeps low-value claims from consuming deep-research budget.",
+      };
+    case "review":
+      return {
+        input: `${stage.metrics.n_candidates ?? claimCount} shortlisted claim(s).`,
+        output: `${stage.metrics.n_selected ?? verifierFindings.length} claim(s) sent to MiroMind verification.`,
+        transparency: "A person chose what to spend on; the selection is recorded on the job.",
       };
     case "verify":
       return {
@@ -195,7 +189,8 @@ function stageArtifactLines(
     case "planner":
     case "atomizer":
     case "checkworthiness":
-    case "review_gate":
+    case "shortlist":
+    case "review":
       return [
         metrics ? `Metrics: ${metrics}` : null,
         "| Claim | Type | Importance | Page | Text |",
@@ -259,7 +254,7 @@ function stageDossiers(
     .map((stage, index) => {
       const ledger = stageLedger(stage, job);
       return lines([
-        `### Stage ${index + 1}: ${stage.name}`,
+        `### Stage ${index + 1}: ${stageLabel(stage.key)}`,
         `- Engine: ${stage.engine}`,
         `- Summary: ${stage.summary}`,
         STAGE_BLURB[stage.key] ? `- Purpose: ${STAGE_BLURB[stage.key]}` : null,
@@ -352,7 +347,7 @@ export function buildAuditPackMarkdown(
     { steps: 0, searches: 0, fetches: 0, codeSteps: 0 },
   );
   const stageRows = (job.stages ?? []).map((stage) =>
-    `| ${cell(stage.name)} | ${cell(stage.engine)} | ${cell(stage.summary)} | ${cell(metricCell(stage.metrics))} |`,
+    `| ${cell(stageLabel(stage.key))} | ${cell(stage.engine)} | ${cell(stage.summary)} | ${cell(metricCell(stage.metrics))} |`,
   );
   const traceRows = job.traces.map((trace) => {
     const claim = trace.claim_id ? claimById.get(trace.claim_id) : undefined;

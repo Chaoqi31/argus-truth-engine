@@ -103,12 +103,9 @@ const job: Job = makeJob({
       steps: [
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "web_search",
           summary: "Search exact title.",
           content: {},
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],

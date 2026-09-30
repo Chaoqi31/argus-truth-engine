@@ -65,12 +65,9 @@ const job: Job = makeJob({
       steps: [
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "web_search",
           summary: "Search exact report title.",
           content: { query: "Goldman Silicon Supercycle" },
-          parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
       ],
@@ -90,7 +87,6 @@ const job: Job = makeJob({
   stages: [
     makeStage({
       key: "verify",
-      name: "Verify",
       engine: "miromind",
       summary: "Deep-researched 1 claim.",
       metrics: { n_claims: 1 },

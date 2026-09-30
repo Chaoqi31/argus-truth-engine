@@ -108,24 +108,18 @@ const job: Job = makeJob({
       steps: [
         {
           id: "s0",
-          trace_id: "t1",
-          sequence: 0,
           type: "web_search",
           summary: "search: Smith 2021 widgets DOI",
           content: {
             result: JSON.stringify({ organic: [] }),
           },
-          parent_step_id: null,
           created_at: "2026-05-20T00:00:00Z",
         },
         {
           id: "s1",
-          trace_id: "t1",
-          sequence: 1,
           type: "thinking",
           summary: "Think about Crossref query.",
           content: {},
-          parent_step_id: null,
           created_at: "2026-05-20T00:00:00Z",
         },
       ],
@@ -270,12 +264,9 @@ describe("EvidenceTab", () => {
           steps: [
             {
               id: "s2",
-              trace_id: "t2",
-              sequence: 1,
               type: "message",
               summary: "Checked claim against verified holdings.",
               content: {},
-              parent_step_id: null,
               created_at: "2026-05-20T00:00:00Z",
             },
           ],

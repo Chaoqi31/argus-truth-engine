@@ -1,3 +1,4 @@
+import { stageLabel } from "@/lib/stage-vocabulary";
 import type { Job } from "@/lib/types";
 
 export interface AuditFingerprint {
@@ -98,11 +99,9 @@ function fingerprintPayload(job: Job) {
       usage: trace.usage,
       steps: trace.steps.map((step) => ({
         id: step.id,
-        sequence: step.sequence,
         type: step.type,
         summary: step.summary,
         content: step.content,
-        parent_step_id: step.parent_step_id,
       })),
     })),
     evidences: job.evidences.map((evidence) => ({
@@ -115,7 +114,7 @@ function fingerprintPayload(job: Job) {
     })),
     stages: (job.stages ?? []).map((stage) => ({
       key: stage.key,
-      name: stage.name,
+      name: stageLabel(stage.key),
       engine: stage.engine,
       summary: stage.summary,
       metrics: stage.metrics,
