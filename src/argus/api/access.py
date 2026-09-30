@@ -38,10 +38,8 @@ async def require_job_access(
             if record.owner_user_id is not None:
                 raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
 
-    repo = target.app.state.argus.repo
-    if repo is not None:
-        owner = await repo.get_job_owner(job_id)
-        if owner == ctx.user.id:
-            return
-        if owner is not None or settings.auth_required:
-            raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
+    owner = await target.app.state.argus.repo.get_job_owner(job_id)
+    if owner == ctx.user.id:
+        return
+    if owner is not None or settings.auth_required:
+        raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")

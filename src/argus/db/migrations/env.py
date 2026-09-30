@@ -24,11 +24,11 @@ target_metadata = Base.metadata
 
 
 def _resolved_db_url() -> str:
-    # CLI override > env > alembic.ini default
-    return (
-        os.environ.get("ARGUS_DB_URL")
+    # upgrade_schema's url > env > alembic.ini default
+    return str(
+        config.attributes.get("db_url")
+        or os.environ.get("ARGUS_DB_URL")
         or config.get_main_option("sqlalchemy.url")
-        or "sqlite+aiosqlite:///./local.db"
     )
 
 

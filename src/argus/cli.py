@@ -9,7 +9,7 @@ from rich.console import Console
 
 from argus.config import settings
 from argus.db.repository import JobRepository
-from argus.db.session import create_engine_from_url, sessionmaker_from_engine
+from argus.db.session import create_engine_from_url, sessionmaker_from_engine, upgrade_schema
 from argus.llm import Transports
 from argus.llm.miromind import MiroMindAccess
 from argus.log import configure_logging
@@ -113,6 +113,7 @@ def serve(
 
     from argus.api.app import create_app
 
+    upgrade_schema(s.db_url)
     app_instance = create_app(settings=s)
     console.print(
         f"[green]✓[/green] Argus API at [bold]http://{host}:{port}[/bold]"

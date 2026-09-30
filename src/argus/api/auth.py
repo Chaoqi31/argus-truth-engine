@@ -189,9 +189,7 @@ async def _auth_context(
 
 
 async def _sync_user(request: Request, user: AuthUser) -> None:
-    repo = request.app.state.argus.repo
-    if repo is not None:
-        await repo.upsert_user(user)
+    await request.app.state.argus.repo.upsert_user(user)
 
 
 def _bearer_token(value: str | None) -> str | None:

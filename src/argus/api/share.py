@@ -11,8 +11,6 @@ router = APIRouter(prefix="/share", tags=["share"])
 @router.get("/{token}")
 async def get_shared_audit(request: Request, token: str) -> dict[str, Any]:
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=500, detail="database is not configured")
     job = await repo.get_job_by_share_token(token)
     if job is None:
         raise HTTPException(status_code=404, detail="share link not found")

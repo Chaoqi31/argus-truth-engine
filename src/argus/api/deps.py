@@ -23,11 +23,11 @@ from argus.trace_bus.base import TraceBus
 @dataclass
 class AppState:
     settings: Settings
-    repo: JobRepository | None
+    repo: JobRepository
     storage: Storage
     trace_bus: TraceBus
     transports: Transports
-    db_engine: AsyncEngine | None = None
+    db_engine: AsyncEngine
     auth_verifier: Any | None = None
     key_cipher: ApiKeyCipher | None = None
 

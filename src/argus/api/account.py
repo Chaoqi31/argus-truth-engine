@@ -65,8 +65,6 @@ async def get_me(request: Request) -> dict[str, object]:
 async def list_api_keys(request: Request) -> list[ApiKeyOut]:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     keys = await repo.list_api_keys(user_id=user.id)
     return [ApiKeyOut(**key.__dict__) for key in keys]
 
@@ -76,8 +74,6 @@ async def create_api_key(request: Request, body: ApiKeyCreate) -> ApiKeyOut:
     user = await require_user(request)
     repo = request.app.state.argus.repo
     cipher = request.app.state.argus.key_cipher
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     if cipher is None:
         raise HTTPException(
             status_code=_HTTP_SERVER_ERROR,
@@ -99,8 +95,6 @@ async def create_api_key(request: Request, body: ApiKeyCreate) -> ApiKeyOut:
 async def update_api_key(request: Request, key_id: str, body: ApiKeyPatch) -> ApiKeyOut:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     updated = await repo.update_api_key(
         user_id=user.id,
         key_id=key_id,
@@ -119,8 +113,6 @@ async def test_api_key(request: Request, body: ApiKeyTest) -> ApiKeyTestOut:
     if not raw and body.key_id:
         repo = request.app.state.argus.repo
         cipher = request.app.state.argus.key_cipher
-        if repo is None:
-            raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
         if cipher is None:
             raise HTTPException(
                 status_code=_HTTP_SERVER_ERROR,
@@ -139,8 +131,6 @@ async def test_api_key(request: Request, body: ApiKeyTest) -> ApiKeyTestOut:
 async def delete_api_key(request: Request, key_id: str) -> None:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     deleted = await repo.revoke_api_key(user_id=user.id, key_id=key_id)
     if not deleted:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="api key not found")
@@ -150,8 +140,6 @@ async def delete_api_key(request: Request, key_id: str) -> None:
 async def delete_account(request: Request) -> None:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     await repo.delete_user_data(user_id=user.id)
 
 

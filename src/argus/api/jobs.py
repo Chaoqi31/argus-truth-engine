@@ -51,7 +51,6 @@ _HTTP_NOT_FOUND = 404
 _HTTP_UNAUTHORIZED = 401
 _HTTP_BAD_REQUEST = 400
 _HTTP_TOO_MANY_REQUESTS = 429
-_HTTP_SERVER_ERROR = 500
 
 
 def _runner(req: Request) -> JobRunner:
@@ -64,7 +63,7 @@ def _runner(req: Request) -> JobRunner:
 
 async def _request_auth(request: Request) -> AuthContext:
     ctx = await auth_context_from_request(request)
-    if ctx.user is not None and request.app.state.argus.repo is not None:
+    if ctx.user is not None:
         await request.app.state.argus.repo.upsert_user(ctx.user)
     return ctx
 
@@ -78,7 +77,7 @@ async def _resolve_miromind_key(request: Request, user: AuthUser | None) -> str 
     state = get_state(request)
     repo = state.repo
     cipher = state.key_cipher
-    if user is not None and repo is not None and cipher is not None:
+    if user is not None and cipher is not None:
         found = await repo.get_api_key_ciphertext(user_id=user.id, key_id=key_id)
         if found is not None:
             encrypted_key, _resolved_id = found
@@ -138,8 +137,6 @@ async def list_jobs(
         user = await require_user(request)
         owner_user_id = user.id
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     rows = await repo.list_job_summaries(owner_user_id=owner_user_id, limit=limit)
     return {"jobs": [row.__dict__ for row in rows]}
 
@@ -244,8 +241,6 @@ async def rerun_job(request: Request, job_id: str) -> dict[str, str]:
     runner = _runner(request)
     await require_job_access(request, job_id, ctx, runner=runner)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     job = await repo.get_job_for_user(job_id, ctx.user.id)
     if job is None:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
@@ -290,8 +285,6 @@ async def create_share_link(
 ) -> ShareOut:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     expires_at = (
         datetime.utcnow() + timedelta(days=body.expires_in_days)
         if body.expires_in_days is not None
@@ -317,8 +310,6 @@ async def create_share_link(
 async def revoke_share_link(request: Request, job_id: str, token: str) -> None:
     user = await require_user(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     revoked = await repo.revoke_share_link(job_id=job_id, owner_user_id=user.id, token=token)
     if not revoked:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="share link not found")
@@ -328,8 +319,6 @@ async def revoke_share_link(request: Request, job_id: str, token: str) -> None:
 async def delete_job(request: Request, job_id: str) -> None:
     ctx = await _request_auth(request)
     repo = request.app.state.argus.repo
-    if repo is None:
-        raise HTTPException(status_code=_HTTP_SERVER_ERROR, detail="database is not configured")
     settings = request.app.state.argus.settings
     if ctx.user is not None:
         owner_user_id = ctx.user.id
@@ -351,7 +340,7 @@ async def get_job_pdf(request: Request, job_id: str) -> FileResponse:
     path: Path | None = None
     if record is not None and record.pdf_key:
         path = runner.state.storage.path_for(record.pdf_key)
-    elif request.app.state.argus.repo is not None:
+    else:
         job = await request.app.state.argus.repo.get_job(job_id)
         if job is not None and job.input_mode == "pdf" and job.pdf_path:
             path = Path(job.pdf_path)
@@ -370,7 +359,7 @@ async def get_job(request: Request, job_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=_HTTP_NOT_FOUND, detail="job not found")
 
     repo = request.app.state.argus.repo
-    if isinstance(resolved, Job) and repo is not None and ctx.user is not None:
+    if isinstance(resolved, Job) and ctx.user is not None:
         await repo.log_job_access(
             job_id=job_id,
             user_id=ctx.user.id,

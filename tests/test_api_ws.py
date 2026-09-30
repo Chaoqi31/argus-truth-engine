@@ -15,10 +15,10 @@ from argus.trace_bus.base import TraceEvent
 
 
 @pytest.fixture
-def app_under_test(tmp_path: Path) -> FastAPI:
+def app_under_test(tmp_path: Path, db_url: str) -> FastAPI:
     settings = Settings(
         miromind_api_key="sk_test",
-        db_url=None,
+        db_url=db_url,
         storage_root=str(tmp_path / "uploads"),
     )
     return create_app(settings=settings)
@@ -43,7 +43,7 @@ def test_websocket_replays_history_then_closes_on_finished(
         )
         await bus.publish(TraceEvent(job_id="j1", sequence=3, kind="finished"))
 
-    asyncio.get_event_loop().run_until_complete(seed())
+    asyncio.run(seed())
 
     client = TestClient(app_under_test)
     with client.websocket_connect("/ws/jobs/j1/trace") as ws:

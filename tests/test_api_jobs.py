@@ -26,10 +26,10 @@ HTTP_TOO_MANY_REQUESTS = 429
 
 
 @pytest.fixture
-def app_under_test(tmp_path: Path) -> FastAPI:
+def app_under_test(tmp_path: Path, db_url: str) -> FastAPI:
     settings = Settings(
         miromind_api_key="sk_test",
-        db_url=None,
+        db_url=db_url,
         storage_root=str(tmp_path / "uploads"),
     )
     return create_app(settings=settings)

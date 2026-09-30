@@ -70,3 +70,6 @@ local.db
 local-auth.db*
 .vercel
 .env*
+
+# Local database (argus serve default)
+/argus.db

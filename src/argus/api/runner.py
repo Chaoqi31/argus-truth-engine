@@ -97,16 +97,15 @@ class JobRunner:
         )
         await self._reserve(record)
         await self.state.storage.put(key, pdf_bytes, content_type="application/pdf")
-        if self.state.repo is not None:
-            await self.state.repo.save_job(
-                Job(
-                    id=job_id,
-                    pdf_path=str(self.state.storage.path_for(key)),
-                    input_mode="pdf",
-                    content_domain=content_domain,
-                ),
-                owner_user_id=owner_user_id,
-            )
+        await self.state.repo.save_job(
+            Job(
+                id=job_id,
+                pdf_path=str(self.state.storage.path_for(key)),
+                input_mode="pdf",
+                content_domain=content_domain,
+            ),
+            owner_user_id=owner_user_id,
+        )
 
         llm = self._llm(api_key_override, miromind_model)
 
@@ -149,17 +148,16 @@ class JobRunner:
         record = JobRecord(job_id=job_id, status="running", owner_user_id=owner_user_id)
         await self._reserve(record)
         await self.state.storage.put(key, text.encode(), content_type="text/plain")
-        if self.state.repo is not None:
-            await self.state.repo.save_job(
-                Job(
-                    id=job_id,
-                    input_text=text,
-                    input_mode="text",
-                    content_domain=content_domain,
-                    auto_review=auto_review,
-                ),
-                owner_user_id=owner_user_id,
-            )
+        await self.state.repo.save_job(
+            Job(
+                id=job_id,
+                input_text=text,
+                input_mode="text",
+                content_domain=content_domain,
+                auto_review=auto_review,
+            ),
+            owner_user_id=owner_user_id,
+        )
 
         llm = self._llm(api_key_override, miromind_model)
 
@@ -200,9 +198,6 @@ class JobRunner:
         """Verify the claims a reviewer kept on a job awaiting review. Returns
         the job id, or None when no such job is awaiting review."""
         repo = self.state.repo
-        if repo is None:
-            return None
-
         record = self.records.get(job_id)
         if record is None:
             job = await repo.get_job(job_id)

@@ -22,7 +22,7 @@ async def get_job_for_api(
     job_id: str,
     *,
     runner: JobRunner,
-    repo: JobRepository | None,
+    repo: JobRepository,
 ) -> Job | RunningJobSnapshot | None:
     """Resolve a job for GET /jobs/{id}.
 
@@ -36,6 +36,4 @@ async def get_job_for_api(
             return record.result
         return RunningJobSnapshot(job_id=record.job_id, status=record.status, error=record.error)
 
-    if repo is not None:
-        return await repo.get_job(job_id)
-    return None
+    return await repo.get_job(job_id)

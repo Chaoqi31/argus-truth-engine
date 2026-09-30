@@ -11,7 +11,6 @@ from httpx import ASGITransport, AsyncClient
 from argus.api.app import create_app
 from argus.api.auth import AuthUser
 from argus.config import Settings
-from argus.db.models import Base
 from argus.llm import Transports
 from argus.models.domain import Job
 from tests.golden import fake_llm_server
@@ -27,21 +26,18 @@ class FakeVerifier:
 
 
 @pytest.fixture
-async def auth_app(tmp_path: Path) -> FastAPI:
+def auth_app(tmp_path: Path, db_url: str) -> FastAPI:
     app = create_app(
         settings=Settings(
             auth_required=True,
             supabase_url="https://project.supabase.co",
             api_key_encryption_secret="test-secret",
             miromind_api_key="sk_server",
-            db_url=f"sqlite+aiosqlite:///{tmp_path / 'auth.db'}",
+            db_url=db_url,
             storage_root=str(tmp_path / "uploads"),
         )
     )
     app.state.argus.auth_verifier = FakeVerifier()
-    assert app.state.argus.db_engine is not None
-    async with app.state.argus.db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     return app
 
 
@@ -87,22 +83,19 @@ async def test_job_history_lists_only_current_user(auth_app: FastAPI) -> None:
     assert [item["id"] for item in resp.json()["jobs"]] == ["job_a"]
 
 
-async def test_self_hosted_history_lists_local_jobs_without_login(tmp_path: Path) -> None:
+async def test_self_hosted_history_lists_local_jobs_without_login(
+    tmp_path: Path, db_url: str
+) -> None:
     app = create_app(
         settings=Settings(
             auth_required=False,
             self_hosted=True,
             miromind_api_key="sk_server",
-            db_url=f"sqlite+aiosqlite:///{tmp_path / 'selfhost.db'}",
+            db_url=db_url,
             storage_root=str(tmp_path / "uploads"),
         )
     )
-    assert app.state.argus.db_engine is not None
-    async with app.state.argus.db_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
     repo = app.state.argus.repo
-    assert repo is not None
     await repo.save_job(Job(id="job_local", status="done", input_mode="text"))
     await repo.save_job(
         Job(id="job_owned", status="done", input_mode="text"),

@@ -14,11 +14,9 @@ from typing import Any
 
 import httpx
 import websockets
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from argus.api.app import create_app
 from argus.config import Settings
-from argus.db.models import Base
 from tests.fake_llm import PDF_C1, PDF_C2
 from tests.golden import assert_golden, fake_llm_server, serve, snapshot
 
@@ -26,20 +24,13 @@ FIXTURE_PDF = Path(__file__).parent / "fixtures" / "sample-report.pdf"
 KEY = {"X-Miromind-Key": "fake"}
 
 
-async def _create_schema(db_url: str) -> None:
-    engine = create_async_engine(db_url)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await engine.dispose()
-
-
-def _settings(tmp_path: Path, llm_url: str) -> Settings:
+def _settings(tmp_path: Path, llm_url: str, db_url: str) -> Settings:
     return Settings(
         miromind_base_url=f"{llm_url}/v1",
         miromind_retry_base_delay_s=0.001,
         cheap_llm_api_key="fake",
         cheap_llm_base_url=llm_url,
-        db_url=f"sqlite+aiosqlite:///{tmp_path / 'argus.db'}",
+        db_url=db_url,
         storage_root=str(tmp_path / "uploads"),
         self_hosted=True,
         cache_enabled=False,
@@ -106,19 +97,19 @@ async def _audit_with_review(host: str) -> tuple[str, list[dict[str, Any]], dict
     return job_id, await _read_trace(host, job_id, until="finished"), job
 
 
-async def test_pdf_audit_with_claim_review_matches_golden(tmp_path: Path) -> None:
+async def test_pdf_audit_with_claim_review_matches_golden(tmp_path: Path, db_url: str) -> None:
     with fake_llm_server() as (llm_url, fake):
-        settings = _settings(tmp_path, llm_url)
-        await _create_schema(settings.db_url or "")
+        settings = _settings(tmp_path, llm_url, db_url)
         with serve(create_app(settings=settings)) as host:
             _, events, job = await _audit_with_review(host)
     assert_golden("api_pdf_review", snapshot(job, events, fake))
 
 
-async def test_finished_audit_reads_back_identically_after_restart(tmp_path: Path) -> None:
+async def test_finished_audit_reads_back_identically_after_restart(
+    tmp_path: Path, db_url: str
+) -> None:
     with fake_llm_server() as (llm_url, _):
-        settings = _settings(tmp_path, llm_url)
-        await _create_schema(settings.db_url or "")
+        settings = _settings(tmp_path, llm_url, db_url)
         with serve(create_app(settings=settings)) as host:
             job_id, _, live = await _audit_with_review(host)
         with serve(create_app(settings=settings)) as host:

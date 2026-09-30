@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     trace_heartbeat_interval_s: float = 15.0
     miromind_retry_attempts: int = 3
     miromind_retry_base_delay_s: float = 1.0
-    db_url: str | None = None
+    db_url: str = "sqlite+aiosqlite:///./argus.db"
 
     # API server
     max_active_jobs: int = 2

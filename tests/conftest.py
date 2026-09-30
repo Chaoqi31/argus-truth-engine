@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from argus.db.models import Base
+from argus.db.session import upgrade_schema
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +26,14 @@ def _hermetic_api_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ARGUS_CHEAP_LLM_API_KEY", "")
     monkeypatch.setenv("ARGUS_AUTH_REQUIRED", "false")
     monkeypatch.setenv("ARGUS_DB_URL", "")
+
+
+@pytest.fixture
+def db_url(tmp_path: Path) -> str:
+    """A SQLite file with every migration applied, as `argus serve` leaves it."""
+    url = f"sqlite+aiosqlite:///{tmp_path / 'argus.db'}"
+    upgrade_schema(url)
+    return url
 
 
 @pytest_asyncio.fixture

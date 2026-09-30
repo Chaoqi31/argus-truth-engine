@@ -19,6 +19,7 @@ from argus.config import Settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
 from argus.llm import Transports
+from argus.log import log
 from argus.security.api_keys import ApiKeyCipher
 from argus.storage.local_fs import LocalFsStorage
 from argus.trace_bus.in_process import InProcessBus
@@ -26,12 +27,8 @@ from argus.trace_bus.in_process import InProcessBus
 
 def _build_state(settings: Settings) -> AppState:
     storage = LocalFsStorage(Path(settings.storage_root))
-
-    repo: JobRepository | None = None
-    engine = None
-    if settings.db_url:
-        engine = create_engine_from_url(settings.db_url)
-        repo = JobRepository(sessionmaker_from_engine(engine))
+    engine = create_engine_from_url(settings.db_url)
+    repo = JobRepository(sessionmaker_from_engine(engine))
 
     trace_bus = InProcessBus(
         max_history_events=settings.trace_history_max_events,
@@ -61,16 +58,13 @@ def create_app(*, settings: Settings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
-            if state.repo is not None:
-                n_failed = await state.repo.fail_interrupted_runs()
-                if n_failed:
-                    from argus.log import log
-                    log.info("startup.interrupted_runs_failed", count=n_failed)
+            n_failed = await state.repo.fail_interrupted_runs()
+            if n_failed:
+                log.info("startup.interrupted_runs_failed", count=n_failed)
             yield
         finally:
             await state.transports.aclose()
-            if state.db_engine is not None:
-                await state.db_engine.dispose()
+            await state.db_engine.dispose()
 
     app = FastAPI(
         title="Argus API",
