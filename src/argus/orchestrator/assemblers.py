@@ -13,12 +13,13 @@ from typing import Any
 
 from argus.agents.consistency import ConsistencyOutput
 from argus.agents.unified_verifier import UnifiedVerifierOutput
-from argus.llm import Usage
 from argus.models.domain import (
+    Agent,
     Claim,
     ClaimCoverage,
     ComputationCheck,
     ComputationValue,
+    Engine,
     Evidence,
     EvidenceQuality,
     EvidenceSource,
@@ -27,6 +28,7 @@ from argus.models.domain import (
     ReasoningTrace,
     Severity,
     Step,
+    Usage,
     new_id,
 )
 from argus.orchestrator.context import _CONTEXT_WINDOW_CHARS
@@ -195,7 +197,7 @@ def _make_unified_finding(
     finding = Finding(
         id=new_id("f"),
         claim_id=claim.id,
-        agent="UnifiedVerifier",
+        agent=Agent.VERIFIER,
         verdict=verdict,
         severity=_UNIFIED_SEVERITY.get(verdict, Severity.MINOR),
         confidence=confidence,
@@ -223,7 +225,7 @@ def _contradictions_to_findings(*, parsed: ConsistencyOutput, trace_id: str) -> 
             Finding(
                 id=new_id("f"),
                 claim_id=pair.claim_a_id,
-                agent="Consistency",
+                agent=Agent.CONSISTENCY,
                 verdict=FindingVerdict.CONTRADICTION,
                 severity=pair.severity,
                 confidence=pair.confidence,
@@ -253,7 +255,7 @@ def _logical_flaws_to_findings(*, parsed: ConsistencyOutput, trace_id: str) -> l
             Finding(
                 id=new_id("f"),
                 claim_id=flaw.claim_id,
-                agent="Consistency",
+                agent=Agent.CONSISTENCY,
                 verdict=_LOGICAL_FLAW_VERDICT[flaw.type],
                 severity=flaw.severity,
                 confidence=flaw.confidence,
@@ -266,7 +268,12 @@ def _logical_flaws_to_findings(*, parsed: ConsistencyOutput, trace_id: str) -> l
 
 
 def _build_trace(
-    *, claim_id: str, agent: str, usage: Usage, steps: Sequence[Step]
+    *,
+    claim_id: str | None,
+    agent: Agent,
+    engine: Engine,
+    usage: Usage,
+    steps: Sequence[Step],
 ) -> ReasoningTrace:
     # Link steps into a sequential chain so the reasoning DAG renders connected
     # edges (the frontend only draws an edge when parent_step_id is set). Steps
@@ -282,14 +289,12 @@ def _build_trace(
 
     return ReasoningTrace(
         id=new_id("trace"),
-        claim_id=claim_id,
         agent=agent,
-        miromind_response_id=usage.response_ids[-1] if usage.response_ids else "n/a",
+        claim_id=claim_id,
+        engine=engine,
         started_at=datetime.utcnow(),
         completed_at=datetime.utcnow(),
-        total_tokens=usage.total_tokens,
-        reasoning_tokens=usage.reasoning_tokens,
-        num_search_queries=usage.num_search_queries,
+        usage=usage,
         steps=tuple(linked),
     )
 
@@ -299,9 +304,9 @@ def _step_payload(trace: ReasoningTrace, *, n_claims: int | None = None) -> dict
         "trace_id": trace.id,
         "agent": trace.agent,
         "claim_id": trace.claim_id,
-        "total_tokens": trace.total_tokens,
-        "reasoning_tokens": trace.reasoning_tokens,
-        "num_search_queries": trace.num_search_queries,
+        "total_tokens": trace.usage.total_tokens,
+        "reasoning_tokens": trace.usage.reasoning_tokens,
+        "num_search_queries": trace.usage.num_search_queries,
     }
     if n_claims is not None:
         payload["n_claims"] = n_claims

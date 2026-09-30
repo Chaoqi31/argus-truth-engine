@@ -30,7 +30,7 @@ const job: Job = makeJob({
     makeFinding({
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.96,
@@ -94,13 +94,17 @@ const job: Job = makeJob({
     {
       id: "t1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
-      miromind_response_id: "r1",
+      agent: "verifier",
+      engine: "miromind",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: null,
-      total_tokens: 100,
-      reasoning_tokens: 50,
-      num_search_queries: 1,
+      usage: {
+        response_ids: ["r1"],
+        total_tokens: 100,
+        reasoning_tokens: 50,
+        num_search_queries: 1,
+        cost_usd: 0,
+      },
       steps: [
         {
           id: "s0",
@@ -236,7 +240,7 @@ describe("EvidenceTab", () => {
         makeFinding({
           id: "f2",
           claim_id: "c2",
-          agent: "Consistency",
+          agent: "consistency",
           verdict: "unsupported-inference",
           severity: "major",
           confidence: 0.95,
@@ -251,14 +255,18 @@ describe("EvidenceTab", () => {
         ...job.traces,
         {
           id: "t2",
-          claim_id: "c2",
-          agent: "Consistency",
-          miromind_response_id: "deepseek:consistency",
+          claim_id: null,
+          agent: "consistency",
+          engine: "deepseek",
           started_at: "2026-05-20T00:00:00Z",
           completed_at: null,
-          total_tokens: 40,
-          reasoning_tokens: 0,
-          num_search_queries: 0,
+          usage: {
+            response_ids: ["chatcmpl_consistency"],
+            total_tokens: 40,
+            reasoning_tokens: 0,
+            num_search_queries: 0,
+            cost_usd: 0,
+          },
           steps: [
             {
               id: "s2",

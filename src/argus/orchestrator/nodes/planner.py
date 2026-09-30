@@ -8,7 +8,7 @@ from argus.agents.planner import PLAN_PDF, PLAN_TEXT, build_planner_input
 from argus.engineering import BudgetExceeded
 from argus.llm import Failed
 from argus.log import log
-from argus.models.domain import Failure, FailureKind, Stage
+from argus.models.domain import Agent, Failure, FailureKind, Stage
 from argus.orchestrator.assemblers import _build_trace, _step_payload
 from argus.orchestrator.context import _Ctx, _State
 
@@ -46,8 +46,9 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
 
         claims = answer.output.to_claims()
         trace = _build_trace(
-            claim_id="(planner)",
-            agent="planner",
+            claim_id=None,
+            agent=Agent.PLANNER,
+            engine=answer.engine,
             usage=answer.usage,
             steps=answer.steps,
         )

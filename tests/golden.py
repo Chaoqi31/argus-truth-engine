@@ -117,13 +117,19 @@ def _ids_for(job: dict[str, Any]) -> _Ids:
     ids.assign(job["id"], "JOB")
     traces = sorted(
         job["traces"],
-        key=lambda t: (t["agent"], t["claim_id"], t["miromind_response_id"], len(t["steps"])),
+        key=lambda t: (
+            t["agent"],
+            t["claim_id"] or "",
+            t["usage"]["response_ids"],
+            len(t["steps"]),
+        ),
     )
     for trace in traces:
-        name = f"trace:{trace['agent']}:{trace['claim_id']}"
+        name = f"trace:{trace['agent']}:{trace['claim_id'] or '-'}"
         ids.assign(trace["id"], name)
         trace_name = ids.names[trace["id"]]
-        ids.assign(trace["miromind_response_id"], f"{trace_name}/response")
+        for response_id in trace["usage"]["response_ids"]:
+            ids.assign(response_id, f"{trace_name}/response")
         steps = sorted(trace["steps"], key=lambda s: s["sequence"])
         for i, step in enumerate(steps):
             ids.assign(step["id"], f"{trace_name}/step{i}")
@@ -171,7 +177,7 @@ def canonical_events(events: list[dict[str, Any]], ids: _Ids) -> dict[str, list[
         if kind == "stage":
             bucket = f"stage:{payload['key']}"
         elif "claim_id" in payload:
-            bucket = f"claim:{payload['claim_id']}:{payload.get('agent', '-')}"
+            bucket = f"claim:{payload['claim_id'] or '-'}:{payload.get('agent', '-')}"
         else:
             bucket = "global"
         step = payload.get("step")

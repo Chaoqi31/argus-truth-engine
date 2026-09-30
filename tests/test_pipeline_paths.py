@@ -53,7 +53,7 @@ async def _audit(
 
 def _verifier_finding(job: Job, claim_text: str) -> Finding:
     claim_id = next(c.id for c in job.claims if c.text == claim_text)
-    return next(f for f in job.findings if f.agent == "UnifiedVerifier" and f.claim_id == claim_id)
+    return next(f for f in job.findings if f.agent == "verifier" and f.claim_id == claim_id)
 
 
 async def test_a_stalled_verifier_times_out_into_an_uncertain_finding(tmp_path: Path) -> None:
@@ -88,7 +88,7 @@ async def test_the_budget_stops_verification_and_keeps_what_finished(tmp_path: P
 
     assert job.status == "failed"
     assert 1 <= job.claims_audited < job.claims_total
-    verified = [f for f in job.findings if f.agent == "UnifiedVerifier"]
+    verified = [f for f in job.findings if f.agent == "verifier"]
     assert all(f.confidence_breakdown is not None for f in verified)
     assert (job.audit_report_md, llm_calls(fake).get("chat:reporter")) == (None, None)
     kind, payload = events[-1]

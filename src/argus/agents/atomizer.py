@@ -9,7 +9,7 @@ import json
 from pydantic import BaseModel, Field
 
 from argus.llm import Route, Task
-from argus.models.domain import Claim, ClaimType
+from argus.models.domain import Agent, Claim, ClaimType
 
 SYSTEM_PROMPT = """\
 You are a claim decomposition specialist. Your task is to break compound
@@ -63,7 +63,7 @@ _TYPE_MAP: dict[str, ClaimType] = {
 
 
 ATOMIZE = Task(
-    agent="atomizer",
+    agent=Agent.ATOMIZER,
     route=Route.DEEPSEEK_ONLY,
     instructions=SYSTEM_PROMPT,
     output=AtomOutput,

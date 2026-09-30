@@ -13,6 +13,7 @@ from argus.engineering import BudgetExceeded
 from argus.llm import Failed, FailureReason
 from argus.log import log
 from argus.models.domain import (
+    Agent,
     Claim,
     Failure,
     FailureKind,
@@ -49,14 +50,14 @@ def _drop_redundant_logical_findings(
     covered_claim_ids = {
         f.claim_id
         for f in existing
-        if f.agent == "UnifiedVerifier"
+        if f.agent == Agent.VERIFIER
         and f.verdict not in {FindingVerdict.OK, FindingVerdict.UNCERTAIN}
     }
     return [
         f
         for f in logical_findings
         if not (
-            f.agent == "Consistency"
+            f.agent == Agent.CONSISTENCY
             and f.verdict in _REDUNDANT_LOGICAL_VERDICTS
             and f.claim_id in covered_claim_ids
             and not f.evidence_ids
@@ -108,8 +109,9 @@ async def check_consistency_of(ctx: _Ctx, claims: list[Claim]) -> ConsistencyChe
         log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
         return ConsistencyCheck(failure=Failure(kind=FailureKind.BUDGET, message=str(exc)))
     trace = _build_trace(
-        claim_id="(consistency)",
-        agent="Consistency",
+        claim_id=None,
+        agent=Agent.CONSISTENCY,
+        engine=answer.engine,
         usage=answer.usage,
         steps=answer.steps,
     )

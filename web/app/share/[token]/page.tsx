@@ -105,8 +105,8 @@ function SharedAudit({ job }: { job: Job }) {
         </div>
         <dl className="mt-5 grid gap-3 sm:grid-cols-3">
           <Stat label="Findings" value={findings.length} />
-          <Stat label="Claims audited" value={job.claims_audited ?? 0} />
-          <Stat label="Claims total" value={job.claims_total ?? 0} />
+          <Stat label="Claims audited" value={job.claims_audited} />
+          <Stat label="Claims total" value={job.claims_total} />
         </dl>
       </section>
 

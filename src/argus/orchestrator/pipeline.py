@@ -21,7 +21,7 @@ from argus.config import Settings
 from argus.engineering import BoundedRunner, BudgetTracker
 from argus.llm import Llm
 from argus.log import log
-from argus.models.domain import Failure, FailureKind, Job, Stage
+from argus.models.domain import Agent, Failure, FailureKind, FindingFlag, Job, Stage, StageKey
 from argus.orchestrator.context import _Ctx, _Publisher, _State
 from argus.orchestrator.nodes.atomizer import _atomizer_node
 from argus.orchestrator.nodes.checkworthiness import _checkworthiness_node
@@ -34,19 +34,6 @@ from argus.orchestrator.nodes.review_gate import _review_gate_node
 from argus.orchestrator.nodes.skeptic import _skeptic_node
 from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
 from argus.trace_bus.base import TraceBus
-
-_STAGE_ORDER = (
-    "parse",
-    "planner",
-    "atomizer",
-    "checkworthiness",
-    "review_gate",
-    "verify",
-    "skeptic",
-    "consistency",
-    "confidence",
-    "reporter",
-)
 
 
 def _build_ctx(
@@ -67,7 +54,8 @@ def _build_ctx(
         ),
     }
     publisher = _Publisher(job_id=job.id, bus=trace_bus)
-    budget = BudgetTracker(max_usd=budget_usd)
+    # The cap covers the whole job: a resumed job carries its extraction spend.
+    budget = BudgetTracker(max_usd=budget_usd, spent_usd=job.cost_usd)
 
     cache = None
     if settings.cache_enabled and repo is not None:
@@ -105,7 +93,8 @@ def _merge(state: _State, update: dict[str, Any]) -> _State:
 
 
 def _ordered(stages: list[Stage]) -> list[Stage]:
-    return sorted(stages, key=lambda s: _STAGE_ORDER.index(s.key))
+    order = list(StageKey)
+    return sorted(stages, key=lambda s: order.index(s.key))
 
 
 async def _extract(ctx: _Ctx, state: _State, *, auto_review: bool) -> _State:
@@ -264,13 +253,7 @@ async def _finalize(
     job.traces = list(final_state.get("traces", {}).values())
     job.evidences = list(final_state.get("evidences", []))
     job.audit_report_md = final_state.get("audit_report_md")
-    # Audit coverage: total claims sent to Phase B vs. how many got a verdict.
-    # On a budget abort these diverge, signalling partial coverage downstream.
-    job.claims_total = len(job.claims)
-    job.claims_audited = sum(1 for f in job.findings if f.agent == "UnifiedVerifier")
     job.stages = _ordered(final_state.get("stages", []))
-    job.cost_usd = round(ctx.budget.spent_usd, 6)
-    job.total_tokens = sum(t.total_tokens for t in job.traces)
     if raised_exc is not None:
         job.failure = Failure(
             kind=FailureKind.ERROR,
@@ -301,7 +284,7 @@ async def _finalize(
     terminal_kind = "failed" if job.status == "failed" else "finished"
     timeout_findings = [
         f for f in job.findings
-        if f.agent == "UnifiedVerifier" and "verifier timed out" in f.flags
+        if f.agent == Agent.VERIFIER and FindingFlag.VERIFIER_TIMED_OUT in f.flags
     ]
     terminal_payload: dict[str, Any] = {
         "status": job.status,
@@ -333,7 +316,6 @@ async def _persist_awaiting_review(
     extraction stages. completed_at stays None.
     """
     job.claims = list(state.get("claims", []))
-    job.claims_total = len(job.claims)
     job.traces = list(state.get("traces", {}).values())
     job.stages = _ordered(state.get("stages", []))
     job.status = "awaiting_review"

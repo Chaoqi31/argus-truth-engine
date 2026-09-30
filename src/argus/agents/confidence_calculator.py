@@ -14,7 +14,14 @@ import re
 from datetime import datetime
 from urllib.parse import urlparse
 
-from argus.models.domain import ConfidenceBreakdown, Evidence, Finding, FindingVerdict
+from argus.models.domain import (
+    Agent,
+    ConfidenceBreakdown,
+    Evidence,
+    Finding,
+    FindingFlag,
+    FindingVerdict,
+)
 
 # --- Domain authority scoring -----------------------------------------------
 
@@ -200,7 +207,9 @@ def count_distinct_sources(finding: Finding, evidences: list[Evidence]) -> int:
     return len(domains) + urlless
 
 
-def evaluate_sourcing(finding: Finding, source_count: int) -> tuple[float | None, str | None]:
+def evaluate_sourcing(
+    finding: Finding, source_count: int
+) -> tuple[float | None, FindingFlag | None]:
     """Soft ≥2-source enforcement → (confidence_cap, flag).
 
     We do NOT discard or downgrade the verdict (MiroThinker under-logs sources,
@@ -208,12 +217,12 @@ def evaluate_sourcing(finding: Finding, source_count: int) -> tuple[float | None
     headline confidence and attach a user-facing caveat. Only applies to
     web-verification findings; UNCERTAIN findings are already non-committal.
     """
-    if finding.agent != "UnifiedVerifier" or finding.verdict == FindingVerdict.UNCERTAIN:
+    if finding.agent != Agent.VERIFIER or finding.verdict == FindingVerdict.UNCERTAIN:
         return None, None
     if source_count < 2:
-        return 0.6, "single source — verify manually"
+        return 0.6, FindingFlag.SINGLE_SOURCE
     if finding.verdict in _NEGATIVE_VERDICTS and source_count < 3:
-        return 0.75, "under-sourced — verify manually"
+        return 0.75, FindingFlag.UNDER_SOURCED
     return None, None
 
 

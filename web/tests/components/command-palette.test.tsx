@@ -32,7 +32,7 @@ const job: Job = makeJob({
     makeFinding({
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.94,

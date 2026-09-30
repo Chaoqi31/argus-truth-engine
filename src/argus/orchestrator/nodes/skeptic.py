@@ -12,11 +12,13 @@ from argus.engineering import BudgetExceeded, make_idempotency_key
 from argus.llm import Answer, Failed
 from argus.log import log
 from argus.models.domain import (
+    Agent,
     Claim,
     Evidence,
     Failure,
     FailureKind,
     Finding,
+    FindingFlag,
     FindingVerdict,
     ReasoningTrace,
     Severity,
@@ -78,7 +80,7 @@ def _to_domain_review(parsed: SkepticOutput) -> SkepticReview:
 def _apply_skeptic_effect(finding: Finding, review: SkepticReview) -> Finding:
     if review.status != "counterevidence_found":
         return finding.model_copy(update={"skeptic_review": review})
-    flag = "skeptic counterevidence found"
+    flag = FindingFlag.SKEPTIC_COUNTEREVIDENCE
     return finding.model_copy(
         update={
             "skeptic_review": review,
@@ -123,7 +125,7 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
 
         findings = [
             f for f in state.get("findings", {}).values()
-            if f.agent == "UnifiedVerifier"
+            if f.agent == Agent.VERIFIER
             and f.verdict in _HIGH_RISK_VERDICTS
             and f.confidence < ctx.settings.skeptic_confidence_threshold
             and f.skeptic_review is None
@@ -148,7 +150,7 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                         evidence_brief=_evidence_brief(finding, evidences),
                         coverage_brief=_coverage_brief(finding),
                     ),
-                    idempotency_key=make_idempotency_key(ctx.job_id, "Skeptic", finding.id),
+                    idempotency_key=make_idempotency_key(ctx.job_id, Agent.SKEPTIC, finding.id),
                 )
 
         candidates = [
@@ -179,7 +181,8 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
 
             trace = _build_trace(
                 claim_id=finding.claim_id,
-                agent="Skeptic",
+                agent=Agent.SKEPTIC,
+                engine=answer.engine,
                 usage=answer.usage,
                 steps=answer.steps,
             )

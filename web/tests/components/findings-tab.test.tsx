@@ -40,7 +40,7 @@ const job: Job = makeJob({
     makeFinding({
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.96,
@@ -53,7 +53,7 @@ const job: Job = makeJob({
     makeFinding({
       id: "f2",
       claim_id: "c2",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "ok",
       severity: "minor",
       confidence: 0.85,
@@ -123,7 +123,7 @@ describe("FindingsTab", () => {
         makeFinding({
           id: "f_derived",
           claim_id: "c2",
-          agent: "Consistency",
+          agent: "consistency",
           verdict: "contradiction",
           severity: "major",
           confidence: 1,

@@ -112,7 +112,7 @@ export function useAuditRun(liveId: string | null, auth: AuthSlice) {
               `Extracted ${typeof n === "number" ? n : "?"} candidate claim(s)`,
               ev.sequence,
             );
-          } else if (agent === "Consistency") {
+          } else if (agent === "consistency") {
             enqueueStage(
               "consistency",
               "Consistency",
@@ -120,7 +120,7 @@ export function useAuditRun(liveId: string | null, auth: AuthSlice) {
               "Cross-checked the claims for internal contradictions",
               ev.sequence,
             );
-          } else if (agent === "Reporter") {
+          } else if (agent === "reporter") {
             enqueueStage("reporter", "Reporter", "deepseek", "Synthesised the audit report", ev.sequence);
           } else {
             const step = stepFromPayload(ev.payload);

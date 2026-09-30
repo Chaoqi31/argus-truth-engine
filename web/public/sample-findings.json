@@ -6,55 +6,12 @@
   "input_text": "NVIDIA Corporation (NVDA) — AI-generated equity research summary.\n\nOverview. NVIDIA remains the defining franchise of the accelerated-computing era, and in our view its competitive moat is widening rather than narrowing. We believe the market still underappreciates the durability of its data-center demand.\n\nNVIDIA was founded in 1993, and its CUDA software platform was first released in 2007 — together giving the company a developer ecosystem we consider its single greatest asset.\n\nNVIDIA reported $130.5 billion in total revenue for fiscal year 2025, up 114% year over year. Its data-center segment alone generated $148 billion in revenue over the same fiscal year.\n\nNVIDIA's most advanced GPU architecture currently in production is Hopper.\n\nAccording to a February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout,\" cumulative global spending on AI infrastructure will exceed $5 trillion by 2030. We view this as ambitious but directionally sound.\n",
   "input_mode": "text",
   "content_domain": "finance",
-  "benchmark": {
-    "name": "NVIDIA planted-error benchmark",
-    "expected_claims": [
-      {
-        "claim_id": "a_1",
-        "verdict": "ok",
-        "rationale": "Control claim: NVIDIA's founding year is accurate."
-      },
-      {
-        "claim_id": "a_2",
-        "verdict": "ok",
-        "rationale": "Control claim: CUDA's 2007 initial release is accurate."
-      },
-      {
-        "claim_id": "a_3",
-        "verdict": "ok",
-        "rationale": "Control claim: FY2025 total revenue of $130.5B is accurate."
-      },
-      {
-        "claim_id": "a_4",
-        "verdict": "ok",
-        "rationale": "Control claim: FY2025 revenue grew 114% year over year."
-      },
-      {
-        "claim_id": "a_5",
-        "verdict": "inaccurate",
-        "rationale": "Planted numeric error: data-center revenue was not $148B."
-      },
-      {
-        "claim_id": "a_6",
-        "verdict": "inaccurate",
-        "rationale": "Planted stale architecture claim: Blackwell supersedes Hopper."
-      },
-      {
-        "claim_id": "a_7",
-        "verdict": "fabricated",
-        "rationale": "Planted fake citation: the named Goldman Sachs report does not exist."
-      }
-    ]
-  },
   "auto_review": true,
   "status": "done",
+  "failure": null,
   "created_at": "2026-06-01T10:23:31.719293",
   "completed_at": "2026-06-01T10:41:49.020634",
-  "cost_usd": 20.54524,
-  "total_tokens": 6383426,
   "audit_report_md": "**Critical revenue contradiction**: Claim a_3 states total FY2025 revenue as $130.5B, but claim a_5 says data-center revenue alone was $148B, which is impossible. The correct data-center revenue is ~$115.2B. Additionally, claim a_6 incorrectly identifies Hopper as the most advanced GPU architecture; Blackwell is now in production. Claim a_7 is fabricated: no Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout\" exists; the relevant GS analysis is \"Tracking Trillions\" estimating ~$7.6T in AI capex (2026-2031). On the positive side, claims about NVIDIA's founding (1993), CUDA release (2007), total revenue ($130.5B), and 114% YoY growth are verified as accurate.",
-  "claims_total": 7,
-  "claims_audited": 7,
   "claims": [
     {
       "id": "a_1",
@@ -67,7 +24,8 @@
       "type": "time-sensitive",
       "importance": "high",
       "extracted_metadata": {},
-      "parent_claim_id": "c1"
+      "parent_claim_id": "c1",
+      "context": ""
     },
     {
       "id": "a_2",
@@ -80,7 +38,8 @@
       "type": "time-sensitive",
       "importance": "high",
       "extracted_metadata": {},
-      "parent_claim_id": "c2"
+      "parent_claim_id": "c2",
+      "context": ""
     },
     {
       "id": "a_3",
@@ -93,7 +52,8 @@
       "type": "numerical-data",
       "importance": "high",
       "extracted_metadata": {},
-      "parent_claim_id": "c3"
+      "parent_claim_id": "c3",
+      "context": ""
     },
     {
       "id": "a_4",
@@ -106,7 +66,8 @@
       "type": "numerical-data",
       "importance": "high",
       "extracted_metadata": {},
-      "parent_claim_id": "c4"
+      "parent_claim_id": "c4",
+      "context": ""
     },
     {
       "id": "a_5",
@@ -119,7 +80,8 @@
       "type": "numerical-data",
       "importance": "high",
       "extracted_metadata": {},
-      "parent_claim_id": "c5"
+      "parent_claim_id": "c5",
+      "context": ""
     },
     {
       "id": "a_6",
@@ -132,7 +94,8 @@
       "type": "time-sensitive",
       "importance": "high",
       "extracted_metadata": {},
-      "parent_claim_id": "c6"
+      "parent_claim_id": "c6",
+      "context": ""
     },
     {
       "id": "a_7",
@@ -152,14 +115,15 @@
         "title": "Silicon Supercycle: The $5 Trillion AI Buildout",
         "doi": null
       },
-      "parent_claim_id": "c7"
+      "parent_claim_id": "c7",
+      "context": ""
     }
   ],
   "findings": [
     {
       "id": "f_a1bdf208937a",
       "claim_id": "a_3",
-      "agent": "Consistency",
+      "agent": "consistency",
       "verdict": "contradiction",
       "severity": "major",
       "confidence": 1.0,
@@ -168,6 +132,10 @@
       "why_wrong": null,
       "correct_information": null,
       "reasoning_chain": [],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [],
       "reasoning_trace_id": "trace_06786c247632",
       "created_at": "2026-06-01T10:23:42.284760",
@@ -177,7 +145,7 @@
     {
       "id": "f_a971c6954bb2",
       "claim_id": "a_6",
-      "agent": "Consistency",
+      "agent": "consistency",
       "verdict": "overreach",
       "severity": "major",
       "confidence": 0.9,
@@ -186,6 +154,10 @@
       "why_wrong": "A citation to an official NVIDIA announcement, a reputable tech publication, or a product specification sheet confirming that Hopper is indeed the most advanced architecture currently in production.",
       "correct_information": null,
       "reasoning_chain": [],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [],
       "reasoning_trace_id": "trace_06786c247632",
       "created_at": "2026-06-01T10:23:42.284781",
@@ -195,7 +167,7 @@
     {
       "id": "f_b3f85a7fe147",
       "claim_id": "a_1",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "ok",
       "severity": "minor",
       "confidence": 0.98,
@@ -220,6 +192,10 @@
           "reasoning": "Regulatory filings provide up-to-date, legally attested corporate history, reinforcing that 1993 remains the correct founding year and that the claim is current, not outdated."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_73b24ef7d5ee",
         "ev_0552a545bc05",
@@ -233,7 +209,7 @@
     {
       "id": "f_90b9724057e0",
       "claim_id": "a_2",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "ok",
       "severity": "minor",
       "confidence": 0.98,
@@ -253,6 +229,10 @@
           "reasoning": "This primary source independently confirms that CUDA’s first public release occurred in February 2007, reinforcing the accuracy of the claim."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_5a6416a0841d",
         "ev_95f956d59551"
@@ -265,7 +245,7 @@
     {
       "id": "f_16661c8a9fdf",
       "claim_id": "a_3",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "ok",
       "severity": "minor",
       "confidence": 0.98,
@@ -290,6 +270,10 @@
           "reasoning": "Independent alignment with the company filing and press release further validates that the claimed figure is correct."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_6eccd731bab0",
         "ev_57651c8d2a66",
@@ -303,7 +287,7 @@
     {
       "id": "f_5802039e8cb7",
       "claim_id": "a_4",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "ok",
       "severity": "minor",
       "confidence": 0.99,
@@ -323,6 +307,10 @@
           "reasoning": "Direct confirmation from NVIDIA’s own filings and press materials validates that the stated 114% year-over-year increase on \\$130.5 billion in revenue is correct, supporting a high-confidence 'ok' verdict."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_ceb3053c9922",
         "ev_3a5e850a5aea",
@@ -337,7 +325,7 @@
     {
       "id": "f_246702de80aa",
       "claim_id": "a_5",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "inaccurate",
       "severity": "critical",
       "confidence": 0.99,
@@ -362,6 +350,10 @@
           "reasoning": "Independent confirmation from the legally binding SEC filing, matching the annual report, shows consistent data that contradicts the $148 billion claim, supporting a verdict of 'inaccurate' with high confidence."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_ed8f2c0e4ee2",
         "ev_4fc8751b1b96",
@@ -375,7 +367,7 @@
     {
       "id": "f_8e57fe25b8c8",
       "claim_id": "a_6",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "inaccurate",
       "severity": "critical",
       "confidence": 0.96,
@@ -400,6 +392,10 @@
           "reasoning": "This confirms that Blackwell is not only announced but actively manufactured and deployed, making it the most advanced NVIDIA GPU architecture currently in production rather than Hopper."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_ab8c144ee114",
         "ev_a059ea3849f5",
@@ -414,7 +410,7 @@
     {
       "id": "f_6337b839529c",
       "claim_id": "a_7",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "fabricated",
       "severity": "critical",
       "confidence": 0.93,
@@ -432,7 +428,6 @@
         "url": "https://www.goldmansachs.com/insights/articles/tracking-trillions-the-assumptions-shaping-scale-of-the-ai-build-out",
         "retrieved_date": "2026-06-01"
       },
-      "skeptic_review": null,
       "reasoning_chain": [
         {
           "action": "Searched for the exact title \"Silicon Supercycle: The $5 Trillion AI Buildout\" along with \"Goldman Sachs\" and date filters around February 2026, including PDFs and site-restricted queries on goldmansachs.com and citation indexes.",
@@ -453,34 +448,6 @@
           "action": "Looked for independent sources that estimate \\$5 trillion in cumulative AI infrastructure spending by around 2030 to check whether the numeric projection itself exists elsewhere.",
           "observation": "An AI market intelligence report released in May 2026 states that 'cumulative AI infrastructure spending between 2025 and 2030 is estimated at \\$5 trillion,' and attributes this to its own modeling based on gigawatt power forecasts; McKinsey and others similarly project \\$5.2+ trillion in AI‑related data center capex by 2030, none of which are Goldman Sachs or use the 'Silicon Supercycle' title.",
           "reasoning": "This confirms that the \\$5 trillion cumulative‑by‑2030 estimate is present in the ecosystem but originates from other analytical firms, not from a February 2026 Goldman Sachs report with the claimed title, reinforcing that the claim’s attribution and report identity are fabricated even though the magnitude is within the range of industry forecasts."
-        }
-      ],
-      "coverage": [
-        {
-          "claim_fragment": "February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout\"",
-          "relation": "refutes",
-          "evidence_ids": [
-            "ev_af558565a351",
-            "ev_2210f9062eaf"
-          ],
-          "reason": "Goldman Sachs' own article and PDF identify the relevant report as \"Tracking Trillions\" and do not contain the claimed title or February 2026 attribution."
-        },
-        {
-          "claim_fragment": "Goldman Sachs attributed a $5 trillion AI infrastructure buildout to that report",
-          "relation": "refutes",
-          "evidence_ids": [
-            "ev_f347e04231c9",
-            "ev_a8a6d38018f3"
-          ],
-          "reason": "Commentary and Goldman wealth-management material discuss multitrillion AI infrastructure needs, but neither uses the claimed report title or supports the specific February 2026 citation."
-        },
-        {
-          "claim_fragment": "$5 trillion cumulative AI infrastructure spending by around 2030",
-          "relation": "partial_match",
-          "evidence_ids": [
-            "ev_392007a78d5c"
-          ],
-          "reason": "A non-Goldman 2026 intelligence report contains a similar $5 trillion estimate, showing the number exists in the discourse while the Goldman report attribution remains unsupported."
         }
       ],
       "evidence_quality": [
@@ -530,6 +497,36 @@
           "rationale": "Goldman-linked wealth-management material discusses infrastructure funding needs without supporting the claimed title or date."
         }
       ],
+      "coverage": [
+        {
+          "claim_fragment": "February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout\"",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_af558565a351",
+            "ev_2210f9062eaf"
+          ],
+          "reason": "Goldman Sachs' own article and PDF identify the relevant report as \"Tracking Trillions\" and do not contain the claimed title or February 2026 attribution."
+        },
+        {
+          "claim_fragment": "Goldman Sachs attributed a $5 trillion AI infrastructure buildout to that report",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_f347e04231c9",
+            "ev_a8a6d38018f3"
+          ],
+          "reason": "Commentary and Goldman wealth-management material discuss multitrillion AI infrastructure needs, but neither uses the claimed report title or supports the specific February 2026 citation."
+        },
+        {
+          "claim_fragment": "$5 trillion cumulative AI infrastructure spending by around 2030",
+          "relation": "partial_match",
+          "evidence_ids": [
+            "ev_392007a78d5c"
+          ],
+          "reason": "A non-Goldman 2026 intelligence report contains a similar $5 trillion estimate, showing the number exists in the discourse while the Goldman report attribution remains unsupported."
+        }
+      ],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_af558565a351",
         "ev_2210f9062eaf",
@@ -546,26 +543,38 @@
   "traces": [
     {
       "id": "trace_06786c247632",
-      "claim_id": "(consistency)",
-      "agent": "Consistency",
-      "miromind_response_id": "deepseek:consistency",
+      "agent": "consistency",
+      "claim_id": null,
+      "engine": "deepseek",
       "started_at": "2026-06-01T10:23:42.284718",
       "completed_at": "2026-06-01T10:23:42.284723",
-      "total_tokens": 0,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "deepseek:consistency"
+        ],
+        "total_tokens": 0,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.0
+      },
       "steps": []
     },
     {
       "id": "trace_f8c8bcc4d9d4",
+      "agent": "verifier",
       "claim_id": "a_1",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_f2d98ad8-9cd0-4158-af4a-e352cd6b05fe",
+      "engine": "miromind",
       "started_at": "2026-06-01T10:41:47.201508",
       "completed_at": "2026-06-01T10:41:47.201519",
-      "total_tokens": 124088,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_f2d98ad8-9cd0-4158-af4a-e352cd6b05fe"
+        ],
+        "total_tokens": 124088,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.399381
+      },
       "steps": [
         {
           "id": "step_e07f7c83c36c",
@@ -921,14 +930,20 @@
     },
     {
       "id": "trace_fa67e5e941e7",
+      "agent": "verifier",
       "claim_id": "a_2",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_f47dd7ea-42bf-4106-a81a-ed975a942f3d",
+      "engine": "miromind",
       "started_at": "2026-06-01T10:41:47.205720",
       "completed_at": "2026-06-01T10:41:47.205723",
-      "total_tokens": 96353,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_f47dd7ea-42bf-4106-a81a-ed975a942f3d"
+        ],
+        "total_tokens": 96353,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.310115
+      },
       "steps": [
         {
           "id": "step_f122ef02c92a",
@@ -1161,14 +1176,20 @@
     },
     {
       "id": "trace_4edb57586480",
+      "agent": "verifier",
       "claim_id": "a_3",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_7019cd0c-6b46-4ed8-bd0e-8a9c2bb67926",
+      "engine": "miromind",
       "started_at": "2026-06-01T10:41:47.206073",
       "completed_at": "2026-06-01T10:41:47.206075",
-      "total_tokens": 114230,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_7019cd0c-6b46-4ed8-bd0e-8a9c2bb67926"
+        ],
+        "total_tokens": 114230,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.367653
+      },
       "steps": [
         {
           "id": "step_d6c57e52628b",
@@ -1425,14 +1446,20 @@
     },
     {
       "id": "trace_24fd00979c94",
+      "agent": "verifier",
       "claim_id": "a_4",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_bfb02612-0635-4025-9a28-efc60ccc2dd2",
+      "engine": "miromind",
       "started_at": "2026-06-01T10:41:47.206258",
       "completed_at": "2026-06-01T10:41:47.206259",
-      "total_tokens": 69266,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_bfb02612-0635-4025-9a28-efc60ccc2dd2"
+        ],
+        "total_tokens": 69266,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.222935
+      },
       "steps": [
         {
           "id": "step_c0f69a4dd5c4",
@@ -1636,14 +1663,20 @@
     },
     {
       "id": "trace_0cb94936c134",
+      "agent": "verifier",
       "claim_id": "a_5",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_eaa6e44a-7164-4da8-91e7-26f8a9cc45ff",
+      "engine": "miromind",
       "started_at": "2026-06-01T10:41:47.206676",
       "completed_at": "2026-06-01T10:41:47.206678",
-      "total_tokens": 84244,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_eaa6e44a-7164-4da8-91e7-26f8a9cc45ff"
+        ],
+        "total_tokens": 84244,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.271142
+      },
       "steps": [
         {
           "id": "step_293fc5fedc74",
@@ -1864,14 +1897,20 @@
     },
     {
       "id": "trace_743202eba012",
+      "agent": "verifier",
       "claim_id": "a_6",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_dd235ed0-55b7-4a2f-aaa9-aff69112831c",
+      "engine": "miromind",
       "started_at": "2026-06-01T10:41:47.207171",
       "completed_at": "2026-06-01T10:41:47.207173",
-      "total_tokens": 361248,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_dd235ed0-55b7-4a2f-aaa9-aff69112831c"
+        ],
+        "total_tokens": 361248,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 1.162687
+      },
       "steps": [
         {
           "id": "step_3b6d57ee8c17",
@@ -2498,14 +2537,20 @@
     },
     {
       "id": "trace_b167b56b570c",
+      "agent": "verifier",
       "claim_id": "a_7",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_a979e3c6-7ae8-4591-ada0-5b6d7039c1f5",
+      "engine": "miromind",
       "started_at": "2026-06-01T10:52:01.344301",
       "completed_at": "2026-06-01T10:52:01.344306",
-      "total_tokens": 5533997,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_a979e3c6-7ae8-4591-ada0-5b6d7039c1f5"
+        ],
+        "total_tokens": 5533997,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 17.811327
+      },
       "steps": [
         {
           "id": "step_26c7d7b4740c",
@@ -5409,5 +5454,48 @@
       "filtered_claims": []
     }
   ],
-  "failure": null
+  "benchmark": {
+    "name": "NVIDIA planted-error benchmark",
+    "expected_claims": [
+      {
+        "claim_id": "a_1",
+        "verdict": "ok",
+        "rationale": "Control claim: NVIDIA's founding year is accurate."
+      },
+      {
+        "claim_id": "a_2",
+        "verdict": "ok",
+        "rationale": "Control claim: CUDA's 2007 initial release is accurate."
+      },
+      {
+        "claim_id": "a_3",
+        "verdict": "ok",
+        "rationale": "Control claim: FY2025 total revenue of $130.5B is accurate."
+      },
+      {
+        "claim_id": "a_4",
+        "verdict": "ok",
+        "rationale": "Control claim: FY2025 revenue grew 114% year over year."
+      },
+      {
+        "claim_id": "a_5",
+        "verdict": "inaccurate",
+        "rationale": "Planted numeric error: data-center revenue was not $148B."
+      },
+      {
+        "claim_id": "a_6",
+        "verdict": "inaccurate",
+        "rationale": "Planted stale architecture claim: Blackwell supersedes Hopper."
+      },
+      {
+        "claim_id": "a_7",
+        "verdict": "fabricated",
+        "rationale": "Planted fake citation: the named Goldman Sachs report does not exist."
+      }
+    ]
+  },
+  "cost_usd": 20.54524,
+  "total_tokens": 6383426,
+  "claims_total": 7,
+  "claims_audited": 7
 }

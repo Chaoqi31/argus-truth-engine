@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from argus.llm import Route, Task
-from argus.models.domain import Claim, Severity
+from argus.models.domain import Agent, Claim, Severity
 
 SYSTEM_PROMPT = """\
 You are Argus's CONSISTENCY CHECKER. You audit the INTERNAL coherence of a
@@ -137,7 +137,7 @@ def build_consistency_input(claims: list[Claim]) -> str:
 
 
 CHECK_CONSISTENCY = Task(
-    agent="consistency",
+    agent=Agent.CONSISTENCY,
     route=Route.TEXT,
     instructions=SYSTEM_PROMPT,
     output=ConsistencyOutput,

@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from argus.llm import Route, Task
-from argus.models.domain import Claim, Finding
+from argus.models.domain import Agent, Claim, Finding
 
 SYSTEM_PROMPT = """\
 You are Argus's REPORTER. The verification agents have finished. Your job
@@ -79,7 +79,7 @@ def build_reporter_input(claims: list[Claim], findings: list[Finding]) -> str:
 
 
 REPORT = Task(
-    agent="reporter",
+    agent=Agent.REPORTER,
     route=Route.TEXT,
     instructions=SYSTEM_PROMPT,
     output=ReporterOutput,

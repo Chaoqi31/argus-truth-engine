@@ -25,7 +25,7 @@ const claim: Claim = makeClaim({
 const finding: Finding = makeFinding({
   id: "f_shute",
   claim_id: "c_shute",
-  agent: "UnifiedVerifier",
+  agent: "verifier",
   verdict: "inaccurate",
   severity: "critical",
   confidence: 0.99,

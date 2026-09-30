@@ -22,6 +22,7 @@ from argus.models.domain import (
     StageFilteredClaim,
     Step,
     StepType,
+    Usage,
     VerificationStep,
 )
 
@@ -36,10 +37,6 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
         input_mode="text" if text else "pdf",
         status=status,
         created_at=started,
-        cost_usd=0.42,
-        total_tokens=100,
-        claims_total=1,
-        claims_audited=1,
         audit_report_md="**1 issue** found.",
         claims=[
             Claim(
@@ -56,9 +53,10 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
             ReasoningTrace(
                 id="t1",
                 claim_id="c1",
-                agent="UnifiedVerifier",
-                miromind_response_id="resp_1",
+                agent="verifier",
+                engine="miromind",
                 started_at=started,
+                usage=Usage(response_ids=("resp_1",), total_tokens=100, cost_usd=0.42),
                 steps=[
                     Step(
                         id="s1",
@@ -86,7 +84,7 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
             Finding(
                 id="f1",
                 claim_id="c1",
-                agent="UnifiedVerifier",
+                agent="verifier",
                 verdict=FindingVerdict.FABRICATED,
                 severity=Severity.MAJOR,
                 confidence=0.9,

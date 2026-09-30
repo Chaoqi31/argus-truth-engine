@@ -1,52 +1,52 @@
 {
   "events": {
-    "claim:(consistency):Consistency": [
+    "claim:-:consistency": [
       {
         "kind": "step",
         "payload": {
-          "agent": "Consistency",
-          "claim_id": "(consistency)",
+          "agent": "consistency",
+          "claim_id": null,
           "num_search_queries": 0,
           "reasoning_tokens": 0,
           "total_tokens": 0,
-          "trace_id": "trace:Consistency:(consistency)"
+          "trace_id": "trace:consistency:-"
         }
       }
     ],
-    "claim:(planner):planner": [
+    "claim:-:planner": [
       {
         "kind": "step",
         "payload": {
           "agent": "planner",
-          "claim_id": "(planner)",
+          "claim_id": null,
           "n_claims": 7,
           "num_search_queries": 0,
           "reasoning_tokens": 0,
           "total_tokens": 0,
-          "trace_id": "trace:planner:(planner)"
+          "trace_id": "trace:planner:-"
         }
       }
     ],
-    "claim:(reporter):Reporter": [
+    "claim:-:reporter": [
       {
         "kind": "step",
         "payload": {
-          "agent": "Reporter",
-          "claim_id": "(reporter)",
+          "agent": "reporter",
+          "claim_id": null,
           "num_search_queries": 0,
           "reasoning_tokens": 0,
           "total_tokens": 0,
-          "trace_id": "trace:Reporter:(reporter)"
+          "trace_id": "trace:reporter:-"
         }
       }
     ],
-    "claim:a_1:Consistency": [
+    "claim:a_1:consistency": [
       {
         "kind": "finding",
         "payload": {
-          "agent": "Consistency",
+          "agent": "consistency",
           "claim_id": "a_1",
-          "finding_id": "finding:Consistency:a_1",
+          "finding_id": "finding:consistency:a_1",
           "severity": "minor",
           "summary": "The revenue figure is presented without its reporting basis.",
           "verdict": "unsupported-inference",
@@ -54,11 +54,11 @@
         }
       }
     ],
-    "claim:a_1:UnifiedVerifier": [
+    "claim:a_1:verifier": [
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_1",
           "index": 2,
           "status": "started",
@@ -69,7 +69,7 @@
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_1",
           "sequence": 3,
           "step": {
@@ -77,22 +77,22 @@
               "thought": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_1/step0",
+            "id": "trace:verifier:a_1/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'.",
-            "trace_id": "trace:UnifiedVerifier:a_1/response",
+            "trace_id": "trace:verifier:a_1/response",
             "type": "thinking"
           },
           "step_type": "thinking",
           "summary": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'.",
-          "trace_id": "trace:UnifiedVerifier:a_1/response"
+          "trace_id": "trace:verifier:a_1/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_1",
           "sequence": 4,
           "step": {
@@ -105,33 +105,33 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_1/step1",
+            "id": "trace:verifier:a_1/step1",
             "parent_step_id": null,
             "sequence": 4,
             "summary": "search: Acme Corp reported revenue of $12.4 billion in fiscal 2024.",
-            "trace_id": "trace:UnifiedVerifier:a_1/response",
+            "trace_id": "trace:verifier:a_1/response",
             "type": "web_search"
           },
           "step_type": "web_search",
           "summary": "search: Acme Corp reported revenue of $12.4 billion in fiscal 2024.",
-          "trace_id": "trace:UnifiedVerifier:a_1/response"
+          "trace_id": "trace:verifier:a_1/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_1",
           "num_search_queries": 2,
           "reasoning_tokens": 200,
           "total_tokens": 1500,
-          "trace_id": "trace:UnifiedVerifier:a_1"
+          "trace_id": "trace:verifier:a_1"
         }
       },
       {
         "kind": "finding",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_1",
           "computation_check": {
             "claimed_value": "$12.4 billion",
@@ -139,7 +139,7 @@
             "extracted_values": [
               {
                 "label": "FY2024 revenue",
-                "source_evidence_id": "finding:UnifiedVerifier:a_1/evidence0",
+                "source_evidence_id": "finding:verifier:a_1/evidence0",
                 "unit": "USD bn",
                 "value": "12.4"
               }
@@ -154,8 +154,8 @@
             {
               "claim_fragment": "Revenue of $12",
               "evidence_ids": [
-                "finding:UnifiedVerifier:a_1/evidence0",
-                "finding:UnifiedVerifier:a_1/evidence1"
+                "finding:verifier:a_1/evidence0",
+                "finding:verifier:a_1/evidence1"
               ],
               "reason": "The cited sources address this fragment.",
               "relation": "supports"
@@ -165,7 +165,7 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_1/evidence0",
+              "evidence_id": "finding:verifier:a_1/evidence0",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 1 addresses the claim directly.",
@@ -174,14 +174,14 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_1/evidence1",
+              "evidence_id": "finding:verifier:a_1/evidence1",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 2 addresses the claim directly.",
               "role": "secondary_source"
             }
           ],
-          "finding_id": "finding:UnifiedVerifier:a_1",
+          "finding_id": "finding:verifier:a_1",
           "reasoning_chain": [
             {
               "action": "Searched primary sources for the claim",
@@ -202,7 +202,7 @@
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_1",
           "index": 2,
           "severity": "minor",
@@ -213,11 +213,11 @@
         }
       }
     ],
-    "claim:a_2:UnifiedVerifier": [
+    "claim:a_2:verifier": [
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_2",
           "index": 3,
           "status": "started",
@@ -228,7 +228,7 @@
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_2",
           "sequence": 3,
           "step": {
@@ -236,22 +236,22 @@
               "thought": "Plan: search for 'Acme Corp's revenue grew 18% year over y'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_2/step0",
+            "id": "trace:verifier:a_2/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme Corp's revenue grew 18% year over y'.",
-            "trace_id": "trace:UnifiedVerifier:a_2/response",
+            "trace_id": "trace:verifier:a_2/response",
             "type": "thinking"
           },
           "step_type": "thinking",
           "summary": "Plan: search for 'Acme Corp's revenue grew 18% year over y'.",
-          "trace_id": "trace:UnifiedVerifier:a_2/response"
+          "trace_id": "trace:verifier:a_2/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_2",
           "sequence": 4,
           "step": {
@@ -264,33 +264,33 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_2/step1",
+            "id": "trace:verifier:a_2/step1",
             "parent_step_id": null,
             "sequence": 4,
             "summary": "search: Acme Corp's revenue grew 18% year over year in fiscal 2024.",
-            "trace_id": "trace:UnifiedVerifier:a_2/response",
+            "trace_id": "trace:verifier:a_2/response",
             "type": "web_search"
           },
           "step_type": "web_search",
           "summary": "search: Acme Corp's revenue grew 18% year over year in fiscal 2024.",
-          "trace_id": "trace:UnifiedVerifier:a_2/response"
+          "trace_id": "trace:verifier:a_2/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_2",
           "num_search_queries": 2,
           "reasoning_tokens": 200,
           "total_tokens": 1500,
-          "trace_id": "trace:UnifiedVerifier:a_2"
+          "trace_id": "trace:verifier:a_2"
         }
       },
       {
         "kind": "finding",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_2",
           "correct_information": {
             "retrieved_date": "2026-09-01",
@@ -302,9 +302,9 @@
             {
               "claim_fragment": "Revenue grew 12%, not 18%",
               "evidence_ids": [
-                "finding:UnifiedVerifier:a_2/evidence0",
-                "finding:UnifiedVerifier:a_2/evidence1",
-                "finding:UnifiedVerifier:a_2/evidence2"
+                "finding:verifier:a_2/evidence0",
+                "finding:verifier:a_2/evidence1",
+                "finding:verifier:a_2/evidence2"
               ],
               "reason": "The cited sources address this fragment.",
               "relation": "refutes"
@@ -314,7 +314,7 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_2/evidence0",
+              "evidence_id": "finding:verifier:a_2/evidence0",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 1 addresses the claim directly.",
@@ -323,7 +323,7 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_2/evidence1",
+              "evidence_id": "finding:verifier:a_2/evidence1",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 2 addresses the claim directly.",
@@ -332,14 +332,14 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_2/evidence2",
+              "evidence_id": "finding:verifier:a_2/evidence2",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 3 addresses the claim directly.",
               "role": "secondary_source"
             }
           ],
-          "finding_id": "finding:UnifiedVerifier:a_2",
+          "finding_id": "finding:verifier:a_2",
           "reasoning_chain": [
             {
               "action": "Searched primary sources for the claim",
@@ -361,7 +361,7 @@
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_2",
           "index": 3,
           "severity": "major",
@@ -372,24 +372,24 @@
         }
       }
     ],
-    "claim:a_3:Skeptic": [
+    "claim:a_3:skeptic": [
       {
         "kind": "step",
         "payload": {
-          "agent": "Skeptic",
+          "agent": "skeptic",
           "claim_id": "a_3",
           "num_search_queries": 0,
           "reasoning_tokens": 200,
           "total_tokens": 1500,
-          "trace_id": "trace:Skeptic:a_3"
+          "trace_id": "trace:skeptic:a_3"
         }
       }
     ],
-    "claim:a_3:UnifiedVerifier": [
+    "claim:a_3:verifier": [
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_3",
           "index": 1,
           "status": "started",
@@ -400,7 +400,7 @@
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_3",
           "sequence": 3,
           "step": {
@@ -408,22 +408,22 @@
               "thought": "Plan: search for 'Smith and Lee (2021) showed that widget '."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_3/step0",
+            "id": "trace:verifier:a_3/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Smith and Lee (2021) showed that widget '.",
-            "trace_id": "trace:UnifiedVerifier:a_3/response",
+            "trace_id": "trace:verifier:a_3/response",
             "type": "thinking"
           },
           "step_type": "thinking",
           "summary": "Plan: search for 'Smith and Lee (2021) showed that widget '.",
-          "trace_id": "trace:UnifiedVerifier:a_3/response"
+          "trace_id": "trace:verifier:a_3/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_3",
           "sequence": 4,
           "step": {
@@ -436,40 +436,40 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_3/step1",
+            "id": "trace:verifier:a_3/step1",
             "parent_step_id": null,
             "sequence": 4,
             "summary": "search: Smith and Lee (2021) showed that widget demand doubles every",
-            "trace_id": "trace:UnifiedVerifier:a_3/response",
+            "trace_id": "trace:verifier:a_3/response",
             "type": "web_search"
           },
           "step_type": "web_search",
           "summary": "search: Smith and Lee (2021) showed that widget demand doubles every",
-          "trace_id": "trace:UnifiedVerifier:a_3/response"
+          "trace_id": "trace:verifier:a_3/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_3",
           "num_search_queries": 2,
           "reasoning_tokens": 200,
           "total_tokens": 1500,
-          "trace_id": "trace:UnifiedVerifier:a_3"
+          "trace_id": "trace:verifier:a_3"
         }
       },
       {
         "kind": "finding",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_3",
           "coverage": [
             {
               "claim_fragment": "No paper by Smith and Lee (2021) on widget demand exists",
               "evidence_ids": [
-                "finding:UnifiedVerifier:a_3/evidence0",
-                "finding:UnifiedVerifier:a_3/evidence1"
+                "finding:verifier:a_3/evidence0",
+                "finding:verifier:a_3/evidence1"
               ],
               "reason": "The cited sources address this fragment.",
               "relation": "refutes"
@@ -479,7 +479,7 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_3/evidence0",
+              "evidence_id": "finding:verifier:a_3/evidence0",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 1 addresses the claim directly.",
@@ -488,14 +488,14 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_3/evidence1",
+              "evidence_id": "finding:verifier:a_3/evidence1",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 2 addresses the claim directly.",
               "role": "secondary_source"
             }
           ],
-          "finding_id": "finding:UnifiedVerifier:a_3",
+          "finding_id": "finding:verifier:a_3",
           "reasoning_chain": [
             {
               "action": "Searched primary sources for the claim",
@@ -517,7 +517,7 @@
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_3",
           "index": 1,
           "severity": "major",
@@ -530,14 +530,14 @@
       {
         "kind": "finding",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_3",
           "coverage": [
             {
               "claim_fragment": "No paper by Smith and Lee (2021) on widget demand exists",
               "evidence_ids": [
-                "finding:UnifiedVerifier:a_3/evidence0",
-                "finding:UnifiedVerifier:a_3/evidence1"
+                "finding:verifier:a_3/evidence0",
+                "finding:verifier:a_3/evidence1"
               ],
               "reason": "The cited sources address this fragment.",
               "relation": "refutes"
@@ -547,7 +547,7 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_3/evidence0",
+              "evidence_id": "finding:verifier:a_3/evidence0",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 1 addresses the claim directly.",
@@ -556,14 +556,14 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_3/evidence1",
+              "evidence_id": "finding:verifier:a_3/evidence1",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 2 addresses the claim directly.",
               "role": "secondary_source"
             }
           ],
-          "finding_id": "finding:UnifiedVerifier:a_3",
+          "finding_id": "finding:verifier:a_3",
           "reasoning_chain": [
             {
               "action": "Searched primary sources for the claim",
@@ -596,11 +596,11 @@
         }
       }
     ],
-    "claim:a_4:UnifiedVerifier": [
+    "claim:a_4:verifier": [
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_4",
           "index": 6,
           "status": "started",
@@ -611,7 +611,7 @@
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_4",
           "sequence": 3,
           "step": {
@@ -619,22 +619,22 @@
               "thought": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_4/step0",
+            "id": "trace:verifier:a_4/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'.",
-            "trace_id": "trace:UnifiedVerifier:a_4/response",
+            "trace_id": "trace:verifier:a_4/response",
             "type": "thinking"
           },
           "step_type": "thinking",
           "summary": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'.",
-          "trace_id": "trace:UnifiedVerifier:a_4/response"
+          "trace_id": "trace:verifier:a_4/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_4",
           "sequence": 4,
           "step": {
@@ -647,39 +647,39 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_4/step1",
+            "id": "trace:verifier:a_4/step1",
             "parent_step_id": null,
             "sequence": 4,
             "summary": "search: Acme was founded in 1998 in Austin, Texas.",
-            "trace_id": "trace:UnifiedVerifier:a_4/response",
+            "trace_id": "trace:verifier:a_4/response",
             "type": "web_search"
           },
           "step_type": "web_search",
           "summary": "search: Acme was founded in 1998 in Austin, Texas.",
-          "trace_id": "trace:UnifiedVerifier:a_4/response"
+          "trace_id": "trace:verifier:a_4/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_4",
           "num_search_queries": 2,
           "reasoning_tokens": 200,
           "total_tokens": 1500,
-          "trace_id": "trace:UnifiedVerifier:a_4"
+          "trace_id": "trace:verifier:a_4"
         }
       },
       {
         "kind": "finding",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_4",
           "coverage": [
             {
               "claim_fragment": "Acme's founding in 1998 in Austin is documented",
               "evidence_ids": [
-                "finding:UnifiedVerifier:a_4/evidence0"
+                "finding:verifier:a_4/evidence0"
               ],
               "reason": "The cited sources address this fragment.",
               "relation": "supports"
@@ -689,14 +689,14 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_4/evidence0",
+              "evidence_id": "finding:verifier:a_4/evidence0",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 1 addresses the claim directly.",
               "role": "primary_source"
             }
           ],
-          "finding_id": "finding:UnifiedVerifier:a_4",
+          "finding_id": "finding:verifier:a_4",
           "reasoning_chain": [
             {
               "action": "Searched primary sources for the claim",
@@ -717,7 +717,7 @@
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_4",
           "index": 6,
           "severity": "minor",
@@ -728,24 +728,24 @@
         }
       }
     ],
-    "claim:a_6:Consistency": [
+    "claim:a_6:consistency": [
       {
         "kind": "finding",
         "payload": {
-          "agent": "Consistency",
+          "agent": "consistency",
           "claim_id": "a_6",
-          "finding_id": "finding:Consistency:a_6",
+          "finding_id": "finding:consistency:a_6",
           "severity": "critical",
           "summary": "The report states two different FY2024 operating margins.",
           "verdict": "contradiction"
         }
       }
     ],
-    "claim:a_6:UnifiedVerifier": [
+    "claim:a_6:verifier": [
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_6",
           "index": 4,
           "status": "started",
@@ -756,7 +756,7 @@
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_6",
           "sequence": 3,
           "step": {
@@ -764,22 +764,22 @@
               "thought": "Plan: search for 'Acme's operating margin was 32% in fisca'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_6/step0",
+            "id": "trace:verifier:a_6/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme's operating margin was 32% in fisca'.",
-            "trace_id": "trace:UnifiedVerifier:a_6/response",
+            "trace_id": "trace:verifier:a_6/response",
             "type": "thinking"
           },
           "step_type": "thinking",
           "summary": "Plan: search for 'Acme's operating margin was 32% in fisca'.",
-          "trace_id": "trace:UnifiedVerifier:a_6/response"
+          "trace_id": "trace:verifier:a_6/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_6",
           "sequence": 4,
           "step": {
@@ -792,33 +792,33 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_6/step1",
+            "id": "trace:verifier:a_6/step1",
             "parent_step_id": null,
             "sequence": 4,
             "summary": "search: Acme's operating margin was 32% in fiscal 2024.",
-            "trace_id": "trace:UnifiedVerifier:a_6/response",
+            "trace_id": "trace:verifier:a_6/response",
             "type": "web_search"
           },
           "step_type": "web_search",
           "summary": "search: Acme's operating margin was 32% in fiscal 2024.",
-          "trace_id": "trace:UnifiedVerifier:a_6/response"
+          "trace_id": "trace:verifier:a_6/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_6",
           "num_search_queries": 2,
           "reasoning_tokens": 200,
           "total_tokens": 1500,
-          "trace_id": "trace:UnifiedVerifier:a_6"
+          "trace_id": "trace:verifier:a_6"
         }
       },
       {
         "kind": "finding",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_6",
           "correct_information": {
             "retrieved_date": "2026-09-01",
@@ -830,8 +830,8 @@
             {
               "claim_fragment": "The operating margin was 30%, not 32%",
               "evidence_ids": [
-                "finding:UnifiedVerifier:a_6/evidence0",
-                "finding:UnifiedVerifier:a_6/evidence1"
+                "finding:verifier:a_6/evidence0",
+                "finding:verifier:a_6/evidence1"
               ],
               "reason": "The cited sources address this fragment.",
               "relation": "refutes"
@@ -841,7 +841,7 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_6/evidence0",
+              "evidence_id": "finding:verifier:a_6/evidence0",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 1 addresses the claim directly.",
@@ -850,14 +850,14 @@
             {
               "authority": 0.9,
               "directness": 0.9,
-              "evidence_id": "finding:UnifiedVerifier:a_6/evidence1",
+              "evidence_id": "finding:verifier:a_6/evidence1",
               "freshness": 0.7,
               "independence": 0.8,
               "rationale": "Source 2 addresses the claim directly.",
               "role": "secondary_source"
             }
           ],
-          "finding_id": "finding:UnifiedVerifier:a_6",
+          "finding_id": "finding:verifier:a_6",
           "reasoning_chain": [
             {
               "action": "Searched primary sources for the claim",
@@ -879,7 +879,7 @@
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_6",
           "index": 4,
           "severity": "major",
@@ -890,11 +890,11 @@
         }
       }
     ],
-    "claim:a_8:UnifiedVerifier": [
+    "claim:a_8:verifier": [
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
           "index": 5,
           "status": "started",
@@ -905,7 +905,7 @@
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
           "sequence": 3,
           "step": {
@@ -913,22 +913,22 @@
               "thought": "Plan: search for 'Acme's operating margin was 28% in fisca'."
             },
             "created_at": "<ts>",
-            "id": "live:claim:a_8:UnifiedVerifier/step",
+            "id": "live:claim:a_8:verifier/step",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
-            "trace_id": "live:claim:a_8:UnifiedVerifier/response",
+            "trace_id": "live:claim:a_8:verifier/response",
             "type": "thinking"
           },
           "step_type": "thinking",
           "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
-          "trace_id": "live:claim:a_8:UnifiedVerifier/response"
+          "trace_id": "live:claim:a_8:verifier/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
           "sequence": 4,
           "step": {
@@ -941,22 +941,22 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "live:claim:a_8:UnifiedVerifier/step#2",
+            "id": "live:claim:a_8:verifier/step#2",
             "parent_step_id": null,
             "sequence": 4,
             "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
-            "trace_id": "live:claim:a_8:UnifiedVerifier/response",
+            "trace_id": "live:claim:a_8:verifier/response",
             "type": "web_search"
           },
           "step_type": "web_search",
           "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
-          "trace_id": "live:claim:a_8:UnifiedVerifier/response"
+          "trace_id": "live:claim:a_8:verifier/response"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
           "sequence": 3,
           "step": {
@@ -964,22 +964,22 @@
               "thought": "Plan: search for 'Acme's operating margin was 28% in fisca'."
             },
             "created_at": "<ts>",
-            "id": "live:claim:a_8:UnifiedVerifier/step#3",
+            "id": "live:claim:a_8:verifier/step#3",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
-            "trace_id": "live:claim:a_8:UnifiedVerifier/response#2",
+            "trace_id": "live:claim:a_8:verifier/response#2",
             "type": "thinking"
           },
           "step_type": "thinking",
           "summary": "Plan: search for 'Acme's operating margin was 28% in fisca'.",
-          "trace_id": "live:claim:a_8:UnifiedVerifier/response#2"
+          "trace_id": "live:claim:a_8:verifier/response#2"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
           "sequence": 4,
           "step": {
@@ -992,35 +992,35 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "live:claim:a_8:UnifiedVerifier/step#4",
+            "id": "live:claim:a_8:verifier/step#4",
             "parent_step_id": null,
             "sequence": 4,
             "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
-            "trace_id": "live:claim:a_8:UnifiedVerifier/response#2",
+            "trace_id": "live:claim:a_8:verifier/response#2",
             "type": "web_search"
           },
           "step_type": "web_search",
           "summary": "search: Acme's operating margin was 28% in fiscal 2024.",
-          "trace_id": "live:claim:a_8:UnifiedVerifier/response#2"
+          "trace_id": "live:claim:a_8:verifier/response#2"
         }
       },
       {
         "kind": "step",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
           "num_search_queries": 0,
           "reasoning_tokens": 0,
           "total_tokens": 0,
-          "trace_id": "trace:UnifiedVerifier:a_8"
+          "trace_id": "trace:verifier:a_8"
         }
       },
       {
         "kind": "finding",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
-          "finding_id": "finding:UnifiedVerifier:a_8",
+          "finding_id": "finding:verifier:a_8",
           "severity": "minor",
           "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: json_repair could not recover: line 1 column 1 (char 0))",
           "verdict": "uncertain"
@@ -1029,7 +1029,7 @@
       {
         "kind": "claim",
         "payload": {
-          "agent": "UnifiedVerifier",
+          "agent": "verifier",
           "claim_id": "a_8",
           "index": 5,
           "severity": "minor",
@@ -1467,90 +1467,90 @@
     "evidences": [
       {
         "citation": "https://www.sec.gov/acme-10k-2024",
-        "id": "finding:UnifiedVerifier:a_1/evidence0",
+        "id": "finding:verifier:a_1/evidence0",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_1/step1",
+        "retrieved_by_step_id": "trace:verifier:a_1/step1",
         "snippet": "Excerpt from https://www.sec.gov/acme-10k-2024",
         "source_type": "web_page",
         "url": "https://www.sec.gov/acme-10k-2024"
       },
       {
         "citation": "https://www.reuters.com/acme-results",
-        "id": "finding:UnifiedVerifier:a_1/evidence1",
+        "id": "finding:verifier:a_1/evidence1",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_1/step1",
+        "retrieved_by_step_id": "trace:verifier:a_1/step1",
         "snippet": "Excerpt from https://www.reuters.com/acme-results",
         "source_type": "web_page",
         "url": "https://www.reuters.com/acme-results"
       },
       {
         "citation": "https://www.sec.gov/acme-10k-2024",
-        "id": "finding:UnifiedVerifier:a_2/evidence0",
+        "id": "finding:verifier:a_2/evidence0",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_2/step1",
+        "retrieved_by_step_id": "trace:verifier:a_2/step1",
         "snippet": "Excerpt from https://www.sec.gov/acme-10k-2024",
         "source_type": "web_page",
         "url": "https://www.sec.gov/acme-10k-2024"
       },
       {
         "citation": "https://www.reuters.com/acme-results",
-        "id": "finding:UnifiedVerifier:a_2/evidence1",
+        "id": "finding:verifier:a_2/evidence1",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_2/step1",
+        "retrieved_by_step_id": "trace:verifier:a_2/step1",
         "snippet": "Excerpt from https://www.reuters.com/acme-results",
         "source_type": "web_page",
         "url": "https://www.reuters.com/acme-results"
       },
       {
         "citation": "https://www.bloomberg.com/acme",
-        "id": "finding:UnifiedVerifier:a_2/evidence2",
+        "id": "finding:verifier:a_2/evidence2",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_2/step1",
+        "retrieved_by_step_id": "trace:verifier:a_2/step1",
         "snippet": "Excerpt from https://www.bloomberg.com/acme",
         "source_type": "web_page",
         "url": "https://www.bloomberg.com/acme"
       },
       {
         "citation": "https://api.crossref.org/works?query=smith+lee+widget",
-        "id": "finding:UnifiedVerifier:a_3/evidence0",
+        "id": "finding:verifier:a_3/evidence0",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_3/step1",
+        "retrieved_by_step_id": "trace:verifier:a_3/step1",
         "snippet": "Excerpt from https://api.crossref.org/works?query=smith+lee+widget",
         "source_type": "web_page",
         "url": "https://api.crossref.org/works?query=smith+lee+widget"
       },
       {
         "citation": "https://scholar.google.com/scholar?q=smith+lee+2021+widget",
-        "id": "finding:UnifiedVerifier:a_3/evidence1",
+        "id": "finding:verifier:a_3/evidence1",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_3/step1",
+        "retrieved_by_step_id": "trace:verifier:a_3/step1",
         "snippet": "Excerpt from https://scholar.google.com/scholar?q=smith+lee+2021+widget",
         "source_type": "web_page",
         "url": "https://scholar.google.com/scholar?q=smith+lee+2021+widget"
       },
       {
         "citation": "https://en.wikipedia.org/wiki/Acme_Corp",
-        "id": "finding:UnifiedVerifier:a_4/evidence0",
+        "id": "finding:verifier:a_4/evidence0",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_4/step1",
+        "retrieved_by_step_id": "trace:verifier:a_4/step1",
         "snippet": "Excerpt from https://en.wikipedia.org/wiki/Acme_Corp",
         "source_type": "web_page",
         "url": "https://en.wikipedia.org/wiki/Acme_Corp"
       },
       {
         "citation": "https://www.sec.gov/acme-10k-2024",
-        "id": "finding:UnifiedVerifier:a_6/evidence0",
+        "id": "finding:verifier:a_6/evidence0",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_6/step1",
+        "retrieved_by_step_id": "trace:verifier:a_6/step1",
         "snippet": "Excerpt from https://www.sec.gov/acme-10k-2024",
         "source_type": "web_page",
         "url": "https://www.sec.gov/acme-10k-2024"
       },
       {
         "citation": "https://www.ft.com/acme-margins",
-        "id": "finding:UnifiedVerifier:a_6/evidence1",
+        "id": "finding:verifier:a_6/evidence1",
         "retrieved_at": "<ts>",
-        "retrieved_by_step_id": "trace:UnifiedVerifier:a_6/step1",
+        "retrieved_by_step_id": "trace:verifier:a_6/step1",
         "snippet": "Excerpt from https://www.ft.com/acme-margins",
         "source_type": "web_page",
         "url": "https://www.ft.com/acme-margins"
@@ -1559,7 +1559,7 @@
     "failure": null,
     "findings": [
       {
-        "agent": "Consistency",
+        "agent": "consistency",
         "claim_id": "a_1",
         "computation_check": null,
         "confidence": 0.6,
@@ -1576,9 +1576,9 @@
         "evidence_quality": [],
         "flags": [],
         "from_cache": false,
-        "id": "finding:Consistency:a_1",
+        "id": "finding:consistency:a_1",
         "reasoning_chain": [],
-        "reasoning_trace_id": "trace:Consistency:(consistency)",
+        "reasoning_trace_id": "trace:consistency:-",
         "severity": "minor",
         "skeptic_review": null,
         "summary": "The revenue figure is presented without its reporting basis.",
@@ -1586,7 +1586,7 @@
         "why_wrong": "The accounting basis (GAAP or adjusted) for the revenue figure."
       },
       {
-        "agent": "Consistency",
+        "agent": "consistency",
         "claim_id": "a_6",
         "computation_check": null,
         "confidence": 0.9,
@@ -1603,9 +1603,9 @@
         "evidence_quality": [],
         "flags": [],
         "from_cache": false,
-        "id": "finding:Consistency:a_6",
+        "id": "finding:consistency:a_6",
         "reasoning_chain": [],
-        "reasoning_trace_id": "trace:Consistency:(consistency)",
+        "reasoning_trace_id": "trace:consistency:-",
         "severity": "critical",
         "skeptic_review": null,
         "summary": "The report states two different FY2024 operating margins.",
@@ -1613,7 +1613,7 @@
         "why_wrong": null
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_1",
         "computation_check": {
           "claimed_value": "$12.4 billion",
@@ -1621,7 +1621,7 @@
           "extracted_values": [
             {
               "label": "FY2024 revenue",
-              "source_evidence_id": "finding:UnifiedVerifier:a_1/evidence0",
+              "source_evidence_id": "finding:verifier:a_1/evidence0",
               "unit": "USD bn",
               "value": "12.4"
             }
@@ -1644,8 +1644,8 @@
           {
             "claim_fragment": "Revenue of $12",
             "evidence_ids": [
-              "finding:UnifiedVerifier:a_1/evidence0",
-              "finding:UnifiedVerifier:a_1/evidence1"
+              "finding:verifier:a_1/evidence0",
+              "finding:verifier:a_1/evidence1"
             ],
             "reason": "The cited sources address this fragment.",
             "relation": "supports"
@@ -1653,14 +1653,14 @@
         ],
         "created_at": "<ts>",
         "evidence_ids": [
-          "finding:UnifiedVerifier:a_1/evidence0",
-          "finding:UnifiedVerifier:a_1/evidence1"
+          "finding:verifier:a_1/evidence0",
+          "finding:verifier:a_1/evidence1"
         ],
         "evidence_quality": [
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_1/evidence0",
+            "evidence_id": "finding:verifier:a_1/evidence0",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 1 addresses the claim directly.",
@@ -1669,7 +1669,7 @@
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_1/evidence1",
+            "evidence_id": "finding:verifier:a_1/evidence1",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 2 addresses the claim directly.",
@@ -1678,7 +1678,7 @@
         ],
         "flags": [],
         "from_cache": false,
-        "id": "finding:UnifiedVerifier:a_1",
+        "id": "finding:verifier:a_1",
         "reasoning_chain": [
           {
             "action": "Searched primary sources for the claim",
@@ -1691,7 +1691,7 @@
             "reasoning": "Verdict: ok."
           }
         ],
-        "reasoning_trace_id": "trace:UnifiedVerifier:a_1",
+        "reasoning_trace_id": "trace:verifier:a_1",
         "severity": "minor",
         "skeptic_review": null,
         "summary": "Revenue of $12.4 billion matches the FY2024 annual report.",
@@ -1699,7 +1699,7 @@
         "why_wrong": null
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_2",
         "computation_check": null,
         "confidence": 0.88,
@@ -1719,9 +1719,9 @@
           {
             "claim_fragment": "Revenue grew 12%, not 18%",
             "evidence_ids": [
-              "finding:UnifiedVerifier:a_2/evidence0",
-              "finding:UnifiedVerifier:a_2/evidence1",
-              "finding:UnifiedVerifier:a_2/evidence2"
+              "finding:verifier:a_2/evidence0",
+              "finding:verifier:a_2/evidence1",
+              "finding:verifier:a_2/evidence2"
             ],
             "reason": "The cited sources address this fragment.",
             "relation": "refutes"
@@ -1729,15 +1729,15 @@
         ],
         "created_at": "<ts>",
         "evidence_ids": [
-          "finding:UnifiedVerifier:a_2/evidence0",
-          "finding:UnifiedVerifier:a_2/evidence1",
-          "finding:UnifiedVerifier:a_2/evidence2"
+          "finding:verifier:a_2/evidence0",
+          "finding:verifier:a_2/evidence1",
+          "finding:verifier:a_2/evidence2"
         ],
         "evidence_quality": [
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_2/evidence0",
+            "evidence_id": "finding:verifier:a_2/evidence0",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 1 addresses the claim directly.",
@@ -1746,7 +1746,7 @@
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_2/evidence1",
+            "evidence_id": "finding:verifier:a_2/evidence1",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 2 addresses the claim directly.",
@@ -1755,7 +1755,7 @@
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_2/evidence2",
+            "evidence_id": "finding:verifier:a_2/evidence2",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 3 addresses the claim directly.",
@@ -1764,7 +1764,7 @@
         ],
         "flags": [],
         "from_cache": false,
-        "id": "finding:UnifiedVerifier:a_2",
+        "id": "finding:verifier:a_2",
         "reasoning_chain": [
           {
             "action": "Searched primary sources for the claim",
@@ -1777,7 +1777,7 @@
             "reasoning": "Verdict: inaccurate."
           }
         ],
-        "reasoning_trace_id": "trace:UnifiedVerifier:a_2",
+        "reasoning_trace_id": "trace:verifier:a_2",
         "severity": "major",
         "skeptic_review": null,
         "summary": "Revenue grew 12%, not 18%.",
@@ -1785,7 +1785,7 @@
         "why_wrong": "The claim overstates growth by six points."
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_3",
         "computation_check": null,
         "confidence": 0.5,
@@ -1800,8 +1800,8 @@
           {
             "claim_fragment": "No paper by Smith and Lee (2021) on widget demand exists",
             "evidence_ids": [
-              "finding:UnifiedVerifier:a_3/evidence0",
-              "finding:UnifiedVerifier:a_3/evidence1"
+              "finding:verifier:a_3/evidence0",
+              "finding:verifier:a_3/evidence1"
             ],
             "reason": "The cited sources address this fragment.",
             "relation": "refutes"
@@ -1809,14 +1809,14 @@
         ],
         "created_at": "<ts>",
         "evidence_ids": [
-          "finding:UnifiedVerifier:a_3/evidence0",
-          "finding:UnifiedVerifier:a_3/evidence1"
+          "finding:verifier:a_3/evidence0",
+          "finding:verifier:a_3/evidence1"
         ],
         "evidence_quality": [
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_3/evidence0",
+            "evidence_id": "finding:verifier:a_3/evidence0",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 1 addresses the claim directly.",
@@ -1825,7 +1825,7 @@
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_3/evidence1",
+            "evidence_id": "finding:verifier:a_3/evidence1",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 2 addresses the claim directly.",
@@ -1836,7 +1836,7 @@
           "skeptic counterevidence found"
         ],
         "from_cache": false,
-        "id": "finding:UnifiedVerifier:a_3",
+        "id": "finding:verifier:a_3",
         "reasoning_chain": [
           {
             "action": "Searched primary sources for the claim",
@@ -1849,7 +1849,7 @@
             "reasoning": "Verdict: fabricated."
           }
         ],
-        "reasoning_trace_id": "trace:UnifiedVerifier:a_3",
+        "reasoning_trace_id": "trace:verifier:a_3",
         "severity": "minor",
         "skeptic_review": {
           "counterevidence": [
@@ -1869,7 +1869,7 @@
         "why_wrong": "The cited study cannot be found in any index."
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_4",
         "computation_check": null,
         "confidence": 0.5,
@@ -1884,7 +1884,7 @@
           {
             "claim_fragment": "Acme's founding in 1998 in Austin is documented",
             "evidence_ids": [
-              "finding:UnifiedVerifier:a_4/evidence0"
+              "finding:verifier:a_4/evidence0"
             ],
             "reason": "The cited sources address this fragment.",
             "relation": "supports"
@@ -1892,13 +1892,13 @@
         ],
         "created_at": "<ts>",
         "evidence_ids": [
-          "finding:UnifiedVerifier:a_4/evidence0"
+          "finding:verifier:a_4/evidence0"
         ],
         "evidence_quality": [
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_4/evidence0",
+            "evidence_id": "finding:verifier:a_4/evidence0",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 1 addresses the claim directly.",
@@ -1907,7 +1907,7 @@
         ],
         "flags": [],
         "from_cache": false,
-        "id": "finding:UnifiedVerifier:a_4",
+        "id": "finding:verifier:a_4",
         "reasoning_chain": [
           {
             "action": "Searched primary sources for the claim",
@@ -1920,7 +1920,7 @@
             "reasoning": "Verdict: ok."
           }
         ],
-        "reasoning_trace_id": "trace:UnifiedVerifier:a_4",
+        "reasoning_trace_id": "trace:verifier:a_4",
         "severity": "minor",
         "skeptic_review": null,
         "summary": "Acme's founding in 1998 in Austin is documented.  [Downgraded to uncertain: fewer than 2 independent sources were available to cross-verify.]",
@@ -1928,7 +1928,7 @@
         "why_wrong": null
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_6",
         "computation_check": null,
         "confidence": 0.75,
@@ -1948,8 +1948,8 @@
           {
             "claim_fragment": "The operating margin was 30%, not 32%",
             "evidence_ids": [
-              "finding:UnifiedVerifier:a_6/evidence0",
-              "finding:UnifiedVerifier:a_6/evidence1"
+              "finding:verifier:a_6/evidence0",
+              "finding:verifier:a_6/evidence1"
             ],
             "reason": "The cited sources address this fragment.",
             "relation": "refutes"
@@ -1957,14 +1957,14 @@
         ],
         "created_at": "<ts>",
         "evidence_ids": [
-          "finding:UnifiedVerifier:a_6/evidence0",
-          "finding:UnifiedVerifier:a_6/evidence1"
+          "finding:verifier:a_6/evidence0",
+          "finding:verifier:a_6/evidence1"
         ],
         "evidence_quality": [
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_6/evidence0",
+            "evidence_id": "finding:verifier:a_6/evidence0",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 1 addresses the claim directly.",
@@ -1973,7 +1973,7 @@
           {
             "authority": 0.9,
             "directness": 0.9,
-            "evidence_id": "finding:UnifiedVerifier:a_6/evidence1",
+            "evidence_id": "finding:verifier:a_6/evidence1",
             "freshness": 0.7,
             "independence": 0.8,
             "rationale": "Source 2 addresses the claim directly.",
@@ -1984,7 +1984,7 @@
           "under-sourced — verify manually"
         ],
         "from_cache": false,
-        "id": "finding:UnifiedVerifier:a_6",
+        "id": "finding:verifier:a_6",
         "reasoning_chain": [
           {
             "action": "Searched primary sources for the claim",
@@ -1997,7 +1997,7 @@
             "reasoning": "Verdict: inaccurate."
           }
         ],
-        "reasoning_trace_id": "trace:UnifiedVerifier:a_6",
+        "reasoning_trace_id": "trace:verifier:a_6",
         "severity": "major",
         "skeptic_review": null,
         "summary": "The operating margin was 30%, not 32%.",
@@ -2005,7 +2005,7 @@
         "why_wrong": "The margin is overstated by two points."
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_8",
         "computation_check": null,
         "confidence": 0.0,
@@ -2024,9 +2024,9 @@
           "unparseable verifier response"
         ],
         "from_cache": false,
-        "id": "finding:UnifiedVerifier:a_8",
+        "id": "finding:verifier:a_8",
         "reasoning_chain": [],
-        "reasoning_trace_id": "trace:UnifiedVerifier:a_8",
+        "reasoning_trace_id": "trace:verifier:a_8",
         "severity": "minor",
         "skeptic_review": null,
         "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: json_repair could not recover: line 1 column 1 (char 0))",
@@ -2160,37 +2160,65 @@
     "total_tokens": 9000,
     "traces": [
       {
-        "agent": "Consistency",
-        "claim_id": "(consistency)",
+        "agent": "consistency",
+        "claim_id": null,
         "completed_at": "<ts>",
-        "id": "trace:Consistency:(consistency)",
-        "miromind_response_id": "trace:Consistency:(consistency)/response",
-        "num_search_queries": 0,
-        "reasoning_tokens": 0,
+        "engine": "deepseek",
+        "id": "trace:consistency:-",
         "started_at": "<ts>",
         "steps": [],
-        "total_tokens": 0
+        "usage": {
+          "cost_usd": 0.0,
+          "num_search_queries": 0,
+          "reasoning_tokens": 0,
+          "response_ids": [
+            "trace:consistency:-/response"
+          ],
+          "total_tokens": 0
+        }
       },
       {
-        "agent": "Reporter",
-        "claim_id": "(reporter)",
+        "agent": "planner",
+        "claim_id": null,
         "completed_at": "<ts>",
-        "id": "trace:Reporter:(reporter)",
-        "miromind_response_id": "trace:Reporter:(reporter)/response",
-        "num_search_queries": 0,
-        "reasoning_tokens": 0,
+        "engine": "deepseek",
+        "id": "trace:planner:-",
         "started_at": "<ts>",
         "steps": [],
-        "total_tokens": 0
+        "usage": {
+          "cost_usd": 0.0,
+          "num_search_queries": 0,
+          "reasoning_tokens": 0,
+          "response_ids": [
+            "trace:planner:-/response"
+          ],
+          "total_tokens": 0
+        }
       },
       {
-        "agent": "Skeptic",
+        "agent": "reporter",
+        "claim_id": null,
+        "completed_at": "<ts>",
+        "engine": "deepseek",
+        "id": "trace:reporter:-",
+        "started_at": "<ts>",
+        "steps": [],
+        "usage": {
+          "cost_usd": 0.0,
+          "num_search_queries": 0,
+          "reasoning_tokens": 0,
+          "response_ids": [
+            "trace:reporter:-/response"
+          ],
+          "total_tokens": 0
+        }
+      },
+      {
+        "agent": "skeptic",
         "claim_id": "a_3",
         "completed_at": "<ts>",
-        "id": "trace:Skeptic:a_3",
-        "miromind_response_id": "trace:Skeptic:a_3/response",
-        "num_search_queries": 0,
-        "reasoning_tokens": 200,
+        "engine": "miromind",
+        "id": "trace:skeptic:a_3",
         "started_at": "<ts>",
         "steps": [
           {
@@ -2198,11 +2226,11 @@
               "thought": "Plan: search for 'Smith and Lee (2021) showed that widget '."
             },
             "created_at": "<ts>",
-            "id": "trace:Skeptic:a_3/step0",
+            "id": "trace:skeptic:a_3/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Smith and Lee (2021) showed that widget '.",
-            "trace_id": "trace:Skeptic:a_3/response",
+            "trace_id": "trace:skeptic:a_3/response",
             "type": "thinking"
           },
           {
@@ -2215,24 +2243,30 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:Skeptic:a_3/step1",
-            "parent_step_id": "trace:Skeptic:a_3/step0",
+            "id": "trace:skeptic:a_3/step1",
+            "parent_step_id": "trace:skeptic:a_3/step0",
             "sequence": 4,
             "summary": "search: Smith and Lee (2021) showed that widget demand doubles every",
-            "trace_id": "trace:Skeptic:a_3/response",
+            "trace_id": "trace:skeptic:a_3/response",
             "type": "web_search"
           }
         ],
-        "total_tokens": 1500
+        "usage": {
+          "cost_usd": 0.012375,
+          "num_search_queries": 0,
+          "reasoning_tokens": 200,
+          "response_ids": [
+            "trace:skeptic:a_3/response"
+          ],
+          "total_tokens": 1500
+        }
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_1",
         "completed_at": "<ts>",
-        "id": "trace:UnifiedVerifier:a_1",
-        "miromind_response_id": "trace:UnifiedVerifier:a_1/response",
-        "num_search_queries": 2,
-        "reasoning_tokens": 200,
+        "engine": "miromind",
+        "id": "trace:verifier:a_1",
         "started_at": "<ts>",
         "steps": [
           {
@@ -2240,11 +2274,11 @@
               "thought": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_1/step0",
+            "id": "trace:verifier:a_1/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme Corp reported revenue of $12.4 bill'.",
-            "trace_id": "trace:UnifiedVerifier:a_1/response",
+            "trace_id": "trace:verifier:a_1/response",
             "type": "thinking"
           },
           {
@@ -2257,24 +2291,30 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_1/step1",
-            "parent_step_id": "trace:UnifiedVerifier:a_1/step0",
+            "id": "trace:verifier:a_1/step1",
+            "parent_step_id": "trace:verifier:a_1/step0",
             "sequence": 4,
             "summary": "search: Acme Corp reported revenue of $12.4 billion in fiscal 2024.",
-            "trace_id": "trace:UnifiedVerifier:a_1/response",
+            "trace_id": "trace:verifier:a_1/response",
             "type": "web_search"
           }
         ],
-        "total_tokens": 1500
+        "usage": {
+          "cost_usd": 0.112375,
+          "num_search_queries": 2,
+          "reasoning_tokens": 200,
+          "response_ids": [
+            "trace:verifier:a_1/response"
+          ],
+          "total_tokens": 1500
+        }
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_2",
         "completed_at": "<ts>",
-        "id": "trace:UnifiedVerifier:a_2",
-        "miromind_response_id": "trace:UnifiedVerifier:a_2/response",
-        "num_search_queries": 2,
-        "reasoning_tokens": 200,
+        "engine": "miromind",
+        "id": "trace:verifier:a_2",
         "started_at": "<ts>",
         "steps": [
           {
@@ -2282,11 +2322,11 @@
               "thought": "Plan: search for 'Acme Corp's revenue grew 18% year over y'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_2/step0",
+            "id": "trace:verifier:a_2/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme Corp's revenue grew 18% year over y'.",
-            "trace_id": "trace:UnifiedVerifier:a_2/response",
+            "trace_id": "trace:verifier:a_2/response",
             "type": "thinking"
           },
           {
@@ -2299,24 +2339,30 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_2/step1",
-            "parent_step_id": "trace:UnifiedVerifier:a_2/step0",
+            "id": "trace:verifier:a_2/step1",
+            "parent_step_id": "trace:verifier:a_2/step0",
             "sequence": 4,
             "summary": "search: Acme Corp's revenue grew 18% year over year in fiscal 2024.",
-            "trace_id": "trace:UnifiedVerifier:a_2/response",
+            "trace_id": "trace:verifier:a_2/response",
             "type": "web_search"
           }
         ],
-        "total_tokens": 1500
+        "usage": {
+          "cost_usd": 0.112375,
+          "num_search_queries": 2,
+          "reasoning_tokens": 200,
+          "response_ids": [
+            "trace:verifier:a_2/response"
+          ],
+          "total_tokens": 1500
+        }
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_3",
         "completed_at": "<ts>",
-        "id": "trace:UnifiedVerifier:a_3",
-        "miromind_response_id": "trace:UnifiedVerifier:a_3/response",
-        "num_search_queries": 2,
-        "reasoning_tokens": 200,
+        "engine": "miromind",
+        "id": "trace:verifier:a_3",
         "started_at": "<ts>",
         "steps": [
           {
@@ -2324,11 +2370,11 @@
               "thought": "Plan: search for 'Smith and Lee (2021) showed that widget '."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_3/step0",
+            "id": "trace:verifier:a_3/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Smith and Lee (2021) showed that widget '.",
-            "trace_id": "trace:UnifiedVerifier:a_3/response",
+            "trace_id": "trace:verifier:a_3/response",
             "type": "thinking"
           },
           {
@@ -2341,24 +2387,30 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_3/step1",
-            "parent_step_id": "trace:UnifiedVerifier:a_3/step0",
+            "id": "trace:verifier:a_3/step1",
+            "parent_step_id": "trace:verifier:a_3/step0",
             "sequence": 4,
             "summary": "search: Smith and Lee (2021) showed that widget demand doubles every",
-            "trace_id": "trace:UnifiedVerifier:a_3/response",
+            "trace_id": "trace:verifier:a_3/response",
             "type": "web_search"
           }
         ],
-        "total_tokens": 1500
+        "usage": {
+          "cost_usd": 0.112375,
+          "num_search_queries": 2,
+          "reasoning_tokens": 200,
+          "response_ids": [
+            "trace:verifier:a_3/response"
+          ],
+          "total_tokens": 1500
+        }
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_4",
         "completed_at": "<ts>",
-        "id": "trace:UnifiedVerifier:a_4",
-        "miromind_response_id": "trace:UnifiedVerifier:a_4/response",
-        "num_search_queries": 2,
-        "reasoning_tokens": 200,
+        "engine": "miromind",
+        "id": "trace:verifier:a_4",
         "started_at": "<ts>",
         "steps": [
           {
@@ -2366,11 +2418,11 @@
               "thought": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_4/step0",
+            "id": "trace:verifier:a_4/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme was founded in 1998 in Austin, Texa'.",
-            "trace_id": "trace:UnifiedVerifier:a_4/response",
+            "trace_id": "trace:verifier:a_4/response",
             "type": "thinking"
           },
           {
@@ -2383,24 +2435,30 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_4/step1",
-            "parent_step_id": "trace:UnifiedVerifier:a_4/step0",
+            "id": "trace:verifier:a_4/step1",
+            "parent_step_id": "trace:verifier:a_4/step0",
             "sequence": 4,
             "summary": "search: Acme was founded in 1998 in Austin, Texas.",
-            "trace_id": "trace:UnifiedVerifier:a_4/response",
+            "trace_id": "trace:verifier:a_4/response",
             "type": "web_search"
           }
         ],
-        "total_tokens": 1500
+        "usage": {
+          "cost_usd": 0.112375,
+          "num_search_queries": 2,
+          "reasoning_tokens": 200,
+          "response_ids": [
+            "trace:verifier:a_4/response"
+          ],
+          "total_tokens": 1500
+        }
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_6",
         "completed_at": "<ts>",
-        "id": "trace:UnifiedVerifier:a_6",
-        "miromind_response_id": "trace:UnifiedVerifier:a_6/response",
-        "num_search_queries": 2,
-        "reasoning_tokens": 200,
+        "engine": "miromind",
+        "id": "trace:verifier:a_6",
         "started_at": "<ts>",
         "steps": [
           {
@@ -2408,11 +2466,11 @@
               "thought": "Plan: search for 'Acme's operating margin was 32% in fisca'."
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_6/step0",
+            "id": "trace:verifier:a_6/step0",
             "parent_step_id": null,
             "sequence": 3,
             "summary": "Plan: search for 'Acme's operating margin was 32% in fisca'.",
-            "trace_id": "trace:UnifiedVerifier:a_6/response",
+            "trace_id": "trace:verifier:a_6/response",
             "type": "thinking"
           },
           {
@@ -2425,39 +2483,39 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "id": "trace:UnifiedVerifier:a_6/step1",
-            "parent_step_id": "trace:UnifiedVerifier:a_6/step0",
+            "id": "trace:verifier:a_6/step1",
+            "parent_step_id": "trace:verifier:a_6/step0",
             "sequence": 4,
             "summary": "search: Acme's operating margin was 32% in fiscal 2024.",
-            "trace_id": "trace:UnifiedVerifier:a_6/response",
+            "trace_id": "trace:verifier:a_6/response",
             "type": "web_search"
           }
         ],
-        "total_tokens": 1500
+        "usage": {
+          "cost_usd": 0.112375,
+          "num_search_queries": 2,
+          "reasoning_tokens": 200,
+          "response_ids": [
+            "trace:verifier:a_6/response"
+          ],
+          "total_tokens": 1500
+        }
       },
       {
-        "agent": "UnifiedVerifier",
+        "agent": "verifier",
         "claim_id": "a_8",
         "completed_at": "<ts>",
-        "id": "trace:UnifiedVerifier:a_8",
-        "miromind_response_id": "trace:UnifiedVerifier:a_8/response",
-        "num_search_queries": 0,
-        "reasoning_tokens": 0,
+        "engine": "miromind",
+        "id": "trace:verifier:a_8",
         "started_at": "<ts>",
         "steps": [],
-        "total_tokens": 0
-      },
-      {
-        "agent": "planner",
-        "claim_id": "(planner)",
-        "completed_at": "<ts>",
-        "id": "trace:planner:(planner)",
-        "miromind_response_id": "trace:planner:(planner)/response",
-        "num_search_queries": 0,
-        "reasoning_tokens": 0,
-        "started_at": "<ts>",
-        "steps": [],
-        "total_tokens": 0
+        "usage": {
+          "cost_usd": 0.0,
+          "num_search_queries": 0,
+          "reasoning_tokens": 0,
+          "response_ids": [],
+          "total_tokens": 0
+        }
       }
     ]
   },

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Finding, Job, Stage, Step, VerificationStep } from "@/lib/types";
 import { stepIcon, verdictTone } from "@/lib/colors";
 import { useArgusStore } from "@/lib/store";
-import { sortFindingsForReview } from "@/lib/findings";
+import { isDerivedFinding, sortFindingsForReview } from "@/lib/findings";
 
 // Verdict badge tints — keyed by the tone from `verdictTone`. Mirror the
 // severity-tint pattern (text-foreground on a /15 surface) so contrast holds.
@@ -333,7 +333,7 @@ function StaticReplay({ job, activeFindingId }: { job: Job | null; activeFinding
   const claimText = new Map(job.claims.map((c) => [c.id, c.text]));
   const traceById = new Map(job.traces.map((t) => [t.id, t]));
   const groups: ClaimGroup[] = sortFindingsForReview(
-    job.findings.filter((f) => f.agent === "UnifiedVerifier"),
+    job.findings.filter((f) => f.agent === "verifier"),
   )
     .map((f) => {
       const trace = traceById.get(f.reasoning_trace_id);
@@ -885,7 +885,7 @@ function WorkspaceClaimDetail({
 }
 
 function SelectedFindingTraceNotice({ finding, claimText }: { finding: Finding; claimText: string }) {
-  const derived = finding.agent !== "UnifiedVerifier";
+  const derived = isDerivedFinding(finding);
   const tone = verdictTone[finding.verdict] ?? "muted";
 
   return (
@@ -968,11 +968,11 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
   const chips = Object.entries(stage.metrics ?? {});
   const consistencyFindings =
     stage.key === "consistency"
-      ? job.findings.filter((f) => f.agent === "Consistency")
+      ? job.findings.filter((f) => f.agent === "consistency")
       : [];
   const skepticFindings =
     stage.key === "skeptic"
-      ? job.findings.filter((f) => f.agent === "UnifiedVerifier" && f.skeptic_review)
+      ? job.findings.filter((f) => f.agent === "verifier" && f.skeptic_review)
       : [];
   const confidenceFindings =
     stage.key === "confidence" ? sortFindingsForReview(job.findings) : [];

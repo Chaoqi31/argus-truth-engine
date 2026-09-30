@@ -4,7 +4,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from argus.llm import Route, Task
-from argus.models.domain import FindingVerdict
+from argus.models.domain import Agent, FindingVerdict
 
 SYSTEM_PROMPT = """\
 You are Argus's SKEPTIC REVIEWER. You do NOT produce the primary verdict.
@@ -78,7 +78,7 @@ def build_skeptic_input(
 # The deep-research skeptic spends its output budget on reasoning and tool
 # calls before the final JSON; 3000 tokens starved it, 8000 lets it finish.
 CHALLENGE = Task(
-    agent="skeptic",
+    agent=Agent.SKEPTIC,
     route=Route.DEEP_RESEARCH,
     instructions=SYSTEM_PROMPT,
     output=SkepticOutput,

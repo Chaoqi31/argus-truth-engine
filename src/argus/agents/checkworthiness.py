@@ -10,7 +10,7 @@ import json
 from pydantic import BaseModel, Field
 
 from argus.llm import Route, Task
-from argus.models.domain import Claim
+from argus.models.domain import Agent, Claim
 
 SYSTEM_PROMPT = """\
 You are a claim checkworthiness classifier. For each claim, decide whether
@@ -54,7 +54,7 @@ class CheckworthinessResult(BaseModel):
 
 
 CHECK_WORTHINESS = Task(
-    agent="checkworthiness",
+    agent=Agent.CHECKWORTHINESS,
     route=Route.DEEPSEEK_ONLY,
     instructions=SYSTEM_PROMPT,
     output=CheckworthinessResult,

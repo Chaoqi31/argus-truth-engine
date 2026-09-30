@@ -4,10 +4,10 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from argus.llm import Route, Task
-from argus.models.domain import FindingVerdict
+from argus.models.domain import Agent, FindingVerdict
 
 # Bump when prompt OR output schema changes — invalidates all prior cache.
-VERIFIER_VERSION = "v2"
+VERIFIER_VERSION = "v3"
 
 SYSTEM_PROMPT = """\
 You are Argus's UNIFIED VERIFIER. Your task is to determine whether a factual
@@ -205,7 +205,7 @@ def build_verifier_input(
 
 
 VERIFY = Task(
-    agent="unified_verifier",
+    agent=Agent.VERIFIER,
     route=Route.DEEP_RESEARCH,
     instructions=SYSTEM_PROMPT,
     output=UnifiedVerifierOutput,

@@ -1,5 +1,5 @@
 import type { Job } from "@/lib/types";
-import { formatUsd, isMiroMindResponseId, plural } from "@/lib/format";
+import { formatUsd, plural } from "@/lib/format";
 
 export type ExecutionControlId =
   | "background_responses"
@@ -42,21 +42,19 @@ function control(
 }
 
 export function getJobExecutionControls(job: Job): ExecutionControlSummary {
-  const verifierTraces = job.traces.filter((trace) => trace.agent === "UnifiedVerifier");
-  const miromindTraces = job.traces.filter((trace) =>
-    isMiroMindResponseId(trace.miromind_response_id),
-  );
-  const responseIds = new Set(miromindTraces.map((trace) => trace.miromind_response_id));
+  const verifierTraces = job.traces.filter((trace) => trace.agent === "verifier");
+  const miromindTraces = job.traces.filter((trace) => trace.engine === "miromind");
+  const responseIds = new Set(miromindTraces.flatMap((trace) => trace.usage.response_ids));
   const cursorSteps = miromindTraces.reduce(
     (sum, trace) => sum + trace.steps.filter((step) => Number.isFinite(step.sequence)).length,
     0,
   );
-  const audited = job.claims_audited ?? verifierTraces.length;
-  const total = job.claims_total ?? job.claims.length;
+  const audited = job.claims_audited;
+  const total = job.claims_total;
   const hasStage = (key: string) => (job.stages ?? []).some((stage) => stage.key === key);
   const issueNeedsChallenge = job.findings.some(
     (finding) =>
-      finding.agent === "UnifiedVerifier" &&
+      finding.agent === "verifier" &&
       finding.verdict !== "ok" &&
       (finding.severity === "major" || finding.severity === "critical"),
   );

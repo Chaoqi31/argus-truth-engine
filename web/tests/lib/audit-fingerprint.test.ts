@@ -30,7 +30,7 @@ const job: Job = makeJob({
     makeFinding({
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.94,
@@ -51,13 +51,17 @@ const job: Job = makeJob({
     {
       id: "t1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
-      miromind_response_id: "resp_1",
+      agent: "verifier",
+      engine: "miromind",
       started_at: "2026-05-20T00:00:00Z",
       completed_at: "2026-05-20T00:05:00Z",
-      total_tokens: 120,
-      reasoning_tokens: 40,
-      num_search_queries: 2,
+      usage: {
+        response_ids: ["resp_1"],
+        total_tokens: 120,
+        reasoning_tokens: 40,
+        num_search_queries: 2,
+        cost_usd: 0,
+      },
       steps: [
         {
           id: "s1",

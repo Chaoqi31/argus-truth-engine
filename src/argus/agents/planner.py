@@ -11,7 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from argus.llm import Route, Task
-from argus.models.domain import Claim, ClaimType
+from argus.models.domain import Agent, Claim, ClaimType
 from argus.pdf.parser import ParsedDoc
 
 _VALID_CLAIM_TYPES: set[str] = {ct.value for ct in ClaimType}
@@ -238,14 +238,14 @@ def build_planner_input(doc: ParsedDoc, *, input_mode: str = "pdf") -> str:
 
 
 PLAN_PDF = Task(
-    agent="planner",
+    agent=Agent.PLANNER,
     route=Route.TEXT,
     instructions=SYSTEM_PROMPT,
     output=PlannerOutput,
     max_output_tokens=12000,
 )
 PLAN_TEXT = Task(
-    agent="planner",
+    agent=Agent.PLANNER,
     route=Route.TEXT,
     instructions=SYSTEM_PROMPT_LLM,
     output=PlannerOutput,

@@ -43,7 +43,7 @@ export function makeFinding(fields: Partial<Finding> = {}): Finding {
   return {
     id: "f1",
     claim_id: "c1",
-    agent: "UnifiedVerifier",
+    agent: "verifier",
     verdict: "ok",
     severity: "minor",
     confidence: 0.9,
@@ -83,13 +83,17 @@ export function makeTrace(fields: Partial<ReasoningTrace> = {}): ReasoningTrace 
   return {
     id: "t1",
     claim_id: "c1",
-    agent: "UnifiedVerifier",
-    miromind_response_id: "resp_1",
+    agent: "verifier",
+    engine: "miromind",
     started_at: T0,
     completed_at: null,
-    total_tokens: 0,
-    reasoning_tokens: 0,
-    num_search_queries: 0,
+    usage: {
+      response_ids: ["resp_1"],
+      total_tokens: 0,
+      reasoning_tokens: 0,
+      num_search_queries: 0,
+      cost_usd: 0,
+    },
     steps: [],
     ...fields,
   };

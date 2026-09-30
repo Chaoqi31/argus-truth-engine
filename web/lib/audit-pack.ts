@@ -6,6 +6,7 @@ import { getJobExecutionControls } from "@/lib/execution-controls";
 import { getJudgeProofStrip, getTechnicalDepthProof } from "@/lib/technical-depth";
 import { sortFindingsForReview } from "@/lib/findings";
 import { formatNumber, formatUsd, pct, plural } from "@/lib/format";
+import { toolCounts } from "@/lib/steps";
 
 const REVIEW_STATUS_ORDER = ["open", "accepted", "disputed", "needs-recheck", "resolved"] as const;
 const STAGE_BLURB: Record<string, string> = {
@@ -54,21 +55,6 @@ function excerpt(value: string, max = 1600): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-function traceToolCounts(trace: Job["traces"][number]): {
-  searches: number;
-  fetches: number;
-  codeSteps: number;
-} {
-  const stepSearches = trace.steps.filter((step) => step.type === "web_search").length;
-  return {
-    searches: trace.num_search_queries > 0 ? trace.num_search_queries : stepSearches,
-    fetches: trace.steps.filter((step) => step.type === "fetch_url_content").length,
-    codeSteps: trace.steps.filter(
-      (step) => step.type === "execute_python" || step.type === "execute_command",
-    ).length,
-  };
-}
-
 function skepticCounterevidenceCell(finding: Finding): string {
   const counterevidence = finding.skeptic_review?.counterevidence ?? [];
   return counterevidence
@@ -85,13 +71,13 @@ function stageLedger(
   const claimCount = job.claims.length;
   const findingCount = job.findings.length;
   const evidenceCount = job.evidences.length;
-  const verifierFindings = job.findings.filter((finding) => finding.agent === "UnifiedVerifier");
+  const verifierFindings = job.findings.filter((finding) => finding.agent === "verifier");
   const traceById = new Map(job.traces.map((trace) => [trace.id, trace]));
   const verifierTraces = verifierFindings
     .map((finding) => traceById.get(finding.reasoning_trace_id))
     .filter((trace): trace is Job["traces"][number] => trace !== undefined);
   const traceSteps = verifierTraces.reduce((n, trace) => n + trace.steps.length, 0);
-  const searchCount = verifierTraces.reduce((n, trace) => n + traceToolCounts(trace).searches, 0);
+  const searchCount = verifierTraces.reduce((n, trace) => n + toolCounts(trace).searches, 0);
 
   switch (stage.key) {
     case "parse":
@@ -176,14 +162,14 @@ function stageArtifactLines(
     `| ${cell(claim.claim_id ?? "")} | ${cell(claim.text)} | ${cell(claim.reason)} |`,
   );
   const skepticRows = job.findings
-    .filter((finding) => finding.agent === "UnifiedVerifier" && finding.skeptic_review)
+    .filter((finding) => finding.agent === "verifier" && finding.skeptic_review)
     .map((finding) => {
       const review = finding.skeptic_review;
       const claim = claimById.get(finding.claim_id);
       return `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(review?.status)} | ${cell(review?.summary)} | ${cell(claim?.text ?? finding.claim_id)} |`;
     });
   const consistencyRows = job.findings
-    .filter((finding) => finding.agent === "Consistency")
+    .filter((finding) => finding.agent === "consistency")
     .map((finding) =>
       `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(finding.severity)} | ${cell(finding.summary)} |`,
     );
@@ -193,12 +179,12 @@ function stageArtifactLines(
   });
   const traceById = new Map(job.traces.map((trace) => [trace.id, trace]));
   const verifierRows = sortFindingsForReview(
-    job.findings.filter((finding) => finding.agent === "UnifiedVerifier"),
+    job.findings.filter((finding) => finding.agent === "verifier"),
   ).map((finding) => {
     const trace = traceById.get(finding.reasoning_trace_id);
-    const tools = trace ? traceToolCounts(trace) : { searches: 0, fetches: 0, codeSteps: 0 };
+    const tools = trace ? toolCounts(trace) : { searches: 0, fetches: 0, codeSteps: 0 };
     const claim = claimById.get(finding.claim_id);
-    return `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(finding.severity)} | ${Math.round(finding.confidence * 100)}% | ${finding.evidence_ids.length} | ${trace?.steps.length ?? 0} | ${tools.searches} | ${cell(trace?.miromind_response_id ?? "")} | ${cell(claim?.text ?? finding.claim_id)} |`;
+    return `| ${cell(finding.id)} | ${cell(finding.verdict)} | ${cell(finding.severity)} | ${Math.round(finding.confidence * 100)}% | ${finding.evidence_ids.length} | ${trace?.steps.length ?? 0} | ${tools.searches} | ${cell(trace?.usage.response_ids.join(", ") ?? "")} | ${cell(claim?.text ?? finding.claim_id)} |`;
   });
 
   switch (stage.key) {
@@ -329,10 +315,8 @@ export function buildAuditPackMarkdown(
   reviews: Record<string, FindingReview>,
 ): string {
   const contentDomain = job.content_domain ?? "general";
-  const total = job.claims_total && job.claims_total > 0 ? job.claims_total : job.claims.length;
-  const audited = job.claims_audited && job.claims_audited > 0
-    ? job.claims_audited
-    : job.findings.filter((f) => f.agent === "UnifiedVerifier").length;
+  const total = job.claims_total;
+  const audited = job.claims_audited;
   const unchecked = Math.max(0, total - audited);
   const materialIssues = job.findings.filter(
     (f) => f.verdict !== "ok" && (f.severity === "critical" || f.severity === "major"),
@@ -357,7 +341,7 @@ export function buildAuditPackMarkdown(
   }
   const toolTotals = job.traces.reduce(
     (acc, trace) => {
-      const tools = traceToolCounts(trace);
+      const tools = toolCounts(trace);
       return {
         steps: acc.steps + trace.steps.length,
         searches: acc.searches + tools.searches,
@@ -371,9 +355,9 @@ export function buildAuditPackMarkdown(
     `| ${cell(stage.name)} | ${cell(stage.engine)} | ${cell(stage.summary)} | ${cell(metricCell(stage.metrics))} |`,
   );
   const traceRows = job.traces.map((trace) => {
-    const claim = claimById.get(trace.claim_id);
-    const tools = traceToolCounts(trace);
-    return `| ${cell(trace.agent)} | ${cell(claim?.text ?? trace.claim_id)} | ${trace.steps.length} | ${tools.searches} | ${tools.fetches} | ${tools.codeSteps} | ${trace.total_tokens} | ${trace.reasoning_tokens} | ${cell(trace.miromind_response_id)} |`;
+    const claim = trace.claim_id ? claimById.get(trace.claim_id) : undefined;
+    const tools = toolCounts(trace);
+    return `| ${cell(trace.agent)} | ${cell(claim?.text ?? trace.claim_id ?? "—")} | ${trace.steps.length} | ${tools.searches} | ${tools.fetches} | ${tools.codeSteps} | ${trace.usage.total_tokens} | ${trace.usage.reasoning_tokens} | ${cell(trace.usage.response_ids.join(", "))} |`;
   });
   const auditabilityRows = auditability.controls.map((control) => {
     const coverage = control.required > 0 ? `${control.present}/${control.required}` : "n/a";

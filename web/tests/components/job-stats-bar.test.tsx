@@ -59,13 +59,17 @@ describe("JobStatsBar", () => {
             {
               id: "t1",
               claim_id: "c1",
-              agent: "UnifiedVerifier",
-              miromind_response_id: "resp_1",
+              agent: "verifier",
+              engine: "miromind",
               started_at: "2026-05-20T00:00:00Z",
               completed_at: "2026-05-20T00:05:00Z",
-              total_tokens: 12000,
-              reasoning_tokens: 678,
-              num_search_queries: 3,
+              usage: {
+                response_ids: ["resp_1"],
+                total_tokens: 12000,
+                reasoning_tokens: 678,
+                num_search_queries: 3,
+                cost_usd: 0,
+              },
               steps: [
                 {
                   id: "s1",
@@ -125,7 +129,7 @@ describe("JobStatsBar", () => {
         makeFinding({
           id: "f1",
           claim_id: "c1",
-          agent: "UnifiedVerifier",
+          agent: "verifier",
           verdict: "fabricated",
           severity: "major",
           confidence: 0.92,
@@ -137,7 +141,7 @@ describe("JobStatsBar", () => {
         makeFinding({
           id: "f2",
           claim_id: "c2",
-          agent: "UnifiedVerifier",
+          agent: "verifier",
           verdict: "ok",
           severity: "minor",
           confidence: 0.82,

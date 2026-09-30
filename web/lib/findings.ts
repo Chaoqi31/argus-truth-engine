@@ -49,7 +49,7 @@ function reviewPriority(finding: Finding): number {
 }
 
 export function isDerivedFinding(finding: Finding): boolean {
-  return finding.agent !== "UnifiedVerifier";
+  return finding.agent !== "verifier";
 }
 
 export function sortFindingsForReview(findings: readonly Finding[]): Finding[] {

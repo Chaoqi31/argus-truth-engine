@@ -18,7 +18,7 @@ def _sample_finding() -> Finding:
     return Finding(
         id="fnd_test",
         claim_id="claim_test",
-        agent="UnifiedVerifier",
+        agent="verifier",
         verdict=FindingVerdict.OK,
         severity=Severity.MINOR,
         confidence=0.95,

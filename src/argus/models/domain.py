@@ -14,7 +14,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 # --- Enums ----------------------------------------------------------------------------
 
@@ -90,6 +90,54 @@ class StepType(StrEnum):
 # --- Models ---------------------------------------------------------------------------
 
 
+class Agent(StrEnum):
+    """Which LLM task produced a trace or a finding: one value per task."""
+
+    PLANNER = "planner"
+    ATOMIZER = "atomizer"
+    CHECKWORTHINESS = "checkworthiness"
+    VERIFIER = "verifier"
+    SKEPTIC = "skeptic"
+    CONSISTENCY = "consistency"
+    REPORTER = "reporter"
+
+
+class Engine(StrEnum):
+    """What executed a stage or a trace. For LLM work it is the provider the
+    gateway routed the task to."""
+
+    DEEPSEEK = "deepseek"
+    MIROMIND = "miromind"
+    DETERMINISTIC = "deterministic"
+
+
+class StageKey(StrEnum):
+    """Pipeline stages. Declaration order is pipeline order, which is how a
+    job's stages are listed even when two ran at once."""
+
+    PARSE = "parse"
+    PLANNER = "planner"
+    ATOMIZER = "atomizer"
+    CHECKWORTHINESS = "checkworthiness"
+    REVIEW_GATE = "review_gate"
+    VERIFY = "verify"
+    SKEPTIC = "skeptic"
+    CONSISTENCY = "consistency"
+    CONFIDENCE = "confidence"
+    REPORTER = "reporter"
+
+
+class FindingFlag(StrEnum):
+    """User-facing caveats on a finding. Values are the badge text."""
+
+    SINGLE_SOURCE = "single source — verify manually"
+    UNDER_SOURCED = "under-sourced — verify manually"
+    SKEPTIC_COUNTEREVIDENCE = "skeptic counterevidence found"
+    VERIFIER_TIMED_OUT = "verifier timed out"
+    VERIFIER_UNPARSEABLE = "unparseable verifier response"
+    VERIFIER_REQUEST_FAILED = "verifier request failed"
+
+
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:12]}"
 
@@ -146,16 +194,37 @@ class Step(Frozen):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class ReasoningTrace(Frozen):
-    id: str
-    claim_id: str
-    agent: str
-    miromind_response_id: str
-    started_at: datetime
-    completed_at: datetime | None = None
+class Usage(Frozen):
+    """What an LLM call consumed, over every attempt it made. Only MiroMind
+    responses cost money; the job's spend is the sum over its traces."""
+
+    response_ids: tuple[str, ...] = ()
     total_tokens: int = 0
     reasoning_tokens: int = 0
     num_search_queries: int = 0
+    cost_usd: float = 0.0
+
+    def __add__(self, other: Usage) -> Usage:
+        return Usage(
+            response_ids=self.response_ids + other.response_ids,
+            total_tokens=self.total_tokens + other.total_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            num_search_queries=self.num_search_queries + other.num_search_queries,
+            cost_usd=self.cost_usd + other.cost_usd,
+        )
+
+
+class ReasoningTrace(Frozen):
+    """One LLM task: every step it streamed, what it cost, which engine ran
+    it. `claim_id` is None for tasks over the whole document."""
+
+    id: str
+    agent: Agent
+    claim_id: str | None = None
+    engine: Engine
+    started_at: datetime
+    completed_at: datetime | None = None
+    usage: Usage = Usage()
     steps: tuple[Step, ...] = ()
 
 
@@ -249,7 +318,7 @@ class SkepticReview(Frozen):
 class Finding(Frozen):
     id: str
     claim_id: str
-    agent: str
+    agent: Literal[Agent.VERIFIER, Agent.CONSISTENCY]
     verdict: FindingVerdict
     severity: Severity = Severity.MINOR
     confidence: float = Field(ge=0.0, le=1.0)
@@ -266,9 +335,7 @@ class Finding(Frozen):
     reasoning_trace_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     from_cache: bool = False
-    # User-facing caveats surfaced as badges (e.g. "single source — verify
-    # manually" when a verdict rests on fewer than 2 independent sources).
-    flags: tuple[str, ...] = ()
+    flags: tuple[FindingFlag, ...] = ()
 
 
 class ContentDomain(StrEnum):
@@ -291,9 +358,9 @@ class StageFilteredClaim(Frozen):
 
 
 class Stage(Frozen):
-    key: str
+    key: StageKey
     name: str
-    engine: Literal["deepseek", "miromind", "deterministic"]
+    engine: Engine
     summary: str
     metrics: dict[str, int] = Field(default_factory=dict)
     filtered_claims: tuple[StageFilteredClaim, ...] = ()
@@ -347,16 +414,7 @@ class Job(_Base):
     failure: Failure | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
-    cost_usd: float = 0.0
-    total_tokens: int = 0
     audit_report_md: str | None = None
-
-    # Audit coverage — guards against partial results masquerading as complete.
-    # claims_total: claims that entered Phase B verification.
-    # claims_audited: claims that received a UnifiedVerifier verdict (incl.
-    # downgraded/failed uncertains). audited < total ⇒ partial coverage.
-    claims_total: int = 0
-    claims_audited: int = 0
 
     claims: list[Claim] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
@@ -365,3 +423,33 @@ class Job(_Base):
     stages: list[Stage] = Field(default_factory=list)
     # Demo-fixture-only ground truth; always None on live jobs. See BenchmarkSpec.
     benchmark: BenchmarkSpec | None = None
+
+    # Derived, so they cannot drift from what they summarise. Sent to the web
+    # and projected into list columns, never stored in the document.
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def cost_usd(self) -> float:
+        return round(sum(t.usage.cost_usd for t in self.traces), 6)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def total_tokens(self) -> int:
+        return sum(t.usage.total_tokens for t in self.traces)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def claims_total(self) -> int:
+        """Claims sent to verification: the reviewer's selection once made."""
+        return len(self.claims)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def claims_audited(self) -> int:
+        """Claims with a verifier verdict, failed ones included. Fewer than
+        `claims_total` means the audit stopped part-way."""
+        return sum(1 for f in self.findings if f.agent == Agent.VERIFIER)
+
+    def document_json(self) -> str:
+        """The stored form: everything but the derived fields."""
+        return self.model_dump_json(exclude_computed_fields=True)

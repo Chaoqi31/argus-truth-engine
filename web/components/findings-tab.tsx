@@ -17,8 +17,8 @@ export function FindingsTab({ job, activeFindingId, onSelect, onOpenDrawer }: Pr
   const claimById = new Map(job.claims.map((c) => [c.id, c]));
   const evidenceById = new Map(job.evidences.map((e) => [e.id, e]));
   const ranked = sortFindingsForReview(job.findings);
-  const total = job.claims_total ?? 0;
-  const audited = job.claims_audited ?? 0;
+  const total = job.claims_total;
+  const audited = job.claims_audited;
   const partial = total > 0 && audited < total;
 
   useEffect(() => {

@@ -52,7 +52,7 @@ function loadSampleJob(): Job {
       makeFinding({
         id: "f_ok",
         claim_id: "c_ok",
-        agent: "UnifiedVerifier",
+        agent: "verifier",
         verdict: "ok",
         severity: "minor",
         confidence: 0.98,
@@ -64,7 +64,7 @@ function loadSampleJob(): Job {
       makeFinding({
         id: "f_bad",
         claim_id: "c_bad",
-        agent: "UnifiedVerifier",
+        agent: "verifier",
         verdict: "fabricated",
         severity: "major",
         confidence: 0.93,
@@ -129,13 +129,17 @@ function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
   return {
     id,
     claim_id: claimId,
-    agent: "UnifiedVerifier",
-    miromind_response_id: `resp_${id}`,
+    agent: "verifier",
+    engine: "miromind",
     started_at: "2026-06-01T00:00:00Z",
     completed_at: "2026-06-01T00:01:00Z",
-    total_tokens: 100,
-    reasoning_tokens: 50,
-    num_search_queries: steps.filter((step) => step.type === "web_search").length,
+    usage: {
+      response_ids: [`resp_${id}`],
+      total_tokens: 100,
+      reasoning_tokens: 50,
+      num_search_queries: steps.filter((step) => step.type === "web_search").length,
+      cost_usd: 0,
+    },
     steps,
   };
 }
@@ -235,7 +239,7 @@ describe("TraceStreamView", () => {
       makeFinding({
         id: "f_derived",
         claim_id: "c_bad",
-        agent: "Consistency",
+        agent: "consistency",
         verdict: "unsupported-inference",
         severity: "major",
         confidence: 0.91,

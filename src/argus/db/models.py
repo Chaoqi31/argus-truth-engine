@@ -144,7 +144,7 @@ class JobRow(Base):
         self.findings_count = len(job.findings)
         self.claims_total = job.claims_total
         self.claims_audited = job.claims_audited
-        self.document = job.model_dump_json()
+        self.document = job.document_json()
 
     def job(self) -> Job:
         return Job.model_validate_json(self.document)

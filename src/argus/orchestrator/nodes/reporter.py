@@ -8,7 +8,7 @@ from argus.agents.reporter import REPORT, build_reporter_input
 from argus.engineering import BudgetExceeded
 from argus.llm import Failed, FailureReason
 from argus.log import log
-from argus.models.domain import Failure, FailureKind, Stage
+from argus.models.domain import Agent, Failure, FailureKind, Stage
 from argus.orchestrator.assemblers import _build_trace, _step_payload
 from argus.orchestrator.context import _Ctx, _State
 
@@ -57,8 +57,9 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             return {"failure": Failure(kind=FailureKind.BUDGET, message=str(exc))}
 
         trace = _build_trace(
-            claim_id="(reporter)",
-            agent="Reporter",
+            claim_id=None,
+            agent=Agent.REPORTER,
+            engine=answer.engine,
             usage=answer.usage,
             steps=answer.steps,
         )

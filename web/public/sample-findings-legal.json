@@ -6,45 +6,12 @@
   "input_text": "UNITED STATES DISTRICT COURT — SOUTHERN DISTRICT OF NEW YORK\nDelacroix v. Transpacific Airways, Inc.\n\nPLAINTIFF'S MEMORANDUM OF LAW IN OPPOSITION TO DEFENDANT'S MOTION TO DISMISS\n(Draft — prepared with AI research assistance)\n\nPRELIMINARY STATEMENT\n\nDefendant's motion should be denied. Controlling authority squarely supports plaintiff's position, and defendant's contrary reading cannot be reconciled with the weight of precedent.\n\nARGUMENT\n\nI.  The limitations period was tolled during the pendency of the bankruptcy stay.\n\nIn Varghese v. China Southern Airlines Co., 925 F.3d 1339, 1345 (11th Cir. 2019), the Eleventh Circuit held that a carrier's limitations period is tolled while a related bankruptcy proceeding remains pending.\n\nII.  Plaintiff may recover for purely emotional injuries.\n\nIn Zicherman v. Korean Air Lines Co., 516 U.S. 217, 231 (1996), the Supreme Court held that the Warsaw Convention permits recovery for purely emotional injuries even absent any accompanying physical harm. And in Rivera v. Metro Transit Authority, 412 F.3d 880, 887 (2d Cir. 2009), the Second Circuit excused the administrative-exhaustion requirement on futility grounds.\n\nIII.  Defendant's forum-selection clause is unenforceable.\n\nIn Shute v. Carnival Cruise Lines, 499 U.S. 585 (1991), the Supreme Court held that such clauses are unenforceable against individual consumers.\n\nCONCLUSION\n\nFor the foregoing reasons, defendant's motion should be denied. Counsel is mindful that courts now scrutinize AI-assisted filings with particular care, as in Mata v. Avianca, Inc., 678 F. Supp. 3d 443 (S.D.N.Y. 2023).\n",
   "input_mode": "text",
   "content_domain": "legal",
-  "benchmark": {
-    "name": "AI-drafted legal brief planted-error benchmark",
-    "expected_claims": [
-      {
-        "claim_id": "a_1",
-        "verdict": "fabricated",
-        "rationale": "Planted fabricated case: Varghese v. China Southern Airlines Co. does not exist at the cited reporter entry."
-      },
-      {
-        "claim_id": "a_2",
-        "verdict": "inaccurate",
-        "rationale": "Planted reversed holding: Zicherman does not permit purely emotional injury recovery in the way claimed."
-      },
-      {
-        "claim_id": "a_3",
-        "verdict": "fabricated",
-        "rationale": "Planted fabricated case: Rivera v. Metro Transit Authority does not exist at the cited Second Circuit entry."
-      },
-      {
-        "claim_id": "a_4",
-        "verdict": "inaccurate",
-        "rationale": "Planted reversed holding: Shute upheld the forum-selection clause rather than rejecting it."
-      },
-      {
-        "claim_id": "a_5",
-        "verdict": "ok",
-        "rationale": "Control claim: Mata v. Avianca is a real AI-assisted filing sanctions case."
-      }
-    ]
-  },
   "auto_review": true,
   "status": "done",
+  "failure": null,
   "created_at": "2026-06-04T05:44:23.719897",
   "completed_at": "2026-06-04T05:56:28.338470",
-  "cost_usd": 6.446966,
-  "total_tokens": 1868623,
   "audit_report_md": "**Headline risk: The memorandum contains two fabricated cases (Varghese v. China Southern Airlines Co. and Rivera v. Metro Transit Authority) and two critical misstatements of Supreme Court holdings (Zicherman and Shute).** The strongest verified claim is the accurate citation of *Mata v. Avianca, Inc.*, which underscores the need for careful review of AI-assisted filings. The fabricated *Varghese* case does not exist; the correct rule is that the Montreal Convention's limitations period is not tolled by bankruptcy. The *Rivera* case is also nonexistent; no Second Circuit decision excused exhaustion on futility grounds at that citation. *Zicherman* actually bars recovery for purely emotional injuries under the Warsaw Convention when DOHSA applies, allowing only pecuniary damages. *Shute* held forum-selection clauses in cruise tickets enforceable, not unenforceable. These errors undermine the memorandum's legal authority and risk sanctions.",
-  "claims_total": 5,
-  "claims_audited": 5,
   "claims": [
     {
       "id": "a_1",
@@ -62,7 +29,8 @@
         "title": "Varghese v. China Southern Airlines Co.",
         "doi": null
       },
-      "parent_claim_id": "c1"
+      "parent_claim_id": "c1",
+      "context": ""
     },
     {
       "id": "a_2",
@@ -80,7 +48,8 @@
         "title": "Zicherman v. Korean Air Lines Co.",
         "doi": null
       },
-      "parent_claim_id": "c2"
+      "parent_claim_id": "c2",
+      "context": ""
     },
     {
       "id": "a_3",
@@ -98,7 +67,8 @@
         "title": "Rivera v. Metro Transit Authority",
         "doi": null
       },
-      "parent_claim_id": "c3"
+      "parent_claim_id": "c3",
+      "context": ""
     },
     {
       "id": "a_4",
@@ -116,7 +86,8 @@
         "title": "Shute v. Carnival Cruise Lines",
         "doi": null
       },
-      "parent_claim_id": "c4"
+      "parent_claim_id": "c4",
+      "context": ""
     },
     {
       "id": "a_5",
@@ -134,14 +105,15 @@
         "title": "Mata v. Avianca, Inc.",
         "doi": null
       },
-      "parent_claim_id": "c5"
+      "parent_claim_id": "c5",
+      "context": ""
     }
   ],
   "findings": [
     {
       "id": "f_ac6043b7881f",
       "claim_id": "a_2",
-      "agent": "Consistency",
+      "agent": "consistency",
       "verdict": "unsupported-inference",
       "severity": "major",
       "confidence": 0.95,
@@ -155,6 +127,10 @@
       "why_wrong": "The actual holding of Zicherman is that Article 17 of the Warsaw Convention requires an 'accident' causing 'death, wounding, or any other bodily injury,' which courts have interpreted to require physical injury or physical manifestation of emotional distress.",
       "correct_information": null,
       "reasoning_chain": [],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [],
       "reasoning_trace_id": "trace_0b4e168fb732",
       "created_at": "2026-06-04T05:44:35.390997",
@@ -164,7 +140,7 @@
     {
       "id": "f_1c9754a57716",
       "claim_id": "a_4",
-      "agent": "Consistency",
+      "agent": "consistency",
       "verdict": "unsupported-inference",
       "severity": "major",
       "confidence": 0.95,
@@ -178,6 +154,10 @@
       "why_wrong": "The actual holding of Carnival Cruise Lines v. Shute is that forum-selection clauses in cruise tickets are presumptively enforceable, subject to reasonableness review.",
       "correct_information": null,
       "reasoning_chain": [],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [],
       "reasoning_trace_id": "trace_0b4e168fb732",
       "created_at": "2026-06-04T05:44:35.391008",
@@ -187,7 +167,7 @@
     {
       "id": "f_b10e72af3441",
       "claim_id": "a_1",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "fabricated",
       "severity": "critical",
       "confidence": 0.99,
@@ -200,7 +180,6 @@
       "summary": "The cited case, Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019), does not exist and is a now‑well‑documented AI‑generated fabrication. Because there is no authentic Eleventh Circuit decision by that name and citation, it cannot have adopted any holding on tolling a carrier’s limitations period during a bankruptcy proceeding.",
       "why_wrong": "The memorandum relies on a non‑existent Eleventh Circuit decision. In Mata v. Avianca, Inc., the Southern District of New York found that the purported Varghese opinion—cited with the same caption and Federal Reporter citation—was a fake, confirmed by the Eleventh Circuit clerk as not an authentic ruling and having no party named Varghese on its docket since 2010. The content ascribed to Varghese, including discussion of tolling under the Montreal Convention due to a bankruptcy stay, appears only in the fabricated text and not in any real Eleventh Circuit precedent.",
       "correct_information": null,
-      "skeptic_review": null,
       "reasoning_chain": [
         {
           "action": "Searched broadly for 'Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019)' in case law databases and general web sources",
@@ -216,35 +195,6 @@
           "action": "Cross‑checked with secondary reporting (e.g., New York Times and legal commentary on Mata v. Avianca)",
           "observation": "These sources repeatedly describe Varghese v. China Southern Airlines as a nonexistent case produced by ChatGPT, noting that neither the caption nor citation corresponds to any real Eleventh Circuit decision.",
           "reasoning": "Independent media and legal analyses corroborate the court’s conclusion, eliminating the possibility that this is merely an obscure or unpublished case and supporting the verdict that the claim rests on a fabricated authority."
-        }
-      ],
-      "coverage": [
-        {
-          "claim_fragment": "Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019) exists",
-          "relation": "refutes",
-          "evidence_ids": [
-            "ev_792ecbe88d79",
-            "ev_a3ee485bc95a"
-          ],
-          "reason": "The Mata sanctions record and court opinion state that the Eleventh Circuit clerk confirmed the Varghese decision was not authentic."
-        },
-        {
-          "claim_fragment": "The case adopted tolling of the Montreal Convention limitations period during bankruptcy",
-          "relation": "refutes",
-          "evidence_ids": [
-            "ev_792ecbe88d79",
-            "ev_1bf0321967da"
-          ],
-          "reason": "The supposed tolling discussion appears only in the fabricated Varghese text; no authentic Eleventh Circuit authority supports the claimed holding."
-        },
-        {
-          "claim_fragment": "The citation can be located by caption or reporter reference",
-          "relation": "refutes",
-          "evidence_ids": [
-            "ev_a2333ea1ec50",
-            "ev_1bf0321967da"
-          ],
-          "reason": "Independent reporting and legal commentary describe failed caption and citation searches and explain that the reporter citation points to other material."
         }
       ],
       "evidence_quality": [
@@ -285,6 +235,37 @@
           "rationale": "Legal technical commentary explains the reporter mismatch and fabricated-citation pattern."
         }
       ],
+      "coverage": [
+        {
+          "claim_fragment": "Varghese v. China Southern Airlines Co., 925 F.3d 1339 (11th Cir. 2019) exists",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_792ecbe88d79",
+            "ev_a3ee485bc95a"
+          ],
+          "reason": "The Mata sanctions record and court opinion state that the Eleventh Circuit clerk confirmed the Varghese decision was not authentic."
+        },
+        {
+          "claim_fragment": "The case adopted tolling of the Montreal Convention limitations period during bankruptcy",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_792ecbe88d79",
+            "ev_1bf0321967da"
+          ],
+          "reason": "The supposed tolling discussion appears only in the fabricated Varghese text; no authentic Eleventh Circuit authority supports the claimed holding."
+        },
+        {
+          "claim_fragment": "The citation can be located by caption or reporter reference",
+          "relation": "refutes",
+          "evidence_ids": [
+            "ev_a2333ea1ec50",
+            "ev_1bf0321967da"
+          ],
+          "reason": "Independent reporting and legal commentary describe failed caption and citation searches and explain that the reporter citation points to other material."
+        }
+      ],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_792ecbe88d79",
         "ev_a3ee485bc95a",
@@ -299,7 +280,7 @@
     {
       "id": "f_4f2e0cc38b0a",
       "claim_id": "a_2",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "inaccurate",
       "severity": "critical",
       "confidence": 0.97,
@@ -329,6 +310,10 @@
           "reasoning": "Converging descriptions from independent, authoritative sources confirm that the original claim misstates the holding and that the correct reading is that Zicherman restricts recovery for purely emotional injuries in this context."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_04d642995a69",
         "ev_fec11fb8dc5a",
@@ -343,7 +328,7 @@
     {
       "id": "f_8e151b5f81d4",
       "claim_id": "a_3",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "fabricated",
       "severity": "critical",
       "confidence": 0.75,
@@ -373,18 +358,8 @@
           "reasoning": "Because the authoritative reporter index for 412 F.3d does not contain the cited Transit Authority case, the pinpoint citation in the claim cannot be correct. Coupled with the incorrect year and court designation, this indicates that the cited Second Circuit decision and the described futility holding are fabricated rather than merely slightly mis-cited."
         }
       ],
-      "evidence_ids": [
-        "ev_c02c55e7f030",
-        "ev_87dcd9fd4f03",
-        "ev_8cac0ffe9979",
-        "ev_f05eb4dfa97e"
-      ],
-      "reasoning_trace_id": "trace_8481e2daff04",
-      "created_at": "2026-06-04T05:56:25.445898",
-      "from_cache": false,
-      "flags": [
-        "under-sourced — verify manually"
-      ],
+      "evidence_quality": [],
+      "coverage": [],
       "skeptic_review": {
         "status": "no_counterevidence",
         "summary": "Searches for any Second Circuit decision styled Rivera v. Metro/Metropolitan Transit Authority at 412 F.3d 880 or 887, or around 2009, turned up nothing; 412 F.3d 887 is an Eighth Circuit criminal case (United States v. Hagan), and the only Rivera v. Metropolitan Transit Authority located is a 2010 S.D.N.Y. district court case at 750 F. Supp. 2d 456, which is not a Second Circuit futility/exhaustion decision. No variant citation, alternate reporter, or related Second Circuit transit case was found that both matches the citation and adopts a futility exception to administrative exhaustion as described.",
@@ -409,12 +384,25 @@
             "relevance": "Confirms that the only located Rivera v. Metropolitan Transit Authority is a 2010 Southern District of New York case reported at 750 F. Supp. 2d 456, not a 2009 Second Circuit decision in F.3d, supporting the verifier’s point that the claimed appellate decision is not real."
           }
         ]
-      }
+      },
+      "computation_check": null,
+      "evidence_ids": [
+        "ev_c02c55e7f030",
+        "ev_87dcd9fd4f03",
+        "ev_8cac0ffe9979",
+        "ev_f05eb4dfa97e"
+      ],
+      "reasoning_trace_id": "trace_8481e2daff04",
+      "created_at": "2026-06-04T05:56:25.445898",
+      "from_cache": false,
+      "flags": [
+        "under-sourced — verify manually"
+      ]
     },
     {
       "id": "f_0ee62619a999",
       "claim_id": "a_4",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "inaccurate",
       "severity": "critical",
       "confidence": 0.99,
@@ -444,6 +432,10 @@
           "reasoning": "Independent sources consistently report that Shute stands for enforceability, not unenforceability, so the document’s claim is a clear misstatement of the case’s holding."
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_c6cc7346245d",
         "ev_4a1486bf6d69",
@@ -457,7 +449,7 @@
     {
       "id": "f_df3f66a49462",
       "claim_id": "a_5",
-      "agent": "UnifiedVerifier",
+      "agent": "verifier",
       "verdict": "ok",
       "severity": "minor",
       "confidence": 0.96,
@@ -487,6 +479,10 @@
           "reasoning": "Consistent external characterization reinforces that using Mata v. Avianca as an example of courts scrutinizing AI-assisted filings is accurate and current, justifying a verdict of “ok.”"
         }
       ],
+      "evidence_quality": [],
+      "coverage": [],
+      "skeptic_review": null,
+      "computation_check": null,
       "evidence_ids": [
         "ev_6faf5c84e4b8",
         "ev_6ae84b5493cd",
@@ -502,26 +498,38 @@
   "traces": [
     {
       "id": "trace_0b4e168fb732",
-      "claim_id": "(consistency)",
-      "agent": "Consistency",
-      "miromind_response_id": "deepseek:consistency",
+      "agent": "consistency",
+      "claim_id": null,
+      "engine": "deepseek",
       "started_at": "2026-06-04T05:44:35.390952",
       "completed_at": "2026-06-04T05:44:35.390957",
-      "total_tokens": 0,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "deepseek:consistency"
+        ],
+        "total_tokens": 0,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.0
+      },
       "steps": []
     },
     {
       "id": "trace_f5fcb2a4275a",
+      "agent": "verifier",
       "claim_id": "a_1",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_5c2ee84d-3430-44c1-8fa6-d2ada184eb13",
+      "engine": "miromind",
       "started_at": "2026-06-04T05:56:25.444382",
       "completed_at": "2026-06-04T05:56:25.444392",
-      "total_tokens": 1062626,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_5c2ee84d-3430-44c1-8fa6-d2ada184eb13"
+        ],
+        "total_tokens": 1062626,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 2.85649
+      },
       "steps": [
         {
           "id": "step_e39e46f8e5e5",
@@ -1641,14 +1649,20 @@
     },
     {
       "id": "trace_0b2c551cad3f",
+      "agent": "verifier",
       "claim_id": "a_2",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_ca8a947a-3dfb-4e88-a326-a9b8df5d073a",
+      "engine": "miromind",
       "started_at": "2026-06-04T05:56:25.445153",
       "completed_at": "2026-06-04T05:56:25.445156",
-      "total_tokens": 230372,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_ca8a947a-3dfb-4e88-a326-a9b8df5d073a"
+        ],
+        "total_tokens": 230372,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.619273
+      },
       "steps": [
         {
           "id": "step_cb96cfea9165",
@@ -2149,14 +2163,20 @@
     },
     {
       "id": "trace_8481e2daff04",
+      "agent": "verifier",
       "claim_id": "a_3",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_0966d529-ecdf-46ab-8ce2-f017752f09c3",
+      "engine": "miromind",
       "started_at": "2026-06-04T05:56:25.445803",
       "completed_at": "2026-06-04T05:56:25.445806",
-      "total_tokens": 280089,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_0966d529-ecdf-46ab-8ce2-f017752f09c3"
+        ],
+        "total_tokens": 280089,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.752919
+      },
       "steps": [
         {
           "id": "step_b055fb3e2cd9",
@@ -2667,14 +2687,20 @@
     },
     {
       "id": "trace_6adce3730331",
+      "agent": "verifier",
       "claim_id": "a_4",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_9e119aab-3470-48f8-a5eb-663718be0f11",
+      "engine": "miromind",
       "started_at": "2026-06-04T05:56:25.446065",
       "completed_at": "2026-06-04T05:56:25.446067",
-      "total_tokens": 208355,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_9e119aab-3470-48f8-a5eb-663718be0f11"
+        ],
+        "total_tokens": 208355,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.560088
+      },
       "steps": [
         {
           "id": "step_ee0f1e6e7b8e",
@@ -3163,14 +3189,20 @@
     },
     {
       "id": "trace_f5ed084d92e4",
+      "agent": "verifier",
       "claim_id": "a_5",
-      "agent": "UnifiedVerifier",
-      "miromind_response_id": "resp_w_dbac1ed4-daba-4288-abba-441b71e70801",
+      "engine": "miromind",
       "started_at": "2026-06-04T05:56:25.446243",
       "completed_at": "2026-06-04T05:56:25.446245",
-      "total_tokens": 87181,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_dbac1ed4-daba-4288-abba-441b71e70801"
+        ],
+        "total_tokens": 87181,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 0.234355
+      },
       "steps": [
         {
           "id": "step_0fb4c81232c1",
@@ -3415,14 +3447,20 @@
     },
     {
       "id": "trace_2c2b68f44845",
+      "agent": "skeptic",
       "claim_id": "a_3",
-      "agent": "Skeptic",
-      "miromind_response_id": "resp_w_e5ae2997-f749-49eb-adb0-4a9d792cffa5",
+      "engine": "miromind",
       "started_at": "2026-06-05T05:52:52.717341",
       "completed_at": "2026-06-05T05:52:52.717350",
-      "total_tokens": 529675,
-      "reasoning_tokens": 0,
-      "num_search_queries": 0,
+      "usage": {
+        "response_ids": [
+          "resp_w_e5ae2997-f749-49eb-adb0-4a9d792cffa5"
+        ],
+        "total_tokens": 529675,
+        "reasoning_tokens": 0,
+        "num_search_queries": 0,
+        "cost_usd": 1.423841
+      },
       "steps": [
         {
           "id": "step_a6cbb41b8f99",
@@ -4476,5 +4514,38 @@
       "filtered_claims": []
     }
   ],
-  "failure": null
+  "benchmark": {
+    "name": "AI-drafted legal brief planted-error benchmark",
+    "expected_claims": [
+      {
+        "claim_id": "a_1",
+        "verdict": "fabricated",
+        "rationale": "Planted fabricated case: Varghese v. China Southern Airlines Co. does not exist at the cited reporter entry."
+      },
+      {
+        "claim_id": "a_2",
+        "verdict": "inaccurate",
+        "rationale": "Planted reversed holding: Zicherman does not permit purely emotional injury recovery in the way claimed."
+      },
+      {
+        "claim_id": "a_3",
+        "verdict": "fabricated",
+        "rationale": "Planted fabricated case: Rivera v. Metro Transit Authority does not exist at the cited Second Circuit entry."
+      },
+      {
+        "claim_id": "a_4",
+        "verdict": "inaccurate",
+        "rationale": "Planted reversed holding: Shute upheld the forum-selection clause rather than rejecting it."
+      },
+      {
+        "claim_id": "a_5",
+        "verdict": "ok",
+        "rationale": "Control claim: Mata v. Avianca is a real AI-assisted filing sanctions case."
+      }
+    ]
+  },
+  "cost_usd": 6.446966,
+  "total_tokens": 2398298,
+  "claims_total": 5,
+  "claims_audited": 5
 }

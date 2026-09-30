@@ -34,7 +34,7 @@ def _ev(eid: str, url: str | None = None) -> Evidence:
 def _finding(
     *,
     verdict: FindingVerdict = FindingVerdict.FABRICATED,
-    agent: str = "UnifiedVerifier",
+    agent: str = "verifier",
     confidence: float = 0.9,
     chain: list[VerificationStep] | None = None,
     evidence_ids: list[str] | None = None,
@@ -92,7 +92,7 @@ def test_uncertain_never_flagged() -> None:
 
 
 def test_consistency_finding_not_flagged() -> None:
-    f = _finding(verdict=FindingVerdict.CONTRADICTION, agent="Consistency")
+    f = _finding(verdict=FindingVerdict.CONTRADICTION, agent="consistency")
     assert evaluate_sourcing(f, 0) == (None, None)
 
 

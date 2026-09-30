@@ -46,8 +46,8 @@ export function VerdictHero({
   };
 
   const subject = job.input_mode === "text" ? "this content" : "this report";
-  const total = job.claims_total && job.claims_total > 0 ? job.claims_total : job.claims.length;
-  const audited = job.claims_audited && job.claims_audited > 0 ? job.claims_audited : job.findings.filter((f) => f.agent === "UnifiedVerifier").length;
+  const total = job.claims_total;
+  const audited = job.claims_audited;
   const partial = total > 0 && audited < total;
   const unchecked = Math.max(0, total - audited);
   const failed = job.status === "failed";

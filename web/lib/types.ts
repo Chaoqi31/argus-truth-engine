@@ -3,6 +3,7 @@
 import type { Claim, ClaimType, FindingVerdict, Job, Severity } from "./generated/argus";
 
 export type {
+  Agent,
   BenchmarkExpectedClaim,
   BenchmarkSpec,
   Claim,
@@ -13,6 +14,7 @@ export type {
   ConfidenceBreakdown,
   ContentDomain,
   CorrectedInfo,
+  Engine,
   Evidence,
   EvidenceQuality,
   EvidenceSource,
@@ -27,8 +29,10 @@ export type {
   SkepticReview,
   Stage,
   StageFilteredClaim,
+  StageKey,
   Step,
   StepType,
+  Usage,
   VerificationStep,
 } from "./generated/argus";
 

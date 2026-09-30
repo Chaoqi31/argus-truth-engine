@@ -30,9 +30,8 @@ from argus.llm.miromind import (
 )
 from argus.llm.output import OutputError, parse_output, repair_prompt
 from argus.log import log
-from argus.models.domain import Step
+from argus.models.domain import Agent, Engine, Step, Usage
 
-Engine = Literal["miromind", "deepseek"]
 FailureReason = Literal["timeout", "unparseable", "request_error"]
 
 
@@ -48,31 +47,11 @@ class Route(StrEnum):
 class Task[T: BaseModel]:
     """One kind of LLM work: who does it, where it may run, what it returns."""
 
-    agent: str
+    agent: Agent
     route: Route
     instructions: str
     output: type[T]
     max_output_tokens: int
-
-
-@dataclass(frozen=True)
-class Usage:
-    """What a call consumed, over every attempt it made."""
-
-    response_ids: tuple[str, ...] = ()
-    total_tokens: int = 0
-    reasoning_tokens: int = 0
-    num_search_queries: int = 0
-    cost_usd: float = 0.0
-
-    def __add__(self, other: Usage) -> Usage:
-        return Usage(
-            response_ids=self.response_ids + other.response_ids,
-            total_tokens=self.total_tokens + other.total_tokens,
-            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
-            num_search_queries=self.num_search_queries + other.num_search_queries,
-            cost_usd=self.cost_usd + other.cost_usd,
-        )
 
 
 @dataclass(frozen=True)
@@ -100,7 +79,7 @@ type Answer[T: BaseModel] = Answered[T] | Failed
 
 @dataclass
 class _Attempts:
-    usage: Usage = Usage()
+    usage: Usage = field(default_factory=Usage)
     steps: list[Step] = field(default_factory=list)
 
 
@@ -116,14 +95,14 @@ class Llm:
     def engine(self, task: Task[BaseModel]) -> Engine:
         """The provider `ask` runs ``task`` on."""
         if task.route is Route.DEEP_RESEARCH:
-            return "miromind"
+            return Engine.MIROMIND
         if task.route is Route.TEXT and self.deepseek is None:
-            return "miromind"
-        return "deepseek"
+            return Engine.MIROMIND
+        return Engine.DEEPSEEK
 
     def can_run(self, task: Task[BaseModel]) -> bool:
         """False for a DeepSeek-only task when DeepSeek is not configured."""
-        return self.engine(task) == "miromind" or self.deepseek is not None
+        return self.engine(task) is Engine.MIROMIND or self.deepseek is not None
 
     async def ask[T: BaseModel](
         self,
@@ -181,7 +160,7 @@ class Llm:
         record: StepSink,
         attempts: _Attempts,
     ) -> str:
-        if engine == "deepseek":
+        if engine is Engine.DEEPSEEK:
             assert self.deepseek is not None
             chat = await self.deepseek.chat(
                 system=task.instructions, user=prompt, max_tokens=task.max_output_tokens

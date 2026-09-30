@@ -49,7 +49,7 @@ const job = makeJob({
     makeFinding({
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "ok",
       severity: "minor",
       confidence: 0.9,
@@ -61,7 +61,7 @@ const job = makeJob({
     makeFinding({
       id: "f2",
       claim_id: "c2",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.9,
@@ -73,7 +73,7 @@ const job = makeJob({
     makeFinding({
       id: "f3",
       claim_id: "c3",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "inaccurate",
       severity: "major",
       confidence: 0.9,

@@ -55,6 +55,34 @@ export type FindingVerdict =
  */
 export type Severity = "critical" | "major" | "minor";
 /**
+ * User-facing caveats on a finding. Values are the badge text.
+ *
+ * This interface was referenced by `Job`'s JSON-Schema
+ * via the `definition` "FindingFlag".
+ */
+export type FindingFlag =
+  | "single source — verify manually"
+  | "under-sourced — verify manually"
+  | "skeptic counterevidence found"
+  | "verifier timed out"
+  | "unparseable verifier response"
+  | "verifier request failed";
+/**
+ * Which LLM task produced a trace or a finding: one value per task.
+ *
+ * This interface was referenced by `Job`'s JSON-Schema
+ * via the `definition` "Agent".
+ */
+export type Agent = "planner" | "atomizer" | "checkworthiness" | "verifier" | "skeptic" | "consistency" | "reporter";
+/**
+ * What executed a stage or a trace. For LLM work it is the provider the
+ * gateway routed the task to.
+ *
+ * This interface was referenced by `Job`'s JSON-Schema
+ * via the `definition` "Engine".
+ */
+export type Engine = "deepseek" | "miromind" | "deterministic";
+/**
  * This interface was referenced by `Job`'s JSON-Schema
  * via the `definition` "StepType".
  */
@@ -76,6 +104,24 @@ export type EvidenceSource =
   | "company_filing"
   | "web_page"
   | "internal_doc";
+/**
+ * Pipeline stages. Declaration order is pipeline order, which is how a
+ * job's stages are listed even when two ran at once.
+ *
+ * This interface was referenced by `Job`'s JSON-Schema
+ * via the `definition` "StageKey".
+ */
+export type StageKey =
+  | "parse"
+  | "planner"
+  | "atomizer"
+  | "checkworthiness"
+  | "review_gate"
+  | "verify"
+  | "skeptic"
+  | "consistency"
+  | "confidence"
+  | "reporter";
 
 export interface Job {
   id: string;
@@ -90,17 +136,24 @@ export interface Job {
   failure: Failure | null;
   created_at: string;
   completed_at: string | null;
-  cost_usd: number;
-  total_tokens: number;
   audit_report_md: string | null;
-  claims_total: number;
-  claims_audited: number;
   claims: Claim[];
   findings: Finding[];
   traces: ReasoningTrace[];
   evidences: Evidence[];
   stages: Stage[];
   benchmark: BenchmarkSpec | null;
+  cost_usd: number;
+  total_tokens: number;
+  /**
+   * Claims sent to verification: the reviewer's selection once made.
+   */
+  claims_total: number;
+  /**
+   * Claims with a verifier verdict, failed ones included. Fewer than
+   * `claims_total` means the audit stopped part-way.
+   */
+  claims_audited: number;
 }
 /**
  * This interface was referenced by `Job`'s JSON-Schema
@@ -138,7 +191,7 @@ export interface Claim {
 export interface Finding {
   id: string;
   claim_id: string;
-  agent: string;
+  agent: "verifier" | "consistency";
   verdict: FindingVerdict;
   severity: Severity;
   confidence: number;
@@ -155,7 +208,7 @@ export interface Finding {
   reasoning_trace_id: string;
   created_at: string;
   from_cache: boolean;
-  flags: string[];
+  flags: FindingFlag[];
 }
 /**
  * Decomposed confidence — explains WHY confidence is at a certain level.
@@ -272,20 +325,35 @@ export interface ComputationValue {
   source_evidence_id: string | null;
 }
 /**
+ * One LLM task: every step it streamed, what it cost, which engine ran
+ * it. `claim_id` is None for tasks over the whole document.
+ *
  * This interface was referenced by `Job`'s JSON-Schema
  * via the `definition` "ReasoningTrace".
  */
 export interface ReasoningTrace {
   id: string;
-  claim_id: string;
-  agent: string;
-  miromind_response_id: string;
+  agent: Agent;
+  claim_id: string | null;
+  engine: Engine;
   started_at: string;
   completed_at: string | null;
+  usage: Usage;
+  steps: Step[];
+}
+/**
+ * What an LLM call consumed, over every attempt it made. Only MiroMind
+ * responses cost money; the job's spend is the sum over its traces.
+ *
+ * This interface was referenced by `Job`'s JSON-Schema
+ * via the `definition` "Usage".
+ */
+export interface Usage {
+  response_ids: string[];
   total_tokens: number;
   reasoning_tokens: number;
   num_search_queries: number;
-  steps: Step[];
+  cost_usd: number;
 }
 /**
  * This interface was referenced by `Job`'s JSON-Schema
@@ -321,9 +389,9 @@ export interface Evidence {
  * via the `definition` "Stage".
  */
 export interface Stage {
-  key: string;
+  key: StageKey;
   name: string;
-  engine: "deepseek" | "miromind" | "deterministic";
+  engine: Engine;
   summary: string;
   metrics: {
     [k: string]: number;

@@ -5,8 +5,15 @@ from argus.agents.unified_verifier import (
     EvidenceOut,
     UnifiedVerifierOutput,
 )
-from argus.llm import Usage
-from argus.models.domain import Claim, ClaimType, FindingVerdict, Severity, Step, StepType
+from argus.models.domain import (
+    Claim,
+    ClaimType,
+    FindingVerdict,
+    Severity,
+    Step,
+    StepType,
+    Usage,
+)
 from argus.orchestrator.assemblers import (
     _build_trace,
     _contradictions_to_findings,
@@ -44,7 +51,8 @@ def test_make_unified_finding_preserves_verdict_and_links_trace():
     )
     trace = _build_trace(
         claim_id="claim_1",
-        agent="UnifiedVerifier",
+        agent="verifier",
+        engine="miromind",
         usage=Usage(response_ids=("resp_test_000",)),
         steps=(),
     )
@@ -147,7 +155,8 @@ def test_build_trace_links_steps_into_sequential_chain():
 
     trace = _build_trace(
         claim_id="claim_1",
-        agent="UnifiedVerifier",
+        agent="verifier",
+        engine="miromind",
         usage=Usage(response_ids=("resp_x",)),
         steps=raw_steps,
     )
@@ -173,13 +182,14 @@ def test_build_trace_keeps_a_repaired_calls_attempts_in_order():
 
     trace = _build_trace(
         claim_id="claim_1",
-        agent="UnifiedVerifier",
+        agent="verifier",
+        engine="miromind",
         usage=Usage(response_ids=("resp_1", "resp_2"), total_tokens=30),
         steps=[retry, first],
     )
 
     assert [s.id for s in trace.steps] == ["first", "retry"]
-    assert (trace.miromind_response_id, trace.total_tokens) == ("resp_2", 30)
+    assert trace.usage.response_ids == ("resp_1", "resp_2")
 
 
 def test_logical_flaws_to_findings_maps_unsupported_inference():
@@ -203,7 +213,7 @@ def test_logical_flaws_to_findings_maps_unsupported_inference():
     f = findings[0]
     assert f.verdict == FindingVerdict.UNSUPPORTED_INFERENCE
     assert f.claim_id == "claim_7"
-    assert f.agent == "Consistency"
+    assert f.agent == "consistency"
     assert f.severity == Severity.MAJOR
     assert f.confidence == 0.82
     assert f.summary == "Concludes margins will rise from a single analyst note."
@@ -277,7 +287,8 @@ def _ev(url: str) -> EvidenceOut:
 def _trace_for() -> object:
     return _build_trace(
         claim_id="claim_1",
-        agent="UnifiedVerifier",
+        agent="verifier",
+        engine="miromind",
         usage=Usage(response_ids=("resp_test_000",)),
         steps=(),
     )

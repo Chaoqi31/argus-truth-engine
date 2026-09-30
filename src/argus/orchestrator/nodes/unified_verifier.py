@@ -17,19 +17,22 @@ from argus.agents.unified_verifier import (
 )
 from argus.cache.key import claim_cache_key
 from argus.engineering import BudgetExceeded, make_idempotency_key
-from argus.llm import Answer, Failed, FailureReason, Usage
+from argus.llm import Answer, Failed, FailureReason
 from argus.log import log
 from argus.models.domain import (
+    Agent,
     Claim,
     ClaimType,
     Evidence,
     Failure,
     FailureKind,
     Finding,
+    FindingFlag,
     FindingVerdict,
     ReasoningTrace,
     Stage,
     Step,
+    Usage,
     new_id,
 )
 from argus.orchestrator.assemblers import (
@@ -43,19 +46,19 @@ from argus.orchestrator.context import _Ctx, _State
 
 # Summary and flag of the UNCERTAIN finding that stands in for a claim the
 # verifier could not finish, so the claim still surfaces in results and report.
-_FAILED: dict[FailureReason, tuple[str, str]] = {
+_FAILED: dict[FailureReason, tuple[str, FindingFlag]] = {
     "timeout": (
         "Verification timed out before MiroMind returned a complete result.",
-        "verifier timed out",
+        FindingFlag.VERIFIER_TIMED_OUT,
     ),
     "unparseable": (
         "Verification could not be completed — the verifier's response could "
         "not be parsed into a valid result.",
-        "unparseable verifier response",
+        FindingFlag.VERIFIER_UNPARSEABLE,
     ),
     "request_error": (
         "Verification could not be completed — the request to MiroMind failed.",
-        "verifier request failed",
+        FindingFlag.VERIFIER_REQUEST_FAILED,
     ),
 }
 
@@ -93,7 +96,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 await ctx.publisher.claim(
                     status="started",
                     claim=claim,
-                    agent="UnifiedVerifier",
+                    agent=Agent.VERIFIER,
                     index=index,
                     total=total,
                 )
@@ -126,14 +129,14 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         return claim, _Cached(rebound, rebuilt_evs)
 
                 idem_key = make_idempotency_key(
-                    ctx.job_id, "UnifiedVerifier", claim.id
+                    ctx.job_id, Agent.VERIFIER, claim.id
                 )
 
                 async def publish_live_step(step: Step) -> None:
                     await ctx.publisher.publish(
                         "step",
                         _live_step_payload(
-                            agent="UnifiedVerifier",
+                            agent=Agent.VERIFIER,
                             claim_id=claim.id,
                             step=step,
                         ),
@@ -153,7 +156,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     while True:
                         await ctx.publisher.heartbeat(
                             stage="verify",
-                            agent="UnifiedVerifier",
+                            agent=Agent.VERIFIER,
                             claim_id=claim.id,
                             elapsed_s=time.monotonic() - started_at,
                             message="MiroMind is still researching this claim.",
@@ -193,7 +196,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 await ctx.publisher.claim(
                     status="finished",
                     claim=claim,
-                    agent="UnifiedVerifier",
+                    agent=Agent.VERIFIER,
                     index=index,
                     total=len(claims),
                     verdict=cached_finding.verdict.value,
@@ -204,14 +207,14 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             if isinstance(answer, Failed):
                 log.warning(
                     "orchestrator.specialist_failed",
-                    agent="UnifiedVerifier",
+                    agent=Agent.VERIFIER,
                     claim_id=claim.id,
                     reason=answer.reason,
                     error=answer.detail[:300],
                 )
                 trace = _build_trace(
                     claim_id=claim.id,
-                    agent="UnifiedVerifier", usage=Usage(), steps=(),
+                    agent=Agent.VERIFIER, engine=answer.engine, usage=Usage(), steps=(),
                 )
                 summary, flag = _FAILED[answer.reason]
                 # Say why it failed, briefly; the full payload stays out.
@@ -222,7 +225,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 finding = Finding(
                     id=new_id("f"),
                     claim_id=claim.id,
-                    agent="UnifiedVerifier",
+                    agent=Agent.VERIFIER,
                     verdict=FindingVerdict.UNCERTAIN,
                     confidence=0.0,
                     summary=summary,
@@ -236,7 +239,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 await ctx.publisher.claim(
                     status="finished",
                     claim=claim,
-                    agent="UnifiedVerifier",
+                    agent=Agent.VERIFIER,
                     index=index,
                     total=len(claims),
                     verdict=finding.verdict.value,
@@ -248,7 +251,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             except BudgetExceeded as exc:
                 log.warning(
                     "orchestrator.budget_exceeded_at_specialist",
-                    agent="UnifiedVerifier",
+                    agent=Agent.VERIFIER,
                     error=str(exc),
                 )
                 return {
@@ -259,7 +262,8 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 }
             trace = _build_trace(
                 claim_id=claim.id,
-                agent="UnifiedVerifier", usage=answer.usage, steps=answer.steps,
+                agent=Agent.VERIFIER, engine=answer.engine,
+                usage=answer.usage, steps=answer.steps,
             )
             new_traces[trace.id] = trace
             finding, ev_records = _make_unified_finding(
@@ -274,7 +278,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             await ctx.publisher.claim(
                 status="finished",
                 claim=claim,
-                agent="UnifiedVerifier",
+                agent=Agent.VERIFIER,
                 index=index,
                 total=len(claims),
                 verdict=finding.verdict.value,

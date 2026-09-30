@@ -17,7 +17,7 @@ const minimalJob: Job = makeJob({
     makeFinding({
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       confidence: 0.9,
@@ -53,7 +53,7 @@ describe("argus store", () => {
         makeFinding({
           id: "f_derived",
           claim_id: "c1",
-          agent: "Consistency",
+          agent: "consistency",
           verdict: "contradiction",
           severity: "major",
           confidence: 1,
@@ -65,7 +65,7 @@ describe("argus store", () => {
         makeFinding({
           id: "f_evidence",
           claim_id: "c1",
-          agent: "UnifiedVerifier",
+          agent: "verifier",
           verdict: "fabricated",
           severity: "major",
           confidence: 0.93,
@@ -164,7 +164,7 @@ describe("live-mode state", () => {
   it("stores live heartbeat state", () => {
     useArgusStore.getState().setLiveHeartbeat({
       stage: "verify",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       claim_id: "c1",
       elapsed_s: 12,
       message: "MiroMind is still researching this claim.",
@@ -178,7 +178,7 @@ describe("live-mode state", () => {
     const f: LiveFinding = {
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict: "fabricated",
       severity: "major",
       summary: "No record",

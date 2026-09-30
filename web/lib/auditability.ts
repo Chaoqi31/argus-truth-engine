@@ -101,7 +101,7 @@ export function getFindingAuditability(
     traceStepIds.has(e.retrieved_by_step_id),
   ).length;
   const issueNeedsChallenge =
-    finding.agent === "UnifiedVerifier" &&
+    finding.agent === "verifier" &&
     finding.verdict !== "ok" &&
     (finding.severity === "major" || finding.severity === "critical");
   const needsComputation =
@@ -110,9 +110,9 @@ export function getFindingAuditability(
   const controls: AuditabilityControl[] = [
     control(
       "trace",
-      trace && trace.steps.length > 0 && trace.miromind_response_id ? "present" : "missing",
+      trace && trace.steps.length > 0 && trace.usage.response_ids.length > 0 ? "present" : "missing",
       trace && trace.steps.length > 0
-        ? `${plural(trace.steps.length, "step")} · response ${trace.miromind_response_id || "missing"}`
+        ? `${plural(trace.steps.length, "step")} · response ${trace.usage.response_ids.join(", ") || "missing"}`
         : "No saved reasoning trace.",
     ),
     control(
@@ -205,7 +205,7 @@ export function getFindingAuditability(
 }
 
 export function getJobAuditability(job: Job): JobAuditability {
-  const findings = job.findings.filter((f) => f.agent === "UnifiedVerifier");
+  const findings = job.findings.filter((f) => f.agent === "verifier");
   const claimById = new Map(job.claims.map((claim) => [claim.id, claim]));
   const perFinding = findings.map((finding) => getFindingAuditability(job, finding));
   const fullyAuditableFindings = perFinding.filter(

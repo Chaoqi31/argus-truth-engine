@@ -20,7 +20,3 @@ export function formatNumber(value: number): string {
 export function formatUsd(value: number): string {
   return `$${value.toFixed(2)}`;
 }
-
-export function isMiroMindResponseId(id: string): boolean {
-  return Boolean(id) && id !== "n/a" && !id.startsWith("deepseek:");
-}

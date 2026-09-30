@@ -15,10 +15,10 @@ def _finding(agent: str, verdict: FindingVerdict, claim_id: str) -> Finding:
 
 
 def test_drop_redundant_logical_findings_keeps_new_cross_claim_issues() -> None:
-    existing = [_finding("UnifiedVerifier", FindingVerdict.INACCURATE, "a_1")]
-    duplicate = _finding("Consistency", FindingVerdict.UNSUPPORTED_INFERENCE, "a_1")
-    contradiction = _finding("Consistency", FindingVerdict.CONTRADICTION, "a_1")
-    uncovered = _finding("Consistency", FindingVerdict.OVERREACH, "a_2")
+    existing = [_finding("verifier", FindingVerdict.INACCURATE, "a_1")]
+    duplicate = _finding("consistency", FindingVerdict.UNSUPPORTED_INFERENCE, "a_1")
+    contradiction = _finding("consistency", FindingVerdict.CONTRADICTION, "a_1")
+    uncovered = _finding("consistency", FindingVerdict.OVERREACH, "a_2")
 
     kept = _drop_redundant_logical_findings(existing, [duplicate, contradiction, uncovered])
 
@@ -26,8 +26,8 @@ def test_drop_redundant_logical_findings_keeps_new_cross_claim_issues() -> None:
 
 
 def test_drop_redundant_logical_findings_keeps_uncertain_claims() -> None:
-    existing = [_finding("UnifiedVerifier", FindingVerdict.UNCERTAIN, "a_1")]
-    logical = _finding("Consistency", FindingVerdict.UNSUPPORTED_INFERENCE, "a_1")
+    existing = [_finding("verifier", FindingVerdict.UNCERTAIN, "a_1")]
+    logical = _finding("consistency", FindingVerdict.UNSUPPORTED_INFERENCE, "a_1")
 
     kept = _drop_redundant_logical_findings(existing, [logical])
 

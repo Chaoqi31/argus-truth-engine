@@ -32,7 +32,7 @@ describe("types", () => {
     const f: Finding = makeFinding({
       id: "f1",
       claim_id: "c1",
-      agent: "UnifiedVerifier",
+      agent: "verifier",
       verdict,
       severity: sev,
       confidence: 0.9,

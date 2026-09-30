@@ -46,7 +46,7 @@ def test_finding_links_to_claim_and_evidences() -> None:
     f = Finding(
         id="f_001",
         claim_id="claim_001",
-        agent="CitationVerifier",
+        agent="verifier",
         verdict=FindingVerdict.FABRICATED,
         severity=Severity.MAJOR,
         confidence=0.92,
@@ -75,7 +75,7 @@ def test_finding_with_why_wrong_and_correction():
     f = Finding(
         id="f_1",
         claim_id="c1",
-        agent="UnifiedVerifier",
+        agent="verifier",
         verdict=FindingVerdict.INACCURATE,
         severity=Severity.MAJOR,
         confidence=0.92,
@@ -111,7 +111,7 @@ def test_finding_ok_verdict_no_correction():
     f = Finding(
         id="f_2",
         claim_id="c2",
-        agent="UnifiedVerifier",
+        agent="verifier",
         verdict=FindingVerdict.OK,
         severity=Severity.MINOR,
         confidence=0.95,

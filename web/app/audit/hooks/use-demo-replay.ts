@@ -4,7 +4,7 @@ import { loadSampleJob, type Scenario } from "@/lib/load-job";
 import { replayTrace } from "@/lib/trace-replayer";
 import { orderFindingsForDemoReplay } from "@/lib/demo-replay";
 import { useArgusStore } from "@/lib/store";
-import type { Job, Step } from "@/lib/types";
+import type { Job, StageKey, Step } from "@/lib/types";
 import { toLiveFinding } from "../lib/trace-payload";
 
 type DemoReplayParams = {
@@ -92,7 +92,7 @@ export function useDemoReplay({
       parent_step_id: null,
       created_at: "",
     });
-    const pushStage = (key: string) => {
+    const pushStage = (key: StageKey) => {
       const st = stagesByKey.get(key);
       if (!st) return;
       timeline.push(
@@ -105,7 +105,7 @@ export function useDemoReplay({
 
     (["parse", "planner", "atomizer", "checkworthiness", "review_gate"] as const).forEach(pushStage);
 
-    const verifiers = findings.filter((f) => f.agent === "UnifiedVerifier");
+    const verifiers = findings.filter((f) => f.agent === "verifier");
     verifiers.forEach((f, i) => {
       const trace = traceById.get(f.reasoning_trace_id);
       const tsteps = trace ? [...trace.steps].sort((a, b) => a.sequence - b.sequence) : [];
@@ -121,7 +121,7 @@ export function useDemoReplay({
       pushStage(key);
       if (key === "consistency") {
         findings
-          .filter((f) => f.agent === "Consistency")
+          .filter((f) => f.agent === "consistency")
           .forEach((f) => {
             const k = findingIndex.get(f.id);
             if (k !== undefined) revealAt[k] = timeline.length;

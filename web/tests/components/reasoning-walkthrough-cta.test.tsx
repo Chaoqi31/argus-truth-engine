@@ -34,12 +34,16 @@ function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
   return baseTrace({
     id,
     claim_id: claimId,
-    miromind_response_id: `resp_${id}`,
+    engine: "miromind",
     started_at: "2026-06-01T00:00:00Z",
     completed_at: "2026-06-01T00:03:00Z",
-    total_tokens: 500,
-    reasoning_tokens: 120,
-    num_search_queries: steps.filter((step) => step.type === "web_search").length,
+    usage: {
+      response_ids: [`resp_${id}`],
+      total_tokens: 500,
+      reasoning_tokens: 120,
+      num_search_queries: steps.filter((step) => step.type === "web_search").length,
+      cost_usd: 0,
+    },
     steps,
   });
 }
@@ -156,7 +160,9 @@ describe("ReasoningWalkthroughCta", () => {
   it("keeps token counts out of the conclusion layer", () => {
     const job = makeJob();
     const traces = job.traces.map((trace) =>
-      trace.id === "t_bad" ? { ...trace, total_tokens: 500, reasoning_tokens: 0 } : trace,
+      trace.id === "t_bad"
+        ? { ...trace, usage: { ...trace.usage, total_tokens: 500, reasoning_tokens: 0 } }
+        : trace,
     );
 
     render(<ReasoningWalkthroughCta job={{ ...job, traces }} onStart={vi.fn()} />);
