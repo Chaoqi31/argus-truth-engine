@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FindingsTab } from "@/components/findings-tab";
 import { useArgusStore } from "@/lib/store";
 import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -14,7 +15,7 @@ const job: Job = {
   total_tokens: 0,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "Smith (2021) proves the widget claim.",
       page: 1,
@@ -23,8 +24,8 @@ const job: Job = {
       importance: "high",
       extracted_metadata: {},
       context: "",
-    },
-    {
+    }),
+    makeClaim({
       id: "c2",
       text: "The citation matches Crossref.",
       page: 1,
@@ -33,10 +34,10 @@ const job: Job = {
       importance: "medium",
       extracted_metadata: {},
       context: "",
-    },
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
       job_id: "j1",
       claim_id: "c1",
@@ -50,8 +51,8 @@ const job: Job = {
       reasoning_trace_id: "t1",
       related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
-    {
+    }),
+    makeFinding({
       id: "f2",
       job_id: "j1",
       claim_id: "c2",
@@ -64,7 +65,7 @@ const job: Job = {
       reasoning_trace_id: "t2",
       related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [],
   evidences: [
@@ -79,7 +80,7 @@ const job: Job = {
       retrieved_by_step_id: "s1",
     },
   ],
-};
+});
 
 const REVIEW_STORAGE_KEY = "argus:finding-reviews:j1";
 
@@ -124,7 +125,7 @@ describe("FindingsTab", () => {
     const reviewJob: Job = {
       ...job,
       findings: [
-        {
+        makeFinding({
           id: "f_derived",
           job_id: "j1",
           claim_id: "c2",
@@ -137,7 +138,7 @@ describe("FindingsTab", () => {
           reasoning_trace_id: "t0",
           related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
+        }),
         job.findings[0]!,
         job.findings[1]!,
       ],

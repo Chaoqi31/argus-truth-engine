@@ -3,25 +3,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { JobStatsBar } from "@/components/job-stats-bar";
 import { useArgusStore } from "@/lib/store";
 import type { Job } from "@/lib/types";
+import { makeFinding, makeJob as baseJob } from "@/tests/factories";
 
 function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: "j1",
+  return baseJob({
     pdf_path: "x.pdf",
-    status: "done",
-    created_at: "2026-05-20T00:00:00Z",
     completed_at: "2026-05-20T00:10:00Z",
     cost_usd: 12.3456,
     total_tokens: 1000,
     claims_total: 10,
     claims_audited: 7,
-    audit_report_md: null,
-    claims: [],
-    findings: [],
-    traces: [],
-    evidences: [],
     ...overrides,
-  };
+  });
 }
 
 const REVIEW_STORAGE_KEY = "argus:finding-reviews:j1";
@@ -135,7 +128,7 @@ describe("JobStatsBar", () => {
   it("summarizes reviewer decisions for findings", () => {
     const job = makeJob({
       findings: [
-        {
+        makeFinding({
           id: "f1",
           job_id: "j1",
           claim_id: "c1",
@@ -148,8 +141,8 @@ describe("JobStatsBar", () => {
           reasoning_trace_id: "t1",
           related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
-        {
+        }),
+        makeFinding({
           id: "f2",
           job_id: "j1",
           claim_id: "c2",
@@ -162,7 +155,7 @@ describe("JobStatsBar", () => {
           reasoning_trace_id: "t2",
           related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
+        }),
       ],
     });
     useArgusStore.getState().setFindingReview("j1", "f1", { status: "accepted" });

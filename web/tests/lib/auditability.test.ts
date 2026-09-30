@@ -4,8 +4,9 @@ import {
   getJobAuditability,
 } from "@/lib/auditability";
 import type { Finding, Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
-const finding: Finding = {
+const finding: Finding = makeFinding({
   id: "f1",
   job_id: "j1",
   claim_id: "c1",
@@ -62,9 +63,9 @@ const finding: Finding = {
     judgment: "refutes",
     rationale: "The cited numeric claim is not supported.",
   },
-};
+});
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -74,7 +75,7 @@ const job: Job = {
   total_tokens: 1000,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "The report says AI infrastructure spend will exceed $5 trillion.",
       page: 1,
@@ -83,7 +84,7 @@ const job: Job = {
       importance: "high",
       extracted_metadata: {},
       context: "",
-    },
+    }),
   ],
   findings: [finding],
   traces: [
@@ -126,7 +127,7 @@ const job: Job = {
       retrieved_by_step_id: "s1",
     },
   ],
-};
+});
 
 describe("auditability", () => {
   it("marks all applicable controls present when a finding has full provenance", () => {
@@ -193,7 +194,7 @@ describe("auditability", () => {
     const derivedJob: Job = {
       ...job,
       claims: [
-        {
+        makeClaim({
           id: "c_derived",
           text: "The document draws a conclusion not supported by its verified claims.",
           page: 1,
@@ -202,7 +203,7 @@ describe("auditability", () => {
           importance: "high",
           extracted_metadata: {},
           context: "",
-        },
+        }),
       ],
       findings: [derivedFinding],
       traces: [
@@ -267,7 +268,7 @@ describe("auditability", () => {
       ...job,
       claims: [
         job.claims[0]!,
-        {
+        makeClaim({
           id: "c_gap",
           text: "This qualitative control claim has no audit trail.",
           page: 1,
@@ -276,7 +277,7 @@ describe("auditability", () => {
           importance: "medium",
           extracted_metadata: {},
           context: "",
-        },
+        }),
       ],
       findings: [finding, incompleteFinding],
     };

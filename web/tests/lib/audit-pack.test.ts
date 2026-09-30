@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildAuditPackMarkdown, buildEvidenceStationJson } from "@/lib/audit-pack";
 import type { FindingReview, Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -14,7 +15,7 @@ const job: Job = {
   claims_audited: 1,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "The memo cites a Goldman Silicon Supercycle report.",
       page: 1,
@@ -23,10 +24,10 @@ const job: Job = {
       importance: "high",
       extracted_metadata: {},
       context: "",
-    },
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
       job_id: "j1",
       claim_id: "c1",
@@ -47,7 +48,7 @@ const job: Job = {
       reasoning_trace_id: "t1",
       related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [],
   evidences: [
@@ -62,7 +63,7 @@ const job: Job = {
       retrieved_by_step_id: "s1",
     },
   ],
-};
+});
 
 describe("buildAuditPackMarkdown", () => {
   it("includes coverage, reviewer decisions, reasoning, and evidence", () => {
@@ -276,27 +277,27 @@ describe("buildAuditPackMarkdown", () => {
         },
       ],
       stages: [
-        {
+        makeStage({
           key: "review_gate",
           name: "Review gate",
           engine: "deterministic",
           summary: "2 claims selected",
           metrics: { n_verifying: 2 },
-        },
-        {
+        }),
+        makeStage({
           key: "verify",
           name: "Verify",
           engine: "miromind",
           summary: "Deep-researched 2 claims",
           metrics: { n_claims: 2 },
-        },
-        {
+        }),
+        makeStage({
           key: "skeptic",
           name: "Skeptic challenge",
           engine: "miromind",
           summary: "Challenged 1 high-risk finding",
           metrics: { n_reviewed: 1 },
-        },
+        }),
       ],
       traces: [
         {
@@ -431,41 +432,41 @@ describe("buildAuditPackMarkdown", () => {
         ],
       },
       stages: [
-        {
+        makeStage({
           key: "planner",
           name: "Planner",
           engine: "deepseek",
           summary: "Extracted candidate claims.",
           metrics: { n_claims: 2 },
-        },
-        {
+        }),
+        makeStage({
           key: "review_gate",
           name: "Review gate",
           engine: "deterministic",
           summary: "2 claims selected.",
           metrics: { n_verifying: 2 },
-        },
-        {
+        }),
+        makeStage({
           key: "verify",
           name: "Verify",
           engine: "miromind",
           summary: "Deep-researched 2 claims.",
           metrics: { n_claims: 2 },
-        },
-        {
+        }),
+        makeStage({
           key: "skeptic",
           name: "Skeptic challenge",
           engine: "miromind",
           summary: "Challenged high-risk findings.",
           metrics: { n_reviewed: 1 },
-        },
-        {
+        }),
+        makeStage({
           key: "confidence",
           name: "Confidence",
           engine: "deterministic",
           summary: "Scored findings.",
           metrics: { n_scored: 2 },
-        },
+        }),
       ],
       traces: [
         {
@@ -713,21 +714,21 @@ describe("buildAuditPackMarkdown", () => {
     const transparentJob: Job = {
       ...job,
       stages: [
-        {
+        makeStage({
           key: "planner",
           name: "Planner",
           engine: "deepseek",
           summary: "Extracted 1 candidate claim.",
           metrics: { n_claims: 1 },
           strategy: "Prioritise citation and numerical claims.",
-        },
-        {
+        }),
+        makeStage({
           key: "verify",
           name: "Verify",
           engine: "miromind",
           summary: "Verified the selected claim with web search.",
           metrics: { claims: 1, searches: 3 },
-        },
+        }),
       ],
       traces: [
         {
@@ -797,13 +798,13 @@ describe("buildAuditPackMarkdown", () => {
     const stationJob: Job = {
       ...job,
       stages: [
-        {
+        makeStage({
           key: "parse",
           name: "Parse",
           engine: "deterministic",
           summary: "Document parsed.",
           metrics: { pages: 1, chars: 120 },
-        },
+        }),
       ],
       traces: [
         {

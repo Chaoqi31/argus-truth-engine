@@ -4,6 +4,7 @@ import AuditPage from "@/app/audit/page";
 import { useArgusStore } from "@/lib/store";
 import { uploadPdf } from "@/lib/api";
 import type { Job } from "@/lib/types";
+import { makeJob } from "@/tests/factories";
 
 const push = vi.fn();
 
@@ -27,7 +28,7 @@ function getPdfDropZone() {
   return zone;
 }
 
-const staleDemoJob: Job = {
+const staleDemoJob: Job = makeJob({
   id: "demo_stale",
   pdf_path: "sample.pdf",
   status: "done",
@@ -42,7 +43,7 @@ const staleDemoJob: Job = {
   findings: [],
   traces: [],
   evidences: [],
-};
+});
 
 describe("AuditPage PDF upload", () => {
   beforeEach(() => {

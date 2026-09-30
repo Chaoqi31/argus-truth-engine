@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getJobExecutionControls } from "@/lib/execution-controls";
 import type { Job } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
 
-const job: Job = {
+const job: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -14,7 +15,7 @@ const job: Job = {
   claims_audited: 2,
   audit_report_md: null,
   claims: [
-    {
+    makeClaim({
       id: "c1",
       text: "Claim one.",
       page: 1,
@@ -23,8 +24,8 @@ const job: Job = {
       importance: "high",
       extracted_metadata: {},
       context: "",
-    },
-    {
+    }),
+    makeClaim({
       id: "c2",
       text: "Claim two.",
       page: 1,
@@ -33,10 +34,10 @@ const job: Job = {
       importance: "high",
       extracted_metadata: {},
       context: "",
-    },
+    }),
   ],
   findings: [
-    {
+    makeFinding({
       id: "f1",
       job_id: "j1",
       claim_id: "c1",
@@ -55,8 +56,8 @@ const job: Job = {
         recommended_verdict: null,
         counterevidence: [],
       },
-    },
-    {
+    }),
+    makeFinding({
       id: "f2",
       job_id: "j1",
       claim_id: "c2",
@@ -69,7 +70,7 @@ const job: Job = {
       reasoning_trace_id: "t2",
       related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [
     {
@@ -148,29 +149,29 @@ const job: Job = {
     },
   ],
   stages: [
-    {
+    makeStage({
       key: "review_gate",
       name: "Review gate",
       engine: "deterministic",
       summary: "2 claims selected",
       metrics: { n_verifying: 2 },
-    },
-    {
+    }),
+    makeStage({
       key: "verify",
       name: "Verify",
       engine: "miromind",
       summary: "Deep-researched 2 claims",
       metrics: { n_claims: 2, n_steps: 2 },
-    },
-    {
+    }),
+    makeStage({
       key: "skeptic",
       name: "Skeptic challenge",
       engine: "miromind",
       summary: "Challenged 1 high-risk finding",
       metrics: { n_reviewed: 1 },
-    },
+    }),
   ],
-};
+});
 
 describe("execution controls", () => {
   it("marks runtime controls present when the job carries execution evidence", () => {

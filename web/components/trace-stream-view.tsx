@@ -359,7 +359,7 @@ function StaticReplay({ job, activeFindingId }: { job: Job | null; activeFinding
 
   // Persisted per-stage summary when present; otherwise derive a thinner view
   // from the job so older fixtures/jobs still render every stage.
-  const stages: Stage[] = job.stages?.length ? job.stages : deriveStages(job, groups);
+  const stages = job.stages;
 
   if (stages.length === 0 && groups.length === 0) {
     return (
@@ -1237,28 +1237,6 @@ function plainReportText(report: string): string {
     .replace(/\*/g, "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function deriveStages(job: Job, groups: ClaimGroup[]): Stage[] {
-  const nClaims = job.claims.length || groups.length;
-  const nConsistency = job.findings.filter((f) => f.agent === "Consistency").length;
-  const totalSteps = groups.reduce((n, g) => n + g.steps.length, 0);
-  const totalSearches = groups.reduce(
-    (n, g) => n + g.steps.filter((s) => s.type === "web_search").length,
-    0,
-  );
-  const nAudited = job.claims_audited ?? groups.length;
-  return [
-    { key: "parse", name: "Parse", engine: "deterministic", summary: "Document → text + character offsets", metrics: {} },
-    { key: "planner", name: "Planner", engine: "deepseek", summary: "Audit strategy & domain hints", metrics: { n_claims: nClaims } },
-    { key: "atomizer", name: "Atomizer", engine: "deepseek", summary: `Normalised into ${nClaims} atomic claims`, metrics: { n_atoms: nClaims } },
-    { key: "checkworthiness", name: "Check-worthiness", engine: "deepseek", summary: "Opinions & trivia filtered out", metrics: {} },
-    { key: "review_gate", name: "Review gate", engine: "deterministic", summary: `${nClaims} claims selected to verify`, metrics: { n_verifying: nClaims } },
-    { key: "verify", name: "Verify", engine: "miromind", summary: `Deep-researched ${nAudited} claim(s) · ${totalSteps} steps · ${totalSearches} web searches`, metrics: { n_claims: nAudited, n_steps: totalSteps, n_searches: totalSearches } },
-    { key: "consistency", name: "Consistency", engine: "deepseek", summary: nConsistency ? `${nConsistency} cross-claim finding(s)` : "No contradictions found", metrics: { n_findings: nConsistency } },
-    { key: "confidence", name: "Confidence", engine: "deterministic", summary: "Scored on 3 measured factors", metrics: {} },
-    { key: "reporter", name: "Reporter", engine: "deepseek", summary: job.audit_report_md ? "Executive summary generated" : "—", metrics: {} },
-  ];
 }
 
 function VerdictBrief({ finding }: { finding: Finding }) {

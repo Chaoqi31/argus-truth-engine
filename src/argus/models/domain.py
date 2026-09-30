@@ -87,7 +87,11 @@ class StepType(StrEnum):
 
 
 class _Base(BaseModel):
-    model_config = ConfigDict(frozen=False, extra="forbid")
+    # Serialization always emits defaulted fields, so the web's generated
+    # types mark them required.
+    model_config = ConfigDict(
+        frozen=False, extra="forbid", json_schema_serialization_defaults_required=True
+    )
 
 
 class Claim(_Base):

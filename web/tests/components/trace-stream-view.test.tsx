@@ -2,9 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TraceStreamView } from "@/components/trace-stream-view";
 import type { Job, ReasoningTrace, Step } from "@/lib/types";
+import { makeClaim, makeFinding, makeJob, makeStage } from "@/tests/factories";
 
 function loadSampleJob(): Job {
-  return {
+  return makeJob({
     id: "job_trace",
     pdf_path: "sample.pdf",
     status: "done",
@@ -15,8 +16,18 @@ function loadSampleJob(): Job {
     claims_total: 2,
     claims_audited: 2,
     audit_report_md: null,
+    stages: [
+      makeStage({ key: "parse", name: "Parse", summary: "Parsed 1 page(s)" }),
+      makeStage({
+        key: "verify",
+        name: "Verify",
+        engine: "miromind",
+        summary: "Deep-researched 2 claim(s) · 3 steps · 3 web searches",
+        metrics: { n_claims: 2, n_steps: 3, n_searches: 3 },
+      }),
+    ],
     claims: [
-      {
+      makeClaim({
         id: "c_ok",
         text: "Its data-center segment alone generated $148 billion in revenue over the same fiscal year",
         page: 1,
@@ -25,8 +36,8 @@ function loadSampleJob(): Job {
         importance: "high",
         extracted_metadata: {},
         context: "",
-      },
-      {
+      }),
+      makeClaim({
         id: "c_bad",
         text: "According to a February 2026 Goldman Sachs report titled \"Silicon Supercycle: The $5 Trillion AI Buildout,\" cumulative global spending on AI infrastructure will exceed $5 trillion by 2030",
         page: 1,
@@ -35,10 +46,10 @@ function loadSampleJob(): Job {
         importance: "high",
         extracted_metadata: {},
         context: "",
-      },
+      }),
     ],
     findings: [
-      {
+      makeFinding({
         id: "f_ok",
         job_id: "job_trace",
         claim_id: "c_ok",
@@ -51,8 +62,8 @@ function loadSampleJob(): Job {
         reasoning_trace_id: "t_ok",
         related_finding_ids: [],
         created_at: "2026-06-01T00:00:00Z",
-      },
-      {
+      }),
+      makeFinding({
         id: "f_bad",
         job_id: "job_trace",
         claim_id: "c_bad",
@@ -84,7 +95,7 @@ function loadSampleJob(): Job {
         reasoning_trace_id: "t_bad",
         related_finding_ids: [],
         created_at: "2026-06-01T00:00:00Z",
-      },
+      }),
     ],
     traces: [
       makeTrace("t_bad", "c_bad", [
@@ -117,7 +128,7 @@ function loadSampleJob(): Job {
         retrieved_by_step_id: "t_bad-web_search-4",
       },
     ],
-  };
+  });
 }
 
 function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
@@ -230,7 +241,7 @@ describe("TraceStreamView", () => {
     const job = loadSampleJob();
     job.findings = [
       ...job.findings,
-      {
+      makeFinding({
         id: "f_derived",
         job_id: "job_trace",
         claim_id: "c_bad",
@@ -243,7 +254,7 @@ describe("TraceStreamView", () => {
         reasoning_trace_id: "t_derived",
         related_finding_ids: ["f_bad"],
         created_at: "2026-06-01T00:00:00Z",
-      },
+      }),
     ];
 
     render(<TraceStreamView job={job} activeFindingId="f_derived" />);
@@ -256,14 +267,14 @@ describe("TraceStreamView", () => {
   it("explains the skeptic challenge stage with review outcomes and counterevidence", () => {
     const job = loadSampleJob();
     job.stages = [
-      {
+      makeStage({
         key: "verify",
         name: "Verify",
         engine: "miromind",
         summary: "Deep-researched 2 claims",
         metrics: { n_claims: 2 },
-      },
-      {
+      }),
+      makeStage({
         key: "skeptic",
         name: "Skeptic challenge",
         engine: "miromind",
@@ -274,7 +285,7 @@ describe("TraceStreamView", () => {
           n_counterevidence_found: 1,
           n_inconclusive: 0,
         },
-      },
+      }),
     ];
     job.findings = job.findings.map((finding) =>
       finding.id === "f_bad"

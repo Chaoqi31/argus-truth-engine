@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useArgusStore } from "@/lib/store";
 import type { Job, LiveFinding } from "@/lib/types";
+import { makeFinding, makeJob } from "@/tests/factories";
 
-const minimalJob: Job = {
+const minimalJob: Job = makeJob({
   id: "j1",
   pdf_path: "x.pdf",
   status: "done",
@@ -13,7 +14,7 @@ const minimalJob: Job = {
   audit_report_md: null,
   claims: [],
   findings: [
-    {
+    makeFinding({
       id: "f1",
       job_id: "j1",
       claim_id: "c1",
@@ -26,11 +27,11 @@ const minimalJob: Job = {
       reasoning_trace_id: "t1",
       related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
-    },
+    }),
   ],
   traces: [],
   evidences: [],
-};
+});
 
 const REVIEW_STORAGE_KEY = "argus:finding-reviews:j1";
 
@@ -51,7 +52,7 @@ describe("argus store", () => {
     useArgusStore.getState().setJob({
       ...minimalJob,
       findings: [
-        {
+        makeFinding({
           id: "f_derived",
           job_id: "j1",
           claim_id: "c1",
@@ -64,8 +65,8 @@ describe("argus store", () => {
           reasoning_trace_id: "t0",
           related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
-        {
+        }),
+        makeFinding({
           id: "f_evidence",
           job_id: "j1",
           claim_id: "c1",
@@ -78,7 +79,7 @@ describe("argus store", () => {
           reasoning_trace_id: "t1",
           related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
-        },
+        }),
       ],
     });
 

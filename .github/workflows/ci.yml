@@ -6,13 +6,24 @@ on:
   pull_request:
 
 jobs:
-  type-parity:
-    name: Type parity (domain.py vs types.ts)
+  web-types:
+    name: Generated web types match the backend models
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv run python scripts/check_type_parity.py
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
+      - run: uv run python scripts/gen_web_types.py
+      - run: git diff --exit-code web/lib/generated
 
   backend:
     name: Backend tests
@@ -23,6 +34,8 @@ jobs:
       - name: Install PDF tooling
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - run: uv sync
+      - run: uv run ruff check src tests
+      - run: uv run mypy src
       - run: uv run pytest -q
 
   frontend:
