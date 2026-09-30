@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 
 import pytest
 from pydantic import SecretStr
@@ -14,7 +15,7 @@ from argus.db.repository import JobRepository
 from argus.llm import Transports
 from argus.llm.miromind import MiroMindAccess
 from argus.models.domain import Claim, ClaimType
-from argus.models.job import ClaimsSelected, Job, ReviewReady
+from argus.models.job import ClaimsSelected, Finished, Job, ReviewReady
 
 
 def _claim(cid: str) -> Claim:
@@ -73,6 +74,55 @@ async def test_select_waits_for_a_paused_run_to_store_its_job(
 
     written.set()
     await selecting
+
+
+async def test_a_finished_frame_waits_until_the_job_is_stored(
+    sqlite_engine: object, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Everything but the socket reads the stored job, so a client must not
+    see a state the store does not have yet."""
+    runner = _runner(sqlite_engine, settings)
+    released = asyncio.Event()
+    started = asyncio.Event()
+    original_update = runner._repo.update_job
+
+    async def delayed(job: Job) -> bool:
+        await released.wait()
+        return await original_update(job)
+
+    async def finishing(run: Run) -> None:
+        started.set()
+        await released.wait()
+        run.record(Finished(status="done", completed_at=datetime.utcnow()))
+
+    monkeypatch.setattr(runner._repo, "update_job", delayed)
+    monkeypatch.setattr("argus.api.runner._audit", finishing)
+
+    await runner.submit(
+        Job(id="j1", input_mode="text", input_text="text"),
+        access=_access(settings),
+        owner_user_id=None,
+    )
+    async with runner.subscribe("j1") as feed:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        seen: list[tuple[str, str]] = []
+
+        async def collect() -> None:
+            async for frame in feed.frames():
+                stored = await runner._repo.get_job("j1")
+                seen.append((frame.event.type, stored.status if stored else "missing"))
+
+        collecting = asyncio.create_task(collect())
+        await asyncio.sleep(0.05)
+        assert seen == [], "the finished frame arrived before the job was stored"
+
+        released.set()
+        async with asyncio.timeout(5):
+            while not seen:
+                await asyncio.sleep(0.01)
+        collecting.cancel()
+
+    assert seen == [("finished", "done")]
 
 
 async def test_select_refuses_a_job_that_is_already_verifying(

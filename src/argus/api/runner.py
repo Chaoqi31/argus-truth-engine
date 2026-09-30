@@ -34,6 +34,12 @@ from argus.models.job import (
     SnapshotFrame,
 )
 
+# A frame a client must not see before the job is stored. It carries the state
+# everything else reads from the database, and it is the run's last, so holding
+# it reorders nothing. The pause is not held: a client that answers on it is
+# waiting in `select`, and holding it would let the run's own next frame past.
+_HELD_UNTIL_STORED = frozenset({"finished"})
+
 # Frames a subscriber may fall behind by before it is dropped; its client
 # reconnects and starts again from a snapshot.
 _BACKLOG = 2000
@@ -55,6 +61,8 @@ class JobNotFound(Exception):
 class _Live:
     run: Run
     task: asyncio.Task[None]
+    # Frames this run recorded that wait for its job to be stored.
+    held: list[EventFrame]
 
 
 class Feed:
@@ -208,10 +216,16 @@ class Runner:
             budget_usd=self._settings.job_budget_usd,
             emit=lambda frame: self._fan_out(job.id, frame),
         )
-        task = asyncio.create_task(self._drive(run, work), name=f"audit {job.id}")
-        self._live[job.id] = _Live(run, task)
+        held: list[EventFrame] = []
+        task = asyncio.create_task(self._drive(run, work, held), name=f"audit {job.id}")
+        self._live[job.id] = _Live(run, task, held)
 
-    async def _drive(self, run: Run, work: Callable[[Run], Awaitable[None]]) -> None:
+    async def _drive(
+        self,
+        run: Run,
+        work: Callable[[Run], Awaitable[None]],
+        held: list[EventFrame],
+    ) -> None:
         try:
             await work(run)
         finally:
@@ -221,9 +235,21 @@ class Runner:
             except Exception:
                 log.exception("runner.save_failed", job_id=run.job.id)
             finally:
+                # A client that has seen these has seen a state the store did
+                # not have yet, and every other reader reads the store.
+                for frame in held:
+                    self._publish(run.job.id, frame)
                 self._live.pop(run.job.id, None)
 
     def _fan_out(self, job_id: str, frame: EventFrame) -> None:
+        if frame.event.type in _HELD_UNTIL_STORED:
+            live = self._live.get(job_id)
+            if live is not None:
+                live.held.append(frame)
+                return
+        self._publish(job_id, frame)
+
+    def _publish(self, job_id: str, frame: EventFrame) -> None:
         subscribers = self._subscribers.get(job_id, set())
         for queue in list(subscribers):
             if queue.qsize() >= _BACKLOG:
