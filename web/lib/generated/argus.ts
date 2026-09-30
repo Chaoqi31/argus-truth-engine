@@ -137,7 +137,6 @@ export interface Claim {
  */
 export interface Finding {
   id: string;
-  job_id: string;
   claim_id: string;
   agent: string;
   verdict: FindingVerdict;
@@ -154,7 +153,6 @@ export interface Finding {
   computation_check: ComputationCheck | null;
   evidence_ids: string[];
   reasoning_trace_id: string;
-  related_finding_ids: string[];
   created_at: string;
   from_cache: boolean;
   flags: string[];
@@ -279,7 +277,6 @@ export interface ComputationValue {
  */
 export interface ReasoningTrace {
   id: string;
-  job_id: string;
   claim_id: string;
   agent: string;
   miromind_response_id: string;
@@ -288,7 +285,6 @@ export interface ReasoningTrace {
   total_tokens: number;
   reasoning_tokens: number;
   num_search_queries: number;
-  final_verdict_step_id: string | null;
   steps: Step[];
 }
 /**
@@ -304,7 +300,6 @@ export interface Step {
   content: {
     [k: string]: unknown;
   };
-  evidence_ids: string[];
   parent_step_id: string | null;
   created_at: string;
 }
@@ -318,7 +313,6 @@ export interface Evidence {
   url: string | null;
   citation: string;
   snippet: string;
-  full_content_ref: string | null;
   retrieved_at: string;
   retrieved_by_step_id: string;
 }
@@ -334,8 +328,7 @@ export interface Stage {
   metrics: {
     [k: string]: number;
   };
-  strategy: string | null;
-  filtered_claims: StageFilteredClaim[] | null;
+  filtered_claims: StageFilteredClaim[];
 }
 /**
  * This interface was referenced by `Job`'s JSON-Schema

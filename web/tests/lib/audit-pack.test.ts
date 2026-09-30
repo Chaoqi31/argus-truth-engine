@@ -29,7 +29,6 @@ const job: Job = makeJob({
   findings: [
     makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       verdict: "fabricated",
@@ -46,7 +45,6 @@ const job: Job = makeJob({
       ],
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
   ],
@@ -58,7 +56,6 @@ const job: Job = makeJob({
       url: "https://example.com/search",
       citation: "Search results",
       snippet: "No exact title match.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },
@@ -122,7 +119,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_control",
@@ -131,7 +127,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 1,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s1",
@@ -140,7 +135,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              evidence_ids: ["e1"],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -218,7 +212,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_control",
@@ -227,7 +220,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 1,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s1",
@@ -236,7 +228,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              evidence_ids: ["e1"],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -302,7 +293,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_1",
@@ -311,7 +301,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 1,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s1",
@@ -320,7 +309,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              evidence_ids: ["e1"],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -328,7 +316,6 @@ describe("buildAuditPackMarkdown", () => {
         },
         {
           id: "t2",
-          job_id: "j1",
           claim_id: "c2",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_2",
@@ -337,7 +324,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 1,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s2",
@@ -346,7 +332,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search source.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -421,7 +406,6 @@ describe("buildAuditPackMarkdown", () => {
           skeptic_review: null,
           evidence_ids: [],
           reasoning_trace_id: "t2",
-          related_finding_ids: [],
         },
       ],
       benchmark: {
@@ -471,7 +455,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_1",
@@ -480,7 +463,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 1,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s1",
@@ -489,7 +471,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search exact title.",
               content: {},
-              evidence_ids: ["e1"],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -497,7 +478,6 @@ describe("buildAuditPackMarkdown", () => {
         },
         {
           id: "t2",
-          job_id: "j1",
           claim_id: "c2",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_2",
@@ -506,7 +486,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 1,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s2",
@@ -515,7 +494,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search source.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -581,7 +559,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_summary",
@@ -590,7 +567,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 4200,
           reasoning_tokens: 900,
           num_search_queries: 0,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s1",
@@ -599,7 +575,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search one.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -610,7 +585,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search two.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:02:00Z",
             },
@@ -621,7 +595,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "fetch_url_content",
               summary: "Fetch source.",
               content: {},
-              evidence_ids: ["e1"],
               parent_step_id: "s2",
               created_at: "2026-05-20T00:03:00Z",
             },
@@ -632,7 +605,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "execute_python",
               summary: "Check calculation.",
               content: {},
-              evidence_ids: [],
               parent_step_id: "s3",
               created_at: "2026-05-20T00:04:00Z",
             },
@@ -720,7 +692,6 @@ describe("buildAuditPackMarkdown", () => {
           engine: "deepseek",
           summary: "Extracted 1 candidate claim.",
           metrics: { n_claims: 1 },
-          strategy: "Prioritise citation and numerical claims.",
         }),
         makeStage({
           key: "verify",
@@ -733,7 +704,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_123",
@@ -742,7 +712,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 4200,
           reasoning_tokens: 900,
           num_search_queries: 3,
-          final_verdict_step_id: "s2",
           steps: [
             {
               id: "s1",
@@ -751,7 +720,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Searched exact report title.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -762,7 +730,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "message",
               summary: "Concluded the citation was fabricated.",
               content: {},
-              evidence_ids: ["e1"],
               parent_step_id: "s1",
               created_at: "2026-05-20T00:02:00Z",
             },
@@ -775,7 +742,6 @@ describe("buildAuditPackMarkdown", () => {
 
     expect(markdown).toContain("## Reasoning Transparency");
     expect(markdown).toContain("| Planner | deepseek | Extracted 1 candidate claim. | n_claims: 1 |");
-    expect(markdown).toContain("Prioritise citation and numerical claims.");
     expect(markdown).toContain("| Verify | miromind | Verified the selected claim with web search. | claims: 1; searches: 3 |");
     expect(markdown).toContain("## Trace Inventory");
     expect(markdown).toContain(
@@ -809,7 +775,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_json",
@@ -818,7 +783,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 1,
-          final_verdict_step_id: null,
           steps: [],
         },
       ],
@@ -891,7 +855,6 @@ describe("buildAuditPackMarkdown", () => {
       traces: [
         {
           id: "t1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           miromind_response_id: "resp_missing_aggregate",
@@ -900,7 +863,6 @@ describe("buildAuditPackMarkdown", () => {
           total_tokens: 100,
           reasoning_tokens: 20,
           num_search_queries: 0,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s1",
@@ -909,7 +871,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search one.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:01:00Z",
             },
@@ -920,7 +881,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "web_search",
               summary: "Search two.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:02:00Z",
             },
@@ -931,7 +891,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "fetch_url_content",
               summary: "Fetched source page.",
               content: {},
-              evidence_ids: ["e1"],
               parent_step_id: "s2",
               created_at: "2026-05-20T00:03:00Z",
             },
@@ -942,7 +901,6 @@ describe("buildAuditPackMarkdown", () => {
               type: "execute_python",
               summary: "Checked a calculation.",
               content: {},
-              evidence_ids: [],
               parent_step_id: "s3",
               created_at: "2026-05-20T00:04:00Z",
             },

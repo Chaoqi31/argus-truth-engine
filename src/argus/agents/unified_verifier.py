@@ -7,7 +7,7 @@ from argus.llm import Route, Task
 from argus.models.domain import FindingVerdict
 
 # Bump when prompt OR output schema changes — invalidates all prior cache.
-VERIFIER_VERSION = "v1"
+VERIFIER_VERSION = "v2"
 
 SYSTEM_PROMPT = """\
 You are Argus's UNIFIED VERIFIER. Your task is to determine whether a factual

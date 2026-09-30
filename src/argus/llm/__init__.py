@@ -205,8 +205,6 @@ class Llm:
             num_search_queries=response.num_search_queries,
             cost_usd=response.cost_usd,
         )
-        # Steps still open when the stream ended were never emitted; keep them.
-        attempts.steps.extend(s for s in response.steps if s not in attempts.steps)
         return response.text
 
     @staticmethod

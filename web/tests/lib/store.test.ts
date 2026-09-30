@@ -16,7 +16,6 @@ const minimalJob: Job = makeJob({
   findings: [
     makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       verdict: "fabricated",
@@ -25,7 +24,6 @@ const minimalJob: Job = makeJob({
       summary: "x",
       evidence_ids: [],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
   ],
@@ -54,7 +52,6 @@ describe("argus store", () => {
       findings: [
         makeFinding({
           id: "f_derived",
-          job_id: "j1",
           claim_id: "c1",
           agent: "Consistency",
           verdict: "contradiction",
@@ -63,12 +60,10 @@ describe("argus store", () => {
           summary: "Two claims contradict each other.",
           evidence_ids: [],
           reasoning_trace_id: "t0",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
         }),
         makeFinding({
           id: "f_evidence",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           verdict: "fabricated",
@@ -77,7 +72,6 @@ describe("argus store", () => {
           summary: "No record was found in primary sources.",
           evidence_ids: ["e1"],
           reasoning_trace_id: "t1",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
         }),
       ],
@@ -209,7 +203,6 @@ describe("live-mode state", () => {
       type: "thinking",
       summary: "",
       content: {},
-      evidence_ids: [],
       parent_step_id: null,
       created_at: "2026-05-21T00:00:00Z",
     });

@@ -7,7 +7,6 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
-from uuid import uuid4
 
 from argus.agents.domain_hints import get_domain_hint
 from argus.agents.unified_verifier import (
@@ -31,6 +30,7 @@ from argus.models.domain import (
     ReasoningTrace,
     Stage,
     Step,
+    new_id,
 )
 from argus.orchestrator.assemblers import (
     _build_trace,
@@ -114,15 +114,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                         # cached IDs point at the original job's rows and would
                         # otherwise dangle (confidence calc would see 0 evidence).
                         rebuilt_evs = [
-                            ev.model_copy(update={"id": f"ev_{uuid4().hex[:12]}"})
-                            for ev in cached_evs
+                            ev.model_copy(update={"id": new_id("ev")}) for ev in cached_evs
                         ]
                         # Re-bind to current job + claim (cached payload was from a different job)
                         rebound = cached_template.model_copy(update={
-                            "id": f"fnd_{uuid4().hex[:12]}",
-                            "job_id": ctx.job_id,
+                            "id": new_id("f"),
                             "claim_id": claim.id,
-                            "evidence_ids": [e.id for e in rebuilt_evs],
+                            "evidence_ids": tuple(e.id for e in rebuilt_evs),
                             "from_cache": True,
                         })
                         return claim, _Cached(rebound, rebuilt_evs)
@@ -212,7 +210,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     error=answer.detail[:300],
                 )
                 trace = _build_trace(
-                    job_id=ctx.job_id, claim_id=claim.id,
+                    claim_id=claim.id,
                     agent="UnifiedVerifier", usage=Usage(), steps=(),
                 )
                 summary, flag = _FAILED[answer.reason]
@@ -222,17 +220,14 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 elif answer.reason == "request_error":
                     summary += f" ({answer.detail[:120]})"
                 finding = Finding(
-                    id=f"f_{uuid4().hex[:12]}",
-                    job_id=ctx.job_id,
+                    id=new_id("f"),
                     claim_id=claim.id,
                     agent="UnifiedVerifier",
                     verdict=FindingVerdict.UNCERTAIN,
                     confidence=0.0,
                     summary=summary,
-                    evidence_ids=[],
                     reasoning_trace_id=trace.id,
-                    related_finding_ids=[],
-                    flags=[flag],
+                    flags=(flag,),
                 )
                 new_traces[trace.id] = trace
                 new_findings.append(finding)
@@ -263,12 +258,11 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     "evidences": new_evidences,
                 }
             trace = _build_trace(
-                job_id=ctx.job_id, claim_id=claim.id,
+                claim_id=claim.id,
                 agent="UnifiedVerifier", usage=answer.usage, steps=answer.steps,
             )
             new_traces[trace.id] = trace
             finding, ev_records = _make_unified_finding(
-                job_id=ctx.job_id,
                 claim=claim,
                 parsed=answer.output,
                 trace=trace,

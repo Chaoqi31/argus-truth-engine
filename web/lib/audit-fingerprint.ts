@@ -88,7 +88,6 @@ function fingerprintPayload(job: Job) {
       computation_check: finding.computation_check ?? null,
       evidence_ids: finding.evidence_ids,
       reasoning_trace_id: finding.reasoning_trace_id,
-      related_finding_ids: finding.related_finding_ids,
       flags: finding.flags ?? [],
     })),
     traces: job.traces.map((trace) => ({
@@ -99,14 +98,12 @@ function fingerprintPayload(job: Job) {
       total_tokens: trace.total_tokens,
       reasoning_tokens: trace.reasoning_tokens,
       num_search_queries: trace.num_search_queries,
-      final_verdict_step_id: trace.final_verdict_step_id,
       steps: trace.steps.map((step) => ({
         id: step.id,
         sequence: step.sequence,
         type: step.type,
         summary: step.summary,
         content: step.content,
-        evidence_ids: step.evidence_ids,
         parent_step_id: step.parent_step_id,
       })),
     })),
@@ -116,7 +113,6 @@ function fingerprintPayload(job: Job) {
       url: evidence.url,
       citation: evidence.citation,
       snippet: evidence.snippet,
-      full_content_ref: evidence.full_content_ref,
       retrieved_by_step_id: evidence.retrieved_by_step_id,
     })),
     stages: (job.stages ?? []).map((stage) => ({
@@ -125,8 +121,7 @@ function fingerprintPayload(job: Job) {
       engine: stage.engine,
       summary: stage.summary,
       metrics: stage.metrics,
-      strategy: stage.strategy ?? null,
-      filtered_claims: stage.filtered_claims ?? [],
+      filtered_claims: stage.filtered_claims,
     })),
   };
 }

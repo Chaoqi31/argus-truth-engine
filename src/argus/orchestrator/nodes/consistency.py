@@ -108,7 +108,6 @@ async def check_consistency_of(ctx: _Ctx, claims: list[Claim]) -> ConsistencyChe
         log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
         return ConsistencyCheck(failure=Failure(kind=FailureKind.BUDGET, message=str(exc)))
     trace = _build_trace(
-        job_id=ctx.job_id,
         claim_id="(consistency)",
         agent="Consistency",
         usage=answer.usage,
@@ -128,11 +127,10 @@ async def record_consistency(
         stage = await ctx.publisher.finish(_stage(ctx, check.summary, 0))
         return {"stages": [stage]}
     trace = check.trace
-    new_findings = _contradictions_to_findings(
-        job_id=ctx.job_id, parsed=check.parsed, trace_id=trace.id
-    ) + _drop_redundant_logical_findings(
+    contradictions = _contradictions_to_findings(parsed=check.parsed, trace_id=trace.id)
+    new_findings = contradictions + _drop_redundant_logical_findings(
         list(findings.values()),
-        _logical_flaws_to_findings(job_id=ctx.job_id, parsed=check.parsed, trace_id=trace.id),
+        _logical_flaws_to_findings(parsed=check.parsed, trace_id=trace.id),
     )
     await ctx.publisher.publish("step", _step_payload(trace))
     for finding in new_findings:

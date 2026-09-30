@@ -24,7 +24,6 @@ const claim: Claim = makeClaim({
 
 const finding: Finding = makeFinding({
   id: "f_shute",
-  job_id: "j1",
   claim_id: "c_shute",
   agent: "UnifiedVerifier",
   verdict: "inaccurate",
@@ -33,7 +32,6 @@ const finding: Finding = makeFinding({
   summary: "The claim reverses Shute.",
   evidence_ids: [],
   reasoning_trace_id: "t1",
-  related_finding_ids: [],
   created_at: "2026-06-05T00:00:00Z",
 });
 

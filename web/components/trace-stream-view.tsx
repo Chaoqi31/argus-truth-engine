@@ -1037,13 +1037,6 @@ function StageDetail({ stage, job }: { stage: Stage; job: Job }) {
           </div>
         )}
 
-      {stage.key === "planner" && stage.strategy && (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          <span className="font-medium text-foreground">Strategy: </span>
-          {stage.strategy}
-        </p>
-      )}
-
       {stage.key === "checkworthiness" &&
         stage.filtered_claims &&
         stage.filtered_claims.length > 0 && (

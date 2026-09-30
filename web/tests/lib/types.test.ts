@@ -31,7 +31,6 @@ describe("types", () => {
     const verdict: FindingVerdict = "fabricated";
     const f: Finding = makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       verdict,
@@ -40,7 +39,6 @@ describe("types", () => {
       summary: "No DOI found.",
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     });
     const j: Job = makeJob({

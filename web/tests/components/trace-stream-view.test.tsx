@@ -51,7 +51,6 @@ function loadSampleJob(): Job {
     findings: [
       makeFinding({
         id: "f_ok",
-        job_id: "job_trace",
         claim_id: "c_ok",
         agent: "UnifiedVerifier",
         verdict: "ok",
@@ -60,12 +59,10 @@ function loadSampleJob(): Job {
         summary: "The data-center segment claim is lower priority in this fixture.",
         evidence_ids: [],
         reasoning_trace_id: "t_ok",
-        related_finding_ids: [],
         created_at: "2026-06-01T00:00:00Z",
       }),
       makeFinding({
         id: "f_bad",
-        job_id: "job_trace",
         claim_id: "c_bad",
         agent: "UnifiedVerifier",
         verdict: "fabricated",
@@ -93,7 +90,6 @@ function loadSampleJob(): Job {
         ],
         evidence_ids: ["e1", "e2"],
         reasoning_trace_id: "t_bad",
-        related_finding_ids: [],
         created_at: "2026-06-01T00:00:00Z",
       }),
     ],
@@ -113,7 +109,6 @@ function loadSampleJob(): Job {
         url: "https://example.com/a",
         citation: "Goldman search",
         snippet: "No exact title match.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "t_bad-web_search-2",
       },
@@ -123,7 +118,6 @@ function loadSampleJob(): Job {
         url: "https://example.com/b",
         citation: "Tracking Trillions",
         snippet: "Different report title.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "t_bad-web_search-4",
       },
@@ -134,7 +128,6 @@ function loadSampleJob(): Job {
 function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
   return {
     id,
-    job_id: "job_trace",
     claim_id: claimId,
     agent: "UnifiedVerifier",
     miromind_response_id: `resp_${id}`,
@@ -143,7 +136,6 @@ function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
     total_tokens: 100,
     reasoning_tokens: 50,
     num_search_queries: steps.filter((step) => step.type === "web_search").length,
-    final_verdict_step_id: null,
     steps,
   };
 }
@@ -161,7 +153,6 @@ function makeStep(
     type,
     summary,
     content: {},
-    evidence_ids: [],
     parent_step_id: null,
     created_at: "2026-06-01T00:00:00Z",
   };
@@ -243,7 +234,6 @@ describe("TraceStreamView", () => {
       ...job.findings,
       makeFinding({
         id: "f_derived",
-        job_id: "job_trace",
         claim_id: "c_bad",
         agent: "Consistency",
         verdict: "unsupported-inference",
@@ -252,7 +242,6 @@ describe("TraceStreamView", () => {
         summary: "The claim overextends the verified evidence.",
         evidence_ids: [],
         reasoning_trace_id: "t_derived",
-        related_finding_ids: ["f_bad"],
         created_at: "2026-06-01T00:00:00Z",
       }),
     ];

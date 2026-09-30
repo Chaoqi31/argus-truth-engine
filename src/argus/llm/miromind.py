@@ -20,7 +20,6 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Final
-from uuid import uuid4
 
 import httpx
 from httpx_sse import aconnect_sse
@@ -29,7 +28,7 @@ from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait
 
 from argus.config import Settings
 from argus.log import log
-from argus.models.domain import Step, StepType
+from argus.models.domain import Step, StepType, new_id
 
 _PRICE_PER_MILLION: Final[dict[str, tuple[float, float]]] = {
     "mirothinker-1-7-deepresearch": (4.00, 25.00),
@@ -82,7 +81,6 @@ class MiroMindTimeout(MiroMindError):
 class MiroMindResponse:
     response_id: str
     text: str
-    steps: tuple[Step, ...]
     total_tokens: int
     reasoning_tokens: int
     num_search_queries: int
@@ -196,7 +194,6 @@ class MiroMind:
         return MiroMindResponse(
             response_id=response_id,
             text="".join(text),
-            steps=tuple(steps.steps),
             total_tokens=int(usage.get("total_tokens") or 0),
             reasoning_tokens=int(usage.get("reasoning_tokens") or 0),
             num_search_queries=searches,
@@ -366,17 +363,18 @@ class _Steps:
     """Turns response events into steps.
 
     A tool call surfaces twice (``output_item.added`` in progress, then
-    ``output_item.done`` with its result); both update one step, which is
-    emitted once it completes. Reasoning deltas are buffered and become one
-    thinking step when their reasoning item closes.
+    ``output_item.done`` with its result). Its step is built once, when the
+    call completes, at the sequence number where the call began. Reasoning
+    deltas are buffered and become one thinking step when their reasoning
+    item closes.
     """
 
     def __init__(self, response_id: str, agent: str) -> None:
         self._response_id = response_id
         self._agent = agent
-        self.steps: list[Step] = []
         self._thinking: list[str] = []
-        self._tools: dict[str, Step] = {}
+        self._tool_started: dict[str, int] = {}
+        self._tool_done: set[str] = set()
         self._unknown_tools: set[str] = set()
 
     def feed(self, event: dict[str, Any]) -> list[Step]:
@@ -391,44 +389,45 @@ class _Steps:
         item_type = item.get("type", "tool_call")
         if item_type == "tool_call":
             return self._tool_call(event, item, completed)
+        sequence = int(event.get("sequence_number", 0))
         if item_type == "reasoning" and self._thinking:
             thought = "".join(self._thinking)
             self._thinking.clear()
-            return [self._add(event, StepType.THINKING, _truncate(thought), {"thought": thought})]
+            step = self._add(sequence, StepType.THINKING, _truncate(thought), {"thought": thought})
+            return [step]
         return []
 
     def _tool_call(
         self, event: dict[str, Any], item: dict[str, Any], completed: bool
     ) -> list[Step]:
+        sequence = int(event.get("sequence_number", 0))
+        item_id = item.get("id")
+        if item_id:
+            if item_id in self._tool_done:
+                return []
+            sequence = self._tool_started.setdefault(item_id, sequence)
+        if not completed:
+            return []
+        if item_id:
+            self._tool_done.add(item_id)
         name = str(item.get("name", ""))
         if name and name not in _TOOL_NAME_TO_STEP and name not in self._unknown_tools:
             self._unknown_tools.add(name)
             log.warning("agent.unknown_tool_name", agent=self._agent, tool_name=name)
-        summary = _tool_call_summary(name, item)
-        item_id = item.get("id")
-        step = self._tools.get(item_id) if item_id else None
-        if step is not None:
-            step.content = item
-            step.summary = summary
-        else:
-            step = self._add(event, _TOOL_NAME_TO_STEP.get(name, StepType.TOOL_CALL), summary, item)
-            if item_id:
-                self._tools[item_id] = step
-        return [step] if completed else []
+        step_type = _TOOL_NAME_TO_STEP.get(name, StepType.TOOL_CALL)
+        return [self._add(sequence, step_type, _tool_call_summary(name, item), item)]
 
     def _add(
-        self, event: dict[str, Any], step_type: StepType, summary: str, content: dict[str, Any]
+        self, sequence: int, step_type: StepType, summary: str, content: dict[str, Any]
     ) -> Step:
-        step = Step(
-            id=f"step_{uuid4().hex[:12]}",
+        return Step(
+            id=new_id("step"),
             trace_id=self._response_id,
-            sequence=int(event.get("sequence_number", 0)),
+            sequence=sequence,
             type=step_type,
             summary=summary,
             content=content,
         )
-        self.steps.append(step)
-        return step
 
 
 def _truncate(s: str, n: int = 140) -> str:

@@ -8,7 +8,6 @@ import { makeClaim, makeFinding, makeJob } from "@/tests/factories";
 
 const finding: Finding = makeFinding({
   id: "f1",
-  job_id: "j1",
   claim_id: "c1",
   agent: "UnifiedVerifier",
   verdict: "fabricated",
@@ -17,7 +16,6 @@ const finding: Finding = makeFinding({
   summary: "The citation is fabricated.",
   evidence_ids: ["e1"],
   reasoning_trace_id: "t1",
-  related_finding_ids: [],
   created_at: "2026-05-20T00:00:00Z",
   reasoning_chain: [
     {
@@ -90,7 +88,6 @@ const job: Job = makeJob({
   traces: [
     {
       id: "t1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       miromind_response_id: "resp_123",
@@ -99,7 +96,6 @@ const job: Job = makeJob({
       total_tokens: 4200,
       reasoning_tokens: 900,
       num_search_queries: 2,
-      final_verdict_step_id: null,
       steps: [
         {
           id: "s1",
@@ -108,7 +104,6 @@ const job: Job = makeJob({
           type: "web_search",
           summary: "Search exact title.",
           content: {},
-          evidence_ids: ["e1"],
           parent_step_id: null,
           created_at: "2026-05-20T00:01:00Z",
         },
@@ -122,7 +117,6 @@ const job: Job = makeJob({
       url: "https://example.com/source",
       citation: "Source search",
       snippet: "No exact match.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:02:00Z",
       retrieved_by_step_id: "s1",
     },

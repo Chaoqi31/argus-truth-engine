@@ -17,7 +17,6 @@ from argus.models.domain import (
 def _sample_finding() -> Finding:
     return Finding(
         id="fnd_test",
-        job_id="job_test",
         claim_id="claim_test",
         agent="UnifiedVerifier",
         verdict=FindingVerdict.OK,

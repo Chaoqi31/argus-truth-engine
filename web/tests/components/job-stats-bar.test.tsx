@@ -58,7 +58,6 @@ describe("JobStatsBar", () => {
           traces: [
             {
               id: "t1",
-              job_id: "j1",
               claim_id: "c1",
               agent: "UnifiedVerifier",
               miromind_response_id: "resp_1",
@@ -67,7 +66,6 @@ describe("JobStatsBar", () => {
               total_tokens: 12000,
               reasoning_tokens: 678,
               num_search_queries: 3,
-              final_verdict_step_id: null,
               steps: [
                 {
                   id: "s1",
@@ -76,7 +74,6 @@ describe("JobStatsBar", () => {
                   type: "web_search",
                   summary: "Search exact citation.",
                   content: {},
-                  evidence_ids: [],
                   parent_step_id: null,
                   created_at: "2026-05-20T00:01:00Z",
                 },
@@ -87,7 +84,6 @@ describe("JobStatsBar", () => {
                   type: "fetch_url_content",
                   summary: "Fetch source.",
                   content: {},
-                  evidence_ids: [],
                   parent_step_id: "s1",
                   created_at: "2026-05-20T00:02:00Z",
                 },
@@ -98,7 +94,6 @@ describe("JobStatsBar", () => {
                   type: "fetch_url_content",
                   summary: "Fetch second source.",
                   content: {},
-                  evidence_ids: [],
                   parent_step_id: "s1",
                   created_at: "2026-05-20T00:03:00Z",
                 },
@@ -109,7 +104,6 @@ describe("JobStatsBar", () => {
                   type: "execute_python",
                   summary: "Check calculation.",
                   content: {},
-                  evidence_ids: [],
                   parent_step_id: "s2",
                   created_at: "2026-05-20T00:04:00Z",
                 },
@@ -130,7 +124,6 @@ describe("JobStatsBar", () => {
       findings: [
         makeFinding({
           id: "f1",
-          job_id: "j1",
           claim_id: "c1",
           agent: "UnifiedVerifier",
           verdict: "fabricated",
@@ -139,12 +132,10 @@ describe("JobStatsBar", () => {
           summary: "No record found.",
           evidence_ids: [],
           reasoning_trace_id: "t1",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
         }),
         makeFinding({
           id: "f2",
-          job_id: "j1",
           claim_id: "c2",
           agent: "UnifiedVerifier",
           verdict: "ok",
@@ -153,7 +144,6 @@ describe("JobStatsBar", () => {
           summary: "Verified.",
           evidence_ids: [],
           reasoning_trace_id: "t2",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
         }),
       ],

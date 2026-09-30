@@ -29,7 +29,6 @@ const job: Job = makeJob({
   findings: [
     makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       verdict: "fabricated",
@@ -88,14 +87,12 @@ const job: Job = makeJob({
       },
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
   ],
   traces: [
     {
       id: "t1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       miromind_response_id: "r1",
@@ -104,7 +101,6 @@ const job: Job = makeJob({
       total_tokens: 100,
       reasoning_tokens: 50,
       num_search_queries: 1,
-      final_verdict_step_id: null,
       steps: [
         {
           id: "s0",
@@ -115,7 +111,6 @@ const job: Job = makeJob({
           content: {
             result: JSON.stringify({ organic: [] }),
           },
-          evidence_ids: [],
           parent_step_id: null,
           created_at: "2026-05-20T00:00:00Z",
         },
@@ -126,7 +121,6 @@ const job: Job = makeJob({
           type: "thinking",
           summary: "Think about Crossref query.",
           content: {},
-          evidence_ids: [],
           parent_step_id: null,
           created_at: "2026-05-20T00:00:00Z",
         },
@@ -140,7 +134,6 @@ const job: Job = makeJob({
       url: "https://api.crossref.org/works?query=Smith",
       citation: "Crossref query",
       snippet: "{}",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },
@@ -242,7 +235,6 @@ describe("EvidenceTab", () => {
         ...job.findings,
         makeFinding({
           id: "f2",
-          job_id: "j1",
           claim_id: "c2",
           agent: "Consistency",
           verdict: "unsupported-inference",
@@ -252,7 +244,6 @@ describe("EvidenceTab", () => {
           why_wrong: "The brief extends beyond the holdings verified elsewhere.",
           evidence_ids: [],
           reasoning_trace_id: "t2",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
         }),
       ],
@@ -260,7 +251,6 @@ describe("EvidenceTab", () => {
         ...job.traces,
         {
           id: "t2",
-          job_id: "j1",
           claim_id: "c2",
           agent: "Consistency",
           miromind_response_id: "deepseek:consistency",
@@ -269,7 +259,6 @@ describe("EvidenceTab", () => {
           total_tokens: 40,
           reasoning_tokens: 0,
           num_search_queries: 0,
-          final_verdict_step_id: null,
           steps: [
             {
               id: "s2",
@@ -278,7 +267,6 @@ describe("EvidenceTab", () => {
               type: "message",
               summary: "Checked claim against verified holdings.",
               content: {},
-              evidence_ids: [],
               parent_step_id: null,
               created_at: "2026-05-20T00:00:00Z",
             },

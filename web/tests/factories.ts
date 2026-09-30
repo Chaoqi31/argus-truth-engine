@@ -33,7 +33,6 @@ export function makeEvidence(fields: Partial<Evidence> = {}): Evidence {
     url: null,
     citation: "",
     snippet: "",
-    full_content_ref: null,
     retrieved_at: T0,
     retrieved_by_step_id: "s1",
     ...fields,
@@ -43,7 +42,6 @@ export function makeEvidence(fields: Partial<Evidence> = {}): Evidence {
 export function makeFinding(fields: Partial<Finding> = {}): Finding {
   return {
     id: "f1",
-    job_id: "j1",
     claim_id: "c1",
     agent: "UnifiedVerifier",
     verdict: "ok",
@@ -60,7 +58,6 @@ export function makeFinding(fields: Partial<Finding> = {}): Finding {
     computation_check: null,
     evidence_ids: [],
     reasoning_trace_id: "t1",
-    related_finding_ids: [],
     created_at: T0,
     from_cache: false,
     flags: [],
@@ -76,7 +73,6 @@ export function makeStep(fields: Partial<Step> = {}): Step {
     type: "thinking",
     summary: "",
     content: {},
-    evidence_ids: [],
     parent_step_id: null,
     created_at: T0,
     ...fields,
@@ -86,7 +82,6 @@ export function makeStep(fields: Partial<Step> = {}): Step {
 export function makeTrace(fields: Partial<ReasoningTrace> = {}): ReasoningTrace {
   return {
     id: "t1",
-    job_id: "j1",
     claim_id: "c1",
     agent: "UnifiedVerifier",
     miromind_response_id: "resp_1",
@@ -95,7 +90,6 @@ export function makeTrace(fields: Partial<ReasoningTrace> = {}): ReasoningTrace 
     total_tokens: 0,
     reasoning_tokens: 0,
     num_search_queries: 0,
-    final_verdict_step_id: null,
     steps: [],
     ...fields,
   };
@@ -108,8 +102,7 @@ export function makeStage(fields: Partial<Stage> = {}): Stage {
     engine: "deterministic",
     summary: "",
     metrics: {},
-    strategy: null,
-    filtered_claims: null,
+    filtered_claims: [],
     ...fields,
   };
 }

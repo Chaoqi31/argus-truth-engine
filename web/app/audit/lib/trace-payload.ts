@@ -56,7 +56,6 @@ export function stageMarkerStep(
     type: "message",
     summary,
     content: { __stage: { key, name, engine, summary } },
-    evidence_ids: [],
     parent_step_id: null,
     created_at: new Date().toISOString(),
   };
@@ -110,7 +109,6 @@ export function claimMarkerStep(claim: ClaimEventPayload, sequence: number): Ste
       claim_id: claim.claim_id,
       __claim: { index: claim.index, total: claim.total, text: claim.text },
     },
-    evidence_ids: [],
     parent_step_id: null,
     created_at: new Date().toISOString(),
   };
@@ -168,9 +166,6 @@ export function stepFromPayload(payload: Record<string, unknown>): Step | null {
           ? native.summary
           : String(payload.summary ?? payload.agent ?? "agent"),
       content,
-      evidence_ids: Array.isArray(native.evidence_ids)
-        ? native.evidence_ids.filter((id): id is string => typeof id === "string")
-        : [],
       parent_step_id: typeof native.parent_step_id === "string" ? native.parent_step_id : null,
       created_at: typeof native.created_at === "string" ? native.created_at : new Date().toISOString(),
     };
@@ -184,7 +179,6 @@ export function stepFromPayload(payload: Record<string, unknown>): Step | null {
     type: "message",
     summary: `${String(payload.agent ?? "agent")} — ${String(payload.claim_id ?? "")}`.trim(),
     content: payload,
-    evidence_ids: [],
     parent_step_id: null,
     created_at: new Date().toISOString(),
   };

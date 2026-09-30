@@ -31,7 +31,6 @@ const job: Job = makeJob({
   findings: [
     makeFinding({
       id: "f1",
-      job_id: "job_1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       verdict: "fabricated",
@@ -48,7 +47,6 @@ const job: Job = makeJob({
       ],
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
   ],
@@ -60,7 +58,6 @@ const job: Job = makeJob({
       url: "https://example.com/search",
       citation: "Search results",
       snippet: "No exact title match.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },

@@ -37,7 +37,7 @@ def _claim(cid: str) -> Claim:
 
 def _verifier_finding(claim_id: str, verdict: FindingVerdict) -> Finding:
     return Finding(
-        id=f"f_{claim_id}", job_id="job_x", claim_id=claim_id,
+        id=f"f_{claim_id}", claim_id=claim_id,
         agent="UnifiedVerifier", verdict=verdict, confidence=0.5,
         summary="s", reasoning_trace_id="trace_x",
     )
@@ -45,7 +45,7 @@ def _verifier_finding(claim_id: str, verdict: FindingVerdict) -> Finding:
 
 def _consistency_finding(claim_id: str) -> Finding:
     return Finding(
-        id=f"fc_{claim_id}", job_id="job_x", claim_id=claim_id,
+        id=f"fc_{claim_id}", claim_id=claim_id,
         agent="Consistency", verdict=FindingVerdict.CONTRADICTION, confidence=0.5,
         summary="s", reasoning_trace_id="trace_x",
     )

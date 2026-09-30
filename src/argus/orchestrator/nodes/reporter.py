@@ -57,7 +57,6 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             return {"failure": Failure(kind=FailureKind.BUDGET, message=str(exc))}
 
         trace = _build_trace(
-            job_id=ctx.job_id,
             claim_id="(reporter)",
             agent="Reporter",
             usage=answer.usage,

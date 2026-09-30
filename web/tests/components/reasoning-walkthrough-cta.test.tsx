@@ -12,7 +12,6 @@ import {
 
 function makeFinding(overrides: Partial<Finding>): Finding {
   return baseFinding({
-    job_id: "job_1",
     confidence: 0.8,
     summary: "Verified.",
     created_at: "2026-06-01T00:00:00Z",
@@ -34,7 +33,6 @@ function makeStep(traceId: string, id: string, type: Step["type"]): Step {
 function makeTrace(id: string, claimId: string, steps: Step[]): ReasoningTrace {
   return baseTrace({
     id,
-    job_id: "job_1",
     claim_id: claimId,
     miromind_response_id: `resp_${id}`,
     started_at: "2026-06-01T00:00:00Z",
@@ -122,7 +120,6 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         url: "https://example.com/a",
         citation: "Search result A",
         snippet: "No exact title match.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "s_bad_2",
       },
@@ -132,7 +129,6 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         url: "https://example.com/b",
         citation: "Search result B",
         snippet: "Different Goldman report.",
-        full_content_ref: null,
         retrieved_at: "2026-06-01T00:00:00Z",
         retrieved_by_step_id: "s_bad_3",
       },

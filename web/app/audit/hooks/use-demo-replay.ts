@@ -89,7 +89,6 @@ export function useDemoReplay({
       type: "message",
       summary,
       content,
-      evidence_ids: [],
       parent_step_id: null,
       created_at: "",
     });

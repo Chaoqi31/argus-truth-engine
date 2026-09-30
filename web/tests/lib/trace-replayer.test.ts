@@ -10,7 +10,6 @@ function step(id: string, seq: number, type: Step["type"] = "thinking"): Step {
     type,
     summary: id,
     content: {},
-    evidence_ids: [],
     parent_step_id: null,
     created_at: "2026-05-20T00:00:00Z",
   };

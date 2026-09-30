@@ -65,7 +65,7 @@ async def test_a_stalled_verifier_times_out_into_an_uncertain_finding(tmp_path: 
     )
 
     finding = _verifier_finding(job, S5)
-    assert (finding.verdict, finding.flags) == (FindingVerdict.UNCERTAIN, ["verifier timed out"])
+    assert (finding.verdict, finding.flags) == (FindingVerdict.UNCERTAIN, ("verifier timed out",))
     assert job.status == "done"
     assert job.claims_audited == job.claims_total == 6
 

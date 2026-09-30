@@ -63,7 +63,6 @@
               "thought": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'."
             },
             "created_at": "<ts>",
-            "evidence_ids": [],
             "id": "trace:UnifiedVerifier:a_1/step0",
             "parent_step_id": null,
             "sequence": 3,
@@ -92,7 +91,6 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "evidence_ids": [],
             "id": "trace:UnifiedVerifier:a_1/step1",
             "parent_step_id": null,
             "sequence": 4,
@@ -613,7 +611,6 @@
     "evidences": [
       {
         "citation": "https://api.crossref.org/works?query=smith+2021+widget",
-        "full_content_ref": null,
         "id": "finding:UnifiedVerifier:a_1/evidence0",
         "retrieved_at": "<ts>",
         "retrieved_by_step_id": "trace:UnifiedVerifier:a_1/step1",
@@ -623,7 +620,6 @@
       },
       {
         "citation": "https://papers.ssrn.com/sol3/results.cfm?q=doe+2019",
-        "full_content_ref": null,
         "id": "finding:UnifiedVerifier:a_1/evidence1",
         "retrieved_at": "<ts>",
         "retrieved_by_step_id": "trace:UnifiedVerifier:a_1/step1",
@@ -687,7 +683,6 @@
         ],
         "from_cache": false,
         "id": "finding:UnifiedVerifier:a_1",
-        "job_id": "JOB",
         "reasoning_chain": [
           {
             "action": "Searched primary sources for the claim",
@@ -701,7 +696,6 @@
           }
         ],
         "reasoning_trace_id": "trace:UnifiedVerifier:a_1",
-        "related_finding_ids": [],
         "severity": "major",
         "skeptic_review": {
           "counterevidence": [],
@@ -723,54 +717,50 @@
     "stages": [
       {
         "engine": "deterministic",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "parse",
         "metrics": {
           "chars": 444,
           "pages": 4
         },
         "name": "Parse",
-        "strategy": null,
         "summary": "Parsed 4 page(s) · 444 chars"
       },
       {
         "engine": "deepseek",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "planner",
         "metrics": {
           "n_claims": 2
         },
         "name": "Planner",
-        "strategy": null,
         "summary": "Extracted 2 candidate claim(s)"
       },
       {
         "engine": "deepseek",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "atomizer",
         "metrics": {
           "n_atoms": 2,
           "n_original": 2
         },
         "name": "Atomizer",
-        "strategy": null,
         "summary": "Normalised 2 claim(s) — no splitting needed"
       },
       {
         "engine": "deepseek",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "checkworthiness",
         "metrics": {
           "n_checkworthy": 2,
           "n_filtered": 0
         },
         "name": "Check-worthiness",
-        "strategy": null,
         "summary": "2 check-worthy · none filtered"
       },
       {
         "engine": "deterministic",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "review_gate",
         "metrics": {
           "n_after": 2,
@@ -778,12 +768,11 @@
           "n_verifying": 1
         },
         "name": "Review gate",
-        "strategy": null,
         "summary": "1 claim(s) sent to verification"
       },
       {
         "engine": "miromind",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "verify",
         "metrics": {
           "n_claims": 1,
@@ -791,12 +780,11 @@
           "n_steps": 2
         },
         "name": "Verify",
-        "strategy": null,
         "summary": "Deep-researched 1 claim(s) · 2 steps · 1 web searches"
       },
       {
         "engine": "miromind",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "skeptic",
         "metrics": {
           "n_cleared": 0,
@@ -805,38 +793,34 @@
           "n_reviewed": 1
         },
         "name": "Skeptic challenge",
-        "strategy": null,
         "summary": "Challenged 1 high-risk finding(s)"
       },
       {
         "engine": "deepseek",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "consistency",
         "metrics": {
           "n_findings": 0
         },
         "name": "Consistency",
-        "strategy": null,
         "summary": "Skipped consistency check — fewer than 2 claims"
       },
       {
         "engine": "deterministic",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "confidence",
         "metrics": {
           "n_scored": 1
         },
         "name": "Confidence",
-        "strategy": null,
         "summary": "Scored 1 finding(s) on 3 factors (authority · freshness · agreement)"
       },
       {
         "engine": "deepseek",
-        "filtered_claims": null,
+        "filtered_claims": [],
         "key": "reporter",
         "metrics": {},
         "name": "Reporter",
-        "strategy": null,
         "summary": "Executive summary generated"
       }
     ],
@@ -847,9 +831,7 @@
         "agent": "Reporter",
         "claim_id": "(reporter)",
         "completed_at": "<ts>",
-        "final_verdict_step_id": null,
         "id": "trace:Reporter:(reporter)",
-        "job_id": "JOB",
         "miromind_response_id": "trace:Reporter:(reporter)/response",
         "num_search_queries": 0,
         "reasoning_tokens": 0,
@@ -861,9 +843,7 @@
         "agent": "Skeptic",
         "claim_id": "a_1",
         "completed_at": "<ts>",
-        "final_verdict_step_id": null,
         "id": "trace:Skeptic:a_1",
-        "job_id": "JOB",
         "miromind_response_id": "trace:Skeptic:a_1/response",
         "num_search_queries": 0,
         "reasoning_tokens": 200,
@@ -874,7 +854,6 @@
               "thought": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'."
             },
             "created_at": "<ts>",
-            "evidence_ids": [],
             "id": "trace:Skeptic:a_1/step0",
             "parent_step_id": null,
             "sequence": 3,
@@ -892,7 +871,6 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "evidence_ids": [],
             "id": "trace:Skeptic:a_1/step1",
             "parent_step_id": "trace:Skeptic:a_1/step0",
             "sequence": 4,
@@ -907,9 +885,7 @@
         "agent": "UnifiedVerifier",
         "claim_id": "a_1",
         "completed_at": "<ts>",
-        "final_verdict_step_id": null,
         "id": "trace:UnifiedVerifier:a_1",
-        "job_id": "JOB",
         "miromind_response_id": "trace:UnifiedVerifier:a_1/response",
         "num_search_queries": 2,
         "reasoning_tokens": 200,
@@ -920,7 +896,6 @@
               "thought": "Plan: search for 'It mentions Smith (2021) and (Doe et al.'."
             },
             "created_at": "<ts>",
-            "evidence_ids": [],
             "id": "trace:UnifiedVerifier:a_1/step0",
             "parent_step_id": null,
             "sequence": 3,
@@ -938,7 +913,6 @@
               "type": "tool_call"
             },
             "created_at": "<ts>",
-            "evidence_ids": [],
             "id": "trace:UnifiedVerifier:a_1/step1",
             "parent_step_id": "trace:UnifiedVerifier:a_1/step0",
             "sequence": 4,
@@ -953,9 +927,7 @@
         "agent": "planner",
         "claim_id": "(planner)",
         "completed_at": "<ts>",
-        "final_verdict_step_id": null,
         "id": "trace:planner:(planner)",
-        "job_id": "JOB",
         "miromind_response_id": "trace:planner:(planner)/response",
         "num_search_queries": 0,
         "reasoning_tokens": 0,

@@ -46,7 +46,6 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
 
         claims = answer.output.to_claims()
         trace = _build_trace(
-            job_id=ctx.job_id,
             claim_id="(planner)",
             agent="planner",
             usage=answer.usage,

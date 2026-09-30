@@ -86,7 +86,7 @@ def _apply_skeptic_effect(finding: Finding, review: SkepticReview) -> Finding:
             "severity": Severity.MINOR,
             "confidence": min(finding.confidence, 0.5),
             "summary": f"{finding.summary}  [Skeptic review found credible counterevidence.]",
-            "flags": finding.flags if flag in finding.flags else [*finding.flags, flag],
+            "flags": finding.flags if flag in finding.flags else (*finding.flags, flag),
         }
     )
 
@@ -178,7 +178,6 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                 }
 
             trace = _build_trace(
-                job_id=ctx.job_id,
                 claim_id=finding.claim_id,
                 agent="Skeptic",
                 usage=answer.usage,

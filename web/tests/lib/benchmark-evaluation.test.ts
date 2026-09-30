@@ -48,7 +48,6 @@ const job = makeJob({
   findings: [
     makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       verdict: "ok",
@@ -57,12 +56,10 @@ const job = makeJob({
       summary: "Verified.",
       evidence_ids: [],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
     makeFinding({
       id: "f2",
-      job_id: "j1",
       claim_id: "c2",
       agent: "UnifiedVerifier",
       verdict: "fabricated",
@@ -71,12 +68,10 @@ const job = makeJob({
       summary: "Fabricated.",
       evidence_ids: [],
       reasoning_trace_id: "t2",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
     makeFinding({
       id: "f3",
-      job_id: "j1",
       claim_id: "c3",
       agent: "UnifiedVerifier",
       verdict: "inaccurate",
@@ -85,7 +80,6 @@ const job = makeJob({
       summary: "Inaccurate.",
       evidence_ids: [],
       reasoning_trace_id: "t3",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
   ],

@@ -39,7 +39,6 @@ const job: Job = makeJob({
   findings: [
     makeFinding({
       id: "f1",
-      job_id: "j1",
       claim_id: "c1",
       agent: "UnifiedVerifier",
       verdict: "fabricated",
@@ -49,12 +48,10 @@ const job: Job = makeJob({
       why_wrong: "The citation could not be found in DOI registries.",
       evidence_ids: ["e1"],
       reasoning_trace_id: "t1",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
     makeFinding({
       id: "f2",
-      job_id: "j1",
       claim_id: "c2",
       agent: "UnifiedVerifier",
       verdict: "ok",
@@ -63,7 +60,6 @@ const job: Job = makeJob({
       summary: "Citation matches Crossref.",
       evidence_ids: [],
       reasoning_trace_id: "t2",
-      related_finding_ids: [],
       created_at: "2026-05-20T00:00:00Z",
     }),
   ],
@@ -75,7 +71,6 @@ const job: Job = makeJob({
       url: "https://api.crossref.org/works?query=Smith",
       citation: "Crossref query",
       snippet: "No matching DOI.",
-      full_content_ref: null,
       retrieved_at: "2026-05-20T00:00:00Z",
       retrieved_by_step_id: "s1",
     },
@@ -127,7 +122,6 @@ describe("FindingsTab", () => {
       findings: [
         makeFinding({
           id: "f_derived",
-          job_id: "j1",
           claim_id: "c2",
           agent: "Consistency",
           verdict: "contradiction",
@@ -136,7 +130,6 @@ describe("FindingsTab", () => {
           summary: "The document contradicts itself.",
           evidence_ids: [],
           reasoning_trace_id: "t0",
-          related_finding_ids: [],
           created_at: "2026-05-20T00:00:00Z",
         }),
         job.findings[0]!,

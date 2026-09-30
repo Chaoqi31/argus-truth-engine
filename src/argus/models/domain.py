@@ -3,12 +3,16 @@
 These models represent the data flowing through the pipeline: PDFs become Claims,
 Claims become Findings (with attached ReasoningTraces), and the final output is
 the union of all of those plus the per-Step events MiroMind streamed back.
+
+Everything but the `Job` aggregate is an immutable value: a revised finding is
+a copy under the same id, never an edit a concurrent stage could observe.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -86,15 +90,21 @@ class StepType(StrEnum):
 # --- Models ---------------------------------------------------------------------------
 
 
+def new_id(prefix: str) -> str:
+    return f"{prefix}_{uuid4().hex[:12]}"
+
+
 class _Base(BaseModel):
     # Serialization always emits defaulted fields, so the web's generated
     # types mark them required.
-    model_config = ConfigDict(
-        frozen=False, extra="forbid", json_schema_serialization_defaults_required=True
-    )
+    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
 
 
-class Claim(_Base):
+class Frozen(_Base):
+    model_config = ConfigDict(frozen=True)
+
+
+class Claim(Frozen):
     id: str
     text: str
     page: int = Field(default=1, ge=0)
@@ -115,32 +125,29 @@ class Claim(_Base):
         return self
 
 
-class Evidence(_Base):
+class Evidence(Frozen):
     id: str
     source_type: EvidenceSource
     url: str | None = None
     citation: str
     snippet: str = ""
-    full_content_ref: str | None = None
     retrieved_at: datetime = Field(default_factory=datetime.utcnow)
     retrieved_by_step_id: str
 
 
-class Step(_Base):
+class Step(Frozen):
     id: str
     trace_id: str
     sequence: int = Field(ge=0)
     type: StepType
     summary: str
     content: dict[str, Any] = Field(default_factory=dict)
-    evidence_ids: list[str] = Field(default_factory=list)
     parent_step_id: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class ReasoningTrace(_Base):
+class ReasoningTrace(Frozen):
     id: str
-    job_id: str
     claim_id: str
     agent: str
     miromind_response_id: str
@@ -149,11 +156,10 @@ class ReasoningTrace(_Base):
     total_tokens: int = 0
     reasoning_tokens: int = 0
     num_search_queries: int = 0
-    final_verdict_step_id: str | None = None
-    steps: list[Step] = Field(default_factory=list)
+    steps: tuple[Step, ...] = ()
 
 
-class CorrectedInfo(_Base):
+class CorrectedInfo(Frozen):
     """What the correct information actually is, with authoritative source."""
 
     value: str
@@ -162,7 +168,7 @@ class CorrectedInfo(_Base):
     retrieved_date: str | None = None
 
 
-class VerificationStep(_Base):
+class VerificationStep(Frozen):
     """One step in a verification chain — action/observation/reasoning triple."""
 
     action: str
@@ -170,7 +176,7 @@ class VerificationStep(_Base):
     reasoning: str
 
 
-class ConfidenceBreakdown(_Base):
+class ConfidenceBreakdown(Frozen):
     """Decomposed confidence — explains WHY confidence is at a certain level."""
 
     source_agreement: float = Field(default=0.0, ge=0.0, le=1.0)  # do sources agree?
@@ -179,7 +185,7 @@ class ConfidenceBreakdown(_Base):
     reasoning: str = ""  # 1-sentence description of the measured factors
 
 
-class EvidenceQuality(_Base):
+class EvidenceQuality(Frozen):
     """Per-evidence quality signals used to explain why a source is trusted."""
 
     evidence_id: str
@@ -191,16 +197,16 @@ class EvidenceQuality(_Base):
     rationale: str = ""
 
 
-class ClaimCoverage(_Base):
+class ClaimCoverage(Frozen):
     """How evidence supports/refutes a specific fragment of the claim."""
 
     claim_fragment: str
     relation: str
-    evidence_ids: list[str] = Field(default_factory=list)
+    evidence_ids: tuple[str, ...] = ()
     reason: str = ""
 
 
-class ComputationValue(_Base):
+class ComputationValue(Frozen):
     """One value extracted for a numerical/date verification check."""
 
     label: str
@@ -209,12 +215,12 @@ class ComputationValue(_Base):
     source_evidence_id: str | None = None
 
 
-class ComputationCheck(_Base):
+class ComputationCheck(Frozen):
     """Reproducible numeric/date check behind a verifier judgment."""
 
     kind: Literal["numeric", "date"]
     claimed_value: str = ""
-    extracted_values: list[ComputationValue] = Field(default_factory=list)
+    extracted_values: tuple[ComputationValue, ...] = ()
     formula: str = ""
     computed_value: str = ""
     tolerance: str = ""
@@ -222,7 +228,7 @@ class ComputationCheck(_Base):
     rationale: str = ""
 
 
-class SkepticCounterevidence(_Base):
+class SkepticCounterevidence(Frozen):
     """A possible counterexample found by the skeptic pass."""
 
     source: str = ""
@@ -231,26 +237,17 @@ class SkepticCounterevidence(_Base):
     relevance: str = ""
 
 
-class SkepticReview(_Base):
+class SkepticReview(Frozen):
     """Independent challenge pass over a high-risk verifier conclusion."""
 
     status: Literal["no_counterevidence", "counterevidence_found", "inconclusive"]
     summary: str
     recommended_verdict: FindingVerdict | None = None
-    counterevidence: list[SkepticCounterevidence] = Field(default_factory=list)
+    counterevidence: tuple[SkepticCounterevidence, ...] = ()
 
 
-class SearchStrategy(_Base):
-    """A planned search approach for verifying a claim from a specific angle."""
-
-    angle: str  # e.g. "direct_verification", "negation_search", "source_tracing"
-    query: str  # the actual search query to use
-    rationale: str  # why this angle is useful
-
-
-class Finding(_Base):
+class Finding(Frozen):
     id: str
-    job_id: str
     claim_id: str
     agent: str
     verdict: FindingVerdict
@@ -260,19 +257,18 @@ class Finding(_Base):
     summary: str
     why_wrong: str | None = None
     correct_information: CorrectedInfo | None = None
-    reasoning_chain: list[VerificationStep] = Field(default_factory=list)
-    evidence_quality: list[EvidenceQuality] = Field(default_factory=list)
-    coverage: list[ClaimCoverage] = Field(default_factory=list)
+    reasoning_chain: tuple[VerificationStep, ...] = ()
+    evidence_quality: tuple[EvidenceQuality, ...] = ()
+    coverage: tuple[ClaimCoverage, ...] = ()
     skeptic_review: SkepticReview | None = None
     computation_check: ComputationCheck | None = None
-    evidence_ids: list[str] = Field(default_factory=list)
+    evidence_ids: tuple[str, ...] = ()
     reasoning_trace_id: str
-    related_finding_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     from_cache: bool = False
     # User-facing caveats surfaced as badges (e.g. "single source — verify
     # manually" when a verdict rests on fewer than 2 independent sources).
-    flags: list[str] = Field(default_factory=list)
+    flags: tuple[str, ...] = ()
 
 
 class ContentDomain(StrEnum):
@@ -288,23 +284,22 @@ class ContentDomain(StrEnum):
     SCIENCE = "science"
 
 
-class StageFilteredClaim(_Base):
+class StageFilteredClaim(Frozen):
     claim_id: str | None = None
     text: str
     reason: str
 
 
-class Stage(_Base):
+class Stage(Frozen):
     key: str
     name: str
     engine: Literal["deepseek", "miromind", "deterministic"]
     summary: str
     metrics: dict[str, int] = Field(default_factory=dict)
-    strategy: str | None = None
-    filtered_claims: list[StageFilteredClaim] | None = None
+    filtered_claims: tuple[StageFilteredClaim, ...] = ()
 
 
-class BenchmarkExpectedClaim(_Base):
+class BenchmarkExpectedClaim(Frozen):
     """Demo-fixture-only ground truth — see :class:`BenchmarkSpec`."""
 
     claim_id: str
@@ -312,7 +307,7 @@ class BenchmarkExpectedClaim(_Base):
     rationale: str
 
 
-class BenchmarkSpec(_Base):
+class BenchmarkSpec(Frozen):
     """Planted-error answer key for the demo sample fixture ONLY.
 
     Never populated on live audits (always ``None`` there); it exists so the
@@ -322,7 +317,7 @@ class BenchmarkSpec(_Base):
     """
 
     name: str
-    expected_claims: list[BenchmarkExpectedClaim] = Field(default_factory=list)
+    expected_claims: tuple[BenchmarkExpectedClaim, ...] = ()
 
 
 JobStatus = Literal["running", "awaiting_review", "done", "failed"]
@@ -334,7 +329,7 @@ class FailureKind(StrEnum):
     ERROR = "error"  # the input or a provider made the audit impossible
 
 
-class Failure(_Base):
+class Failure(Frozen):
     kind: FailureKind
     message: str
 

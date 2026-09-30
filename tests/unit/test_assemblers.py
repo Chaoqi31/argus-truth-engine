@@ -43,14 +43,12 @@ def test_make_unified_finding_preserves_verdict_and_links_trace():
         reasoning_chain=[],
     )
     trace = _build_trace(
-        job_id="job_x",
         claim_id="claim_1",
         agent="UnifiedVerifier",
         usage=Usage(response_ids=("resp_test_000",)),
         steps=(),
     )
     finding, _evs = _make_unified_finding(
-        job_id="job_x",
         claim=_sample_claim(),
         parsed=payload,
         trace=trace,
@@ -127,12 +125,12 @@ def test_make_unified_finding_maps_audit_depth_fields_to_real_evidence_ids():
         },
     )
     finding, evs = _make_unified_finding(
-        job_id="job_x", claim=_sample_claim(), parsed=payload, trace=_trace_for()
+        claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
 
     assert finding.evidence_quality[0].evidence_id == evs[0].id
     assert finding.evidence_quality[0].role == "primary_source"
-    assert finding.coverage[0].evidence_ids == [evs[0].id, evs[1].id]
+    assert finding.coverage[0].evidence_ids == (evs[0].id, evs[1].id)
     assert finding.coverage[0].relation == "refutes"
     assert finding.computation_check is not None
     assert finding.computation_check.extracted_values[0].source_evidence_id == evs[0].id
@@ -148,7 +146,6 @@ def test_build_trace_links_steps_into_sequential_chain():
     ]
 
     trace = _build_trace(
-        job_id="job_x",
         claim_id="claim_1",
         agent="UnifiedVerifier",
         usage=Usage(response_ids=("resp_x",)),
@@ -175,7 +172,6 @@ def test_build_trace_keeps_a_repaired_calls_attempts_in_order():
     retry = Step(id="retry", trace_id="resp_2", sequence=1, type=StepType.THINKING, summary="")
 
     trace = _build_trace(
-        job_id="job_x",
         claim_id="claim_1",
         agent="UnifiedVerifier",
         usage=Usage(response_ids=("resp_1", "resp_2"), total_tokens=30),
@@ -201,7 +197,7 @@ def test_logical_flaws_to_findings_maps_unsupported_inference():
         ],
     )
     findings = _logical_flaws_to_findings(
-        job_id="job_x", parsed=parsed, trace_id="trace_abc"
+        parsed=parsed, trace_id="trace_abc"
     )
     assert len(findings) == 1
     f = findings[0]
@@ -213,9 +209,8 @@ def test_logical_flaws_to_findings_maps_unsupported_inference():
     assert f.summary == "Concludes margins will rise from a single analyst note."
     # `missing` surfaces through why_wrong so the UI shows what is needed.
     assert f.why_wrong == "Independent margin guidance confirming the uplift."
-    assert f.evidence_ids == []
+    assert f.evidence_ids == ()
     assert f.reasoning_trace_id == "trace_abc"
-    assert f.related_finding_ids == []
 
 
 def test_logical_flaws_to_findings_maps_overreach():
@@ -233,20 +228,20 @@ def test_logical_flaws_to_findings_maps_overreach():
         ],
     )
     findings = _logical_flaws_to_findings(
-        job_id="job_x", parsed=parsed, trace_id="trace_def"
+        parsed=parsed, trace_id="trace_def"
     )
     assert len(findings) == 1
     f = findings[0]
     assert f.verdict == FindingVerdict.OVERREACH
     assert f.claim_id == "claim_9"
     assert f.why_wrong == "Global market-share data beyond the single region."
-    assert f.evidence_ids == []
+    assert f.evidence_ids == ()
 
 
 def test_logical_flaws_to_findings_empty_returns_no_findings():
     parsed = ConsistencyOutput(contradictions=[], logical_flaws=[])
     assert _logical_flaws_to_findings(
-        job_id="job_x", parsed=parsed, trace_id="trace_x"
+        parsed=parsed, trace_id="trace_x"
     ) == []
 
 
@@ -264,15 +259,14 @@ def test_contradiction_pair_makes_one_finding():
         ],
     )
     findings = _contradictions_to_findings(
-        job_id="job_x", parsed=parsed, trace_id="trace_c"
+        parsed=parsed, trace_id="trace_c"
     )
     assert len(findings) == 1
     (a,) = findings
     assert a.verdict == FindingVerdict.CONTRADICTION
     assert a.claim_id == "c1"
     assert a.severity == Severity.CRITICAL
-    assert a.related_finding_ids == []
-    assert a.evidence_ids == []
+    assert a.evidence_ids == ()
     assert a.reasoning_trace_id == "trace_c"
 
 
@@ -282,7 +276,6 @@ def _ev(url: str) -> EvidenceOut:
 
 def _trace_for() -> object:
     return _build_trace(
-        job_id="job_x",
         claim_id="claim_1",
         agent="UnifiedVerifier",
         usage=Usage(response_ids=("resp_test_000",)),
@@ -302,7 +295,7 @@ def test_make_unified_finding_downgrades_when_fewer_than_two_sources():
         reasoning_chain=[],
     )
     finding, evs = _make_unified_finding(
-        job_id="job_x", claim=_sample_claim(), parsed=payload, trace=_trace_for()
+        claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.UNCERTAIN
     assert finding.correct_information is None
@@ -311,7 +304,7 @@ def test_make_unified_finding_downgrades_when_fewer_than_two_sources():
     assert "Downgraded" in finding.summary
     # The single evidence record is still attached for display.
     assert len(evs) == 1
-    assert finding.evidence_ids == [evs[0].id]
+    assert finding.evidence_ids == (evs[0].id,)
 
 
 def test_make_unified_finding_caps_confidence_at_existing_when_lower():
@@ -326,7 +319,7 @@ def test_make_unified_finding_caps_confidence_at_existing_when_lower():
         reasoning_chain=[],
     )
     finding, _evs = _make_unified_finding(
-        job_id="job_x", claim=_sample_claim(), parsed=payload, trace=_trace_for()
+        claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.UNCERTAIN
     assert finding.confidence == 0.3
@@ -344,7 +337,7 @@ def test_make_unified_finding_keeps_verdict_with_two_sources():
         reasoning_chain=[],
     )
     finding, evs = _make_unified_finding(
-        job_id="job_x", claim=_sample_claim(), parsed=payload, trace=_trace_for()
+        claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.OK
     assert finding.confidence == 0.85
@@ -364,7 +357,7 @@ def test_make_unified_finding_uncertain_with_zero_sources_not_double_downgraded(
         reasoning_chain=[],
     )
     finding, evs = _make_unified_finding(
-        job_id="job_x", claim=_sample_claim(), parsed=payload, trace=_trace_for()
+        claim=_sample_claim(), parsed=payload, trace=_trace_for()
     )
     assert finding.verdict == FindingVerdict.UNCERTAIN
     assert finding.confidence == 0.4

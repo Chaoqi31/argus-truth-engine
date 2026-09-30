@@ -55,7 +55,6 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
         traces=[
             ReasoningTrace(
                 id="t1",
-                job_id=job_id,
                 claim_id="c1",
                 agent="UnifiedVerifier",
                 miromind_response_id="resp_1",
@@ -86,7 +85,6 @@ def _job(job_id: str, *, status: str = "done", minute: int = 0, text: str | None
         findings=[
             Finding(
                 id="f1",
-                job_id=job_id,
                 claim_id="c1",
                 agent="UnifiedVerifier",
                 verdict=FindingVerdict.FABRICATED,

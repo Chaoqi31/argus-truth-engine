@@ -40,7 +40,7 @@ def _finding(
     evidence_ids: list[str] | None = None,
 ) -> Finding:
     return Finding(
-        id="f", job_id="j", claim_id="c", agent=agent, verdict=verdict,
+        id="f", claim_id="c", agent=agent, verdict=verdict,
         confidence=confidence, summary="s", reasoning_trace_id="t",
         reasoning_chain=chain or [], evidence_ids=evidence_ids or [],
     )
@@ -131,4 +131,4 @@ async def test_node_leaves_well_sourced_finding_untouched() -> None:
 
     updated = result["findings"][f.id]
     assert updated.confidence == 0.9  # untouched
-    assert updated.flags == []
+    assert updated.flags == ()

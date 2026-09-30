@@ -18,14 +18,14 @@ from argus.orchestrator.context import _Ctx, _State
 def _stage(
     n_checkworthy: int,
     summary: str,
-    filtered: list[StageFilteredClaim] | None = None,
+    filtered: tuple[StageFilteredClaim, ...] = (),
 ) -> Stage:
     return Stage(
         key="checkworthiness",
         name="Check-worthiness",
         engine="deepseek",
         summary=summary,
-        metrics={"n_checkworthy": n_checkworthy, "n_filtered": len(filtered or [])},
+        metrics={"n_checkworthy": n_checkworthy, "n_filtered": len(filtered)},
         filtered_claims=filtered,
     )
 
@@ -77,7 +77,7 @@ def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, A
             _stage(
                 len(checkworthy),
                 summary,
-                [StageFilteredClaim(**f) for f in filtered_data] if filtered_data else None,
+                tuple(StageFilteredClaim(**f) for f in filtered_data),
             )
         )
         return {"claims": checkworthy, "filtered_claims": filtered_data, "stages": [stage]}

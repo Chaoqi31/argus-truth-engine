@@ -5,7 +5,6 @@ from argus.orchestrator.nodes.consistency import _drop_redundant_logical_finding
 def _finding(agent: str, verdict: FindingVerdict, claim_id: str) -> Finding:
     return Finding(
         id=f"{agent}_{verdict}_{claim_id}",
-        job_id="job_x",
         claim_id=claim_id,
         agent=agent,
         verdict=verdict,

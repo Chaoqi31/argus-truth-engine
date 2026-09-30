@@ -56,7 +56,7 @@ def _confidence_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]
             updated[f.id] = f.model_copy(
                 update={
                     "confidence_breakdown": breakdown,
-                    "flags": flags,
+                    "flags": tuple(flags),
                     "confidence": confidence,
                 }
             )

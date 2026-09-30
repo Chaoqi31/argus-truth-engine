@@ -10,7 +10,6 @@ from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from argus.agents.consistency import ConsistencyOutput
 from argus.agents.unified_verifier import UnifiedVerifierOutput
@@ -28,6 +27,7 @@ from argus.models.domain import (
     ReasoningTrace,
     Severity,
     Step,
+    new_id,
 )
 from argus.orchestrator.context import _CONTEXT_WINDOW_CHARS
 from argus.pdf.parser import ParsedDoc, ParsedPage
@@ -75,7 +75,6 @@ def _surrounding_text(doc: ParsedDoc | None, claim: Claim) -> str:
 
 def _make_unified_finding(
     *,
-    job_id: str,
     claim: Claim,
     parsed: UnifiedVerifierOutput,
     trace: ReasoningTrace,
@@ -87,7 +86,7 @@ def _make_unified_finding(
     for ev in parsed.evidence:
         coerced = _coerce_evidence_source(ev.source_type)
         e = Evidence(
-            id=f"ev_{uuid4().hex[:12]}",
+            id=new_id("ev"),
             source_type=coerced,
             url=ev.url,
             citation=ev.url or f"{coerced.value} query",
@@ -194,8 +193,7 @@ def _make_unified_finding(
         )
 
     finding = Finding(
-        id=f"f_{uuid4().hex[:12]}",
-        job_id=job_id,
+        id=new_id("f"),
         claim_id=claim.id,
         agent="UnifiedVerifier",
         verdict=verdict,
@@ -214,9 +212,7 @@ def _make_unified_finding(
     return finding, evidence_records
 
 
-def _contradictions_to_findings(
-    *, job_id: str, parsed: ConsistencyOutput, trace_id: str
-) -> list[Finding]:
+def _contradictions_to_findings(*, parsed: ConsistencyOutput, trace_id: str) -> list[Finding]:
     # One finding per contradiction. The pair (claim_a, claim_b) is a single
     # logical contradiction — emitting a finding per side produced two identical
     # cards in the findings list. Key it to claim_a; the summary names both
@@ -225,17 +221,14 @@ def _contradictions_to_findings(
     for pair in parsed.contradictions:
         out.append(
             Finding(
-                id=f"f_{uuid4().hex[:12]}",
-                job_id=job_id,
+                id=new_id("f"),
                 claim_id=pair.claim_a_id,
                 agent="Consistency",
                 verdict=FindingVerdict.CONTRADICTION,
                 severity=pair.severity,
                 confidence=pair.confidence,
                 summary=pair.summary,
-                evidence_ids=[],
                 reasoning_trace_id=trace_id,
-                related_finding_ids=[],
             )
         )
     return out
@@ -247,9 +240,7 @@ _LOGICAL_FLAW_VERDICT: dict[str, FindingVerdict] = {
 }
 
 
-def _logical_flaws_to_findings(
-    *, job_id: str, parsed: ConsistencyOutput, trace_id: str
-) -> list[Finding]:
+def _logical_flaws_to_findings(*, parsed: ConsistencyOutput, trace_id: str) -> list[Finding]:
     """Turn each document-internal LogicalFlaw into a single Finding.
 
     `flaw.missing` (what the document needs for the claim to hold) is surfaced
@@ -260,8 +251,7 @@ def _logical_flaws_to_findings(
     for flaw in parsed.logical_flaws:
         out.append(
             Finding(
-                id=f"f_{uuid4().hex[:12]}",
-                job_id=job_id,
+                id=new_id("f"),
                 claim_id=flaw.claim_id,
                 agent="Consistency",
                 verdict=_LOGICAL_FLAW_VERDICT[flaw.type],
@@ -269,16 +259,14 @@ def _logical_flaws_to_findings(
                 confidence=flaw.confidence,
                 summary=flaw.summary,
                 why_wrong=flaw.missing,
-                evidence_ids=[],
                 reasoning_trace_id=trace_id,
-                related_finding_ids=[],
             )
         )
     return out
 
 
 def _build_trace(
-    *, job_id: str, claim_id: str, agent: str, usage: Usage, steps: Sequence[Step]
+    *, claim_id: str, agent: str, usage: Usage, steps: Sequence[Step]
 ) -> ReasoningTrace:
     # Link steps into a sequential chain so the reasoning DAG renders connected
     # edges (the frontend only draws an edge when parent_step_id is set). Steps
@@ -293,8 +281,7 @@ def _build_trace(
         linked.append(step.model_copy(update={"parent_step_id": parent_id}))
 
     return ReasoningTrace(
-        id=f"trace_{uuid4().hex[:12]}",
-        job_id=job_id,
+        id=new_id("trace"),
         claim_id=claim_id,
         agent=agent,
         miromind_response_id=usage.response_ids[-1] if usage.response_ids else "n/a",
@@ -303,7 +290,7 @@ def _build_trace(
         total_tokens=usage.total_tokens,
         reasoning_tokens=usage.reasoning_tokens,
         num_search_queries=usage.num_search_queries,
-        steps=linked,
+        steps=tuple(linked),
     )
 
 

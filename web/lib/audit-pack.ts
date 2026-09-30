@@ -280,7 +280,6 @@ function stageDossiers(
         `- Input: ${ledger.input}`,
         `- Output: ${ledger.output}`,
         `- Transparent because: ${ledger.transparency}`,
-        stage.strategy ? `- Strategy: ${stage.strategy}` : null,
         "",
         stageArtifactLines(stage, job, claimById).join("\n"),
       ]);
@@ -371,10 +370,6 @@ export function buildAuditPackMarkdown(
   const stageRows = (job.stages ?? []).map((stage) =>
     `| ${cell(stage.name)} | ${cell(stage.engine)} | ${cell(stage.summary)} | ${cell(metricCell(stage.metrics))} |`,
   );
-  const stageStrategies = (job.stages ?? [])
-    .filter((stage) => stage.strategy)
-    .map((stage) => `- ${stage.name}: ${stage.strategy}`)
-    .join("\n");
   const traceRows = job.traces.map((trace) => {
     const claim = claimById.get(trace.claim_id);
     const tools = traceToolCounts(trace);
@@ -599,7 +594,6 @@ export function buildAuditPackMarkdown(
           ...stageRows,
         ].join("\n")
       : "No pipeline stages were recorded.",
-    stageStrategies ? `\nStage strategies:\n${stageStrategies}` : null,
     "",
     "## Stage Dossiers",
     stageDossiers(job, claimById),
