@@ -24,6 +24,7 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI
 
+from argus.config import Settings
 from tests.fake_llm import FakeLLM
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
@@ -57,10 +58,26 @@ def serve(app: FastAPI) -> Iterator[str]:
 
 
 @contextmanager
-def fake_llm_server() -> Iterator[tuple[str, FakeLLM]]:
-    fake = FakeLLM()
+def fake_llm_server(fake: FakeLLM | None = None) -> Iterator[tuple[str, FakeLLM]]:
+    fake = fake or FakeLLM()
     with serve(fake.app()) as host:
         yield f"http://{host}", fake
+
+
+def audit_settings(base_url: str, *, cheap_llm: bool, **overrides: Any) -> Settings:
+    """Settings that point both LLM providers at the fake server."""
+    return Settings(
+        **{
+            "miromind_api_key": "fake",
+            "miromind_base_url": f"{base_url}/v1",
+            "miromind_retry_base_delay_s": 0.001,
+            "cheap_llm_api_key": "fake" if cheap_llm else "",
+            "cheap_llm_base_url": base_url,
+            "max_claims_to_verify": 6,
+            "cache_enabled": False,
+            **overrides,
+        }
+    )
 
 
 def llm_calls(fake: FakeLLM) -> dict[str, int]:

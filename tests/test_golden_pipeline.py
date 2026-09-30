@@ -12,24 +12,11 @@ from typing import Any
 
 import pytest
 
-from argus.config import Settings
 from argus.models.domain import Job
 from argus.orchestrator import audit_text
 from argus.trace_bus.in_process import InProcessBus
 from tests.fake_llm import AUDIT_TEXT, FakeLLM
-from tests.golden import assert_golden, fake_llm_server, snapshot
-
-
-def _settings(base_url: str, *, cheap_llm: bool) -> Settings:
-    return Settings(
-        miromind_api_key="fake",
-        miromind_base_url=f"{base_url}/v1",
-        miromind_retry_base_delay_s=0.001,
-        cheap_llm_api_key="fake" if cheap_llm else "",
-        cheap_llm_base_url=base_url,
-        max_claims_to_verify=6,
-        cache_enabled=False,
-    )
+from tests.golden import assert_golden, audit_settings, fake_llm_server, snapshot
 
 
 async def _history(bus: InProcessBus, job_id: str) -> list[dict[str, Any]]:
@@ -46,7 +33,7 @@ async def _run(tmp_path: Path, *, cheap_llm: bool) -> tuple[Job, list[dict[str, 
         job = await audit_text(
             text=AUDIT_TEXT,
             output_path=tmp_path / "findings.json",
-            settings=_settings(base_url, cheap_llm=cheap_llm),
+            settings=audit_settings(base_url, cheap_llm=cheap_llm),
             budget_usd=50.0,
             trace_bus=bus,
             auto_review=True,

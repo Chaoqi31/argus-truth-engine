@@ -18,10 +18,11 @@ run against the real API server and web UI:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -486,8 +487,7 @@ def answer(task: str, prompt: str) -> str:
 # --- MiroMind Responses stream ---------------------------------------------
 
 
-def _sse_events(response_id: str, task: str, prompt: str) -> list[dict[str, Any]]:
-    text = answer(task, prompt)
+def _sse_events(response_id: str, task: str, prompt: str, text: str) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = [
         {"type": "response.created", "response": {"id": response_id, "status": "in_progress"}},
     ]
@@ -548,10 +548,34 @@ def _sse_events(response_id: str, task: str, prompt: str) -> list[dict[str, Any]
     return [{**ev, "sequence_number": seq} for seq, ev in enumerate(events, start=1)]
 
 
+_REPAIR_MARKER = "failed JSON validation"
+
+
 @dataclass
 class FakeLLM:
+    """The scripted server. The knobs inject failures for single claims or tasks:
+
+    - ``stalled``: claim texts whose verifier stream never finishes.
+    - ``malformed_once``: claim texts whose first verifier answer is broken
+      JSON; the repair request gets the scripted answer.
+    - ``failing``: tasks answered with HTTP 500.
+    """
+
+    stalled: frozenset[str] = frozenset()
+    malformed_once: frozenset[str] = frozenset()
+    failing: frozenset[str] = frozenset()
     responses: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    stalled_ids: set[str] = field(default_factory=set)
     requests: list[dict[str, Any]] = field(default_factory=list)
+
+    def _text(self, task: str, prompt: str) -> str:
+        if (
+            task == "verifier"
+            and _claim_line(prompt) in self.malformed_once
+            and _REPAIR_MARKER not in prompt
+        ):
+            return '{"verdict": "ok", "confidence":'
+        return answer(task, prompt)
 
     def app(self) -> FastAPI:
         app = FastAPI()
@@ -561,22 +585,32 @@ class FakeLLM:
             body = await request.json()
             prompt = body["input"]
             task = _task(prompt)
-            digest = hashlib.sha1(prompt.encode(), usedforsecurity=False).hexdigest()[:10]
-            response_id = f"resp_{task}_{digest}"
-            self.responses[response_id] = _sse_events(response_id, task, prompt)
             self.requests.append(
                 {"api": "responses", "task": task, "agent": body.get("metadata", {}).get("agent")}
             )
+            if task in self.failing:
+                return JSONResponse({"error": "scripted outage"}, status_code=500)
+            digest = hashlib.sha1(prompt.encode(), usedforsecurity=False).hexdigest()[:10]
+            response_id = f"resp_{task}_{digest}"
+            self.responses[response_id] = _sse_events(
+                response_id, task, prompt, self._text(task, prompt)
+            )
+            if task == "verifier" and _claim_line(prompt) in self.stalled:
+                self.stalled_ids.add(response_id)
             return JSONResponse({"id": response_id, "status": "in_progress"})
 
         @app.get("/v1/responses/{response_id}")
         async def stream_response(response_id: str, after: int = 0) -> StreamingResponse:
             events = self.responses[response_id]
+            stalls = response_id in self.stalled_ids
 
-            def body() -> Iterator[bytes]:
+            async def body() -> AsyncIterator[bytes]:
                 for ev in events:
-                    if ev["sequence_number"] > after:
-                        yield f"data: {json.dumps(ev)}\n\n".encode()
+                    if ev["sequence_number"] <= after:
+                        continue
+                    if stalls and ev["type"] == "response.output_text.delta":
+                        await asyncio.sleep(3600)
+                    yield f"data: {json.dumps(ev)}\n\n".encode()
 
             return StreamingResponse(body(), media_type="text/event-stream")
 
@@ -590,6 +624,8 @@ class FakeLLM:
             system, user = body["messages"][0]["content"], body["messages"][1]["content"]
             task = _task(system)
             self.requests.append({"api": "chat", "task": task, "agent": None})
+            if task in self.failing:
+                return JSONResponse({"error": "scripted outage"}, status_code=500)
             return JSONResponse({"choices": [{"message": {"content": answer(task, user)}}]})
 
         return app
