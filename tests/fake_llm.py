@@ -559,14 +559,20 @@ class FakeLLM:
     - ``malformed_once``: claim texts whose first verifier answer is broken
       JSON; the repair request gets the scripted answer.
     - ``failing``: tasks answered with HTTP 500.
+    - ``dropped_once``: claim texts whose first verifier stream connection
+      breaks after the reasoning events; a reconnect gets the rest.
     """
 
     stalled: frozenset[str] = frozenset()
     malformed_once: frozenset[str] = frozenset()
     failing: frozenset[str] = frozenset()
+    dropped_once: frozenset[str] = frozenset()
     responses: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     stalled_ids: set[str] = field(default_factory=set)
+    dropping_ids: set[str] = field(default_factory=set)
     requests: list[dict[str, Any]] = field(default_factory=list)
+    stream_requests: list[tuple[str, int]] = field(default_factory=list)
+    cancelled: list[str] = field(default_factory=list)
 
     def _text(self, task: str, prompt: str) -> str:
         if (
@@ -597,25 +603,34 @@ class FakeLLM:
             )
             if task == "verifier" and _claim_line(prompt) in self.stalled:
                 self.stalled_ids.add(response_id)
+            if task == "verifier" and _claim_line(prompt) in self.dropped_once:
+                self.dropping_ids.add(response_id)
             return JSONResponse({"id": response_id, "status": "in_progress"})
 
         @app.get("/v1/responses/{response_id}")
         async def stream_response(response_id: str, after: int = 0) -> StreamingResponse:
             events = self.responses[response_id]
             stalls = response_id in self.stalled_ids
+            drops = response_id in self.dropping_ids
+            self.dropping_ids.discard(response_id)
+            self.stream_requests.append((response_id, after))
 
             async def body() -> AsyncIterator[bytes]:
                 for ev in events:
                     if ev["sequence_number"] <= after:
                         continue
-                    if stalls and ev["type"] == "response.output_text.delta":
-                        await asyncio.sleep(3600)
+                    if ev["type"] == "response.output_text.delta":
+                        if stalls:
+                            await asyncio.sleep(3600)
+                        if drops:
+                            raise ConnectionResetError("scripted drop")
                     yield f"data: {json.dumps(ev)}\n\n".encode()
 
             return StreamingResponse(body(), media_type="text/event-stream")
 
         @app.post("/v1/responses/{response_id}/cancel")
         async def cancel(response_id: str) -> JSONResponse:
+            self.cancelled.append(response_id)
             return JSONResponse({"id": response_id, "status": "cancelled"})
 
         @app.post("/chat/completions")
@@ -626,7 +641,13 @@ class FakeLLM:
             self.requests.append({"api": "chat", "task": task, "agent": None})
             if task in self.failing:
                 return JSONResponse({"error": "scripted outage"}, status_code=500)
-            return JSONResponse({"choices": [{"message": {"content": answer(task, user)}}]})
+            digest = hashlib.sha1(user.encode(), usedforsecurity=False).hexdigest()[:10]
+            return JSONResponse(
+                {
+                    "id": f"chatcmpl_{task}_{digest}",
+                    "choices": [{"message": {"content": answer(task, user)}}],
+                }
+            )
 
         return app
 
