@@ -22,6 +22,7 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: {},
+      context: "",
     },
   ],
   findings: [
@@ -233,6 +234,7 @@ describe("EvidenceTab", () => {
           type: "qualitative",
           importance: "high",
           extracted_metadata: {},
+          context: "",
         },
       ],
       findings: [

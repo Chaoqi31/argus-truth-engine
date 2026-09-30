@@ -17,6 +17,7 @@ from langgraph.types import interrupt
 
 from argus.log import log
 from argus.models.domain import Claim, ClaimType
+from argus.orchestrator.assemblers import _surrounding_text
 from argus.orchestrator.context import _Ctx, _State
 
 # Ranking priority for the cost-guard cap (ascending = kept first).
@@ -117,6 +118,9 @@ def _review_gate_node(
                 {"n_extracted": n_extracted, "n_verifying": cap},
             )
 
+        doc = state.get("doc")
+        claims = [c.model_copy(update={"context": _surrounding_text(doc, c)}) for c in claims]
+
         # Per-stage summary for the UI. `claims` here is the post-dedup,
         # post-cap list that actually goes to verification.
         review_summary = {
@@ -153,9 +157,7 @@ def _review_gate_node(
             # Pass-through. If a cap was applied we MUST return the capped list
             # — returning {} would leave the full claim list in state.
             await finish_stage(review_stage_payload["n_verifying"])
-            if capped_applied or dedup_applied:
-                return {"claims": claims, "stage_summaries": review_summary}
-            return {"stage_summaries": review_summary}
+            return {"claims": claims, "stage_summaries": review_summary}
 
         # LangGraph interrupt() is replay-based: when Command(resume=...)
         # arrives, this node body re-executes from the top. The original
@@ -199,10 +201,7 @@ def _review_gate_node(
             }
         await ctx.publisher.publish("review_submitted",
                                     {"n_selected": len(claims), "auto": True})
-        # No selection → keep all (already-capped) claims. Return the capped
-        # list when a cap applied so the truncation survives this fallback.
+        # No selection → keep all (already-capped) claims.
         await finish_stage(review_stage_payload["n_verifying"])
-        if capped_applied or dedup_applied:
-            return {"claims": claims, "stage_summaries": review_summary}
-        return {"stage_summaries": review_summary}
+        return {"claims": claims, "stage_summaries": review_summary}
     return node

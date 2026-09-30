@@ -73,6 +73,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         type: "citation",
         importance: "high",
         extracted_metadata: {},
+        context: "",
       },
       {
         id: "c2",
@@ -82,6 +83,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
         type: "qualitative",
         importance: "medium",
         extracted_metadata: {},
+        context: "",
       },
     ],
     findings: [

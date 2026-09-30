@@ -99,6 +99,9 @@ class Claim(_Base):
     importance: Literal["high", "medium", "low"]
     extracted_metadata: dict[str, Any] = Field(default_factory=dict)
     parent_claim_id: str | None = None
+    # The passage around the claim that the verifier is shown. Set when the
+    # claim is shortlisted, so verification never needs the source document.
+    context: str = ""
 
     @model_validator(mode="after")
     def _check_span(self) -> Claim:

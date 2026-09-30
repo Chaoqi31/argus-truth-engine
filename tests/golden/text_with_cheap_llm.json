@@ -1396,6 +1396,7 @@
     "benchmark": null,
     "claims": [
       {
+        "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme emplo",
         "extracted_metadata": {
           "authors": [
             "Smith",
@@ -1415,6 +1416,7 @@
         "type": "citation"
       },
       {
+        "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% ",
         "extracted_metadata": {},
         "id": "a_1",
         "importance": "high",
@@ -1428,6 +1430,7 @@
         "type": "numerical-data"
       },
       {
+        "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% ",
         "extracted_metadata": {},
         "id": "a_2",
         "importance": "high",
@@ -1441,6 +1444,7 @@
         "type": "numerical-data"
       },
       {
+        "context": "cal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
         "extracted_metadata": {},
         "id": "a_6",
         "importance": "high",
@@ -1454,6 +1458,7 @@
         "type": "numerical-data"
       },
       {
+        "context": "2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
         "extracted_metadata": {},
         "id": "a_8",
         "importance": "medium",
@@ -1467,6 +1472,7 @@
         "type": "numerical-data"
       },
       {
+        "context": "Acme Corp reported revenue of $12.4 billion in fiscal 2024, up 18% year over year. Smith and Lee (2021) showed that widget demand doubles every three years. Acme was founded in 1998 in Austin, Texas. Acme is widely regarded as an innovative company. Acme's operating margin was 32% in fiscal 2024. Acme's operating margin was 28% in fiscal 2024. Acme employs about 4,000 people.",
         "extracted_metadata": {},
         "id": "a_4",
         "importance": "medium",

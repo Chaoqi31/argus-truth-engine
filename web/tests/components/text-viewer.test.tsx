@@ -18,6 +18,7 @@ const claim: Claim = {
   type: "citation",
   importance: "high",
   extracted_metadata: {},
+  context: "",
 };
 
 const finding: Finding = {

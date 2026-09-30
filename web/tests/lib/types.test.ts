@@ -16,6 +16,7 @@ const sampleClaim: Claim = {
   type: "citation",
   importance: "high",
   extracted_metadata: { authors: ["Smith"], year: 2021 },
+  context: "",
 };
 
 describe("types", () => {

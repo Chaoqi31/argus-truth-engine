@@ -22,6 +22,7 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: { title: "Silicon Supercycle" },
+      context: "",
     },
   ],
   findings: [

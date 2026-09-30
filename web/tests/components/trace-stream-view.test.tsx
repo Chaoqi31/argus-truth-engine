@@ -24,6 +24,7 @@ function loadSampleJob(): Job {
         type: "numerical-data",
         importance: "high",
         extracted_metadata: {},
+        context: "",
       },
       {
         id: "c_bad",
@@ -33,6 +34,7 @@ function loadSampleJob(): Job {
         type: "citation",
         importance: "high",
         extracted_metadata: {},
+        context: "",
       },
     ],
     findings: [

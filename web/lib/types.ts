@@ -51,6 +51,7 @@ export interface Claim {
   importance: "high" | "medium" | "low";
   extracted_metadata: Record<string, unknown>;
   parent_claim_id?: string | null;
+  context: string;
 }
 
 export interface Evidence {

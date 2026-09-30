@@ -24,6 +24,7 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: {},
+      context: "",
     },
   ],
   findings: [

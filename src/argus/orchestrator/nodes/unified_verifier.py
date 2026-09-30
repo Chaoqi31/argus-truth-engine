@@ -21,7 +21,6 @@ from argus.orchestrator.assemblers import (
     _live_step_payload,
     _make_unified_finding,
     _step_payload,
-    _surrounding_text,
 )
 from argus.orchestrator.context import _charge_result, _Ctx, _State
 
@@ -40,7 +39,6 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             engine="miromind",
         )
 
-        doc = state.get("doc")
         runner = ctx.runners["unified_verifier"]
 
         async def run_for_claim(
@@ -61,7 +59,6 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     index=index,
                     total=total,
                 )
-                surrounding = _surrounding_text(doc, claim) if doc else ""
                 domain_hint = get_domain_hint(
                     claim_type=claim.type, content_domain=ctx.content_domain,
                 )
@@ -131,7 +128,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 try:
                     result = await verify_claim(
                         ctx.client, claim.text,
-                        surrounding=surrounding,
+                        surrounding=claim.context,
                         domain_hint=domain_hint,
                         idempotency_key=idem_key,
                         on_step=publish_live_step,

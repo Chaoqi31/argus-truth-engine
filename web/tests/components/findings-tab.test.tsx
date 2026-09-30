@@ -22,6 +22,7 @@ const job: Job = {
       type: "citation",
       importance: "high",
       extracted_metadata: {},
+      context: "",
     },
     {
       id: "c2",
@@ -31,6 +32,7 @@ const job: Job = {
       type: "citation",
       importance: "medium",
       extracted_metadata: {},
+      context: "",
     },
   ],
   findings: [

@@ -585,6 +585,7 @@
     "benchmark": null,
     "claims": [
       {
+        "context": "Argus Test Fixture · Page 1\nThis sample report is for unit-test use only.\nIt mentions Smith (2021) and (Doe et al., 2019).",
         "extracted_metadata": {
           "authors": [
             "Smith"
