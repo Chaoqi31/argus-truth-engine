@@ -164,7 +164,7 @@ class FindingCacheRow(Base):
     __tablename__ = "finding_cache"
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
-    payload: Mapped[str] = mapped_column(JSON, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     verifier_version: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     content_domain: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

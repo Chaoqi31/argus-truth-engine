@@ -1,16 +1,22 @@
-"""End-to-end cache verification: put → get returns the same Finding."""
+"""End-to-end cache verification: put → get returns the same verdict."""
 from datetime import datetime
 
 import pytest
 
-from argus.cache.finding_cache import FindingCache
+from argus.cache.finding_cache import CachedVerdict, FindingCache
 from argus.cache.key import claim_cache_key
 from argus.models.domain import (
+    Agent,
+    Engine,
     Evidence,
     EvidenceSource,
     Finding,
     FindingVerdict,
+    ReasoningTrace,
     Severity,
+    Step,
+    StepType,
+    Usage,
 )
 
 
@@ -39,26 +45,54 @@ def _sample_evidence() -> Evidence:
     )
 
 
+def _sample_verdict(evidences: tuple[Evidence, ...] = ()) -> CachedVerdict:
+    return CachedVerdict(
+        finding=_sample_finding().model_copy(
+            update={"evidence_ids": tuple(e.id for e in evidences)}
+        ),
+        evidences=evidences,
+        trace=ReasoningTrace(
+            id="trace_test",
+            agent=Agent.VERIFIER,
+            claim_id="claim_test",
+            engine=Engine.MIROMIND,
+            started_at=datetime.utcnow(),
+            usage=Usage(response_ids=("resp_test",), total_tokens=900, cost_usd=0.4),
+            steps=(
+                Step(
+                    id="step_test",
+                    trace_id="resp_test",
+                    sequence=1,
+                    type=StepType.WEB_SEARCH,
+                    summary="search: example",
+                ),
+            ),
+        ),
+    )
+
+
 @pytest.mark.asyncio
 async def test_cache_put_then_get_returns_same(test_sessionmaker):
     cache = FindingCache(test_sessionmaker, default_ttl_days=30)
     key = claim_cache_key("Sample claim.", domain="finance", version="v1")
 
-    await cache.put(
-        key,
-        finding=_sample_finding(),
-        evidences=[_sample_evidence()],
-        verifier_version="v1",
-        content_domain="finance",
-    )
+    verdict = _sample_verdict((_sample_evidence(),))
+    await cache.put(key, verdict, verifier_version="v1", content_domain="finance")
 
-    result = await cache.get(key)
-    assert result is not None
-    finding, evidences = result
-    assert finding.verdict == FindingVerdict.OK
-    assert finding.confidence == 0.95
-    assert len(evidences) == 1
-    assert evidences[0].url == "https://example.com"
+    assert await cache.get(key) == verdict
+
+
+def test_a_reused_verdict_is_rebound_under_fresh_ids() -> None:
+    verdict = _sample_verdict((_sample_evidence(),))
+    reused = verdict.for_claim("claim_other")
+
+    trace = reused.trace
+    assert (reused.finding.claim_id, trace.claim_id) == ("claim_other", "claim_other")
+    assert reused.finding.from_cache
+    assert reused.finding.reasoning_trace_id == trace.id != verdict.trace.id
+    assert reused.finding.evidence_ids == tuple(e.id for e in reused.evidences)
+    assert reused.evidences[0].retrieved_by_step_id == trace.steps[0].id != "step_test"
+    assert trace.usage == Usage(response_ids=("resp_test",))
 
 
 @pytest.mark.asyncio
@@ -84,10 +118,7 @@ async def test_cache_put_swallows_integrity_error_from_race(
     key = claim_cache_key("Race claim.", domain="finance", version="v1")
 
     # Pre-seed a row — this is the "winner" we expect to survive.
-    await cache.put(
-        key, finding=_sample_finding(), evidences=[],
-        verifier_version="v1", content_domain="finance",
-    )
+    await cache.put(key, _sample_verdict(), verifier_version="v1", content_domain="finance")
 
     # Patch commit to raise IntegrityError on the next call (simulates a
     # concurrent writer beating us to the unique constraint).
@@ -103,10 +134,7 @@ async def test_cache_put_swallows_integrity_error_from_race(
     monkeypatch.setattr(AsyncSession, "commit", flaky_commit)
 
     # Should not raise — the loser silently drops its write.
-    await cache.put(
-        key, finding=_sample_finding(), evidences=[],
-        verifier_version="v1", content_domain="finance",
-    )
+    await cache.put(key, _sample_verdict(), verifier_version="v1", content_domain="finance")
     assert triggered["flag"], "test setup: IntegrityError was never raised"
 
     # Winner's row is still there (restore commit so get() works).

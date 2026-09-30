@@ -5,7 +5,6 @@ import asyncio
 import contextlib
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from typing import Any
 
 from argus.agents.domain_hints import get_domain_hint
@@ -15,6 +14,7 @@ from argus.agents.unified_verifier import (
     UnifiedVerifierOutput,
     build_verifier_input,
 )
+from argus.cache.finding_cache import CachedVerdict
 from argus.cache.key import claim_cache_key
 from argus.engineering import BudgetExceeded, make_idempotency_key
 from argus.llm import Answer, Failed, FailureReason
@@ -63,14 +63,6 @@ _FAILED: dict[FailureReason, tuple[str, FindingFlag]] = {
 }
 
 
-@dataclass(frozen=True)
-class _Cached:
-    """A verdict reused from the finding cache, rebound to this job."""
-
-    finding: Finding
-    evidences: list[Evidence]
-
-
 def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
     async def node(state: _State) -> dict[str, Any]:
         if state.get("failure"):
@@ -91,7 +83,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             claim: Claim,
             index: int,
             total: int,
-        ) -> tuple[Claim, Answer[UnifiedVerifierOutput] | _Cached]:
+        ) -> tuple[Claim, Answer[UnifiedVerifierOutput] | CachedVerdict]:
             async with runner.acquire():
                 await ctx.publisher.claim(
                     status="started",
@@ -111,22 +103,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     )
                     hit = await ctx.cache.get(key)
                     if hit is not None:
-                        cached_template, cached_evs = hit
-                        # Rebuild evidence with fresh IDs scoped to this job, then
-                        # remap the rebound finding's evidence_ids onto them — the
-                        # cached IDs point at the original job's rows and would
-                        # otherwise dangle (confidence calc would see 0 evidence).
-                        rebuilt_evs = [
-                            ev.model_copy(update={"id": new_id("ev")}) for ev in cached_evs
-                        ]
-                        # Re-bind to current job + claim (cached payload was from a different job)
-                        rebound = cached_template.model_copy(update={
-                            "id": new_id("f"),
-                            "claim_id": claim.id,
-                            "evidence_ids": tuple(e.id for e in rebuilt_evs),
-                            "from_cache": True,
-                        })
-                        return claim, _Cached(rebound, rebuilt_evs)
+                        return claim, hit.for_claim(claim.id)
 
                 idem_key = make_idempotency_key(
                     ctx.job_id, Agent.VERIFIER, claim.id
@@ -186,12 +163,12 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
         new_evidences: list[Evidence] = []
 
         for index, (claim, answer) in enumerate(results, start=1):
-            if isinstance(answer, _Cached):
-                # Cache hit path — no MiroMind cost, no fresh trace. The rebuilt
-                # evidence is emitted into this job so evidence_ids resolve.
+            if isinstance(answer, CachedVerdict):
                 cached_finding = answer.finding
                 new_findings.append(cached_finding)
                 new_evidences.extend(answer.evidences)
+                new_traces[answer.trace.id] = answer.trace
+                await ctx.publisher.publish("step", _step_payload(answer.trace))
                 await ctx.publisher.publish("finding", _finding_payload(cached_finding))
                 await ctx.publisher.claim(
                     status="finished",
@@ -285,20 +262,6 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 severity=finding.severity.value,
             )
 
-            # Persist to cache on fresh verification (skip UNCERTAIN — often transient)
-            if ctx.cache is not None and finding.verdict != FindingVerdict.UNCERTAIN:
-                key = claim_cache_key(
-                    claim.text, domain=ctx.content_domain, version=VERIFIER_VERSION,
-                )
-                await ctx.cache.put(
-                    key,
-                    finding=finding,
-                    evidences=ev_records,
-                    verifier_version=VERIFIER_VERSION,
-                    content_domain=ctx.content_domain,
-                    time_sensitive=(claim.type == ClaimType.TIME_SENSITIVE),
-                )
-
         n_steps = sum(len(t.steps) for t in new_traces.values())
         n_searches = sum(
             1 for t in new_traces.values() for step in t.steps
@@ -327,4 +290,34 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             "stages": [stage],
         }
     return node
+
+
+async def remember_verdicts(ctx: _Ctx, state: _State) -> None:
+    """Cache each verdict this job paid for, as the skeptic left it, with its
+    evidence and trace. Uncertain verdicts are often transient, so a later job
+    verifies those again."""
+    if ctx.cache is None:
+        return
+    claims = {c.id: c for c in state.get("claims", [])}
+    evidences = {e.id: e for e in state.get("evidences", [])}
+    traces = state.get("traces", {})
+    for finding in state.get("findings", {}).values():
+        if (
+            finding.agent != Agent.VERIFIER
+            or finding.from_cache
+            or finding.verdict == FindingVerdict.UNCERTAIN
+        ):
+            continue
+        claim = claims[finding.claim_id]
+        await ctx.cache.put(
+            claim_cache_key(claim.text, domain=ctx.content_domain, version=VERIFIER_VERSION),
+            CachedVerdict(
+                finding=finding,
+                evidences=tuple(evidences[i] for i in finding.evidence_ids),
+                trace=traces[finding.reasoning_trace_id],
+            ),
+            verifier_version=VERIFIER_VERSION,
+            content_domain=ctx.content_domain,
+            time_sensitive=claim.type == ClaimType.TIME_SENSITIVE,
+        )
 

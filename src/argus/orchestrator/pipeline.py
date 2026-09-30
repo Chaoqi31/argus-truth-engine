@@ -32,7 +32,10 @@ from argus.orchestrator.nodes.planner import _planner_node
 from argus.orchestrator.nodes.reporter import _reporter_node
 from argus.orchestrator.nodes.review_gate import _review_gate_node
 from argus.orchestrator.nodes.skeptic import _skeptic_node
-from argus.orchestrator.nodes.unified_verifier import _unified_verifier_node
+from argus.orchestrator.nodes.unified_verifier import (
+    _unified_verifier_node,
+    remember_verdicts,
+)
 from argus.trace_bus.base import TraceBus
 
 
@@ -124,6 +127,7 @@ async def _verify(ctx: _Ctx, state: _State) -> _State:
     except ExceptionGroup as failed:
         raise failed.exceptions[0] from failed
     state = challenged.result()
+    await remember_verdicts(ctx, state)
     state = _merge(
         state, await record_consistency(ctx, consistency.result(), state.get("findings", {}))
     )

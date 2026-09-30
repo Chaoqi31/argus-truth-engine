@@ -6,8 +6,6 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from argus.agents.skeptic import CHALLENGE, SkepticOutput, build_skeptic_input
-from argus.agents.unified_verifier import VERIFIER_VERSION
-from argus.cache.key import claim_cache_key
 from argus.engineering import BudgetExceeded, make_idempotency_key
 from argus.llm import Answer, Failed
 from argus.log import log
@@ -160,7 +158,7 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
 
         revised: dict[str, Finding] = {}
         traces: dict[str, ReasoningTrace] = {}
-        for (finding, claim), answer in zip(candidates, answers, strict=True):
+        for (finding, _), answer in zip(candidates, answers, strict=True):
             if isinstance(answer, Failed):
                 log.warning(
                     "orchestrator.skeptic_failed",
@@ -191,19 +189,6 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             revised[challenged.id] = challenged
             await ctx.publisher.publish("step", _step_payload(trace))
             await ctx.publisher.publish("finding", _finding_payload(challenged))
-
-            if ctx.cache is not None:
-                key = claim_cache_key(
-                    claim.text, domain=ctx.content_domain, version=VERIFIER_VERSION,
-                )
-                await ctx.cache.put(
-                    key,
-                    finding=challenged,
-                    evidences=[e for e in evidences if e.id in challenged.evidence_ids],
-                    verifier_version=VERIFIER_VERSION,
-                    content_domain=ctx.content_domain,
-                    time_sensitive=(claim.type.value == "time-sensitive"),
-                )
 
         reviewed = list(revised.values())
         stage = await ctx.publisher.finish(

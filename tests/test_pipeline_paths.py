@@ -147,5 +147,11 @@ async def test_a_second_audit_reuses_cached_verdicts(
     assert cached
     evidence_ids = {e.id for e in job.evidences}
     assert all(f.evidence_ids and set(f.evidence_ids) <= evidence_ids for f in cached)
+    traces = {t.id: t for t in job.traces}
+    replayed = [traces[f.reasoning_trace_id] for f in cached]
+    assert all(t.steps and t.usage.cost_usd == 0 for t in replayed)
+    step_ids = {s.id for t in replayed for s in t.steps}
+    cited = {e.id: e for e in job.evidences if any(e.id in f.evidence_ids for f in cached)}
+    assert {e.retrieved_by_step_id for e in cited.values()} <= step_ids
     first, second = llm_calls(first_fake), llm_calls(second_fake)
     assert second["responses:verifier"] == first["responses:verifier"] - len(cached)
