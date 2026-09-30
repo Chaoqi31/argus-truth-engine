@@ -6,9 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from argus.agents.base import AgentResult, complete_routed
-from argus.llm.cheap_client import CheapLLMClient
-from argus.miromind.client import MiromindClient
+from argus.llm import Route, Task
 from argus.models.domain import Claim, Severity
 
 SYSTEM_PROMPT = """\
@@ -138,20 +136,10 @@ def build_consistency_input(claims: list[Claim]) -> str:
     )
 
 
-async def check_consistency(
-    claims: list[Claim],
-    *,
-    cheap_client: CheapLLMClient | None,
-    miromind_client: MiromindClient,
-) -> AgentResult[ConsistencyOutput]:
-    # Internal-coherence checking uses no web search, so it runs on the cheap
-    # LLM when configured (MiroMind fallback otherwise) — see complete_routed.
-    return await complete_routed(
-        cheap_client=cheap_client,
-        miromind_client=miromind_client,
-        system_prompt=SYSTEM_PROMPT,
-        input_text=build_consistency_input(claims),
-        model_cls=ConsistencyOutput,
-        max_output_tokens=6000,
-        agent_name="consistency",
-    )
+CHECK_CONSISTENCY = Task(
+    agent="consistency",
+    route=Route.TEXT,
+    instructions=SYSTEM_PROMPT,
+    output=ConsistencyOutput,
+    max_output_tokens=6000,
+)

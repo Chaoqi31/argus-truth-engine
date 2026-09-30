@@ -39,6 +39,7 @@ _PROMO_FACTOR: Final = 0.75  # 25% off, current MiroMind promo
 _WEB_SEARCH_FEE_USD: Final = 0.05
 _RETRY_STATUS_CODES: Final = frozenset({408, 425, 429, 500, 502, 503, 504})
 _STREAM_RECONNECTS: Final = 3
+_KEY_CHECK_TIMEOUT_S: Final = 20.0
 
 StepSink = Callable[[Step], Awaitable[None]]
 
@@ -158,6 +159,8 @@ class MiroMind:
                 "metadata": metadata,
             },
             idempotency_key,
+            attempts=self._settings.miromind_retry_attempts,
+            timeout_s=self._settings.miromind_request_timeout_s,
         )
         steps = _Steps(response_id, agent)
         text: list[str] = []
@@ -220,6 +223,7 @@ class MiroMind:
             },
             None,
             attempts=1,
+            timeout_s=min(self._settings.miromind_request_timeout_s, _KEY_CHECK_TIMEOUT_S),
         )
         await self._cancel(access, response_id)
         return response_id
@@ -233,7 +237,8 @@ class MiroMind:
         body: dict[str, Any],
         idempotency_key: str | None,
         *,
-        attempts: int | None = None,
+        attempts: int,
+        timeout_s: float,
     ) -> str:
         # The idempotency key is reused across transient retries of the same
         # payload, so a server that honors it bills the work unit once.
@@ -245,22 +250,21 @@ class MiroMind:
         try:
             async for attempt in AsyncRetrying(
                 reraise=True,
-                stop=stop_after_attempt(attempts or self._settings.miromind_retry_attempts),
+                stop=stop_after_attempt(attempts),
                 wait=wait_exponential(multiplier=base_delay, exp_base=4, max=base_delay * 64),
                 retry=retry_if_exception(_is_transient),
             ):
                 with attempt:
                     await self._bucket.acquire()
                     resp = await self._http.post(
-                        f"{self._base_url}/responses",
-                        json=body,
-                        headers=headers,
-                        timeout=self._settings.miromind_request_timeout_s,
+                        f"{self._base_url}/responses", json=body, headers=headers, timeout=timeout_s
                     )
                     resp.raise_for_status()
                     response_id = str(resp.json()["id"])
         except httpx.HTTPError as exc:
             raise MiroMindError(str(exc)) from exc
+        except (ValueError, KeyError, TypeError) as exc:
+            raise MiroMindError(f"malformed submit response: {exc!r}") from exc
         log.info("miromind.submit", response_id=response_id)
         return response_id
 
@@ -287,7 +291,7 @@ class MiroMind:
                     async for sse in source.aiter_sse():
                         if not sse.data or sse.data == "[DONE]":
                             continue
-                        event: dict[str, Any] = json.loads(sse.data)
+                        event = _event(sse.data, response_id)
                         last_seq = max(last_seq, int(event.get("sequence_number", 0)))
                         yield event
                         if event.get("type") in ("response.completed", "response.failed"):
@@ -313,6 +317,16 @@ class MiroMind:
                 timeout=self._settings.miromind_request_timeout_s,
             )
             log.info("miromind.cancel", response_id=response_id)
+
+
+def _event(data: str, response_id: str) -> dict[str, Any]:
+    try:
+        event = json.loads(data)
+    except json.JSONDecodeError as exc:
+        raise MiroMindError(f"malformed stream event: {exc}", response_id=response_id) from exc
+    if not isinstance(event, dict) or not isinstance(event.get("sequence_number", 0), int):
+        raise MiroMindError(f"malformed stream event: {data[:200]}", response_id=response_id)
+    return event
 
 
 def _is_transient(exc: BaseException) -> bool:

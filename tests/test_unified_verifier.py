@@ -1,24 +1,19 @@
 """Tests for the UnifiedVerifier agent."""
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from argus.agents.base import _extract_json
 from argus.agents.unified_verifier import (
     SYSTEM_PROMPT,
     UnifiedVerifierOutput,
     build_verifier_input,
-    verify_claim,
 )
+from argus.llm.output import parse_output
 from argus.models.domain import FindingVerdict
-from tests._helpers.mock_miromind import StreamRouter, completed, msg
 
 
 def _parse(text: str) -> UnifiedVerifierOutput:
-    """Mirror AgentRunner._validate: extract/repair JSON then validate."""
-    return UnifiedVerifierOutput.model_validate_json(_extract_json(text))
+    return parse_output(text, UnifiedVerifierOutput)
 
 # ---------------------------------------------------------------------------
 # Prompt hygiene
@@ -189,70 +184,3 @@ def test_partial_output_minimal_fields_still_yields_verdict() -> None:
     assert out.verdict == FindingVerdict.FABRICATED
     assert out.evidence == []
     assert out.reasoning_chain == []
-
-
-# ---------------------------------------------------------------------------
-# End-to-end with StreamRouter mock
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_verify_claim_end_to_end() -> None:
-    response_payload = json.dumps(
-        {
-            "verdict": "outdated",
-            "confidence": 0.80,
-            "summary": "The figure was accurate in 2019 but has since been revised.",
-            "why_wrong": "More recent data supersedes the cited figure.",
-            "correct_information": {
-                "value": "Updated figure from 2023",
-                "source": "Official statistics body",
-                "url": None,
-                "retrieved_date": "2024-01-01",
-            },
-            "evidence": [
-                {
-                    "source_type": "web_page",
-                    "url": "https://stats.example.com/2023",
-                    "snippet": "Latest figure: updated",
-                },
-                {
-                    "source_type": "web_page",
-                    "url": "https://news.example.com/revision",
-                    "snippet": "Statistics revised upward",
-                },
-            ],
-            "reasoning_chain": [
-                {
-                    "action": "Searched for current data",
-                    "observation": "Found a 2023 revision",
-                    "reasoning": "Claim reflects outdated 2019 figure",
-                },
-                {
-                    "action": "Fetched official statistics page",
-                    "observation": "Official page confirms the revision",
-                    "reasoning": "Two sources confirm claim is outdated",
-                },
-            ],
-        }
-    )
-
-    router = StreamRouter()
-    router.add("unified_verifier", [msg(response_payload), completed(tokens=120)])
-
-    result = await verify_claim(
-        router.make_client(),
-        "Unemployment was 4.2% in 2019.",
-        surrounding="According to the national bureau of statistics,",
-        domain_hint="Focus on labour market statistics.",
-    )
-
-    assert result.parsed.verdict == FindingVerdict.OUTDATED
-    assert result.parsed.confidence == pytest.approx(0.80)
-    assert result.parsed.correct_information is not None
-    assert len(result.parsed.evidence) == 2
-    assert len(result.parsed.reasoning_chain) == 2
-    # Verify the domain hint reached the agent input
-    call_text = router.calls_for("unified_verifier")[0]
-    assert "DOMAIN HINT" in call_text
-    assert "Focus on labour market statistics." in call_text

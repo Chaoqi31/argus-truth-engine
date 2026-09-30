@@ -10,9 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from argus.agents.base import AgentResult, complete_routed
-from argus.llm.cheap_client import CheapLLMClient
-from argus.miromind.client import MiromindClient
+from argus.llm import Route, Task
 from argus.models.domain import Claim, ClaimType
 from argus.pdf.parser import ParsedDoc
 
@@ -239,22 +237,17 @@ def build_planner_input(doc: ParsedDoc, *, input_mode: str = "pdf") -> str:
     return "\n\n".join(parts)
 
 
-async def run_planner(
-    doc: ParsedDoc,
-    *,
-    cheap_client: CheapLLMClient | None,
-    miromind_client: MiromindClient,
-    input_mode: str = "pdf",
-) -> AgentResult[PlannerOutput]:
-    # Claim extraction needs no web search, so it runs on the cheap LLM when
-    # configured (MiroMind fallback otherwise) — see complete_routed.
-    prompt = SYSTEM_PROMPT_LLM if input_mode == "text" else SYSTEM_PROMPT
-    return await complete_routed(
-        cheap_client=cheap_client,
-        miromind_client=miromind_client,
-        system_prompt=prompt,
-        input_text=build_planner_input(doc, input_mode=input_mode),
-        model_cls=PlannerOutput,
-        max_output_tokens=12000,
-        agent_name="planner",
-    )
+PLAN_PDF = Task(
+    agent="planner",
+    route=Route.TEXT,
+    instructions=SYSTEM_PROMPT,
+    output=PlannerOutput,
+    max_output_tokens=12000,
+)
+PLAN_TEXT = Task(
+    agent="planner",
+    route=Route.TEXT,
+    instructions=SYSTEM_PROMPT_LLM,
+    output=PlannerOutput,
+    max_output_tokens=12000,
+)

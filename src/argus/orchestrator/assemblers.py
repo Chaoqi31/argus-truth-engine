@@ -1,4 +1,4 @@
-"""Pure data transforms — MiroMind responses → domain Findings/Traces/Evidence.
+"""Pure data transforms — LLM answers → domain Findings/Traces/Evidence.
 
 These functions have NO I/O and no shared state. They are unit-testable in
 isolation. Keep them that way: any function added here that imports a runtime
@@ -6,13 +6,15 @@ client or settings is a bug.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from argus.agents.base import StreamCollection
 from argus.agents.consistency import ConsistencyOutput
+from argus.agents.unified_verifier import UnifiedVerifierOutput
+from argus.llm import Usage
 from argus.models.domain import (
     Claim,
     ClaimCoverage,
@@ -75,7 +77,7 @@ def _make_unified_finding(
     *,
     job_id: str,
     claim: Claim,
-    parsed: Any,
+    parsed: UnifiedVerifierOutput,
     trace: ReasoningTrace,
 ) -> tuple[Finding, list[Evidence]]:
     from argus.models.domain import CorrectedInfo, VerificationStep
@@ -101,7 +103,7 @@ def _make_unified_finding(
         return evidence_records[index].id
 
     evidence_quality: list[EvidenceQuality] = []
-    for q in getattr(parsed, "evidence_quality", []):
+    for q in parsed.evidence_quality:
         evidence_id = evidence_id_at(q.evidence_index)
         if evidence_id is None:
             continue
@@ -118,7 +120,7 @@ def _make_unified_finding(
         )
 
     coverage: list[ClaimCoverage] = []
-    for c in getattr(parsed, "coverage", []):
+    for c in parsed.coverage:
         coverage.append(
             ClaimCoverage(
                 claim_fragment=c.claim_fragment,
@@ -133,8 +135,7 @@ def _make_unified_finding(
         )
 
     computation_check = None
-    if getattr(parsed, "computation_check", None) is not None:
-        ck = parsed.computation_check
+    if (ck := parsed.computation_check) is not None:
         computation_check = ComputationCheck(
             kind="date" if ck.kind == "date" else "numeric",
             claimed_value=ck.claimed_value,
@@ -277,14 +278,15 @@ def _logical_flaws_to_findings(
 
 
 def _build_trace(
-    *, job_id: str, claim_id: str, agent: str, stream: StreamCollection
+    *, job_id: str, claim_id: str, agent: str, usage: Usage, steps: Sequence[Step]
 ) -> ReasoningTrace:
     # Link steps into a sequential chain so the reasoning DAG renders connected
-    # edges (the frontend only draws an edge when parent_step_id is set).
-    # Sort by sequence first — stream.steps order is not guaranteed — then point
-    # each step at its predecessor. Copy rather than mutate: the input steps may
-    # be shared elsewhere.
-    ordered = sorted(stream.steps, key=lambda s: s.sequence)
+    # edges (the frontend only draws an edge when parent_step_id is set). Steps
+    # arrive in completion order; order them by response, then by position in
+    # that response's stream. Copy rather than mutate: the input steps may be
+    # shared elsewhere.
+    response = {rid: i for i, rid in enumerate(usage.response_ids)}
+    ordered = sorted(steps, key=lambda s: (response.get(s.trace_id, 0), s.sequence))
     linked: list[Step] = []
     for i, step in enumerate(ordered):
         parent_id = ordered[i - 1].id if i > 0 else None
@@ -295,12 +297,12 @@ def _build_trace(
         job_id=job_id,
         claim_id=claim_id,
         agent=agent,
-        miromind_response_id=stream.response_id,
+        miromind_response_id=usage.response_ids[-1] if usage.response_ids else "n/a",
         started_at=datetime.utcnow(),
         completed_at=datetime.utcnow(),
-        total_tokens=stream.total_tokens,
-        reasoning_tokens=stream.reasoning_tokens,
-        num_search_queries=stream.num_search_queries,
+        total_tokens=usage.total_tokens,
+        reasoning_tokens=usage.reasoning_tokens,
+        num_search_queries=usage.num_search_queries,
         steps=linked,
     )
 

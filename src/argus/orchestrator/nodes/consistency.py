@@ -4,9 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from argus.agents.base import JsonRepairFailed
-from argus.agents.consistency import ConsistencyOutput, check_consistency
+from argus.agents.consistency import (
+    CHECK_CONSISTENCY,
+    ConsistencyOutput,
+    build_consistency_input,
+)
 from argus.engineering import BudgetExceeded
+from argus.llm import Failed, FailureReason
 from argus.log import log
 from argus.models.domain import Claim, Finding, FindingVerdict, ReasoningTrace, Stage
 from argus.orchestrator.assemblers import (
@@ -16,7 +20,13 @@ from argus.orchestrator.assemblers import (
     _logical_flaws_to_findings,
     _step_payload,
 )
-from argus.orchestrator.context import _charge_result, _Ctx
+from argus.orchestrator.context import _Ctx
+
+_FAILED: dict[FailureReason, str] = {
+    "timeout": "Consistency check timed out",
+    "unparseable": "Consistency check could not parse a result",
+    "request_error": "Consistency check request failed",
+}
 
 _REDUNDANT_LOGICAL_VERDICTS = {
     FindingVerdict.UNSUPPORTED_INFERENCE,
@@ -50,7 +60,7 @@ def _stage(ctx: _Ctx, summary: str, n_findings: int) -> Stage:
     return Stage(
         key="consistency",
         name="Consistency",
-        engine="deepseek" if ctx.cheap_client else "miromind",
+        engine=ctx.llm.engine(CHECK_CONSISTENCY),
         summary=summary,
         metrics={"n_findings": n_findings},
     )
@@ -74,19 +84,18 @@ async def check_consistency_of(ctx: _Ctx, claims: list[Claim]) -> ConsistencyChe
         status="started",
         key="consistency",
         name="Consistency",
-        engine="deepseek" if ctx.cheap_client else "miromind",
+        engine=ctx.llm.engine(CHECK_CONSISTENCY),
     )
     if len(claims) < 2:
         return ConsistencyCheck(summary="Skipped consistency check — fewer than 2 claims")
-    try:
-        result = await check_consistency(
-            claims, cheap_client=ctx.cheap_client, miromind_client=ctx.client
+    answer = await ctx.llm.ask(CHECK_CONSISTENCY, build_consistency_input(claims))
+    if isinstance(answer, Failed):
+        log.warning(
+            "orchestrator.consistency_failed", reason=answer.reason, error=answer.detail[:300]
         )
-    except JsonRepairFailed as exc:
-        log.warning("orchestrator.consistency_failed", error=str(exc)[:300])
-        return ConsistencyCheck(summary="Consistency check could not parse a result")
+        return ConsistencyCheck(summary=_FAILED[answer.reason])
     try:
-        _charge_result(ctx, result)
+        ctx.budget.charge(answer.usage.cost_usd)
     except BudgetExceeded as exc:
         log.warning("orchestrator.budget_exceeded_at_consistency", error=str(exc))
         return ConsistencyCheck(abort_reason=str(exc))
@@ -94,9 +103,10 @@ async def check_consistency_of(ctx: _Ctx, claims: list[Claim]) -> ConsistencyChe
         job_id=ctx.job_id,
         claim_id="(consistency)",
         agent="Consistency",
-        stream=result.final,
+        usage=answer.usage,
+        steps=answer.steps,
     )
-    return ConsistencyCheck(parsed=result.parsed, trace=trace)
+    return ConsistencyCheck(parsed=answer.output, trace=trace)
 
 
 async def record_consistency(

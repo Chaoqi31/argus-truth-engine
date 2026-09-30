@@ -12,7 +12,9 @@ from argus.api.app import create_app
 from argus.api.auth import AuthUser
 from argus.config import Settings
 from argus.db.models import Base
+from argus.llm import Transports
 from argus.models.domain import Job
+from tests.golden import fake_llm_server
 
 
 class FakeVerifier:
@@ -147,7 +149,7 @@ async def test_submit_text_can_use_default_saved_key(
     captured: dict[str, Any] = {}
 
     async def fake_audit_text(**kw: Any) -> Job:
-        captured["api_key"] = kw["settings"].miromind_api_key
+        captured["api_key"] = kw["llm"].access.api_key.get_secret_value()
         return Job(id=kw["job_id"], status="done", input_text=kw["text"], input_mode="text")
 
     monkeypatch.setattr("argus.api.runner.audit_text", fake_audit_text)
@@ -173,62 +175,50 @@ async def test_submit_text_can_use_default_saved_key(
     assert captured["api_key"] == "sk_saved_secret_9999"
 
 
-async def test_saved_api_key_can_be_renamed_made_default_and_tested(
-    auth_app: FastAPI,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls: dict[str, str] = {}
+async def test_saved_api_key_can_be_renamed_made_default_and_tested(auth_app: FastAPI) -> None:
+    with fake_llm_server() as (llm_url, fake):
+        await auth_app.state.argus.transports.aclose()
+        auth_app.state.argus.transports = Transports(Settings(miromind_base_url=f"{llm_url}/v1"))
+        transport = ASGITransport(app=auth_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            first = await client.post(
+                "/me/api-keys",
+                json={"api_key": "sk_first_1111", "label": "First"},
+                headers={"Authorization": "Bearer user-a"},
+            )
+            second = await client.post(
+                "/me/api-keys",
+                json={"api_key": "sk_second_2222", "label": "Second"},
+                headers={"Authorization": "Bearer user-a"},
+            )
+            assert first.status_code == 201
+            assert second.status_code == 201
 
-    class FakeMiroMindClient:
-        def __init__(self, settings: Settings) -> None:
-            calls["api_key"] = settings.miromind_api_key
-
-        async def submit_background(self, **_kwargs: object) -> str:
-            return "resp_test"
-
-        async def cancel(self, response_id: str) -> None:
-            calls["cancelled"] = response_id
-
-    monkeypatch.setattr("argus.api.account.MiromindClient", FakeMiroMindClient)
-
-    async with AsyncClient(transport=ASGITransport(app=auth_app), base_url="http://test") as client:
-        first = await client.post(
-            "/me/api-keys",
-            json={"api_key": "sk_first_1111", "label": "First"},
-            headers={"Authorization": "Bearer user-a"},
-        )
-        second = await client.post(
-            "/me/api-keys",
-            json={"api_key": "sk_second_2222", "label": "Second"},
-            headers={"Authorization": "Bearer user-a"},
-        )
-        assert first.status_code == 201
-        assert second.status_code == 201
-
-        patched = await client.patch(
-            f"/me/api-keys/{first.json()['id']}",
-            json={"label": "Research key", "make_default": True},
-            headers={"Authorization": "Bearer user-a"},
-        )
-        tested = await client.post(
-            "/me/api-keys/test",
-            json={"key_id": first.json()["id"]},
-            headers={"Authorization": "Bearer user-a"},
-        )
-        listed = await client.get(
-            "/me/api-keys",
-            headers={"Authorization": "Bearer user-a"},
-        )
+            patched = await client.patch(
+                f"/me/api-keys/{first.json()['id']}",
+                json={"label": "Research key", "make_default": True},
+                headers={"Authorization": "Bearer user-a"},
+            )
+            tested = await client.post(
+                "/me/api-keys/test",
+                json={"key_id": first.json()["id"]},
+                headers={"Authorization": "Bearer user-a"},
+            )
+            listed = await client.get(
+                "/me/api-keys",
+                headers={"Authorization": "Bearer user-a"},
+            )
 
     assert patched.status_code == 200, patched.text
     assert patched.json()["label"] == "Research key"
     assert patched.json()["is_default"] is True
     assert tested.status_code == 200, tested.text
     assert tested.json()["ok"] is True
-    assert calls == {"api_key": "sk_first_1111", "cancelled": "resp_test"}
     by_id = {item["id"]: item for item in listed.json()}
     assert by_id[first.json()["id"]]["is_default"] is True
     assert by_id[second.json()["id"]]["is_default"] is False
+    assert [r["api_key"] for r in fake.requests] == ["sk_first_1111"]
+    assert fake.cancelled == [tested.json()["response_id"]]
 
 
 async def test_owner_can_delete_job_but_stranger_cannot(auth_app: FastAPI) -> None:

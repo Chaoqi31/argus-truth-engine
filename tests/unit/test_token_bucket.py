@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from argus.engineering import TokenBucket
+from argus.llm.miromind import TokenBucket
 
 
 @pytest.mark.asyncio

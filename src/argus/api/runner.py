@@ -13,9 +13,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
+from pydantic import SecretStr
+
 from argus.api.deps import AppState
+from argus.llm import Llm
+from argus.llm.miromind import MiroMindAccess
 from argus.log import log
-from argus.miromind.client import MiromindClient
 from argus.models.domain import Job
 from argus.orchestrator import audit_pdf, audit_text
 from argus.orchestrator.entry import audit_resume
@@ -52,6 +55,18 @@ class JobRunner:
     records: dict[str, JobRecord] = field(default_factory=dict)
     tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+    def _llm(self, api_key_override: str | None, miromind_model: str | None) -> Llm:
+        # BYOK: the caller's key (X-Miromind-Key header or a saved key) pays for
+        # the job, so a public deploy never spends the operator's credits. The
+        # server key covers local and CLI use.
+        settings = self.state.settings
+        return self.state.transports.for_job(
+            MiroMindAccess(
+                api_key=SecretStr(api_key_override or settings.miromind_api_key),
+                model=miromind_model or settings.miromind_model,
+            )
+        )
 
     async def _reserve(self, record: JobRecord) -> None:
         async with self.lock:
@@ -105,20 +120,7 @@ class JobRunner:
                 owner_user_id=owner_user_id,
             )
 
-        # BYOK: when the caller supplies their own MiroMind key (via the
-        # X-Miromind-Key header), bake it into a per-job Settings + Client so
-        # the public demo never burns the operator's own credits. When absent
-        # we fall back to the server's configured key (used for local/CLI).
-        per_job_settings = self.state.settings
-        per_job_client: MiromindClient | None = None
-        settings_update: dict[str, str] = {}
-        if api_key_override:
-            settings_update["miromind_api_key"] = api_key_override
-        if miromind_model:
-            settings_update["miromind_model"] = miromind_model
-        if settings_update:
-            per_job_settings = self.state.settings.model_copy(update=settings_update)
-            per_job_client = MiromindClient(per_job_settings)
+        llm = self._llm(api_key_override, miromind_model)
 
         async def _run() -> None:
             try:
@@ -127,9 +129,9 @@ class JobRunner:
                 job = await audit_pdf(
                     pdf_path=pdf_path,
                     output_path=output_path,
-                    settings=per_job_settings,
-                    client=per_job_client,
-                    budget_usd=per_job_settings.job_budget_usd,
+                    settings=self.state.settings,
+                    llm=llm,
+                    budget_usd=self.state.settings.job_budget_usd,
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
@@ -172,16 +174,7 @@ class JobRunner:
                 owner_user_id=owner_user_id,
             )
 
-        per_job_settings = self.state.settings
-        per_job_client: MiromindClient | None = None
-        settings_update: dict[str, str] = {}
-        if api_key_override:
-            settings_update["miromind_api_key"] = api_key_override
-        if miromind_model:
-            settings_update["miromind_model"] = miromind_model
-        if settings_update:
-            per_job_settings = self.state.settings.model_copy(update=settings_update)
-            per_job_client = MiromindClient(per_job_settings)
+        llm = self._llm(api_key_override, miromind_model)
 
         async def _run() -> None:
             try:
@@ -190,9 +183,9 @@ class JobRunner:
                 job = await audit_text(
                     text=text,
                     output_path=output_path,
-                    settings=per_job_settings,
-                    client=per_job_client,
-                    budget_usd=per_job_settings.job_budget_usd,
+                    settings=self.state.settings,
+                    llm=llm,
+                    budget_usd=self.state.settings.job_budget_usd,
                     repo=self.state.repo,
                     trace_bus=self.state.trace_bus,
                     job_id=job_id,
@@ -233,27 +226,16 @@ class JobRunner:
             self.state.storage.path_for(record.pdf_key or f"{job_id}/input.txt")
         ).with_suffix(".findings.json")
 
-        # BYOK: prefer the caller's key (Phase B verification burns the most
-        # credits) so prod — which has no server MiroMind key — can resume.
-        # Falls back to the server key for local/CLI resume.
-        per_job_settings = self.state.settings
-        settings_update: dict[str, str] = {}
-        if api_key_override:
-            settings_update["miromind_api_key"] = api_key_override
-        if miromind_model:
-            settings_update["miromind_model"] = miromind_model
-        if settings_update:
-            per_job_settings = self.state.settings.model_copy(update=settings_update)
-        per_job_client = MiromindClient(per_job_settings)
+        llm = self._llm(api_key_override, miromind_model)
 
         async def _run() -> None:
             try:
                 job = await audit_resume(
                     job_id=job_id,
                     selected_claim_ids=selected_claim_ids,
-                    settings=per_job_settings,
-                    client=per_job_client,
-                    budget_usd=per_job_settings.job_budget_usd,
+                    settings=self.state.settings,
+                    llm=llm,
+                    budget_usd=self.state.settings.job_budget_usd,
                     repo=repo,
                     trace_bus=self.state.trace_bus,
                     output_path=output_path,

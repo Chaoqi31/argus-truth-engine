@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from argus.config import Settings
-from argus.miromind.client import MiromindClient
+from argus.llm import Llm
 from argus.models.domain import ContentDomain, Job
 from argus.orchestrator.context import _State
 from argus.orchestrator.pipeline import resume_audit, run_audit
@@ -45,7 +45,7 @@ async def audit_pdf(
     pdf_path: Path | str,
     output_path: Path | str,
     settings: Settings,
-    client: MiromindClient | None = None,
+    llm: Llm,
     budget_usd: float = 5.0,
     repo: JobRepository | None = None,
     trace_bus: TraceBus | None = None,
@@ -69,7 +69,7 @@ async def audit_pdf(
         initial=_initial_state(job_id=job_id, pdf_path=pdf_path, text=None),
         output_path=Path(output_path),
         settings=settings,
-        client=client or MiromindClient(settings),
+        llm=llm,
         budget_usd=budget_usd,
         repo=repo,
         trace_bus=trace_bus,
@@ -82,7 +82,7 @@ async def audit_text(
     text: str,
     output_path: Path | str,
     settings: Settings,
-    client: MiromindClient | None = None,
+    llm: Llm,
     budget_usd: float = 5.0,
     repo: JobRepository | None = None,
     trace_bus: TraceBus | None = None,
@@ -102,7 +102,7 @@ async def audit_text(
         initial=_initial_state(job_id=job_id, pdf_path=Path("."), text=text),
         output_path=Path(output_path),
         settings=settings,
-        client=client or MiromindClient(settings),
+        llm=llm,
         budget_usd=budget_usd,
         repo=repo,
         trace_bus=trace_bus,
@@ -115,7 +115,7 @@ async def audit_resume(
     job_id: str,
     selected_claim_ids: list[str],
     settings: Settings,
-    client: MiromindClient,
+    llm: Llm,
     budget_usd: float,
     repo: JobRepository,
     trace_bus: TraceBus | None,
@@ -130,7 +130,7 @@ async def audit_resume(
         selected_claim_ids=selected_claim_ids,
         output_path=output_path,
         settings=settings,
-        client=client,
+        llm=llm,
         budget_usd=budget_usd,
         repo=repo,
         trace_bus=trace_bus,

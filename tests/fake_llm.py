@@ -398,6 +398,7 @@ def _task(prompt: str) -> str:
         ("You are Argus's REPORTER", "reporter"),
         ("UNIFIED VERIFIER", "verifier"),
         ("SKEPTIC REVIEWER", "skeptic"),
+        ("Return the word OK.", "probe"),
     ):
         if marker in prompt:
             return task
@@ -406,6 +407,8 @@ def _task(prompt: str) -> str:
 
 def answer(task: str, prompt: str) -> str:
     """The model's final text for one request."""
+    if task == "probe":
+        return "OK"
     if task == "planner":
         claims = PDF_CLAIMS if "[PAGE 1]" in prompt else _text_claims()
         return json.dumps({"claims": claims})
@@ -559,17 +562,22 @@ class FakeLLM:
     - ``malformed_once``: claim texts whose first verifier answer is broken
       JSON; the repair request gets the scripted answer.
     - ``failing``: tasks answered with HTTP 500.
-    - ``dropped_once``: claim texts whose first verifier stream connection
-      breaks after the reasoning events; a reconnect gets the rest.
+    - ``dropped``: claim text -> how many verifier stream connections break
+      after the reasoning events before one delivers the rest.
+    - ``erroring``: claim texts whose verifier response ends in
+      ``response.failed``.
+    - ``rejected_keys``: MiroMind API keys refused with HTTP 401.
     """
 
     stalled: frozenset[str] = frozenset()
     malformed_once: frozenset[str] = frozenset()
     failing: frozenset[str] = frozenset()
-    dropped_once: frozenset[str] = frozenset()
+    dropped: dict[str, int] = field(default_factory=dict)
+    erroring: frozenset[str] = frozenset()
+    rejected_keys: frozenset[str] = frozenset()
     responses: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     stalled_ids: set[str] = field(default_factory=set)
-    dropping_ids: set[str] = field(default_factory=set)
+    drops_left: dict[str, int] = field(default_factory=dict)
     requests: list[dict[str, Any]] = field(default_factory=list)
     stream_requests: list[tuple[str, int]] = field(default_factory=list)
     cancelled: list[str] = field(default_factory=list)
@@ -591,28 +599,42 @@ class FakeLLM:
             body = await request.json()
             prompt = body["input"]
             task = _task(prompt)
+            api_key = request.headers["authorization"].removeprefix("Bearer ")
             self.requests.append(
-                {"api": "responses", "task": task, "agent": body.get("metadata", {}).get("agent")}
+                {
+                    "api": "responses",
+                    "task": task,
+                    "agent": body.get("metadata", {}).get("agent"),
+                    "api_key": api_key,
+                    "idempotency_key": request.headers.get("idempotency-key"),
+                }
             )
+            if api_key in self.rejected_keys:
+                return JSONResponse({"error": "invalid api key"}, status_code=401)
             if task in self.failing:
                 return JSONResponse({"error": "scripted outage"}, status_code=500)
             digest = hashlib.sha1(prompt.encode(), usedforsecurity=False).hexdigest()[:10]
             response_id = f"resp_{task}_{digest}"
-            self.responses[response_id] = _sse_events(
-                response_id, task, prompt, self._text(task, prompt)
-            )
-            if task == "verifier" and _claim_line(prompt) in self.stalled:
+            events = _sse_events(response_id, task, prompt, self._text(task, prompt))
+            self.responses[response_id] = events
+            claim = _claim_line(prompt) if task == "verifier" else ""
+            if claim in self.stalled:
                 self.stalled_ids.add(response_id)
-            if task == "verifier" and _claim_line(prompt) in self.dropped_once:
-                self.dropping_ids.add(response_id)
+            if claim in self.dropped:
+                self.drops_left[response_id] = self.dropped[claim]
+            if claim in self.erroring:
+                last = events[-1]["sequence_number"]
+                events[-1] = {"type": "response.failed", "error": "scripted failure"}
+                events[-1]["sequence_number"] = last
             return JSONResponse({"id": response_id, "status": "in_progress"})
 
         @app.get("/v1/responses/{response_id}")
         async def stream_response(response_id: str, after: int = 0) -> StreamingResponse:
             events = self.responses[response_id]
             stalls = response_id in self.stalled_ids
-            drops = response_id in self.dropping_ids
-            self.dropping_ids.discard(response_id)
+            drops = self.drops_left.get(response_id, 0) > 0
+            if drops:
+                self.drops_left[response_id] -= 1
             self.stream_requests.append((response_id, after))
 
             async def body() -> AsyncIterator[bytes]:

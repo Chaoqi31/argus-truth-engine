@@ -4,13 +4,13 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from argus.agents.base import JsonRepairFailed
-from argus.agents.planner import run_planner
+from argus.agents.planner import PLAN_PDF, PLAN_TEXT, build_planner_input
 from argus.engineering import BudgetExceeded
+from argus.llm import Failed
 from argus.log import log
 from argus.models.domain import Stage
 from argus.orchestrator.assemblers import _build_trace, _step_payload
-from argus.orchestrator.context import _charge_result, _Ctx, _State
+from argus.orchestrator.context import _Ctx, _State
 
 
 def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -21,33 +21,34 @@ def _planner_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
         if doc is None:
             return {"aborted": True, "abort_reason": "no parsed document"}
         input_mode = state.get("input_mode", "pdf")
-        engine = "deepseek" if ctx.cheap_client else "miromind"
+        task = PLAN_TEXT if input_mode == "text" else PLAN_PDF
+        engine = ctx.llm.engine(task)
         await ctx.publisher.stage(
             status="started",
             key="planner",
             name="Planner",
             engine=engine,
         )
-        try:
-            result = await run_planner(
-                doc,
-                cheap_client=ctx.cheap_client,
-                miromind_client=ctx.client,
-                input_mode=input_mode,
+        answer = await ctx.llm.ask(task, build_planner_input(doc, input_mode=input_mode))
+        if isinstance(answer, Failed):
+            log.error(
+                "orchestrator.planner_failed", reason=answer.reason, error=answer.detail[:500]
             )
-        except JsonRepairFailed as exc:
-            log.error("orchestrator.planner_failed", error=str(exc)[:500])
-            return {"aborted": True, "abort_reason": f"planner: {exc}"}
+            return {"aborted": True, "abort_reason": f"planner: {answer.detail}"}
 
         try:
-            _charge_result(ctx, result)
+            ctx.budget.charge(answer.usage.cost_usd)
         except BudgetExceeded as exc:
             log.error("orchestrator.budget_exceeded_at_planner", error=str(exc))
             return {"aborted": True, "abort_reason": str(exc)}
 
-        claims = result.parsed.to_claims()
+        claims = answer.output.to_claims()
         trace = _build_trace(
-            job_id=ctx.job_id, claim_id="(planner)", agent="planner", stream=result.final
+            job_id=ctx.job_id,
+            claim_id="(planner)",
+            agent="planner",
+            usage=answer.usage,
+            steps=answer.steps,
         )
         await ctx.publisher.publish("step", _step_payload(trace, n_claims=len(claims)))
         stage = await ctx.publisher.finish(

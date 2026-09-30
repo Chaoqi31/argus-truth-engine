@@ -1,11 +1,11 @@
 """Pin behavior of pure assemblers — these are now stable extraction points."""
-from argus.agents.base import StreamCollection
 from argus.agents.consistency import ConsistencyOutput, ContradictionPair, LogicalFlaw
 from argus.agents.unified_verifier import (
     CorrectedInfoOut,
     EvidenceOut,
     UnifiedVerifierOutput,
 )
+from argus.llm import Usage
 from argus.models.domain import Claim, ClaimType, FindingVerdict, Severity, Step, StepType
 from argus.orchestrator.assemblers import (
     _build_trace,
@@ -13,20 +13,6 @@ from argus.orchestrator.assemblers import (
     _logical_flaws_to_findings,
     _make_unified_finding,
 )
-
-
-def _minimal_stream() -> StreamCollection:
-    """Minimal StreamCollection stub — no I/O, no network."""
-    return StreamCollection(
-        response_id="resp_test_000",
-        final_text="",
-        steps=[],
-        total_tokens=0,
-        input_tokens=0,
-        output_tokens=0,
-        reasoning_tokens=0,
-        num_search_queries=0,
-    )
 
 
 def _sample_claim() -> Claim:
@@ -60,7 +46,8 @@ def test_make_unified_finding_preserves_verdict_and_links_trace():
         job_id="job_x",
         claim_id="claim_1",
         agent="UnifiedVerifier",
-        stream=_minimal_stream(),
+        usage=Usage(response_ids=("resp_test_000",)),
+        steps=(),
     )
     finding, _evs = _make_unified_finding(
         job_id="job_x",
@@ -159,19 +146,13 @@ def test_build_trace_links_steps_into_sequential_chain():
         Step(id="s_a", trace_id="resp_x", sequence=0, type=StepType.THINKING, summary="a"),
         Step(id="s_b", trace_id="resp_x", sequence=1, type=StepType.WEB_SEARCH, summary="b"),
     ]
-    stream = StreamCollection(
-        response_id="resp_x",
-        final_text="",
-        steps=list(raw_steps),
-        total_tokens=0,
-        input_tokens=0,
-        output_tokens=0,
-        reasoning_tokens=0,
-        num_search_queries=0,
-    )
 
     trace = _build_trace(
-        job_id="job_x", claim_id="claim_1", agent="UnifiedVerifier", stream=stream
+        job_id="job_x",
+        claim_id="claim_1",
+        agent="UnifiedVerifier",
+        usage=Usage(response_ids=("resp_x",)),
+        steps=raw_steps,
     )
 
     # (a) steps come back sorted ascending by sequence
@@ -187,6 +168,22 @@ def test_build_trace_links_steps_into_sequential_chain():
 
     # (d) original input objects were not mutated in place
     assert all(s.parent_step_id is None for s in raw_steps)
+
+
+def test_build_trace_keeps_a_repaired_calls_attempts_in_order():
+    first = Step(id="first", trace_id="resp_1", sequence=5, type=StepType.THINKING, summary="")
+    retry = Step(id="retry", trace_id="resp_2", sequence=1, type=StepType.THINKING, summary="")
+
+    trace = _build_trace(
+        job_id="job_x",
+        claim_id="claim_1",
+        agent="UnifiedVerifier",
+        usage=Usage(response_ids=("resp_1", "resp_2"), total_tokens=30),
+        steps=[retry, first],
+    )
+
+    assert [s.id for s in trace.steps] == ["first", "retry"]
+    assert (trace.miromind_response_id, trace.total_tokens) == ("resp_2", 30)
 
 
 def test_logical_flaws_to_findings_maps_unsupported_inference():
@@ -288,7 +285,8 @@ def _trace_for() -> object:
         job_id="job_x",
         claim_id="claim_1",
         agent="UnifiedVerifier",
-        stream=_minimal_stream(),
+        usage=Usage(response_ids=("resp_test_000",)),
+        steps=(),
     )
 
 

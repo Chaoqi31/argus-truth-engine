@@ -2,7 +2,7 @@
 
 The goldens pin the happy path. These pin what an audit does when a verifier
 stalls, a verifier answer needs repair, the budget runs out, a provider is
-down, or a verdict is already cached.
+down, the input cannot be read, or a verdict is already cached.
 """
 
 from __future__ import annotations
@@ -13,8 +13,10 @@ from typing import Any
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from argus.db.repository import JobRepository
+from argus.llm import Transports
+from argus.llm.miromind import MiroMindAccess
 from argus.models.domain import Finding, FindingVerdict, Job
-from argus.orchestrator import audit_text
+from argus.orchestrator import audit_pdf, audit_text
 from argus.trace_bus.in_process import InProcessBus
 from tests.fake_llm import AUDIT_TEXT, S5, FakeLLM
 from tests.golden import audit_settings, fake_llm_server, llm_calls
@@ -31,16 +33,19 @@ async def _audit(
 ) -> tuple[Job, list[tuple[str, dict[str, Any]]]]:
     with fake_llm_server(fake) as (base_url, _):
         bus = InProcessBus()
-        job = await audit_text(
-            text=AUDIT_TEXT,
-            output_path=tmp_path / "findings.json",
-            settings=audit_settings(base_url, cheap_llm=cheap_llm, **overrides),
-            budget_usd=budget_usd,
-            repo=repo,
-            trace_bus=bus,
-            auto_review=True,
-            content_domain="finance",
-        )
+        settings = audit_settings(base_url, cheap_llm=cheap_llm, **overrides)
+        async with Transports(settings) as transports:
+            job = await audit_text(
+                text=AUDIT_TEXT,
+                output_path=tmp_path / "findings.json",
+                settings=settings,
+                llm=transports.for_job(MiroMindAccess.from_settings(settings)),
+                budget_usd=budget_usd,
+                repo=repo,
+                trace_bus=bus,
+                auto_review=True,
+                content_domain="finance",
+            )
         async with bus.subscribe(job.id) as sub:
             events = [(ev.kind, ev.payload) async for ev in sub.iter_history()]
     return job, events
@@ -96,6 +101,32 @@ async def test_a_provider_outage_fails_the_job(tmp_path: Path) -> None:
     kind, payload = events[-1]
     assert kind == "failed"
     assert "500" in payload["reason"]
+
+
+async def test_an_unreadable_pdf_fails_the_job_with_a_terminal_event(tmp_path: Path) -> None:
+    pdf = tmp_path / "broken.pdf"
+    pdf.write_bytes(b"%PDF-1.7 truncated")
+    fake = FakeLLM()
+    with fake_llm_server(fake) as (base_url, _):
+        bus = InProcessBus()
+        settings = audit_settings(base_url, cheap_llm=True)
+        async with Transports(settings) as transports:
+            job = await audit_pdf(
+                pdf_path=pdf,
+                output_path=tmp_path / "findings.json",
+                settings=settings,
+                llm=transports.for_job(MiroMindAccess.from_settings(settings)),
+                trace_bus=bus,
+                auto_review=True,
+            )
+        async with bus.subscribe(job.id) as sub:
+            events = [(ev.kind, ev.payload) async for ev in sub.iter_history()]
+
+    assert job.status == "failed"
+    assert fake.requests == []
+    kind, payload = events[-1]
+    assert kind == "failed"
+    assert payload["reason"]
 
 
 async def test_a_second_audit_reuses_cached_verdicts(

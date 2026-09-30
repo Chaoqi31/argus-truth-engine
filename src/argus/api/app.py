@@ -18,6 +18,7 @@ from argus.api.ws import router as ws_router
 from argus.config import Settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
+from argus.llm import Transports
 from argus.security.api_keys import ApiKeyCipher
 from argus.storage.local_fs import LocalFsStorage
 from argus.trace_bus.in_process import InProcessBus
@@ -47,6 +48,7 @@ def _build_state(settings: Settings) -> AppState:
         repo=repo,
         storage=storage,
         trace_bus=trace_bus,
+        transports=Transports(settings),
         db_engine=engine,
         auth_verifier=SupabaseJwtVerifier(settings) if settings.supabase_url else None,
         key_cipher=key_cipher,
@@ -68,6 +70,7 @@ def create_app(*, settings: Settings) -> FastAPI:
                              count=n_flipped)
             yield
         finally:
+            await state.transports.aclose()
             if state.db_engine is not None:
                 await state.db_engine.dispose()
 

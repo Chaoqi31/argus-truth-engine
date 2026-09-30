@@ -51,7 +51,7 @@ def _consistency_finding(claim_id: str) -> Finding:
 
 async def _run_finalize(final_state: _State, tmp_path: Path) -> Job:
     ctx = _Ctx(
-        client=AsyncMock(),
+        llm=AsyncMock(),
         settings=Settings(miromind_api_key="x"),
         budget=BudgetTracker(max_usd=10.0),
         runners={},

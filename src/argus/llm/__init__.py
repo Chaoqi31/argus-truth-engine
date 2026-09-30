@@ -12,8 +12,6 @@ spend more.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal
@@ -35,6 +33,7 @@ from argus.log import log
 from argus.models.domain import Step
 
 Engine = Literal["miromind", "deepseek"]
+FailureReason = Literal["timeout", "unparseable", "request_error"]
 
 
 class Route(StrEnum):
@@ -89,7 +88,7 @@ class Failed:
     """The task produced no usable output. Returned, never raised: each caller
     decides what a failure means for the audit."""
 
-    reason: Literal["timeout", "unparseable", "request_error"]
+    reason: FailureReason
     detail: str
     engine: Engine
     usage: Usage
@@ -105,28 +104,26 @@ class _Attempts:
     steps: list[Step] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
 class Llm:
-    """Per-job LLM gateway. Cheap to build; holds no connections of its own."""
+    """Per-job LLM gateway: the process-wide transports bound to one caller's
+    MiroMind key and model. Holds no connections of its own."""
 
-    def __init__(
-        self, *, miromind: MiroMind, deepseek: DeepSeek | None, access: MiroMindAccess
-    ) -> None:
-        self._miromind = miromind
-        self._deepseek = deepseek
-        self._access = access
+    miromind: MiroMind
+    deepseek: DeepSeek | None
+    access: MiroMindAccess
 
-    @property
-    def model(self) -> str:
-        return self._access.model
-
-    def engine(self, task: Task[BaseModel]) -> Engine | None:
-        """The engine `ask` would use for ``task``, or None when the task cannot
-        run (a DeepSeek-only task without DeepSeek)."""
+    def engine(self, task: Task[BaseModel]) -> Engine:
+        """The provider `ask` runs ``task`` on."""
         if task.route is Route.DEEP_RESEARCH:
             return "miromind"
-        if self._deepseek is not None:
-            return "deepseek"
-        return "miromind" if task.route is Route.TEXT else None
+        if task.route is Route.TEXT and self.deepseek is None:
+            return "miromind"
+        return "deepseek"
+
+    def can_run(self, task: Task[BaseModel]) -> bool:
+        """False for a DeepSeek-only task when DeepSeek is not configured."""
+        return self.engine(task) == "miromind" or self.deepseek is not None
 
     async def ask[T: BaseModel](
         self,
@@ -143,9 +140,9 @@ class Llm:
         usage and steps. Timeouts, request failures and output that still does
         not parse come back as `Failed`. Only cancellation is raised.
         """
-        engine = self.engine(task)
-        if engine is None:
+        if not self.can_run(task):
             raise ValueError(f"{task.agent} needs DeepSeek, which is not configured")
+        engine = self.engine(task)
         attempts = _Attempts()
 
         async def record(step: Step) -> None:
@@ -185,16 +182,16 @@ class Llm:
         attempts: _Attempts,
     ) -> str:
         if engine == "deepseek":
-            assert self._deepseek is not None
-            chat = await self._deepseek.chat(
+            assert self.deepseek is not None
+            chat = await self.deepseek.chat(
                 system=task.instructions, user=prompt, max_tokens=task.max_output_tokens
             )
             attempts.usage += Usage(
                 response_ids=(chat.completion_id,), total_tokens=chat.total_tokens
             )
             return chat.text
-        response = await self._miromind.respond(
-            self._access,
+        response = await self.miromind.respond(
+            self.access,
             prompt=f"{task.instructions}\n\n---\n\n{prompt}",
             agent=task.agent,
             max_output_tokens=task.max_output_tokens,
@@ -214,7 +211,7 @@ class Llm:
 
     @staticmethod
     def _failed(
-        reason: Literal["timeout", "unparseable", "request_error"],
+        reason: FailureReason,
         exc: Exception,
         engine: Engine,
         attempts: _Attempts,
@@ -227,17 +224,22 @@ class Llm:
 
 
 class Transports:
-    """Process-wide provider clients. Open once; hand out a `Llm` per job."""
+    """Process-wide provider clients over one pooled HTTP client. Open once,
+    hand out a `Llm` per job, close on shutdown."""
 
-    def __init__(self, http: httpx.AsyncClient, settings: Settings) -> None:
-        self.miromind = MiroMind(http, settings)
-        self.deepseek = DeepSeek(http, settings) if settings.cheap_llm_api_key else None
+    def __init__(self, settings: Settings) -> None:
+        self._http = httpx.AsyncClient()
+        self.miromind = MiroMind(self._http, settings)
+        self.deepseek = DeepSeek(self._http, settings) if settings.cheap_llm_api_key else None
 
-    @classmethod
-    @asynccontextmanager
-    async def open(cls, settings: Settings) -> AsyncIterator[Transports]:
-        async with httpx.AsyncClient() as http:
-            yield cls(http, settings)
+    async def __aenter__(self) -> Transports:
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
 
     def for_job(self, access: MiroMindAccess) -> Llm:
         return Llm(miromind=self.miromind, deepseek=self.deepseek, access=access)

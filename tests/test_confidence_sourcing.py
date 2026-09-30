@@ -100,7 +100,7 @@ def test_consistency_finding_not_flagged() -> None:
 
 def _ctx() -> _Ctx:
     return _Ctx(
-        client=AsyncMock(), settings=Settings(miromind_api_key="x"),
+        llm=AsyncMock(), settings=Settings(miromind_api_key="x"),
         budget=AsyncMock(), runners={}, job_id="j", publisher=AsyncMock(),
     )
 

@@ -4,20 +4,26 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from argus.agents.base import JsonRepairFailed
-from argus.agents.reporter import run_reporter
+from argus.agents.reporter import REPORT, build_reporter_input
 from argus.engineering import BudgetExceeded
+from argus.llm import Failed, FailureReason
 from argus.log import log
 from argus.models.domain import Stage
 from argus.orchestrator.assemblers import _build_trace, _step_payload
-from argus.orchestrator.context import _charge_result, _Ctx, _State
+from argus.orchestrator.context import _Ctx, _State
+
+_FAILED: dict[FailureReason, str] = {
+    "timeout": "Reporter timed out",
+    "unparseable": "Reporter could not parse a result",
+    "request_error": "Reporter request failed",
+}
 
 
 def _stage(ctx: _Ctx, summary: str) -> Stage:
     return Stage(
         key="reporter",
         name="Reporter",
-        engine="deepseek" if ctx.cheap_client else "miromind",
+        engine=ctx.llm.engine(REPORT),
         summary=summary,
     )
 
@@ -29,27 +35,23 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             status="started",
             key="reporter",
             name="Reporter",
-            engine="deepseek" if ctx.cheap_client else "miromind",
+            engine=ctx.llm.engine(REPORT),
         )
         if not findings:
             stage = await ctx.publisher.finish(_stage(ctx, "No report generated"))
             return {"stages": [stage]}
-        try:
-            result = await run_reporter(
-                state.get("claims", []),
-                findings,
-                cheap_client=ctx.cheap_client,
-                miromind_client=ctx.client,
+        answer = await ctx.llm.ask(
+            REPORT, build_reporter_input(state.get("claims", []), findings)
+        )
+        if isinstance(answer, Failed):
+            log.warning(
+                "orchestrator.reporter_failed", reason=answer.reason, error=answer.detail[:300]
             )
-        except JsonRepairFailed as exc:
-            log.warning("orchestrator.reporter_failed", error=str(exc)[:300])
-            stage = await ctx.publisher.finish(
-                _stage(ctx, "Reporter could not parse a result")
-            )
+            stage = await ctx.publisher.finish(_stage(ctx, _FAILED[answer.reason]))
             return {"stages": [stage]}
 
         try:
-            _charge_result(ctx, result)
+            ctx.budget.charge(answer.usage.cost_usd)
         except BudgetExceeded as exc:
             log.warning("orchestrator.budget_exceeded_at_reporter", error=str(exc))
             return {"aborted": True, "abort_reason": str(exc)}
@@ -58,12 +60,13 @@ def _reporter_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
             job_id=ctx.job_id,
             claim_id="(reporter)",
             agent="Reporter",
-            stream=result.final,
+            usage=answer.usage,
+            steps=answer.steps,
         )
         await ctx.publisher.publish("step", _step_payload(trace))
         stage = await ctx.publisher.finish(_stage(ctx, "Executive summary generated"))
         return {
-            "audit_report_md": result.parsed.executive_summary_md,
+            "audit_report_md": answer.output.executive_summary_md,
             "traces": {trace.id: trace},
             "stages": [stage],
         }

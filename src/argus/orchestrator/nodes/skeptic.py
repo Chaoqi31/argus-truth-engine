@@ -5,11 +5,11 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from argus.agents.base import AgentResult
-from argus.agents.skeptic import run_skeptic
+from argus.agents.skeptic import CHALLENGE, SkepticOutput, build_skeptic_input
 from argus.agents.unified_verifier import VERIFIER_VERSION
 from argus.cache.key import claim_cache_key
 from argus.engineering import BudgetExceeded, make_idempotency_key
+from argus.llm import Answer, Failed
 from argus.log import log
 from argus.models.domain import (
     Claim,
@@ -23,7 +23,7 @@ from argus.models.domain import (
     Stage,
 )
 from argus.orchestrator.assemblers import _build_trace, _finding_payload, _step_payload
-from argus.orchestrator.context import _charge_result, _Ctx, _State
+from argus.orchestrator.context import _Ctx, _State
 
 _HIGH_RISK_VERDICTS = {
     FindingVerdict.FABRICATED,
@@ -51,7 +51,7 @@ def _coverage_brief(finding: Finding) -> str:
     )
 
 
-def _to_domain_review(parsed: Any) -> SkepticReview:
+def _to_domain_review(parsed: SkepticOutput) -> SkepticReview:
     status = (
         parsed.status
         if parsed.status in {"no_counterevidence", "counterevidence_found", "inconclusive"}
@@ -134,44 +134,39 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
         evidences = state.get("evidences", [])
         runner = ctx.runners["skeptic"]
 
-        async def challenge(finding: Finding, claim: Claim) -> AgentResult[Any] | None:
+        async def challenge(finding: Finding, claim: Claim) -> Answer[SkepticOutput]:
             async with runner.acquire():
-                try:
-                    return await run_skeptic(
-                        ctx.client,
+                return await ctx.llm.ask(
+                    CHALLENGE,
+                    build_skeptic_input(
                         claim=claim.text,
                         verdict=finding.verdict.value,
                         summary=finding.summary,
                         why_wrong=finding.why_wrong,
                         evidence_brief=_evidence_brief(finding, evidences),
                         coverage_brief=_coverage_brief(finding),
-                        idempotency_key=make_idempotency_key(
-                            ctx.job_id, "Skeptic", finding.id
-                        ),
-                    )
-                except BudgetExceeded:
-                    raise
-                except Exception as exc:
-                    log.warning(
-                        "orchestrator.skeptic_failed",
-                        finding_id=finding.id,
-                        error_type=type(exc).__name__,
-                        error=str(exc)[:300],
-                    )
-                    return None
+                    ),
+                    idempotency_key=make_idempotency_key(ctx.job_id, "Skeptic", finding.id),
+                )
 
         candidates = [
             (f, claims_by_id[f.claim_id]) for f in findings if f.claim_id in claims_by_id
         ]
-        results = await asyncio.gather(*(challenge(f, c) for f, c in candidates))
+        answers = await asyncio.gather(*(challenge(f, c) for f, c in candidates))
 
         revised: dict[str, Finding] = {}
         traces: dict[str, ReasoningTrace] = {}
-        for (finding, claim), result in zip(candidates, results, strict=True):
-            if result is None:
+        for (finding, claim), answer in zip(candidates, answers, strict=True):
+            if isinstance(answer, Failed):
+                log.warning(
+                    "orchestrator.skeptic_failed",
+                    finding_id=finding.id,
+                    reason=answer.reason,
+                    error=answer.detail[:300],
+                )
                 continue
             try:
-                _charge_result(ctx, result)
+                ctx.budget.charge(answer.usage.cost_usd)
             except BudgetExceeded as exc:
                 log.warning("orchestrator.budget_exceeded_at_skeptic", error=str(exc))
                 return {
@@ -185,10 +180,11 @@ def _skeptic_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
                 job_id=ctx.job_id,
                 claim_id=finding.claim_id,
                 agent="Skeptic",
-                stream=result.final,
+                usage=answer.usage,
+                steps=answer.steps,
             )
             traces[trace.id] = trace
-            challenged = _apply_skeptic_effect(finding, _to_domain_review(result.parsed))
+            challenged = _apply_skeptic_effect(finding, _to_domain_review(answer.output))
             revised[challenged.id] = challenged
             await ctx.publisher.publish("step", _step_payload(trace))
             await ctx.publisher.publish("finding", _finding_payload(challenged))

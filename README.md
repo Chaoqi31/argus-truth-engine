@@ -169,10 +169,9 @@ the open web.
 - **`BoundedRunner`** — semaphore-bound concurrency per agent
 - **`BudgetTracker`** — hard USD cap, aborts mid-flight before runaway spend
 - **confidence-gated skeptic** — second-opinion calls fire only on under-confident high-risk verdicts: caps cost, guards against false accusations
-- **`retry_on_transient`** — exponential backoff for upstream `429` / `5xx`
+- **`argus.llm`** — one gateway for MiroMind and DeepSeek: retries `429` / `5xx` with backoff, resumes a dropped MiroMind stream from its last event, cancels a response that times out so it stops billing, and asks once more when the output is not valid JSON
 - **`make_idempotency_key`** — deterministic job-keyed idempotency
 - **`json-repair`** — heuristic LLM JSON recovery + array-unwrap for MiroMind quirks
-- **`SSEDecoder`** — stateful parser that reassembles SSE events split across network chunks, so trace text and evidence URLs are never dropped
 - **soft ≥2-source rule** — verdicts on too few independent sources are confidence-capped and flagged, not silently dropped
 
 ### Storage & live bus

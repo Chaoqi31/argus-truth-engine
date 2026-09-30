@@ -60,7 +60,7 @@ def _text_claim(cid: str, text: str) -> Claim:
 
 def _ctx(publisher: _RecordingPublisher, *, max_claims: int) -> _Ctx:
     return _Ctx(
-        client=AsyncMock(),
+        llm=AsyncMock(),
         settings=Settings(miromind_api_key="x", max_claims_to_verify=max_claims),
         budget=AsyncMock(),
         runners={},

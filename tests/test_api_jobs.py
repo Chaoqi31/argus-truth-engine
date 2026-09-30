@@ -113,7 +113,7 @@ async def test_post_text_passes_miromind_model_to_pipeline(app_under_test: FastA
     captured: dict[str, str] = {}
 
     async def _fake_audit(**kw: Any) -> Job:
-        captured["model"] = kw["settings"].miromind_model
+        captured["model"] = kw["llm"].access.model
         return Job(id=kw["job_id"], status="done", input_text=kw["text"], input_mode="text")
 
     body = {

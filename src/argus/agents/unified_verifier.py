@@ -3,8 +3,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from argus.agents.base import AgentResult, AgentRunner, StepCallback
-from argus.miromind.client import MiromindClient
+from argus.llm import Route, Task
 from argus.models.domain import FindingVerdict
 
 # Bump when prompt OR output schema changes — invalidates all prior cache.
@@ -205,26 +204,10 @@ def build_verifier_input(
     return "".join(parts)
 
 
-async def verify_claim(
-    client: MiromindClient,
-    claim: str,
-    *,
-    surrounding: str = "",
-    domain_hint: str = "",
-    idempotency_key: str | None = None,
-    on_step: StepCallback | None = None,
-    response_timeout_s: float | None = None,
-) -> AgentResult[UnifiedVerifierOutput]:
-    runner = AgentRunner(
-        client=client,
-        model_cls=UnifiedVerifierOutput,
-        agent_name="unified_verifier",
-        max_output_tokens=6000,
-        on_step=on_step,
-        response_timeout_s=response_timeout_s,
-    )
-    return await runner.run(
-        instructions=SYSTEM_PROMPT,
-        input_text=build_verifier_input(claim, surrounding, domain_hint),
-        idempotency_key=idempotency_key,
-    )
+VERIFY = Task(
+    agent="unified_verifier",
+    route=Route.DEEP_RESEARCH,
+    instructions=SYSTEM_PROMPT,
+    output=UnifiedVerifierOutput,
+    max_output_tokens=6000,
+)

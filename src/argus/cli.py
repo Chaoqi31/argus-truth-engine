@@ -10,6 +10,8 @@ from rich.console import Console
 from argus.config import settings
 from argus.db.repository import JobRepository
 from argus.db.session import create_engine_from_url, sessionmaker_from_engine
+from argus.llm import Transports
+from argus.llm.miromind import MiroMindAccess
 from argus.log import configure_logging
 from argus.orchestrator import audit_pdf
 
@@ -64,13 +66,15 @@ def audit(
         repo = JobRepository(sessionmaker_from_engine(engine))
 
     async def _go() -> None:
-        job = await audit_pdf(
-            pdf_path=pdf,
-            output_path=output,
-            settings=s,
-            budget_usd=budget_usd,
-            repo=repo,
-        )
+        async with Transports(s) as transports:
+            job = await audit_pdf(
+                pdf_path=pdf,
+                output_path=output,
+                settings=s,
+                llm=transports.for_job(MiroMindAccess.from_settings(s)),
+                budget_usd=budget_usd,
+                repo=repo,
+            )
         console.print(
             f"[green]✓[/green] {len(job.findings)} findings written to "
             f"[bold]{output}[/bold] "

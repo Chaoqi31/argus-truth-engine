@@ -4,7 +4,12 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from argus.agents.checkworthiness import run_checkworthiness
+from argus.agents.checkworthiness import (
+    CHECK_WORTHINESS,
+    build_checkworthiness_input,
+    split_checkworthy,
+)
+from argus.llm import Failed
 from argus.log import log
 from argus.models.domain import Stage, StageFilteredClaim
 from argus.orchestrator.context import _Ctx, _State
@@ -36,19 +41,23 @@ def _checkworthiness_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, A
             name="Check-worthiness",
             engine="deepseek",
         )
-        if not claims or not ctx.cheap_client:
+        if not claims or not ctx.llm.can_run(CHECK_WORTHINESS):
             stage = await ctx.publisher.finish(
                 _stage(len(claims), f"{len(claims)} check-worthy · none filtered")
             )
             return {"stages": [stage]}
-        try:
-            checkworthy, filtered = await run_checkworthiness(ctx.cheap_client, claims)
-        except Exception as exc:
-            log.warning("orchestrator.checkworthiness_failed", error=str(exc)[:300])
+        answer = await ctx.llm.ask(CHECK_WORTHINESS, build_checkworthiness_input(claims))
+        if isinstance(answer, Failed):
+            log.warning(
+                "orchestrator.checkworthiness_failed",
+                reason=answer.reason,
+                error=answer.detail[:300],
+            )
             stage = await ctx.publisher.finish(
                 _stage(len(claims), f"{len(claims)} check-worthy · filter fallback")
             )
             return {"stages": [stage]}
+        checkworthy, filtered = split_checkworthy(answer.output, claims)
         filtered_data = [
             {"claim_id": c.id, "text": c.text, "reason": reason}
             for c, reason in filtered

@@ -3,27 +3,15 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
-from argus.agents.unified_verifier import (
-    SYSTEM_PROMPT,
-    UnifiedVerifierOutput,
-    build_verifier_input,
-)
+from argus.agents.unified_verifier import VERIFY, UnifiedVerifierOutput, build_verifier_input
 from argus.llm import Answered, Failed, Llm, Route, Task, Transports
-from argus.llm.miromind import MiroMindAccess, price
+from argus.llm.miromind import MiroMindAccess, MiroMindError, price
 from argus.llm.output import OutputError, parse_output
 from argus.models.domain import FindingVerdict, Step, StepType
 from tests.fake_llm import S5, S6, FakeLLM
 from tests.golden import audit_settings, fake_llm_server
-
-VERIFY = Task(
-    agent="unified_verifier",
-    route=Route.DEEP_RESEARCH,
-    instructions=SYSTEM_PROMPT,
-    output=UnifiedVerifierOutput,
-    max_output_tokens=6000,
-)
 
 
 class _Pair(BaseModel):
@@ -43,14 +31,16 @@ def test_parse_output_repairs_common_llm_damage() -> None:
         parse_output('{"type":"citation"}', _Pair)
 
 
-def test_price_is_list_price_with_promo_plus_search_fees() -> None:
-    cost = price(
-        model="mirothinker-1-7-deepresearch",
-        input_tokens=1_000_000,
-        output_tokens=100_000,
-        web_searches=2,
-    )
-    assert cost == pytest.approx((4.00 + 2.50) * 0.75 + 0.10)
+@pytest.mark.parametrize(
+    ("model", "expected"),
+    [
+        ("mirothinker-1-7-deepresearch", (4.00 + 2.50) * 0.75 + 0.10),
+        ("mirothinker-1-7-deepresearch-mini", (1.25 + 1.00) * 0.75 + 0.10),
+    ],
+)
+def test_price_is_list_price_with_promo_plus_search_fees(model: str, expected: float) -> None:
+    cost = price(model=model, input_tokens=1_000_000, output_tokens=100_000, web_searches=2)
+    assert cost == pytest.approx(expected)
 
 
 async def _ask(
@@ -59,6 +49,8 @@ async def _ask(
     claim: str,
     *,
     cheap_llm: bool = False,
+    api_key: str = "fake",
+    idempotency_key: str | None = None,
     **overrides: object,
 ) -> tuple[Answered[UnifiedVerifierOutput] | Failed, list[Step]]:
     streamed: list[Step] = []
@@ -68,9 +60,16 @@ async def _ask(
 
     with fake_llm_server(fake) as (base_url, _):
         settings = audit_settings(base_url, cheap_llm=cheap_llm, **overrides)
-        async with Transports.open(settings) as transports:
-            llm = transports.for_job(MiroMindAccess.from_settings(settings))
-            answer = await llm.ask(task, build_verifier_input(claim, "", ""), on_step=on_step)
+        async with Transports(settings) as transports:
+            llm = transports.for_job(
+                MiroMindAccess(api_key=SecretStr(api_key), model=settings.miromind_model)
+            )
+            answer = await llm.ask(
+                task,
+                build_verifier_input(claim, "", ""),
+                on_step=on_step,
+                idempotency_key=idempotency_key,
+            )
     return answer, streamed
 
 
@@ -93,14 +92,15 @@ async def test_ask_streams_steps_and_prices_the_response() -> None:
     )
 
 
-async def test_ask_repairs_broken_output_once() -> None:
+async def test_ask_repairs_broken_output_once_under_a_fresh_idempotency_key() -> None:
     fake = FakeLLM(malformed_once=frozenset({S5}))
-    answer, _ = await _ask(fake, VERIFY, S5)
+    answer, _ = await _ask(fake, VERIFY, S5, idempotency_key="k1")
 
     assert isinstance(answer, Answered)
     assert answer.output.verdict == FindingVerdict.INACCURATE
     assert len(answer.usage.response_ids) == 2
     assert len(answer.steps) == 4
+    assert [r["idempotency_key"] for r in fake.requests] == ["k1", "k1:repair"]
 
 
 async def test_ask_reports_output_that_never_parses() -> None:
@@ -123,7 +123,7 @@ async def test_ask_times_out_and_cancels_the_response() -> None:
 
 
 async def test_ask_resumes_a_dropped_stream_where_it_broke() -> None:
-    fake = FakeLLM(dropped_once=frozenset({S5}))
+    fake = FakeLLM(dropped={S5: 1})
     answer, _ = await _ask(fake, VERIFY, S5)
 
     assert isinstance(answer, Answered)
@@ -131,6 +131,25 @@ async def test_ask_resumes_a_dropped_stream_where_it_broke() -> None:
     afters = [after for _, after in fake.stream_requests]
     assert len(afters) == 2
     assert afters[0] == 0 < afters[1]
+
+
+async def test_ask_gives_up_on_a_stream_that_keeps_dropping() -> None:
+    fake = FakeLLM(dropped={S5: 10})
+    answer, _ = await _ask(fake, VERIFY, S5)
+
+    assert isinstance(answer, Failed)
+    assert answer.reason == "request_error"
+    assert len(fake.stream_requests) == 4
+
+
+async def test_ask_reports_a_response_that_failed_upstream() -> None:
+    fake = FakeLLM(erroring=frozenset({S5}))
+    answer, _ = await _ask(fake, VERIFY, S5)
+
+    assert isinstance(answer, Failed)
+    assert answer.reason == "request_error"
+    assert "scripted failure" in answer.detail
+    assert len(fake.stream_requests) == 1
 
 
 async def test_ask_retries_a_failing_provider_then_reports_it() -> None:
@@ -143,11 +162,39 @@ async def test_ask_retries_a_failing_provider_then_reports_it() -> None:
     assert len(fake.requests) == 3
 
 
+async def test_ask_does_not_retry_a_rejected_key() -> None:
+    fake = FakeLLM(rejected_keys=frozenset({"sk_revoked"}))
+    answer, _ = await _ask(fake, VERIFY, S5, api_key="sk_revoked")
+
+    assert isinstance(answer, Failed)
+    assert answer.reason == "request_error"
+    assert "401" in answer.detail
+    assert len(fake.requests) == 1
+
+
+async def test_check_key_probes_with_the_given_key_and_cancels_the_probe() -> None:
+    fake = FakeLLM(rejected_keys=frozenset({"sk_revoked"}))
+    with fake_llm_server(fake) as (base_url, _):
+        settings = audit_settings(base_url, cheap_llm=False)
+        async with Transports(settings) as transports:
+            model = settings.miromind_model
+            response_id = await transports.miromind.check_key(
+                MiroMindAccess(api_key=SecretStr("sk_live"), model=model)
+            )
+            with pytest.raises(MiroMindError, match="401"):
+                await transports.miromind.check_key(
+                    MiroMindAccess(api_key=SecretStr("sk_revoked"), model=model)
+                )
+
+    assert [r["api_key"] for r in fake.requests] == ["sk_live", "sk_revoked"]
+    assert fake.cancelled == [response_id]
+
+
 async def test_text_tasks_run_on_deepseek_when_it_is_configured() -> None:
     text_task = Task(
         agent="unified_verifier",
         route=Route.TEXT,
-        instructions=SYSTEM_PROMPT,
+        instructions=VERIFY.instructions,
         output=UnifiedVerifierOutput,
         max_output_tokens=6000,
     )
@@ -168,5 +215,6 @@ def test_deepseek_only_tasks_cannot_run_without_deepseek() -> None:
         output=_Pair,
         max_output_tokens=10,
     )
-    assert llm.engine(only) is None
+    assert not llm.can_run(only)
+    assert llm.can_run(VERIFY)
     assert llm.engine(VERIFY) == "miromind"

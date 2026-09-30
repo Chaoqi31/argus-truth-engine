@@ -1,15 +1,14 @@
 """User account endpoints."""
 from __future__ import annotations
 
-from contextlib import suppress
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 from argus.api.auth import require_user
-from argus.config import Settings
-from argus.miromind.client import MiromindClient
+from argus.api.deps import AppState
+from argus.llm.miromind import MiroMindAccess, MiroMindError
 
 router = APIRouter(prefix="/me", tags=["account"])
 
@@ -133,7 +132,7 @@ async def test_api_key(request: Request, body: ApiKeyTest) -> ApiKeyTestOut:
         raw = cipher.decrypt(encrypted)
     if not raw:
         raise HTTPException(status_code=_HTTP_BAD_REQUEST, detail="api key required")
-    return await _test_miromind_key(request.app.state.argus.settings, raw)
+    return await _test_miromind_key(request.app.state.argus, raw)
 
 
 @router.delete("/api-keys/{key_id}", status_code=204)
@@ -156,30 +155,10 @@ async def delete_account(request: Request) -> None:
     await repo.delete_user_data(user_id=user.id)
 
 
-async def _test_miromind_key(settings: Settings, api_key: str) -> ApiKeyTestOut:
-    client = MiromindClient(
-        settings.model_copy(
-            update={
-                "miromind_api_key": api_key,
-                "miromind_retry_attempts": 1,
-                "miromind_request_timeout_s": min(settings.miromind_request_timeout_s, 20.0),
-            }
-        )
-    )
+async def _test_miromind_key(state: AppState, api_key: str) -> ApiKeyTestOut:
+    access = MiroMindAccess(api_key=SecretStr(api_key), model=state.settings.miromind_model)
     try:
-        response_id = await client.submit_background(
-            input="Return the word OK.",
-            instructions="This is a minimal API-key connectivity check.",
-            max_output_tokens=4,
-            metadata={"argus_probe": "api_key_test"},
-            idempotency_key=None,
-        )
-        with suppress(Exception):
-            await client.cancel(response_id)
-        return ApiKeyTestOut(
-            ok=True,
-            message="MiroMind accepted this key.",
-            response_id=response_id,
-        )
-    except Exception as exc:
+        response_id = await state.transports.miromind.check_key(access)
+    except MiroMindError as exc:
         return ApiKeyTestOut(ok=False, message=str(exc)[:240], response_id=None)
+    return ApiKeyTestOut(ok=True, message="MiroMind accepted this key.", response_id=response_id)

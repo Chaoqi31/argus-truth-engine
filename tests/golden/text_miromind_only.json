@@ -931,7 +931,7 @@
           "claim_id": "c6",
           "finding_id": "finding:UnifiedVerifier:c6",
           "severity": "minor",
-          "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: agent=unified_verifier: JSON invalid after repair: json_repair could not recover: line 1 column 1 (char 0)\n--- first raw)",
+          "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: json_repair could not recover: line 1 column 1 (char 0))",
           "verdict": "uncertain"
         }
       },
@@ -1955,7 +1955,7 @@
         "related_finding_ids": [],
         "severity": "minor",
         "skeptic_review": null,
-        "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: agent=unified_verifier: JSON invalid after repair: json_repair could not recover: line 1 column 1 (char 0)\n--- first raw)",
+        "summary": "Verification could not be completed — the verifier's response could not be parsed into a valid result. (parser error: json_repair could not recover: line 1 column 1 (char 0))",
         "verdict": "uncertain",
         "why_wrong": null
       },

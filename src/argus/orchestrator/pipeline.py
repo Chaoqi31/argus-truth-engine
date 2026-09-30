@@ -19,9 +19,8 @@ if TYPE_CHECKING:
 
 from argus.config import Settings
 from argus.engineering import BoundedRunner, BudgetTracker
-from argus.llm.cheap_client import CheapLLMClient
+from argus.llm import Llm
 from argus.log import log
-from argus.miromind.client import MiromindClient
 from argus.models.domain import Job, Stage
 from argus.orchestrator.context import _Ctx, _Publisher, _State
 from argus.orchestrator.nodes.atomizer import _atomizer_node
@@ -54,7 +53,7 @@ def _build_ctx(
     *,
     job: Job,
     settings: Settings,
-    client: MiromindClient,
+    llm: Llm,
     budget_usd: float,
     trace_bus: TraceBus | None,
     repo: JobRepository | None,
@@ -70,15 +69,6 @@ def _build_ctx(
     publisher = _Publisher(job_id=job.id, bus=trace_bus)
     budget = BudgetTracker(max_usd=budget_usd)
 
-    cheap_client: CheapLLMClient | None = None
-    if settings.cheap_llm_api_key:
-        cheap_client = CheapLLMClient(
-            api_key=settings.cheap_llm_api_key,
-            base_url=settings.cheap_llm_base_url,
-            model=settings.cheap_llm_model,
-            timeout_s=settings.cheap_llm_timeout_s,
-        )
-
     cache = None
     if settings.cache_enabled and repo is not None:
         from argus.cache.finding_cache import FindingCache
@@ -89,13 +79,12 @@ def _build_ctx(
         )
 
     return _Ctx(
-        client=client,
+        llm=llm,
         settings=settings,
         budget=budget,
         runners=runners,
         job_id=job.id,
         publisher=publisher,
-        cheap_client=cheap_client,
         content_domain=job.content_domain.value,
         cache=cache,
     )
@@ -159,7 +148,7 @@ async def run_audit(
     initial: _State,
     output_path: Path,
     settings: Settings,
-    client: MiromindClient,
+    llm: Llm,
     budget_usd: float,
     repo: JobRepository | None,
     trace_bus: TraceBus | None,
@@ -173,7 +162,7 @@ async def run_audit(
     ctx = _build_ctx(
         job=job,
         settings=settings,
-        client=client,
+        llm=llm,
         budget_usd=budget_usd,
         trace_bus=trace_bus,
         repo=repo,
@@ -199,7 +188,7 @@ async def resume_audit(
     selected_claim_ids: list[str],
     output_path: Path,
     settings: Settings,
-    client: MiromindClient,
+    llm: Llm,
     budget_usd: float,
     repo: JobRepository,
     trace_bus: TraceBus | None,
@@ -208,7 +197,7 @@ async def resume_audit(
     ctx = _build_ctx(
         job=job,
         settings=settings,
-        client=client,
+        llm=llm,
         budget_usd=budget_usd,
         trace_bus=trace_bus,
         repo=repo,
@@ -267,9 +256,6 @@ async def _finalize(
     raised_exc: Exception | None,
 ) -> Job:
     """Finalize job state, persist, publish terminal event."""
-    if ctx.cheap_client:
-        await ctx.cheap_client.close()
-
     job.claims = list(final_state.get("claims", []))
     job.findings = list(final_state.get("findings", {}).values())
     job.traces = list(final_state.get("traces", {}).values())
@@ -342,9 +328,6 @@ async def _persist_interrupted(
     verification needs: the shortlisted claims, the extraction traces and the
     extraction stages. completed_at stays None.
     """
-    if ctx.cheap_client:
-        await ctx.cheap_client.close()
-
     job.claims = list(state.get("claims", []))
     job.claims_total = len(job.claims)
     job.traces = list(state.get("traces", {}).values())

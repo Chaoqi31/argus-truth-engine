@@ -5,9 +5,11 @@ and vague statements before expensive MiroMind verification.
 """
 from __future__ import annotations
 
+import json
+
 from pydantic import BaseModel, Field
 
-from argus.llm.cheap_client import CheapLLMClient
+from argus.llm import Route, Task
 from argus.models.domain import Claim
 
 SYSTEM_PROMPT = """\
@@ -51,33 +53,35 @@ class CheckworthinessResult(BaseModel):
     results: list[Item] = Field(default_factory=list)
 
 
-async def run_checkworthiness(
-    client: CheapLLMClient,
-    claims: list[Claim],
-) -> tuple[list[Claim], list[tuple[Claim, str]]]:
-    """Returns (checkworthy_claims, filtered_claims_with_reasons)."""
-    if not claims:
-        return [], []
+CHECK_WORTHINESS = Task(
+    agent="checkworthiness",
+    route=Route.DEEPSEEK_ONLY,
+    instructions=SYSTEM_PROMPT,
+    output=CheckworthinessResult,
+    max_output_tokens=4000,
+)
 
-    import json
+
+def build_checkworthiness_input(claims: list[Claim]) -> str:
     payload = [{"id": c.id, "text": c.text, "type": c.type.value} for c in claims]
-    user_input = (
+    return (
         "Classify each claim as checkworthy or not.\n\n"
         f"CLAIMS:\n{json.dumps(payload, indent=2, ensure_ascii=False)}"
     )
 
-    result = await client.complete(SYSTEM_PROMPT, user_input, CheckworthinessResult)
 
+def split_checkworthy(
+    result: CheckworthinessResult, claims: list[Claim]
+) -> tuple[list[Claim], list[tuple[Claim, str]]]:
+    """Returns (checkworthy_claims, filtered_claims_with_reasons). A claim the
+    classifier did not mention stays checkworthy."""
     verdict_map = {r.claim_id: r for r in result.results}
-
     checkworthy: list[Claim] = []
     filtered: list[tuple[Claim, str]] = []
-
     for claim in claims:
         item = verdict_map.get(claim.id)
         if item and not item.checkworthy:
             filtered.append((claim, item.reason))
         else:
             checkworthy.append(claim)
-
     return checkworthy, filtered

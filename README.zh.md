@@ -152,10 +152,9 @@ Trace 使用**渐进披露**：每个 claim 先以一行展示（verdict + 步�
 - **`BoundedRunner`** — 每个 agent 的信号量并发上限
 - **`BudgetTracker`** — 硬性 USD 上限，超支前中途中止
 - **置信度门控的 Skeptic** — 二次意见只在"没把握的高风险判决"上触发：封顶成本，防止错误指控
-- **`retry_on_transient`** — 针对上游 `429` / `5xx` 的指数退避重试
+- **`argus.llm`** — MiroMind 与 DeepSeek 共用的调用网关：对 `429` / `5xx` 指数退避重试，MiroMind 流断开后从最后一个事件续传，超时的响应会被取消以停止计费，输出不是合法 JSON 时再要一次
 - **`make_idempotency_key`** — 确定性的 job-keyed 幂等键
 - **`json-repair`** — LLM JSON 输出的启发式修复 + 针对 MiroMind 怪异返回的数组解包
-- **`SSEDecoder`** — 有状态流解析器，重新拼接被网络分块切断的 SSE 事件，保证 trace 文本与证据 URL 绝不丢失
 - **软性 ≥2 来源规则** — 仅靠过少独立来源的判定会被封顶置信度并标记，而非悄悄丢弃
 
 ### 存储与实时事件流

@@ -12,6 +12,8 @@ from typing import Any
 
 import pytest
 
+from argus.llm import Transports
+from argus.llm.miromind import MiroMindAccess
 from argus.models.domain import Job
 from argus.orchestrator import audit_text
 from argus.trace_bus.in_process import InProcessBus
@@ -30,15 +32,18 @@ async def _history(bus: InProcessBus, job_id: str) -> list[dict[str, Any]]:
 async def _run(tmp_path: Path, *, cheap_llm: bool) -> tuple[Job, list[dict[str, Any]], FakeLLM]:
     with fake_llm_server() as (base_url, fake):
         bus = InProcessBus()
-        job = await audit_text(
-            text=AUDIT_TEXT,
-            output_path=tmp_path / "findings.json",
-            settings=audit_settings(base_url, cheap_llm=cheap_llm),
-            budget_usd=50.0,
-            trace_bus=bus,
-            auto_review=True,
-            content_domain="finance",
-        )
+        settings = audit_settings(base_url, cheap_llm=cheap_llm)
+        async with Transports(settings) as transports:
+            job = await audit_text(
+                text=AUDIT_TEXT,
+                output_path=tmp_path / "findings.json",
+                settings=settings,
+                llm=transports.for_job(MiroMindAccess.from_settings(settings)),
+                budget_usd=50.0,
+                trace_bus=bus,
+                auto_review=True,
+                content_domain="finance",
+            )
         return job, await _history(bus, job.id), fake
 
 

@@ -5,14 +5,20 @@ import asyncio
 import contextlib
 import time
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
-from argus.agents.base import AgentResult, JsonRepairFailed, StreamCollection
 from argus.agents.domain_hints import get_domain_hint
-from argus.agents.unified_verifier import VERIFIER_VERSION, verify_claim
+from argus.agents.unified_verifier import (
+    VERIFIER_VERSION,
+    VERIFY,
+    UnifiedVerifierOutput,
+    build_verifier_input,
+)
 from argus.cache.key import claim_cache_key
 from argus.engineering import BudgetExceeded, make_idempotency_key
+from argus.llm import Answer, Failed, FailureReason, Usage
 from argus.log import log
 from argus.models.domain import (
     Claim,
@@ -22,6 +28,7 @@ from argus.models.domain import (
     FindingVerdict,
     ReasoningTrace,
     Stage,
+    Step,
 )
 from argus.orchestrator.assemblers import (
     _build_trace,
@@ -30,7 +37,33 @@ from argus.orchestrator.assemblers import (
     _make_unified_finding,
     _step_payload,
 )
-from argus.orchestrator.context import _charge_result, _Ctx, _State
+from argus.orchestrator.context import _Ctx, _State
+
+# Summary and flag of the UNCERTAIN finding that stands in for a claim the
+# verifier could not finish, so the claim still surfaces in results and report.
+_FAILED: dict[FailureReason, tuple[str, str]] = {
+    "timeout": (
+        "Verification timed out before MiroMind returned a complete result.",
+        "verifier timed out",
+    ),
+    "unparseable": (
+        "Verification could not be completed — the verifier's response could "
+        "not be parsed into a valid result.",
+        "unparseable verifier response",
+    ),
+    "request_error": (
+        "Verification could not be completed — the request to MiroMind failed.",
+        "verifier request failed",
+    ),
+}
+
+
+@dataclass(frozen=True)
+class _Cached:
+    """A verdict reused from the finding cache, rebound to this job."""
+
+    finding: Finding
+    evidences: list[Evidence]
 
 
 def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, Any]]]:
@@ -53,12 +86,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
             claim: Claim,
             index: int,
             total: int,
-        ) -> tuple[
-            Claim,
-            AgentResult[Any] | None,
-            Exception | None,
-            tuple[Finding, list[Evidence]] | None,
-        ]:
+        ) -> tuple[Claim, Answer[UnifiedVerifierOutput] | _Cached]:
             async with runner.acquire():
                 await ctx.publisher.claim(
                     status="started",
@@ -95,13 +123,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                             "evidence_ids": [e.id for e in rebuilt_evs],
                             "from_cache": True,
                         })
-                        return claim, None, None, (rebound, rebuilt_evs)
+                        return claim, _Cached(rebound, rebuilt_evs)
 
                 idem_key = make_idempotency_key(
                     ctx.job_id, "UnifiedVerifier", claim.id
                 )
 
-                async def publish_live_step(step: Any) -> None:
+                async def publish_live_step(step: Step) -> None:
                     await ctx.publisher.publish(
                         "step",
                         _live_step_payload(
@@ -134,34 +162,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
 
                 heartbeat_task = asyncio.create_task(publish_heartbeats())
                 try:
-                    result = await verify_claim(
-                        ctx.client, claim.text,
-                        surrounding=claim.context,
-                        domain_hint=domain_hint,
-                        idempotency_key=idem_key,
+                    answer = await ctx.llm.ask(
+                        VERIFY,
+                        build_verifier_input(claim.text, claim.context, domain_hint),
                         on_step=publish_live_step,
-                        response_timeout_s=ctx.settings.miromind_response_timeout_s,
+                        idempotency_key=idem_key,
                     )
-                    return claim, result, None, None
-                except JsonRepairFailed as exc:
-                    log.warning(
-                        "orchestrator.specialist_failed",
-                        agent="UnifiedVerifier",
-                        claim_id=claim.id,
-                        error=str(exc)[:300],
-                    )
-                    return claim, None, exc, None
-                except (asyncio.CancelledError, BudgetExceeded):
-                    raise
-                except Exception as exc:
-                    log.warning(
-                        "orchestrator.specialist_failed",
-                        agent="UnifiedVerifier",
-                        claim_id=claim.id,
-                        error_type=type(exc).__name__,
-                        error=str(exc)[:300],
-                    )
-                    return claim, None, exc, None
+                    return claim, answer
                 finally:
                     heartbeat_task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
@@ -175,13 +182,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
         new_traces: dict[str, ReasoningTrace] = {}
         new_evidences: list[Evidence] = []
 
-        for index, (claim, agent_result, failure, cached_hit) in enumerate(results, start=1):
-            if cached_hit is not None:
+        for index, (claim, answer) in enumerate(results, start=1):
+            if isinstance(answer, _Cached):
                 # Cache hit path — no MiroMind cost, no fresh trace. The rebuilt
                 # evidence is emitted into this job so evidence_ids resolve.
-                cached_finding, cached_evs = cached_hit
+                cached_finding = answer.finding
                 new_findings.append(cached_finding)
-                new_evidences.extend(cached_evs)
+                new_evidences.extend(answer.evidences)
                 await ctx.publisher.publish("finding", _finding_payload(cached_finding))
                 await ctx.publisher.claim(
                     status="finished",
@@ -194,31 +201,24 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 )
                 continue
 
-            if failure is not None or agent_result is None:
-                # JSON could not be parsed (even after one repair). Don't drop
-                # the claim silently — emit an UNCERTAIN finding backed by a
-                # minimal trace so it still surfaces in results and the report.
+            if isinstance(answer, Failed):
+                log.warning(
+                    "orchestrator.specialist_failed",
+                    agent="UnifiedVerifier",
+                    claim_id=claim.id,
+                    reason=answer.reason,
+                    error=answer.detail[:300],
+                )
                 trace = _build_trace(
                     job_id=ctx.job_id, claim_id=claim.id,
-                    agent="UnifiedVerifier", stream=StreamCollection(response_id="n/a"),
+                    agent="UnifiedVerifier", usage=Usage(), steps=(),
                 )
-                summary = (
-                    "Verification could not be completed — the verifier's "
-                    "response could not be parsed into a valid result."
-                )
-                flags = ["unparseable verifier response"]
-                if _is_timeout_failure(failure):
-                    summary = (
-                        "Verification timed out before MiroMind returned a "
-                        "complete result."
-                    )
-                    flags = ["verifier timed out"]
-                # Surface WHY it failed (truncated) so the user isn't left
-                # guessing. Keep it short — don't leak the full payload.
-                if failure is not None:
-                    detail = str(failure).strip()
-                    if detail:
-                        summary += f" (parser error: {detail[:120]})"
+                summary, flag = _FAILED[answer.reason]
+                # Say why it failed, briefly; the full payload stays out.
+                if answer.reason == "unparseable":
+                    summary += f" (parser error: {answer.detail[:120]})"
+                elif answer.reason == "request_error":
+                    summary += f" ({answer.detail[:120]})"
                 finding = Finding(
                     id=f"f_{uuid4().hex[:12]}",
                     job_id=ctx.job_id,
@@ -230,7 +230,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                     evidence_ids=[],
                     reasoning_trace_id=trace.id,
                     related_finding_ids=[],
-                    flags=flags,
+                    flags=[flag],
                 )
                 new_traces[trace.id] = trace
                 new_findings.append(finding)
@@ -247,7 +247,7 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 )
                 continue
             try:
-                _charge_result(ctx, agent_result)
+                ctx.budget.charge(answer.usage.cost_usd)
             except BudgetExceeded as exc:
                 log.warning(
                     "orchestrator.budget_exceeded_at_specialist",
@@ -263,13 +263,13 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
                 }
             trace = _build_trace(
                 job_id=ctx.job_id, claim_id=claim.id,
-                agent="UnifiedVerifier", stream=agent_result.final,
+                agent="UnifiedVerifier", usage=answer.usage, steps=answer.steps,
             )
             new_traces[trace.id] = trace
             finding, ev_records = _make_unified_finding(
                 job_id=ctx.job_id,
                 claim=claim,
-                parsed=agent_result.parsed,
+                parsed=answer.output,
                 trace=trace,
             )
             new_findings.append(finding)
@@ -329,8 +329,3 @@ def _unified_verifier_node(ctx: _Ctx) -> Callable[[_State], Awaitable[dict[str, 
         }
     return node
 
-
-def _is_timeout_failure(failure: Exception | None) -> bool:
-    return isinstance(failure, TimeoutError) or (
-        failure is not None and "timed out" in str(failure).lower()
-    )

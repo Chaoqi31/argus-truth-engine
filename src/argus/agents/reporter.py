@@ -6,9 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from argus.agents.base import AgentResult, complete_routed
-from argus.llm.cheap_client import CheapLLMClient
-from argus.miromind.client import MiromindClient
+from argus.llm import Route, Task
 from argus.models.domain import Claim, Finding
 
 SYSTEM_PROMPT = """\
@@ -80,21 +78,10 @@ def build_reporter_input(claims: list[Claim], findings: list[Finding]) -> str:
     )
 
 
-async def run_reporter(
-    claims: list[Claim],
-    findings: list[Finding],
-    *,
-    cheap_client: CheapLLMClient | None,
-    miromind_client: MiromindClient,
-) -> AgentResult[ReporterOutput]:
-    # Report synthesis needs no web search, so it runs on the cheap LLM when
-    # configured (MiroMind fallback otherwise) — see complete_routed.
-    return await complete_routed(
-        cheap_client=cheap_client,
-        miromind_client=miromind_client,
-        system_prompt=SYSTEM_PROMPT,
-        input_text=build_reporter_input(claims, findings),
-        model_cls=ReporterOutput,
-        max_output_tokens=3000,
-        agent_name="reporter",
-    )
+REPORT = Task(
+    agent="reporter",
+    route=Route.TEXT,
+    instructions=SYSTEM_PROMPT,
+    output=ReporterOutput,
+    max_output_tokens=3000,
+)
