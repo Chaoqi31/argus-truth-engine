@@ -1,4 +1,4 @@
-# Argus backend — production container for Fly.io / Render / any Docker host.
+# Argus backend — production container for any Docker host.
 #
 # Build:  docker build -t argus .
 # Run:    docker run -p 8080:8080 -e ARGUS_MIROMIND_API_KEY=sk_xxx argus
