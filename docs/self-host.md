@@ -13,8 +13,8 @@ your own API keys.
 ## Start
 
 ```bash
-git clone <repo-url>
-cd MiroMind-Deep-Research
+git clone https://github.com/Chaoqi31/argus-truth-engine.git
+cd argus-truth-engine
 
 cp .env.example .env
 # Edit .env:
