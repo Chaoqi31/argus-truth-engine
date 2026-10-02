@@ -72,6 +72,8 @@ def audit_settings(base_url: str, *, cheap_llm: bool, **overrides: Any) -> Setti
         **{
             "miromind_api_key": "fake",
             "miromind_base_url": f"{base_url}/v1",
+            # Recorded scenarios pin full-model pricing, independent of the runtime default.
+            "miromind_model": "mirothinker-1-7-deepresearch",
             "miromind_retry_base_delay_s": 0.001,
             "cheap_llm_api_key": "fake" if cheap_llm else "",
             "cheap_llm_base_url": base_url,
