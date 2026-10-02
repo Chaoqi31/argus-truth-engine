@@ -17,7 +17,7 @@ export function authHeaders(accessToken: string | null | undefined): Record<stri
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
-/** fetch against the API; with a timeout, an abort surfaces as a 504 ArgusApiError. */
+/** fetch against the API; deadline expiry is a 504, caller cancellation is preserved. */
 export async function apiFetch(
   path: string,
   init: RequestInit = {},
@@ -25,16 +25,26 @@ export async function apiFetch(
 ): Promise<Response> {
   if (timeoutMs === undefined) return fetch(`${API_BASE}${path}`, init);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const callerSignal = init.signal;
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   try {
-    return await fetch(`${API_BASE}${path}`, { ...init, signal: init.signal ?? controller.signal });
+    return await fetch(`${API_BASE}${path}`, { ...init, signal: controller.signal });
   } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
+    if (timedOut && err instanceof Error && err.name === "AbortError") {
       throw new ArgusApiError(504, "Request timed out. Please retry.");
     }
     throw err;
   } finally {
     clearTimeout(timer);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
   }
 }
 
