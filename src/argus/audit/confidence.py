@@ -14,6 +14,8 @@ import re
 from datetime import datetime
 from urllib.parse import urlparse
 
+from tldextract import TLDExtract
+
 from argus.audit.run import Run
 from argus.models.domain import (
     Agent,
@@ -171,23 +173,33 @@ def _compute_agreement(finding: Finding, source_count: int) -> float:
 
 _URL_RE = re.compile(r"https?://[^\s)\]\"'>]+")
 
+# Use the bundled suffix list: scoring must not fetch data or write a cache.
+# Private suffixes keep unrelated hosted publishers (e.g. alice.github.io) separate.
+_SOURCE_DOMAINS = TLDExtract(
+    suffix_list_urls=(), cache_dir=None, include_psl_private_domains=True
+)
+
 
 def _domain(url: str | None) -> str:
     if not url:
         return ""
     try:
-        host = (urlparse(url).hostname or "").lower()
+        host = (urlparse(url).hostname or "").lower().rstrip(".")
+        host = host.encode("idna").decode("ascii")
     except Exception:
         return ""
-    return host[4:] if host.startswith("www.") else host
+    registered = _SOURCE_DOMAINS(host).top_domain_under_public_suffix
+    return registered or host.removeprefix("www.")
 
 
 def count_distinct_sources(finding: Finding, evidences: list[Evidence]) -> int:
     """Count distinct independent sources backing a finding.
 
-    Counts distinct domains across the evidence URLs AND any URLs the model
+    Counts distinct registrable domains across the evidence URLs AND any URLs the model
     mentioned in its reasoning_chain (MiroThinker often consults more sources
     than it logs in ``evidence[]``), plus each evidence item that has no URL.
+    Subdomains share a source; separate tenants of private suffixes remain distinct.
+    Registrable domains are a proxy for independence, not a test of editorial ownership.
     Counting only ``len(evidence)`` undercounts and would unfairly penalise or
     (with hard enforcement) discard sound verdicts.
     """
