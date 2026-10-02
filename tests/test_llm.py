@@ -70,17 +70,22 @@ async def _ask(
     return answer, streamed
 
 
-async def test_ask_streams_steps_and_prices_the_response() -> None:
-    answer, streamed = await _ask(FakeLLM(), VERIFY, S5)
+@pytest.mark.parametrize(
+    "model", ["mirothinker-1-7-deepresearch", "mirothinker-1-7-deepresearch-mini"]
+)
+async def test_ask_streams_steps_and_prices_the_response(model: str) -> None:
+    fake = FakeLLM()
+    answer, streamed = await _ask(fake, VERIFY, S5, miromind_model=model)
 
     assert isinstance(answer, Answered)
     assert answer.output.verdict == FindingVerdict.INACCURATE
     assert [s.type for s in streamed] == [StepType.THINKING, StepType.WEB_SEARCH]
     assert streamed[1].content["result"]
     assert len(answer.usage.response_ids) == 1
+    assert fake.requests[0]["model"] == model
     assert answer.usage.cost_usd == pytest.approx(
         price(
-            model="mirothinker-1-7-deepresearch",
+            model=model,
             input_tokens=1000,
             output_tokens=500,
             web_searches=2,

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     miromind_api_key: str = Field(default="")
     miromind_base_url: str = "https://api.miromind.ai/v1"
-    miromind_model: str = "mirothinker-1-7-deepresearch"
+    miromind_model: str = "mirothinker-1-7-deepresearch-mini"
     miromind_request_timeout_s: float = 90.0
     miromind_stream_timeout_s: float = 300.0
     miromind_response_timeout_s: float = 600.0

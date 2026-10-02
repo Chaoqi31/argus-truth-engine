@@ -28,6 +28,8 @@ KEY = {"X-Miromind-Key": "fake"}
 def _settings(tmp_path: Path, llm_url: str, db_url: str) -> Settings:
     return Settings(
         miromind_base_url=f"{llm_url}/v1",
+        # The recorded PDF scenario uses full-model pricing.
+        miromind_model="mirothinker-1-7-deepresearch",
         miromind_retry_base_delay_s=0.001,
         cheap_llm_api_key="fake",
         cheap_llm_base_url=llm_url,
