@@ -20,8 +20,6 @@ export interface JobSocketOptions {
   accessToken?: string | null;
 }
 
-/** "try again later": this client fell behind and must restart from a snapshot. */
-const FELL_BEHIND = 1013;
 /** The server refused the connection or has no such job. */
 const POLICY_VIOLATION = 1008;
 
@@ -74,10 +72,6 @@ export function watchJob(
     socket = ws;
     version = 0;
 
-    ws.onopen = () => {
-      attempts = 0;
-    };
-
     ws.onmessage = (msg) => {
       let frame: SnapshotFrame | EventFrame;
       try {
@@ -87,6 +81,9 @@ export function watchJob(
         return;
       }
       if (frame.type === "snapshot") {
+        // A completed handshake alone does not mean the stream recovered.
+        // Reset the budget only after the server has delivered the job.
+        attempts = 0;
         callbacks.onSnapshot(frame.job);
         if (isTerminal(frame.job)) {
           finished = true;
@@ -114,7 +111,6 @@ export function watchJob(
         callbacks.onGiveUp?.();
         return;
       }
-      if (event.code === FELL_BEHIND) attempts = 0;
       if (attempts < maxReconnectAttempts) {
         attempts++;
         reconnectTimer = setTimeout(connect, reconnectDelayMs);
